@@ -35,7 +35,7 @@ interface PersonalEmailClassification {
   todo_suggested: boolean;
 }
 
-async function extractItem(item: typeof rawItems.$inferSelect): Promise<void> {
+async function extractItem(item: typeof rawItems.$inferSelect, runDate: string): Promise<void> {
   try {
     if (item.sourceType === "newsletter") {
       const [newsletterData, entityData] = await Promise.all([
@@ -46,10 +46,10 @@ async function extractItem(item: typeof rawItems.$inferSelect): Promise<void> {
       for (const extracted of newsletterData.items) {
         await db.insert(extractions).values({
           rawItemId: item.id,
-          runDate: item.runDate,
+          runDate,
           extractedJson: { ...extracted, entities_graph: entityData },
           relevanceScore: extracted.relevance_score,
-          effectiveRelevance: extracted.relevance_score, // corroboration bonus applied in phase3
+          effectiveRelevance: extracted.relevance_score,
           novelty: "new",
           includedInReport: false,
           aiFailed: false,
@@ -59,7 +59,7 @@ async function extractItem(item: typeof rawItems.$inferSelect): Promise<void> {
       if (newsletterData.items.length === 0) {
         await db.insert(extractions).values({
           rawItemId: item.id,
-          runDate: item.runDate,
+          runDate,
           extractedJson: { skip_reason: newsletterData.skip_reason },
           relevanceScore: 0,
           effectiveRelevance: 0,
@@ -76,7 +76,7 @@ async function extractItem(item: typeof rawItems.$inferSelect): Promise<void> {
 
       await db.insert(extractions).values({
         rawItemId: item.id,
-        runDate: item.runDate,
+        runDate,
         extractedJson: classification,
         relevanceScore: classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 3,
         effectiveRelevance: classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 3,
@@ -91,7 +91,7 @@ async function extractItem(item: typeof rawItems.$inferSelect): Promise<void> {
     console.error(`Extraction failed for item ${item.id}:`, err);
     await db.insert(extractions).values({
       rawItemId: item.id,
-      runDate: item.runDate,
+      runDate,
       extractedJson: null,
       relevanceScore: null,
       effectiveRelevance: null,
@@ -107,12 +107,11 @@ export async function runPhase2(runDate: string): Promise<void> {
   const items = await db.select().from(rawItems).where(eq(rawItems.runDate, runDate));
   console.log(`[Phase 2] ${items.length} items to extract`);
 
-  // Semaphore: max CONCURRENCY concurrent calls
   const queue = [...items];
   const workers = Array.from({ length: CONCURRENCY }, async () => {
     while (queue.length > 0) {
       const item = queue.shift()!;
-      await extractItem(item);
+      await extractItem(item, runDate);
     }
   });
 

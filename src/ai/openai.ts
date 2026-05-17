@@ -10,6 +10,7 @@ export const SYNTHESIS_MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-4o";
 export async function extractJson<T>(systemPrompt: string, userContent: string): Promise<T> {
   const response = await openai.chat.completions.create({
     model: EXTRACTION_MODEL,
+    store: false,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: systemPrompt },
@@ -26,12 +27,13 @@ export async function extractJson<T>(systemPrompt: string, userContent: string):
 export async function synthesize(systemPrompt: string, userContent: string): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
   const response = await openai.chat.completions.create({
     model: SYNTHESIS_MODEL,
+    store: false,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ],
     temperature: 0.3,
-    max_tokens: 2048,
+    max_completion_tokens: 2048,
   });
 
   const text = response.choices[0].message.content ?? "";

@@ -12,10 +12,11 @@ import {
 import { sql } from "drizzle-orm";
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: "string" });
+const dateStr = (name: string) => date(name, { mode: "string" });
 
 export const rawItems = pgTable("raw_items", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  runDate: date("run_date").notNull(),
+  runDate: dateStr("run_date").notNull(),
   sourceType: text("source_type").notNull(), // newsletter | personal_email | sms | calendar | todo
   sourceName: text("source_name"),
   messageId: text("message_id").unique(),
@@ -27,7 +28,7 @@ export const rawItems = pgTable("raw_items", {
 export const extractions = pgTable("extractions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   rawItemId: uuid("raw_item_id").references(() => rawItems.id),
-  runDate: date("run_date").notNull(),
+  runDate: dateStr("run_date").notNull(),
   extractedJson: jsonb("extracted_json"),
   relevanceScore: integer("relevance_score"), // 1–5
   effectiveRelevance: real("effective_relevance"),
@@ -45,8 +46,8 @@ export const activeTopics = pgTable("active_topics", {
   headline: text("headline").notNull(),
   domain: text("domain").notNull(), // AI | China | Finance | Geopolitics | Science | etc.
   runningSummary: text("running_summary"),
-  firstSeen: date("first_seen").notNull(),
-  lastUpdated: date("last_updated").notNull(),
+  firstSeen: dateStr("first_seen").notNull(),
+  lastUpdated: dateStr("last_updated").notNull(),
   status: text("status").default("active"), // active | dormant | resolved
   updateCount: integer("update_count").default(1),
   sources: text("sources").array(),
@@ -55,7 +56,7 @@ export const activeTopics = pgTable("active_topics", {
 
 export const dailyReports = pgTable("daily_reports", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  reportDate: date("report_date").unique().notNull(),
+  reportDate: dateStr("report_date").unique().notNull(),
   fullReport: text("full_report"),
   shortSummary: text("short_summary"),
   itemCount: integer("item_count"),
@@ -76,8 +77,8 @@ export const entities = pgTable("entities", {
   type: text("type"), // person | org | tech | law | event | concept | place
   domain: text("domain"),
   summary: text("summary"),
-  firstSeen: date("first_seen"),
-  lastMentioned: date("last_mentioned"),
+  firstSeen: dateStr("first_seen"),
+  lastMentioned: dateStr("last_mentioned"),
   mentionCount: integer("mention_count").default(1),
   status: text("status").default("active"), // active | dormant
   importance: text("importance").default("normal"), // high | normal | low
@@ -89,15 +90,15 @@ export const entityRelations = pgTable("entity_relations", {
   toId: uuid("to_id").references(() => entities.id),
   relationType: text("relation_type"), // competes_with | heads | regulates | partners_with | acquired | enables | threatens | funds
   confidence: real("confidence"),
-  firstSeen: date("first_seen"),
-  lastSeen: date("last_seen"),
+  firstSeen: dateStr("first_seen"),
+  lastSeen: dateStr("last_seen"),
   confirmed: boolean("confirmed").default(false),
 });
 
 export const entityAppearances = pgTable("entity_appearances", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   entityId: uuid("entity_id").references(() => entities.id),
-  reportDate: date("report_date"),
+  reportDate: dateStr("report_date"),
   contextSnippet: text("context_snippet"),
   relevanceScore: integer("relevance_score"),
 });
@@ -108,7 +109,7 @@ export const sourceQuality = pgTable("source_quality", {
   includeRate30d: real("include_rate_30d"),
   avgRevealedRelevance: real("avg_revealed_relevance"),
   qualityTrend: text("quality_trend").default("stable"), // improving | stable | declining
-  lastQualityShift: date("last_quality_shift"),
+  lastQualityShift: dateStr("last_quality_shift"),
   promotionalRate30d: real("promotional_rate_30d"),
   notes: text("notes"),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
@@ -121,7 +122,7 @@ export const contacts = pgTable("contacts", {
   relationship: text("relationship"),
   priority: text("priority").default("normal"), // critical | high | normal | low
   contextNotes: text("context_notes"),
-  firstSeen: date("first_seen").default(sql`CURRENT_DATE`),
+  firstSeen: dateStr("first_seen").default(sql`CURRENT_DATE`),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
 
@@ -130,7 +131,7 @@ export const notes = pgTable("notes", {
   content: text("content").notNull(),
   scope: text("scope").notNull(), // global | intel | personal | contact | search
   createdAt: timestamptz("created_at").default(sql`now()`),
-  expiresAt: date("expires_at"),
+  expiresAt: dateStr("expires_at"),
   createdBy: text("created_by").default("system"), // system | user
 });
 
@@ -155,7 +156,7 @@ export const feedbackEvents = pgTable("feedback_events", {
 
 export const skillExecutions = pgTable("skill_executions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  runDate: date("run_date"),
+  runDate: dateStr("run_date"),
   skillName: text("skill_name"),
   parameters: jsonb("parameters"),
   status: text("status"), // pending | approved | executed | rejected | failed

@@ -6,31 +6,33 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 
 ## Phase 0 — Infrastructure
 
-- [ ] Set up Postgres database, run schema migrations with DrizzleORM
-- [ ] Configure Bun project structure
-- [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization)
-- [ ] Test IMAP connection to Netcup server
+- [x] Set up Postgres database, run schema migrations with DrizzleORM
+- [x] Configure Bun project structure
+- [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization) — currently using OpenAI GPT-4o as stand-in
+- [x] Test IMAP connection to Netcup server (info@pidra.de, mxe96e.netcup.net)
 - [ ] Configure Google Calendar API credentials (OAuth 2.0)
 - [ ] Configure Google Tasks API credentials
 - [ ] Set up SMS webhook endpoint (`POST /webhook/sms`)
-- [ ] Verify Claude Sonnet 4.6 API access
+- [ ] Verify Claude Sonnet 4.6 API access — currently using OpenAI GPT-4o as stand-in
 - [ ] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
 
 ---
 
 ## Phase 1 — Core Pipeline
 
-- [ ] Implement Phase 1 ingestion: IMAP + Calendar + Tasks + SMS
-- [ ] Implement HTML stripping and Message-ID dedup for emails
+- [x] Implement Phase 1 ingestion: IMAP
+- [ ] Implement Phase 1 ingestion: Google Calendar + Google Tasks (see Phase 0 credentials above)
+- [ ] Implement Phase 1 ingestion: SMS via webhook (`POST /webhook/sms`)
+- [x] Implement HTML stripping and Message-ID dedup for emails
 - [ ] Implement RSS polling for newsletters that support it (run in parallel with IMAP)
-- [ ] Implement Ollama newsletter extraction prompt (content pass)
-- [ ] Implement Ollama entity extraction prompt (second pass, batched)
-- [ ] Implement Ollama personal email classification prompt
-- [ ] Implement Phase 3 context assembly: active topics, entity lookup, novelty scoring
-- [ ] Implement effective relevance calculation + volume signal (light / normal / heavy)
-- [ ] Implement Section 1 Sonnet synthesis call
-- [ ] Implement Section 2 Sonnet synthesis call
-- [ ] Implement Phase 6 memory writes (parse `<!--SYSTEM-->` blocks)
+- [x] Implement Ollama newsletter extraction prompt — content pass (currently: OpenAI GPT-4o)
+- [x] Implement Ollama entity extraction prompt — second pass, batched (currently: OpenAI GPT-4o)
+- [x] Implement Ollama personal email classification prompt (currently: OpenAI GPT-4o)
+- [x] Implement Phase 3 context assembly: active topics, entity lookup, novelty scoring
+- [x] Implement effective relevance calculation + volume signal (light / normal / heavy)
+- [x] Implement Section 1 Sonnet synthesis call (currently: OpenAI GPT-4o)
+- [x] Implement Section 2 Sonnet synthesis call (currently: OpenAI GPT-4o)
+- [x] Implement Phase 6 memory writes (parse `<!--SYSTEM-->` blocks)
 - [ ] Build minimal SvelteKit dashboard: display today's report
 - [ ] Test with real newsletters for 3 days, tune Ollama prompts
 

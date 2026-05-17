@@ -1,3 +1,4 @@
+import { runPhase1 } from "./phase1-ingest";
 import { runPhase2 } from "./phase2-extract";
 import { runPhase3 } from "./phase3-context";
 import { runPhase5 } from "./phase5-synthesis";
@@ -9,7 +10,9 @@ export async function runPipeline(runDate?: string): Promise<string> {
 
   const start = Date.now();
 
-  // Phase 1 ingestion must be run separately before calling this (or integrated)
+  // Phase 1: Ingest emails via IMAP
+  await runPhase1(date);
+
   // Phase 2: Extract all raw items
   await runPhase2(date);
 

@@ -1,0 +1,57 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #111214;
+  --bg-surface: #1a1c1f;
+  --bg-hover: #22252a;
+  --border: #2a2d33;
+  --text: #d4d6db;
+  --text-dim: #6b7280;
+  --text-bright: #f0f2f5;
+  --accent: #4f8ef7;
+  --accent-dim: #1e3a6e;
+  --green: #4caf82;
+  --yellow: #e0a020;
+  --red: #e05555;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- Report markdown styles --- */
+.report-body h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-bright); margin: 2rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+.report-body h2 { font-size: 1.2rem; font-weight: 600; color: var(--text-bright); margin: 1.75rem 0 0.6rem; }
+.report-body h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.25rem 0 0.4rem; }
+.report-body p { margin-bottom: 0.75rem; }
+.report-body ul, .report-body ol { margin: 0.5rem 0 0.75rem 1.5rem; }
+.report-body li { margin-bottom: 0.3rem; }
+.report-body strong { color: var(--text-bright); font-weight: 600; }
+.report-body em { color: #a0c4ff; }
+.report-body code { font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace; font-size: 0.85em; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 3px; padding: 0.1em 0.35em; }
+.report-body pre { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
+.report-body pre code { background: none; border: none; padding: 0; }
+.report-body blockquote { border-left: 3px solid var(--accent-dim); padding-left: 1rem; color: var(--text-dim); margin: 0.75rem 0; }
+.report-body hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+.report-body a { color: var(--accent); }
+.report-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.report-body th { border: 1px solid var(--border); padding: 0.4rem 0.75rem; background: var(--bg-surface); font-weight: 600; text-align: left; }
+.report-body td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; }

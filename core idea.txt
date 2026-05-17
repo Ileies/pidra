@@ -1,0 +1,3 @@
+Originale Idee:
+
+Tool bauen was mir täglich einen News Report zusammenstellt aus Elite-Newsseiten, normalen Newsseiten, Tech-Newslettern, allen neuen Emails die ich auf allen meinen Mails bekommen habe, und unter Berücksichtigung aller meiner Todolisten, Tasks, Kalender, Skyfax, Arbeitskalender, Changes des letzten Tages auf allen (Github) Projekten denen ich folge (Bun, Svelte(Kit), Claude Code, Claude, ChatGPT, Drizzle, Webstorm, NixOS

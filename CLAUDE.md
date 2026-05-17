@@ -10,10 +10,14 @@ Full architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions and rationale 
 
 - **Runtime:** Bun (not Node, not tsx — Bun APIs throughout)
 - **Frontend:** SvelteKit
-- **Local AI:** Ollama (`qwen2.5:14b`, Q4_K_M)
-- **Cloud AI:** Claude Sonnet 4.6
-- **DB:** Postgres via DrizzleORM
+- **AI (current):** OpenAI GPT-4o — used for both extraction and synthesis during early development
+- **AI (target):** Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis
+- **DB:** Postgres via DrizzleORM (Bun SQL driver), running on pronix (`192.168.10.85`)
 - **OS:** NixOS
+
+## OpenAI API rules
+
+- **Always pass `store: false`** on every OpenAI API call. No exceptions. This prevents request/response storage on OpenAI's servers.
 
 ## Architecture rules (non-negotiable)
 

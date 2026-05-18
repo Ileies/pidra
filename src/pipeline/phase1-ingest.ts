@@ -1,4 +1,5 @@
 import { ingestImapAccount } from "../ingest/imap";
+import { ingestRssFeeds } from "../ingest/rss";
 import { loadEmailAccounts } from "../config/email-accounts";
 
 export interface IngestResult {
@@ -15,24 +16,25 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
     console.warn("[Phase 1] No email accounts configured in email-accounts.json");
   }
 
-  const counts = await Promise.allSettled(
-    accounts.map((account) => ingestImapAccount(account, runDate))
-  );
+  const [imapResults, rssCount] = await Promise.all([
+    Promise.allSettled(accounts.map((account) => ingestImapAccount(account, runDate))),
+    ingestRssFeeds(runDate),
+  ]);
 
   let emailCount = 0;
-  for (let i = 0; i < counts.length; i++) {
-    const result = counts[i];
-    if (result.status === "fulfilled") {
-      emailCount += result.value;
+  for (let i = 0; i < imapResults.length; i++) {
+    const r = imapResults[i];
+    if (r.status === "fulfilled") {
+      emailCount += r.value;
     } else {
-      console.error(`[Phase 1] Account "${accounts[i].id}" failed:`, result.reason);
+      console.error(`[Phase 1] Account "${accounts[i].id}" failed:`, r.reason);
     }
   }
 
   const result: IngestResult = {
     emailCount,
-    rssCount: 0,
-    total: emailCount,
+    rssCount,
+    total: emailCount + rssCount,
   };
 
   console.log(`[Phase 1] Done — ${result.total} items ingested across ${accounts.length} accounts`);

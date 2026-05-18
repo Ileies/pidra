@@ -86,7 +86,17 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
   }
 
   const newsletterItems = items.filter((i) => i.sourceType === "newsletter" && (i.extraction.effectiveRelevance ?? 0) >= 3);
-  const personalItems = items.filter((i) => i.sourceType === "personal_email" || i.sourceType === "sms");
+  const personalItems = items.filter((i) => {
+    if (i.sourceType !== "personal_email" && i.sourceType !== "sms") return false;
+    const category = (i.extraction.extractedJson as any)?.email_category;
+    // Exclude noise — only personal_important and high-urgency automated reach Section 2
+    if (category === "spam" || category === "general_news") return false;
+    if (category === "automated") {
+      const urgency = (i.extraction.extractedJson as any)?.urgency;
+      return urgency === "critical" || urgency === "high";
+    }
+    return (i.extraction.effectiveRelevance ?? 0) > 0;
+  });
 
   const highRelevanceCount = newsletterItems.filter((i) => (i.extraction.effectiveRelevance ?? 0) >= 3).length;
   const volumeSignal: "light" | "normal" | "heavy" =

@@ -21,6 +21,7 @@ function buildSection1Payload(ctx: ContextPayload): string {
       update_count: t.updateCount,
     })),
     todays_items: ctx.newsletterItems.slice(0, 30).map((i) => ({
+      id: i.extraction.id,
       source: i.sourceName,
       effective_relevance: i.extraction.effectiveRelevance,
       novelty: i.extraction.novelty,
@@ -39,6 +40,7 @@ function buildSection1Payload(ctx: ContextPayload): string {
 function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<string, string> = {}): string {
   return JSON.stringify({
     personal_items: ctx.personalItems.map((i) => ({
+      id: i.extraction.id,
       source_type: i.sourceType,
       source: i.sourceName,
       ...(i.extraction.extractedJson as object),

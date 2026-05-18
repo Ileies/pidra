@@ -1,4 +1,4 @@
-import { db, rawItems, extractions } from "../db";
+import { db, rawItems, extractions, sourceQuality } from "../db";
 import { extractJson } from "../ai/openai";
 import { NEWSLETTER_EXTRACTION_PROMPT, ENTITY_EXTRACTION_PROMPT, buildPersonalEmailPrompt } from "../ai/prompts";
 import { loadEmailAccounts } from "../config/email-accounts";
@@ -126,10 +126,19 @@ export async function runPhase2(runDate: string): Promise<void> {
   const accounts = loadEmailAccounts();
   const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
-  const items = await db.select().from(rawItems).where(eq(rawItems.runDate, runDate));
-  console.log(`[Phase 2] ${items.length} items to extract`);
+  const disabledRows = await db
+    .select({ sourceName: sourceQuality.sourceName })
+    .from(sourceQuality)
+    .where(eq(sourceQuality.isActive, false));
+  const disabledSources = new Set(disabledRows.map((r) => r.sourceName));
 
-  const queue = [...items];
+  const items = await db.select().from(rawItems).where(eq(rawItems.runDate, runDate));
+  const activeItems = items.filter((item) => !item.sourceName || !disabledSources.has(item.sourceName));
+  const skipped = items.length - activeItems.length;
+  if (skipped > 0) console.log(`[Phase 2] Skipping ${skipped} items from disabled sources`);
+  console.log(`[Phase 2] ${activeItems.length} items to extract`);
+
+  const queue = [...activeItems];
   const workers = Array.from({ length: CONCURRENCY }, async () => {
     while (queue.length > 0) {
       const item = queue.shift()!;

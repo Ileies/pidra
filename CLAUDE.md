@@ -54,6 +54,18 @@ Both Sonnet calls append a machine-readable `<!--SYSTEM ... -->` JSON block at t
 
 The Claude Code bridge is a local REST API (`localhost` only, never internet-exposed). Skills are TypeScript modules in `/skills`, auto-discovered on restart. Each skill declares a `risk_level` (low / medium / high / critical). `critical` skills always require explicit confirmation and have a 30-second built-in delay after confirmation. All executions are logged to `skill_executions`.
 
+## Error handling model
+
+Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`). Rules:
+
+- Each step is retried up to **3 times** on failure (delays: 2 s after attempt 1, 5 s after attempt 2).
+- Each failed attempt is recorded as a `StepAttemptError` with `{step, attempt, error, stack, ts}`.
+- When all 3 attempts fail, a `StepError` is thrown with the full attempt log.
+- `run.ts` catches `StepError` and writes the run outcome to the `pipeline_runs` table: `status`, `failed_step`, `step_errors` (JSONB array), `duration_ms`.
+- The dashboard reads `pipeline_runs` and renders a detailed error card showing which step failed, each attempt's error message and timestamp, and an expandable stack trace.
+
+When adding a new pipeline phase, always wrap the call with `withRetry("phaseN", () => runPhaseN(...))` — never call phase functions directly in `run.ts`.
+
 ## What to build next
 
 See `TODO.md` for the current phase and open items.

@@ -54,6 +54,15 @@ All architecture decisions, prompts, schema, and build rationale are in the plan
 
 Pre-implementation. Planning phase complete. See [`TODO.md`](./TODO.md) for the phase-by-phase build plan.
 
+## Error Handling
+
+Every pipeline step is wrapped in a retry layer (`src/pipeline/withRetry.ts`):
+
+- Each step is retried up to **3 times** on failure (2 s → 5 s backoff).
+- Each failed attempt is recorded with step name, attempt number, error message, stack trace, and timestamp.
+- After 3 failures the pipeline is marked as failed in the `pipeline_runs` DB table.
+- The dashboard shows a detailed error card: which step failed, all attempt errors with timestamps, and expandable stack traces — so failures are debuggable without reading server logs.
+
 ## Monthly Cost Estimate
 
 ~$2.20–7.20/month (Sonnet API + optional web search). Ollama runs locally at $0.

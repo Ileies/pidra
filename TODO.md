@@ -2,6 +2,12 @@
 
 Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-bottom within each phase before starting the next.
 
+The **Context Builder** (`context-builder/`) is a separate standalone tool — its own detailed TODO is in `CONTEXT_BUILDER_PLAN.md`. Run it before the first pipeline run to pre-seed contacts, entities, and standing context. High-level status:
+
+- [ ] Context Builder: sub-project scaffolding and DB migrations
+- [ ] Context Builder: full first run (pre-seeds `entities`, `contacts`, `standing_context`)
+- [ ] Context Builder: set up monthly update run cadence
+
 ---
 
 ## Phase 0 — Infrastructure
@@ -10,8 +16,8 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 - [x] Configure Bun project structure
 - [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization) — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [x] Test IMAP connection to Netcup server (info@pidra.de, mxe96e.netcup.net)
-- [ ] Configure Google Calendar API credentials (OAuth 2.0)
-- [ ] Configure Google Tasks API credentials
+- [x] Configure Google Calendar API credentials (OAuth 2.0) — Client ID, Secret, Refresh Token in `.env`
+- [x] Configure Google Tasks API credentials — shared OAuth credentials, same token
 - [ ] Set up SMS webhook endpoint (`POST /webhook/sms`)
 - [ ] Switch synthesis to Claude Sonnet 4.6 — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [x] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
@@ -117,11 +123,11 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 Only begin after Phase 6 is complete and the pipeline has been stable for 2+ weeks.
 
 ### Google Keep (~1,000 notes)
-- [ ] Decide on Keep API approach: Takeout automation (recommended) vs gkeepapi
-- [ ] Implement Google Takeout import script for Keep notes
-- [ ] Build Keep notes Ollama indexer (bulk one-time + weekly delta)
-- [ ] Implement Phase 3 entity → Keep lookup and context injection
-- [ ] Create `keep_notes` and `keep_index` tables
+- [x] **Decide on Keep API approach** — Decided in `CONTEXT_BUILDER_PLAN.md`: gkeepapi (Python subprocess) only. No Takeout fallback — both would be equally fragile and double the complexity.
+- [ ] **Bulk initial import** — Handled by Context Builder (not this pipeline). Run Context Builder first; it indexes all ~1,000 notes and seeds entities/standing_context. No separate import script needed here.
+- [ ] Build Keep notes Ollama indexer for **ongoing daily delta** — after Context Builder's initial run, implement nightly/weekly re-scan of new/modified notes only (reuses Context Builder's `context_builder_indexed_items` skip-set)
+- [ ] Implement Phase 3 entity → Keep lookup and context injection (query `keep_notes` for entities surfaced in today's extractions)
+- [ ] Create `keep_notes` and `keep_index` tables for pipeline use (separate from Context Builder's own tables)
 
 ### AI Chat History
 - [ ] Document chat history DB schema (which tables hold messages, timestamps, session IDs)
@@ -159,23 +165,26 @@ Only begin after Phase 6 is complete and the pipeline has been stable for 2+ wee
 - [ ] **Email self-hosting migration** — Currently on Netcup hosted email. Self-hosting (Postfix/Dovecot or Stalwart) is possible but not a blocker — IMAP interface is identical regardless. Decide after the system is stable.
 
 ### Before Phase 7
-- [ ] **Keep API approach** — Options: `gkeepapi` (unofficial Python library, easy to use, risk of breaking on Google updates), Google Takeout automation (most reliable, weekly cadence is fine), or custom browser extension (most control, most effort). Recommended: start with Takeout export, automate via a Bun watcher script. Revisit gkeepapi after checking its current maintenance status.
+- [x] **Keep API approach** — Decided: gkeepapi (Python subprocess) only. Auth flow and fetch scripts live in `context-builder/scripts/`. Phase 7's pipeline integration reuses the same approach for ongoing delta ingestion. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
 - [ ] **Diary format and location** — Must be decided before implementing the diary reader. Options: Markdown files in a directory (simplest, easiest for Ollama), SQLite database (queryable), Obsidian vault. If the diary is in a mobile app (Day One, Journey, etc.), build an export pipeline first.
 
 ### Anytime (pre-seed before first run)
-- [ ] **Family email addresses** — Add to contacts table (names and relationships are in `CONTEXT_AND_DECISIONS.md §8`, identifiers are blank)
-- [ ] **Client email domains** — `hacibaba`, `zigarren-puro`, `is-rhein-sieg`, `alexanderhenkel` — add to contacts table for `priority: high` classification from day one instead of triggering the question gate
+
+Several of these are now partially automated by the Context Builder — items marked *(CB)* will be populated by its first run. Manual review/supplement is still needed after the run.
+
+- [ ] **Family email addresses** *(CB)* — Context Builder extracts contacts from email history and seeds the `contacts` table. After the first CB run, verify the output and add names/relationships for entries it couldn't infer. (Identifiers are blank in `CONTEXT_AND_DECISIONS.md §8`.)
+- [ ] **Client email domains** *(CB)* — Context Builder will recognize `hacibaba`, `zigarren-puro`, `is-rhein-sieg`, `alexanderhenkel` from email patterns and set initial importance. Verify `priority: high` is correctly set post-run; override manually if not.
 - [ ] **Default Google Tasks list for system-created items** — Confirm "To-Do Now" or "Work"; without this, `add_todo_item` skill defaults to an arbitrary list
-- [ ] **Daily Life Rules** — Share the 13 items from Google Tasks "Daily Life Rules" list; standing rules (e.g. "always respond to client emails within 24h") are injected as standing context into the Section 2 system prompt
-- [ ] **Recurring financial commitments** — Pre-load recurring invoices, subscriptions, and payment deadlines (server costs, domain renewals, SaaS, rent) so Section 2 correctly urgency-classifies financial emails from day one
-- [ ] **University details** — University name, program, current semester: lets Section 2 correctly prioritize Uni-tagged tasks/emails and auto-boost urgency during exam periods
+- [ ] **Daily Life Rules** *(CB)* — Context Builder reads the Keep "Daily Life Rules" category and seeds `standing_context` with the extracted rules. After the first CB run, review the `standing_context` table — correct any misextracted rules and add anything that wasn't captured.
+- [ ] **Recurring financial commitments** *(CB partially)* — Context Builder may extract recurring commitments from email history (bank notifications, subscription confirmations). Supplement with any that don't appear in email (cash payments, rent).
+- [ ] **University details** — University name, program, current semester: lets Section 2 correctly prioritize Uni-tagged tasks/emails and auto-boost urgency during exam periods. Not auto-extracted — add manually or as a `standing_context` entry.
 - [ ] **China trip dates** — Add to Google Calendar if not already there; the system auto-detects calendar entries and boosts China content in the 2-week pre-trip window
 - [ ] **Preferred wake-up/read time** — Adjust cron from default 06:30 to match actual morning routine
 
 ### At 30-day mark
 - [ ] Evaluate Netzpolitik.org as source #33 (EU digital regulation coverage — qwen2.5:14b handles German, no model change needed)
 - [ ] Evaluate web search quality — upgrade from Brave to Tavily or Exa if result quality is insufficient
-- [ ] Before initial Keep index run: review "Shower ideas" Keep category manually — likely contains entity references worth setting `importance = high` before the graph builds them organically
+- [ ] Before running Context Builder for the first time: review the "Shower ideas" Keep category manually — likely contains entity references worth setting `importance = high` before the graph builds them organically. Flag these to the CB run so it can set correct importance scores during extraction.
 
 ### Future (Phase 8+, do not build yet)
 - [ ] **GitHub activity integration** — GitHub webhook or polling for PR reviews, CI failures, issue mentions across followed repos; most relevant once the briefing system is self-hosted and stable

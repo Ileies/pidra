@@ -19,6 +19,7 @@ export const rawItems = pgTable("raw_items", {
   runDate: dateStr("run_date").notNull(),
   sourceType: text("source_type").notNull(), // newsletter | personal_email | sms | calendar | todo
   sourceName: text("source_name"),
+  accountId: text("account_id"), // which email account this came from (e.g. "news", "uni", "work", "private")
   messageId: text("message_id").unique(),
   rawContent: text("raw_content"),
   receivedAt: timestamptz("received_at"),

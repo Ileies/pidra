@@ -2,35 +2,18 @@ import Imap from "imap";
 import { simpleParser } from "mailparser";
 import { db, rawItems } from "../db";
 import { eq } from "drizzle-orm";
-import { classifyEmail, SELF_EMAILS } from "./sources";
+import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
+import type { EmailAccount } from "../config/email-accounts";
 
-interface ImapConfig {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  tls: boolean;
-}
-
-function getConfig(): ImapConfig {
-  return {
-    host: process.env.IMAP_HOST ?? "",
-    port: parseInt(process.env.IMAP_PORT ?? "993"),
-    user: process.env.IMAP_USER ?? "",
-    password: process.env.IMAP_PASSWORD ?? "",
-    tls: process.env.IMAP_TLS !== "false",
-  };
-}
-
-function openImap(config: ImapConfig): Promise<Imap> {
+function openImap(account: EmailAccount): Promise<Imap> {
   return new Promise((resolve, reject) => {
     const imap = new Imap({
-      user: config.user,
-      password: config.password,
-      host: config.host,
-      port: config.port,
-      tls: config.tls,
+      user: account.user,
+      password: account.password,
+      host: account.host,
+      port: account.port,
+      tls: account.tls,
       tlsOptions: { rejectUnauthorized: false },
       authTimeout: 10000,
       connTimeout: 15000,
@@ -42,9 +25,9 @@ function openImap(config: ImapConfig): Promise<Imap> {
   });
 }
 
-function fetchMessagesSince(imap: Imap, since: Date): Promise<Buffer[]> {
+function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Buffer[]> {
   return new Promise((resolve, reject) => {
-    imap.openBox("INBOX", true, (err) => {
+    imap.openBox(folder, true, (err) => {
       if (err) return reject(err);
 
       imap.search([["SINCE", since]], (err, uids) => {
@@ -69,30 +52,24 @@ function fetchMessagesSince(imap: Imap, since: Date): Promise<Buffer[]> {
   });
 }
 
-export async function ingestImap(runDate: string): Promise<number> {
-  console.log("[Ingest/IMAP] Connecting...");
-  const config = getConfig();
+export async function ingestImapAccount(account: EmailAccount, runDate: string): Promise<number> {
+  console.log(`[Ingest/IMAP] [${account.id}] Connecting to ${account.host}...`);
 
-  if (!config.host || !config.user || !config.password) {
-    console.warn("[Ingest/IMAP] IMAP credentials not configured, skipping");
-    return 0;
-  }
-
-  const imap = await openImap(config);
-
-  // Fetch emails from the configured lookback window (default 24h, 7 days on first run)
+  const imap = await openImap(account);
   const lookbackDays = parseInt(process.env.IMAP_LOOKBACK_DAYS ?? "1");
   const since = new Date();
   since.setDate(since.getDate() - lookbackDays);
 
   let raw: Buffer[];
   try {
-    raw = await fetchMessagesSince(imap, since);
+    raw = await fetchMessagesSince(imap, account.folder ?? "INBOX", since);
   } finally {
     imap.end();
   }
 
-  console.log(`[Ingest/IMAP] Fetched ${raw.length} messages`);
+  console.log(`[Ingest/IMAP] [${account.id}] Fetched ${raw.length} messages`);
+
+  const selfEmailsLower = account.selfEmails.map((e) => e.toLowerCase());
 
   let stored = 0;
   for (const buffer of raw) {
@@ -104,10 +81,10 @@ export async function ingestImap(runDate: string): Promise<number> {
 
     const senderEmail = ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase();
 
-    // Skip self-sent emails
-    if (SELF_EMAILS.some((e) => senderEmail.includes(e.toLowerCase()))) continue;
+    // Skip self-sent emails for this account
+    if (selfEmailsLower.some((e) => senderEmail.includes(e))) continue;
 
-    // Skip Substack system notifications (not actual newsletter content)
+    // Skip Substack system notifications
     if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") continue;
 
     // Dedup by Message-ID
@@ -119,7 +96,10 @@ export async function ingestImap(runDate: string): Promise<number> {
       if (existing.length > 0) continue;
     }
 
-    const { sourceType, sourceName } = classifyEmail(from);
+    const { sourceType, sourceName } = account.isNewsAccount
+      ? classifyEmail(from)
+      : { sourceType: "personal_email" as const, sourceName: senderEmail };
+
     const content = cleanEmailContent(
       parsed.html || undefined,
       parsed.text || undefined
@@ -131,6 +111,7 @@ export async function ingestImap(runDate: string): Promise<number> {
       runDate,
       sourceType,
       sourceName: sourceName ?? (parsed.from?.value[0]?.name ?? from),
+      accountId: account.id,
       messageId,
       rawContent: `Subject: ${subject}\nFrom: ${from}\n\n${content}`,
       receivedAt: parsed.date?.toISOString() ?? new Date().toISOString(),
@@ -139,6 +120,6 @@ export async function ingestImap(runDate: string): Promise<number> {
     stored++;
   }
 
-  console.log(`[Ingest/IMAP] Stored ${stored} new items`);
+  console.log(`[Ingest/IMAP] [${account.id}] Stored ${stored} new items`);
   return stored;
 }

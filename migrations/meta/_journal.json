@@ -8,6 +8,13 @@
       "when": 1779056264788,
       "tag": "0000_omniscient_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779062442655,
+      "tag": "0001_spotty_rogue",
+      "breakpoints": true
     }
   ]
 }

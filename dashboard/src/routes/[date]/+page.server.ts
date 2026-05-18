@@ -54,6 +54,14 @@ export const load: PageServerLoad = async ({ params }) => {
     WHERE report_date = ${date}
   `;
 
+  const [pipelineRun] = await db`
+    SELECT status, failed_step, step_errors, started_at, completed_at, duration_ms
+    FROM pipeline_runs
+    WHERE run_date = ${date}
+    ORDER BY started_at DESC
+    LIMIT 1
+  `;
+
   const dates = await db`
     SELECT report_date
     FROM daily_reports
@@ -91,6 +99,22 @@ export const load: PageServerLoad = async ({ params }) => {
           tokensOut: report.tokens_out as number | null,
           aiCalls: report.ai_calls as number | null,
           createdAt: report.created_at as string | null,
+        }
+      : null,
+    pipelineRun: pipelineRun
+      ? {
+          status: pipelineRun.status as "running" | "completed" | "failed",
+          failedStep: pipelineRun.failed_step as string | null,
+          stepErrors: (pipelineRun.step_errors ?? []) as Array<{
+            step: string;
+            attempt: number;
+            error: string;
+            stack?: string;
+            ts: string;
+          }>,
+          startedAt: pipelineRun.started_at as string | null,
+          completedAt: pipelineRun.completed_at as string | null,
+          durationMs: pipelineRun.duration_ms as number | null,
         }
       : null,
     reportHtml,

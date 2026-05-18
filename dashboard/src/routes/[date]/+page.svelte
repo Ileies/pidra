@@ -85,7 +85,43 @@
       </div>
     {:else}
       <div class="empty">
-        <p>Kein Report für {data.date}.</p>
+        {#if data.pipelineRun?.status === "running"}
+          <p class="running-msg">Pipeline läuft… Seite in einigen Minuten neu laden.</p>
+        {:else if data.pipelineRun?.status === "failed"}
+          <div class="error-card">
+            <div class="error-card-header">
+              <span class="error-badge">Fehlgeschlagen</span>
+              <span class="error-step">
+                Step: <strong>{data.pipelineRun.failedStep ?? "unbekannt"}</strong>
+              </span>
+              {#if data.pipelineRun.durationMs != null}
+                <span class="error-duration">nach {Math.round(data.pipelineRun.durationMs / 1000)}s</span>
+              {/if}
+            </div>
+
+            {#each data.pipelineRun.stepErrors as attempt}
+              <div class="attempt">
+                <div class="attempt-meta">
+                  <span class="attempt-badge">Versuch {attempt.attempt}/3</span>
+                  <span class="attempt-ts">
+                    {new Date(attempt.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                  <span class="attempt-step-label">{attempt.step}</span>
+                </div>
+                <pre class="attempt-error">{attempt.error}</pre>
+                {#if attempt.stack}
+                  <details class="stack-details">
+                    <summary>Stack trace</summary>
+                    <pre class="stack">{attempt.stack}</pre>
+                  </details>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p>Kein Report für {data.date}.</p>
+        {/if}
+
         <form
           method="POST"
           action="?/runPipeline"
@@ -98,7 +134,7 @@
           }}
         >
           <button type="submit" class="run-btn" disabled={triggering}>
-            {triggering ? "Wird gestartet…" : "Pipeline jetzt starten"}
+            {triggering ? "Wird gestartet…" : data.pipelineRun?.status === "failed" ? "Erneut versuchen" : "Pipeline jetzt starten"}
           </button>
         </form>
         {#if form?.error}
@@ -259,5 +295,138 @@
   .success-msg {
     color: var(--green);
     font-size: 0.85rem;
+  }
+
+  .running-msg {
+    color: var(--accent);
+    font-size: 0.9rem;
+  }
+
+  .error-card {
+    width: 100%;
+    max-width: 700px;
+    border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--red) 6%, var(--bg-surface));
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .error-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--red) 25%, transparent);
+    flex-wrap: wrap;
+  }
+
+  .error-badge {
+    background: color-mix(in srgb, var(--red) 20%, transparent);
+    color: var(--red);
+    border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .error-step {
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+
+  .error-step strong {
+    color: var(--text-bright);
+    font-family: monospace;
+  }
+
+  .error-duration {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  .attempt {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  }
+
+  .attempt:last-child {
+    border-bottom: none;
+  }
+
+  .attempt-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .attempt-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.4rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .attempt-ts {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .attempt-step-label {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-family: monospace;
+    margin-left: auto;
+  }
+
+  .attempt-error {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 8%, var(--bg));
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .stack-details {
+    margin-top: 0.4rem;
+  }
+
+  .stack-details summary {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .stack-details summary:hover {
+    color: var(--text);
+  }
+
+  .stack {
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    background: var(--bg);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    margin: 0.4rem 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
   }
 </style>

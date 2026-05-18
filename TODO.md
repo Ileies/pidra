@@ -8,12 +8,12 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 
 - [x] Set up Postgres database, run schema migrations with DrizzleORM
 - [x] Configure Bun project structure
-- [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization) — currently using OpenAI GPT-4o as stand-in
+- [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization) — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [x] Test IMAP connection to Netcup server (info@pidra.de, mxe96e.netcup.net)
 - [ ] Configure Google Calendar API credentials (OAuth 2.0)
 - [ ] Configure Google Tasks API credentials
 - [ ] Set up SMS webhook endpoint (`POST /webhook/sms`)
-- [ ] Verify Claude Sonnet 4.6 API access — currently using OpenAI GPT-4o as stand-in
+- [ ] Switch synthesis to Claude Sonnet 4.6 — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [ ] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
 
 ---
@@ -33,7 +33,7 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 - [x] Implement Section 1 Sonnet synthesis call (currently: OpenAI GPT-4o)
 - [x] Implement Section 2 Sonnet synthesis call (currently: OpenAI GPT-4o)
 - [x] Implement Phase 6 memory writes (parse `<!--SYSTEM-->` blocks)
-- [ ] Build minimal SvelteKit dashboard: display today's report
+- [x] Build minimal SvelteKit dashboard: display today's report
 - [ ] Test with real newsletters for 3 days, tune Ollama prompts
 
 ---

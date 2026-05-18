@@ -165,3 +165,22 @@ export const skillExecutions = pgTable("skill_executions", {
   triggeredBy: text("triggered_by"), // report_section | question_gate | manual
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
+
+export interface StepAttemptError {
+  step: string;
+  attempt: number;
+  error: string;
+  stack?: string;
+  ts: string;
+}
+
+export const pipelineRuns = pgTable("pipeline_runs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runDate: dateStr("run_date").notNull(),
+  status: text("status").notNull().default("running"), // running | completed | failed
+  failedStep: text("failed_step"),
+  stepErrors: jsonb("step_errors").$type<StepAttemptError[]>(),
+  startedAt: timestamptz("started_at").default(sql`now()`),
+  completedAt: timestamptz("completed_at"),
+  durationMs: integer("duration_ms"),
+});

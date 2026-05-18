@@ -13,10 +13,22 @@ function sql() {
   return _sql;
 }
 
-function injectDetailLinks(html: string, date: string): string {
-  return html.replace(/<!--refs:([\w,\-]+)-->/g, (_, ids) =>
-    `<a href="/${date}/detail/${ids}" class="mehr-dazu">Mehr dazu</a>`
-  );
+function extractRefsIds(markdown: string): string[] {
+  const ids: string[] = [];
+  const re = /<!--refs:([\w,\-]+)-->/g;
+  let m;
+  while ((m = re.exec(markdown)) !== null) {
+    for (const id of m[1].split(",")) ids.push(id);
+  }
+  return [...new Set(ids)];
+}
+
+function injectDetailLinks(html: string, date: string, validIds: Set<string>): string {
+  return html.replace(/<!--refs:([\w,\-]+)-->/g, (_, ids) => {
+    const filtered = ids.split(",").filter((id: string) => validIds.has(id));
+    if (filtered.length === 0) return "";
+    return `<a href="/${date}/detail/${filtered.join(",")}" class="mehr-dazu">Mehr dazu</a>`;
+  });
 }
 
 function toDateStr(v: unknown): string {
@@ -53,8 +65,17 @@ export const load: PageServerLoad = async ({ params }) => {
   const today = localToday();
   const idx = availableDates.indexOf(date);
 
+  let validIds = new Set<string>();
+  if (report?.full_report) {
+    const allIds = extractRefsIds(report.full_report as string);
+    if (allIds.length > 0) {
+      const rows = await db`SELECT id::text FROM extractions WHERE id::text = ANY(${allIds})`;
+      validIds = new Set(rows.map((r) => r.id as string));
+    }
+  }
+
   const reportHtml = report?.full_report
-    ? injectDetailLinks(marked(report.full_report as string) as string, date)
+    ? injectDetailLinks(marked(report.full_report as string) as string, date, validIds)
     : null;
 
   return {

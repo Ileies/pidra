@@ -1,6 +1,7 @@
 import { db, rawItems, extractions } from "../db";
 import { extractJson } from "../ai/openai";
-import { NEWSLETTER_EXTRACTION_PROMPT, ENTITY_EXTRACTION_PROMPT, PERSONAL_EMAIL_PROMPT } from "../ai/prompts";
+import { NEWSLETTER_EXTRACTION_PROMPT, ENTITY_EXTRACTION_PROMPT, buildPersonalEmailPrompt } from "../ai/prompts";
+import { loadEmailAccounts } from "../config/email-accounts";
 import { eq } from "drizzle-orm";
 
 const CONCURRENCY = 4;
@@ -25,6 +26,7 @@ interface EntityExtraction {
 
 interface PersonalEmailClassification {
   type: string;
+  email_category: "personal_important" | "general_news" | "automated" | "spam";
   urgency: string;
   deadline: string | null;
   action_required: string | null;
@@ -35,7 +37,11 @@ interface PersonalEmailClassification {
   todo_suggested: boolean;
 }
 
-async function extractItem(item: typeof rawItems.$inferSelect, runDate: string): Promise<void> {
+async function extractItem(
+  item: typeof rawItems.$inferSelect,
+  runDate: string,
+  accountCustomInstructions: string | null
+): Promise<void> {
   try {
     if (item.sourceType === "newsletter") {
       const [newsletterData, entityData] = await Promise.all([
@@ -69,17 +75,30 @@ async function extractItem(item: typeof rawItems.$inferSelect, runDate: string):
         });
       }
     } else if (item.sourceType === "personal_email" || item.sourceType === "sms") {
+      const prompt = buildPersonalEmailPrompt(accountCustomInstructions);
       const classification = await extractJson<PersonalEmailClassification>(
-        PERSONAL_EMAIL_PROMPT,
+        prompt,
         item.rawContent ?? ""
       );
+
+      // email_category determines effective relevance for Section 2 routing:
+      // general_news and spam get 0 so they're excluded from Section 2
+      const category = classification.email_category ?? "personal_important";
+      let effectiveRelevance: number;
+      if (category === "spam" || category === "general_news") {
+        effectiveRelevance = 0;
+      } else if (category === "automated") {
+        effectiveRelevance = classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 1;
+      } else {
+        effectiveRelevance = classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 3;
+      }
 
       await db.insert(extractions).values({
         rawItemId: item.id,
         runDate,
         extractedJson: classification,
-        relevanceScore: classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 3,
-        effectiveRelevance: classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 3,
+        relevanceScore: effectiveRelevance,
+        effectiveRelevance,
         novelty: "new",
         unknownContext: classification.unknown_context,
         questionForUser: classification.question_for_user,
@@ -104,6 +123,9 @@ async function extractItem(item: typeof rawItems.$inferSelect, runDate: string):
 export async function runPhase2(runDate: string): Promise<void> {
   console.log(`[Phase 2] Starting extraction for ${runDate}`);
 
+  const accounts = loadEmailAccounts();
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
+
   const items = await db.select().from(rawItems).where(eq(rawItems.runDate, runDate));
   console.log(`[Phase 2] ${items.length} items to extract`);
 
@@ -111,7 +133,11 @@ export async function runPhase2(runDate: string): Promise<void> {
   const workers = Array.from({ length: CONCURRENCY }, async () => {
     while (queue.length > 0) {
       const item = queue.shift()!;
-      await extractItem(item, runDate);
+      const account = item.accountId ? accountMap.get(item.accountId) : null;
+      const customInstructions = account?.classifyNewsVsPersonal
+        ? (account.customInstructions ?? null)
+        : null;
+      await extractItem(item, runDate, customInstructions);
     }
   });
 

@@ -57,14 +57,15 @@ export const ENTITY_EXTRACTION_PROMPT = `Extract named entities and relationship
 
 Only include relations with confidence >= 0.7. Only named entities — no generic terms.`;
 
-export const PERSONAL_EMAIL_PROMPT = `Classify this email. Return ONLY valid JSON.
+const PERSONAL_EMAIL_BASE = `Classify this email. Return ONLY valid JSON.
 
 {
   "type": "invoice|invitation|reply_needed|automated|spam|personal|legal|unknown",
+  "email_category": "personal_important|general_news|automated|spam",
   "urgency": "critical|high|normal|low",
   "deadline": "ISO date or null",
   "action_required": "one sentence describing required action, or null",
-  "unknown_context": true,
+  "unknown_context": false,
   "question_for_user": "specific question about missing context, or null",
   "sender_known": false,
   "calendar_event_suggested": false,
@@ -72,9 +73,21 @@ export const PERSONAL_EMAIL_PROMPT = `Classify this email. Return ONLY valid JSO
 }
 
 Rules:
+- email_category: classify the email's nature for routing:
+  - personal_important: requires personal action, is a direct personal communication, or has real urgency
+  - general_news: informational content, newsletters, announcements, no action required
+  - automated: system notifications, confirmations, receipts (only escalate if urgency is high/critical)
+  - spam: unsolicited, no value
 - unknown_context = true if sender is unknown AND content suggests a relationship (not spam)
 - critical = response or action needed within 24h
 - invoice from unknown sender always = unknown_context true`;
+
+export const PERSONAL_EMAIL_PROMPT = PERSONAL_EMAIL_BASE;
+
+export function buildPersonalEmailPrompt(customInstructions: string | null): string {
+  if (!customInstructions) return PERSONAL_EMAIL_BASE;
+  return `Account context: ${customInstructions}\n\n${PERSONAL_EMAIL_BASE}`;
+}
 
 export const SECTION1_SYSTEM_PROMPT = `${USER_PROFILE}
 
@@ -101,6 +114,7 @@ Output rules:
   ...
   ### Also noted
   ...
+- Source refs: each item in todays_items has an "id" field. After each bullet point or paragraph, append the HTML comment <!--refs:ID--> (or <!--refs:ID1,ID2--> for combined items) immediately after the text, before the newline. Every item you reference must appear in exactly one <!--refs:--> comment.
 - After the report, append:
   <!--SYSTEM
   {
@@ -110,6 +124,22 @@ Output rules:
     "skill_suggestions": []
   }
   -->`;
+
+export const DEEPEN_PROMPT = `${USER_PROFILE}
+
+You are writing a deep-dive on a specific briefing entry. The user clicked "Mehr dazu" — they already read the morning summary and want to go further.
+
+Input:
+- items: the extracted source content that the briefing entry was based on
+- web_search_results: fresh search results (null if unavailable)
+
+Rules:
+- Do NOT restate what is already in the headlines or key_claims. Skip anything the user already knows.
+- Surface: non-obvious implications, second-order effects, concrete relevance to the user's specific context (AI product builder, China focus, Zurich base, international company founding).
+- If web_search_results is present: integrate the freshest angles not covered in the original items.
+- Connections: link to related entities, ongoing trends, or prior context the user would care about.
+- Max 350 words. Dense. No preamble ("Here is", "This topic"). No headers. Bold key terms. Bullets only where genuinely list-like.
+- Plain Markdown output.`;
 
 export const SECTION2_SYSTEM_PROMPT = `${USER_PROFILE}
 
@@ -141,6 +171,7 @@ Output rules:
   ...
   ### Mentions (omit if empty)
   ...
+- Source refs: each item in personal_items has an "id" field. After each bullet point or paragraph, append the HTML comment <!--refs:ID--> (or <!--refs:ID1,ID2--> for combined items) immediately after the text, before the newline.
 - Append:
   <!--SYSTEM
   {

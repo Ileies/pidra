@@ -44,6 +44,7 @@
       {:else}
         <span class="nav-btn disabled">→</span>
       {/if}
+      <a href="/sources" class="nav-btn sources-link">Quellen</a>
     </nav>
   </header>
 

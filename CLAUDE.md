@@ -2,7 +2,7 @@
 
 ## What this project is
 
-PIDRA is a personal morning briefing system. It ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via IMAP and APIs. Two Ollama passes compress raw content into structured JSON; one Sonnet call synthesizes each section of the report. The system compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
+PIDRA is a personal morning briefing system. It ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. 24 of the 32 newsletters are fetched via RSS (cleaner content); the remaining 8 that have no public RSS feed are fetched via IMAP. Two Ollama passes compress raw content into structured JSON; one Sonnet call synthesizes each section of the report. The system compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
 
 Full architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions and rationale are in `CONTEXT_AND_DECISIONS.md`. Read both before implementing anything non-trivial.
 

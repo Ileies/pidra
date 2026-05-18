@@ -1,0 +1,1 @@
+ALTER TABLE "source_daily_scores" ADD CONSTRAINT "source_daily_scores_source_date" UNIQUE("source_name","run_date");

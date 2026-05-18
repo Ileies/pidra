@@ -13,6 +13,12 @@ function sql() {
   return _sql;
 }
 
+function injectDetailLinks(html: string, date: string): string {
+  return html.replace(/<!--refs:([\w,\-]+)-->/g, (_, ids) =>
+    `<a href="/${date}/detail/${ids}" class="mehr-dazu">Mehr dazu</a>`
+  );
+}
+
 function toDateStr(v: unknown): string {
   if (v instanceof Date) return v.toLocaleDateString("sv-SE");
   return String(v).slice(0, 10);
@@ -48,7 +54,7 @@ export const load: PageServerLoad = async ({ params }) => {
   const idx = availableDates.indexOf(date);
 
   const reportHtml = report?.full_report
-    ? (marked(report.full_report as string) as string)
+    ? injectDetailLinks(marked(report.full_report as string) as string, date)
     : null;
 
   return {

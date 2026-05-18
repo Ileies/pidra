@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { inArray, eq } from "drizzle-orm";
+import { inArray, eq, desc, gte, and } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
-import { db, extractions, rawItems } from "../db";
+import { db, extractions, rawItems, sourceQuality, sourceDailyScores } from "../db";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 
@@ -54,6 +54,62 @@ app.post("/api/deepen", async (c) => {
 
   const { text } = await synthesize(DEEPEN_PROMPT, userContent);
   return c.json({ text });
+});
+
+app.get("/api/sources", async (c) => {
+  const quality = await db.select().from(sourceQuality).orderBy(desc(sourceQuality.compositeScore30d));
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+  const dailyRows = await db
+    .select()
+    .from(sourceDailyScores)
+    .where(gte(sourceDailyScores.runDate, thirtyDaysAgo))
+    .orderBy(desc(sourceDailyScores.runDate));
+
+  const dailyBySource = new Map<string, typeof dailyRows>();
+  for (const row of dailyRows) {
+    const arr = dailyBySource.get(row.sourceName) ?? [];
+    arr.push(row);
+    dailyBySource.set(row.sourceName, arr);
+  }
+
+  const sources = quality.map((q) => ({
+    sourceName: q.sourceName,
+    isActive: q.isActive,
+    disabledAt: q.disabledAt,
+    disabledReason: q.disabledReason,
+    trustScore: q.trustScore,
+    qualityTrend: q.qualityTrend,
+    compositeScore30d: q.compositeScore30d,
+    dailyScores: (dailyBySource.get(q.sourceName) ?? []).slice(0, 30),
+  }));
+
+  return c.json(sources);
+});
+
+app.patch("/api/sources/:name", async (c) => {
+  const sourceName = decodeURIComponent(c.req.param("name"));
+  const body = await c.req.json() as { isActive: boolean; reason?: string };
+
+  const today = new Date().toISOString().split("T")[0];
+  await db
+    .insert(sourceQuality)
+    .values({
+      sourceName,
+      isActive: body.isActive,
+      disabledAt: body.isActive ? undefined : today,
+      disabledReason: body.isActive ? null : (body.reason ?? null),
+    })
+    .onConflictDoUpdate({
+      target: sourceQuality.sourceName,
+      set: {
+        isActive: body.isActive,
+        disabledAt: body.isActive ? null : today,
+        disabledReason: body.isActive ? null : (body.reason ?? null),
+      },
+    });
+
+  return c.json({ ok: true, sourceName, isActive: body.isActive });
 });
 
 async function braveSearch(query: string): Promise<string> {

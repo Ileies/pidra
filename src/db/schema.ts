@@ -8,6 +8,7 @@ import {
   integer,
   real,
   jsonb,
+  unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -112,9 +113,26 @@ export const sourceQuality = pgTable("source_quality", {
   qualityTrend: text("quality_trend").default("stable"), // improving | stable | declining
   lastQualityShift: dateStr("last_quality_shift"),
   promotionalRate30d: real("promotional_rate_30d"),
+  compositeScore30d: real("composite_score_30d"), // 0–10 rolling 30-day average
+  isActive: boolean("is_active").default(true),
+  disabledAt: dateStr("disabled_at"),
+  disabledReason: text("disabled_reason"),
   notes: text("notes"),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
+
+export const sourceDailyScores = pgTable("source_daily_scores", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceName: text("source_name").notNull(),
+  runDate: dateStr("run_date").notNull(),
+  itemsReceived: integer("items_received").default(0),
+  itemsIncluded: integer("items_included").default(0), // proxy: effectiveRelevance >= 3
+  avgRelevance: real("avg_relevance"),
+  avgEffectiveRelevance: real("avg_effective_relevance"),
+  includeRate: real("include_rate"), // 0–1
+  compositeScore: real("composite_score"), // 0–10
+  createdAt: timestamptz("created_at").default(sql`now()`),
+}, (t) => [unique("source_daily_scores_source_date").on(t.sourceName, t.runDate)]);
 
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -1,5 +1,5 @@
-import { db, dailyReports, activeTopics, entities, contacts, notes, extractions } from "../db";
-import { eq, and } from "drizzle-orm";
+import { db, dailyReports, activeTopics, entities, contacts, notes, extractions, rawItems, sourceDailyScores, sourceQuality } from "../db";
+import { eq, gte, and, sql as drizzleSql } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
 
 function parseSystemBlock(text: string): Record<string, any> | null {
@@ -94,6 +94,69 @@ export async function runPhase6(
     }
   }
 
+  await writeSourceDailyScores(runDate);
+
   console.log("[Phase 6] Done");
   return fullReport;
+}
+
+async function writeSourceDailyScores(runDate: string): Promise<void> {
+  // Join extractions → raw_items for today, only newsletters with a sourceName
+  const rows = await db
+    .select({
+      sourceName: rawItems.sourceName,
+      relevanceScore: extractions.relevanceScore,
+      effectiveRelevance: extractions.effectiveRelevance,
+    })
+    .from(extractions)
+    .innerJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
+    .where(and(eq(extractions.runDate, runDate), eq(rawItems.sourceType, "newsletter")));
+
+  // Group by sourceName
+  const bySource = new Map<string, { relevances: number[]; effectives: number[] }>();
+  for (const row of rows) {
+    if (!row.sourceName) continue;
+    const entry = bySource.get(row.sourceName) ?? { relevances: [], effectives: [] };
+    if (row.relevanceScore != null) entry.relevances.push(row.relevanceScore);
+    if (row.effectiveRelevance != null) entry.effectives.push(row.effectiveRelevance);
+    bySource.set(row.sourceName, entry);
+  }
+
+  for (const [sourceName, { relevances, effectives }] of bySource) {
+    const itemsReceived = relevances.length;
+    if (itemsReceived === 0) continue;
+
+    const avgRelevance = relevances.reduce((s, v) => s + v, 0) / relevances.length;
+    const avgEffectiveRelevance = effectives.length
+      ? effectives.reduce((s, v) => s + v, 0) / effectives.length
+      : avgRelevance;
+    const itemsIncluded = effectives.filter((v) => v >= 3).length;
+    const includeRate = itemsIncluded / itemsReceived;
+    // composite 0–10: quality-weighted (7pts) + breadth signal (3pts)
+    const compositeScore = Math.min(10, (avgEffectiveRelevance / 5) * 7 + includeRate * 3);
+
+    await db
+      .insert(sourceDailyScores)
+      .values({ sourceName, runDate, itemsReceived, itemsIncluded, avgRelevance, avgEffectiveRelevance, includeRate, compositeScore })
+      .onConflictDoUpdate({
+        target: [sourceDailyScores.sourceName, sourceDailyScores.runDate],
+        set: { itemsReceived, itemsIncluded, avgRelevance, avgEffectiveRelevance, includeRate, compositeScore },
+      });
+
+    // Recompute rolling 30-day composite for this source
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+    const window = await db
+      .select({ compositeScore: sourceDailyScores.compositeScore, itemsReceived: sourceDailyScores.itemsReceived })
+      .from(sourceDailyScores)
+      .where(and(eq(sourceDailyScores.sourceName, sourceName), gte(sourceDailyScores.runDate, thirtyDaysAgo)));
+
+    const totalWeight = window.reduce((s, r) => s + (r.itemsReceived ?? 1), 0);
+    const weightedSum = window.reduce((s, r) => s + (r.compositeScore ?? 0) * (r.itemsReceived ?? 1), 0);
+    const compositeScore30d = totalWeight > 0 ? weightedSum / totalWeight : null;
+
+    await db
+      .insert(sourceQuality)
+      .values({ sourceName, compositeScore30d })
+      .onConflictDoUpdate({ target: sourceQuality.sourceName, set: { compositeScore30d, updatedAt: drizzleSql`now()` } });
+  }
 }

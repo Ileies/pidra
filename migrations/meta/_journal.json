@@ -15,6 +15,20 @@
       "when": 1779062442655,
       "tag": "0001_spotty_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779142066207,
+      "tag": "0002_furry_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779142220744,
+      "tag": "0003_mute_prima",
+      "breakpoints": true
     }
   ]
 }

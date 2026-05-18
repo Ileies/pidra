@@ -52,6 +52,23 @@ a:hover {
 .report-body blockquote { border-left: 3px solid var(--accent-dim); padding-left: 1rem; color: var(--text-dim); margin: 0.75rem 0; }
 .report-body hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .report-body a { color: var(--accent); }
+.report-body a.mehr-dazu {
+  font-size: 0.75em;
+  font-weight: 500;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.05em 0.4em;
+  margin-left: 0.4em;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: color 0.1s, border-color 0.1s;
+}
+.report-body a.mehr-dazu:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  text-decoration: none;
+}
 .report-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
 .report-body th { border: 1px solid var(--border); padding: 0.4rem 0.75rem; background: var(--bg-surface); font-weight: 600; text-align: left; }
 .report-body td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; }

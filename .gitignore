@@ -4,5 +4,6 @@ dist/
 .env
 *.local
 .DS_Store
+.idea/
 dashboard/.svelte-kit/
 dashboard/build/

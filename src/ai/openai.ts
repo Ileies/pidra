@@ -12,7 +12,7 @@ export async function extractJson<T>(systemPrompt: string, userContent: string):
     model: EXTRACTION_MODEL,
     store: false,
     instructions: systemPrompt,
-    input: userContent,
+    input: `Return JSON only.\n\n${userContent}`,
     temperature: 0,
     text: { format: { type: "json_object" } },
   });

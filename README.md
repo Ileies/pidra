@@ -43,16 +43,27 @@ Plus a **compounding intelligence layer**: feedback loops, source trust scoring,
 - **Diary content never reaches a cloud API.** Hard architectural rule, not a configurable option.
 - **No prompt changes without human approval.** System proposes weekly, user approves each change individually.
 
+## Tools
+
+PIDRA is three tools sharing one Postgres database:
+
+| Tool | Entry point | Purpose |
+|---|---|---|
+| **Daily pipeline** | `bun run src/run.ts` | Morning briefing — runs on cron at 06:30 |
+| **Dashboard** | `bun run dashboard/` | SvelteKit UI for reading reports, rating, managing notes |
+| **Context Builder** | `bun run context-builder/run.ts` | One-shot comprehensive scan of all personal data — seeds entities, contacts, and standing rules before the first pipeline run. Re-runnable (delta mode). |
+
 ## Planning Documents
 
 All architecture decisions, prompts, schema, and build rationale are in the planning docs — read these before touching any implementation:
 
 - [`MORNING_BRIEFING_PLAN.md`](./MORNING_BRIEFING_PLAN.md) — Complete build plan: architecture, pipeline, DB schema, prompts, delivery, cost analysis, full roadmap
 - [`CONTEXT_AND_DECISIONS.md`](./CONTEXT_AND_DECISIONS.md) — Builder profile, intelligence priorities, newsletter selection rationale, key decisions made, design principles
+- [`CONTEXT_BUILDER_PLAN.md`](./CONTEXT_BUILDER_PLAN.md) — Context Builder architecture, run modes (full/update/resume), pipeline phases, cost analysis (~$0.41 full / ~$0.14 delta), TODO checklist
 
 ## Build Status
 
-Pre-implementation. Planning phase complete. See [`TODO.md`](./TODO.md) for the phase-by-phase build plan.
+Pipeline and dashboard: implementation in progress. Context Builder: planned, not yet started. See [`TODO.md`](./TODO.md) for the phase-by-phase build plan.
 
 ## Error Handling
 

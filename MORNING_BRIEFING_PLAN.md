@@ -187,7 +187,8 @@ While Ollama runs, simultaneously:
 - Query `entity_graph` for entities mentioned in today's extractions
 - Query `source_quality` for all 32 sources
 - Query `notes` (all non-expired)
-- Query `contacts` (all known)
+- Query `contacts` (all known) — pre-seeded from day 1 by Context Builder
+- Query `standing_context` (type = rule | preference) — pre-seeded by Context Builder from Keep "Daily Life Rules"; injected into Section 2 system prompt
 - Compute novelty flags: keyword match between today's extraction topic_tags and active topic headlines
 - Compute corroboration: group items by entity overlap, count sources per story
 - Fire 3 web search slots (see §15)
@@ -1094,20 +1095,11 @@ Three additional data sources that enrich the system's understanding of the user
 
 **What it does NOT do:** Never dumps all 1,000 notes into a Sonnet prompt. Never scans notes on every run.
 
+**Initial bulk import:** Handled by the **Context Builder** (`context-builder/`), not this pipeline. Context Builder performs the one-time full scan of all ~1,000 notes via gkeepapi (Python subprocess), extracts entities and summaries with Ollama, and seeds the `entities` and `standing_context` tables. Run Context Builder before Phase 7 work begins — the `keep_notes` and `keep_index` tables it populates are what Phase 7 reads. See `CONTEXT_BUILDER_PLAN.md` for the full indexing architecture and API decision.
+
 **Architecture:**
 
-*Initial indexing (one-time, Ollama):*
-Export all Keep notes via Google Takeout (JSON format). Run each note through Ollama to extract:
-```json
-{
-  "note_id": "...",
-  "topic_tags": ["AI", "China", "startup"],
-  "entities": ["Anthropic", "Neuralink"],
-  "note_type": "idea | reference | task | link | misc",
-  "summary": "one sentence"
-}
-```
-Store in `keep_index` table. Full note text stored in `keep_notes` table for retrieval.
+*Initial indexing:* → handled by Context Builder (see above).
 
 *During Phase 3 (daily, fast Postgres lookup):*
 For each of today's top 10 entities by effective relevance, query `keep_index` for entity overlap. If matches found, retrieve the relevant note summaries (not full text). Inject into Section 1 synthesis payload as a `user_prior_context` block:
@@ -1116,16 +1108,10 @@ For each of today's top 10 entities by effective relevance, query `keep_index` f
 ```
 Sonnet uses this to connect today's news to existing thinking. This is how the system feels like it knows you rather than treating you as a generic reader.
 
-*Weekly re-index:*
-Run Ollama extraction on notes created or modified since last index run. ~5–10 new notes per week typically. No full re-index needed.
+*Weekly re-index (ongoing delta):*
+Run Ollama extraction on notes created or modified since last Context Builder run. ~5–10 new notes per week typically. Reuses the same gkeepapi scripts and `context_builder_indexed_items` skip-set from Context Builder. No full re-index needed.
 
-**API challenge:** Google Keep has no official public API.
-Options in order of preference:
-1. `gkeepapi` (unofficial Python library) — works but fragile, may break with Google updates
-2. Google Takeout export + manual or automated trigger — most reliable, slightly less fresh
-3. Build a Keep-to-webhook browser extension (advanced, full control)
-
-Recommended approach: start with periodic Takeout export (weekly is sufficient). Automate via a Bun script that watches a download folder for new exports.
+**API challenge:** Decided — gkeepapi (Python subprocess) only. Auth scripts live in `context-builder/scripts/`. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
 
 **Tables:**
 ```sql

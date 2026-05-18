@@ -2,9 +2,15 @@
 
 ## What this project is
 
-PIDRA is a personal morning briefing system. It ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. 24 of the 32 newsletters are fetched via RSS (cleaner content); the remaining 8 that have no public RSS feed are fetched via IMAP. Two Ollama passes compress raw content into structured JSON; one Sonnet call synthesizes each section of the report. The system compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
+PIDRA consists of three tools that share one Postgres database:
 
-Full architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions and rationale are in `CONTEXT_AND_DECISIONS.md`. Read both before implementing anything non-trivial.
+1. **Daily pipeline** (`src/` + `run.ts`) — morning briefing system. Ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. Two Ollama passes compress raw content into structured JSON; one Sonnet call synthesizes each section of the report. Compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
+
+2. **Dashboard** (`dashboard/`) — SvelteKit frontend for reading reports, rating items, viewing the entity graph, and managing notes.
+
+3. **Context Builder** (`context-builder/`) — standalone one-shot tool that performs a comprehensive scan of all personal data sources (all email accounts, Google Keep, Google Tasks, GitHub) and builds a structured long-term context document. Seeds the `entities`, `contacts`, and `standing_context` tables before the first pipeline run — so the system is calibrated from day one instead of learning from scratch. Re-runnable in update mode (delta only, proportional merge). Full plan in `CONTEXT_BUILDER_PLAN.md`.
+
+Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions and rationale are in `CONTEXT_AND_DECISIONS.md`. Read both before implementing anything non-trivial. Read `CONTEXT_BUILDER_PLAN.md` before touching anything in `context-builder/`.
 
 ## Stack
 
@@ -37,6 +43,8 @@ See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 - `source_quality` — per-source trust scores (0.5–2.0 multiplier)
 - `prompt_versions` — versioned prompts, only one active per section at a time
 - `skill_executions` — audit log for all Claude Code bridge skill calls
+- `standing_context` — persistent rules/preferences injected into Section 2 prompt; seeded by Context Builder from Google Keep "Daily Life Rules" and other standing rules
+- `context_builder_runs` / `context_builder_indexed_items` — Context Builder run history and per-item index state; used for delta detection on re-runs
 
 ## Concurrency
 
@@ -72,7 +80,7 @@ See `TODO.md` for the current phase and open items.
 
 ## What not to build (yet)
 
-- Phase 7 passive context sources (Keep, chat history, diary) — only after Phase 6 is stable and the core pipeline has run for 2+ weeks
+- Phase 7 passive context sources (Keep as daily pipeline source, chat history, diary) — only after Phase 6 is stable and the core pipeline has run for 2+ weeks. Note: the Context Builder's bulk Keep import is separate and can run at any time — the restriction here is about adding Keep as an ongoing daily ingestion source inside the pipeline.
 - Slots 4 and 5 of the web search module — only after day 60
 - Any `critical`-risk skills — test manually for 2 weeks before adding
 - Netzpolitik.org as a 33rd source — evaluate at the 30-day mark

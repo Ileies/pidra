@@ -14,7 +14,7 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 - [ ] Configure Google Tasks API credentials
 - [ ] Set up SMS webhook endpoint (`POST /webhook/sms`)
 - [ ] Switch synthesis to Claude Sonnet 4.6 — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
-- [ ] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
+- [x] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
 
 ---
 
@@ -24,7 +24,7 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 - [ ] Implement Phase 1 ingestion: Google Calendar + Google Tasks (see Phase 0 credentials above)
 - [ ] Implement Phase 1 ingestion: SMS via webhook (`POST /webhook/sms`)
 - [x] Implement HTML stripping and Message-ID dedup for emails
-- [ ] Implement RSS polling for newsletters that support it (run in parallel with IMAP)
+- [x] Implement RSS polling for newsletters that support it (run in parallel with IMAP)
 - [x] Implement Ollama newsletter extraction prompt — content pass (currently: OpenAI GPT-4o)
 - [x] Implement Ollama entity extraction prompt — second pass, batched (currently: OpenAI GPT-4o)
 - [x] Implement Ollama personal email classification prompt (currently: OpenAI GPT-4o)

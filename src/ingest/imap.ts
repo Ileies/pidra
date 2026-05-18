@@ -4,6 +4,7 @@ import { db, rawItems } from "../db";
 import { eq } from "drizzle-orm";
 import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
+import { RSS_SOURCE_NAMES } from "../config/rss-feeds";
 import type { EmailAccount } from "../config/email-accounts";
 
 function openImap(account: EmailAccount): Promise<Imap> {
@@ -99,6 +100,9 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     const { sourceType, sourceName } = account.isNewsAccount
       ? classifyEmail(from)
       : { sourceType: "personal_email" as const, sourceName: senderEmail };
+
+    // Skip newsletters covered by RSS — RSS content is cleaner and already ingested
+    if (sourceType === "newsletter" && sourceName && RSS_SOURCE_NAMES.has(sourceName)) continue;
 
     const content = cleanEmailContent(
       parsed.html || undefined,

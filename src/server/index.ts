@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
-import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts } from "../db";
+import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, rawItemExists } from "../db";
 import type { GateAnswer, GateQuestion } from "../db/schema";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
@@ -32,12 +32,7 @@ app.post("/webhook/sms", async (c) => {
   const runDate = receivedAt.split("T")[0];
   const messageId = `sms:${from}:${tsMs}`;
 
-  const existing = await db
-    .select({ id: rawItems.id })
-    .from(rawItems)
-    .where(eq(rawItems.messageId, messageId))
-    .limit(1);
-  if (existing.length > 0) return c.json({ ok: true, duplicate: true });
+  if (await rawItemExists(messageId)) return c.json({ ok: true, duplicate: true });
 
   await db.insert(rawItems).values({
     runDate,

@@ -5,10 +5,8 @@ export interface EmailAccount {
   id: string;
   label: string;
   host: string;
-  port: number;
   user: string;
   password: string;
-  tls: boolean;
   folder: string;
   // If true, use newsletter domain detection (for the dedicated news inbox)
   isNewsAccount: boolean;

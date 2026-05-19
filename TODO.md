@@ -50,7 +50,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 - [ ] Implement Section 1 / Section 2 parallelization during gate wait
 - [ ] Implement PWA + Web Push notifications in SvelteKit
 - [ ] Implement contacts table and contact-learning loop (question → contacts write)
-- [ ] Set up Bun cron for automated daily run (default: 06:30)
+- [x] Set up Bun cron for automated daily run (default: 06:30)
 
 ---
 

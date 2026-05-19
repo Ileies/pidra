@@ -2,6 +2,7 @@ import { db, rawItems, extractions, sourceQuality } from "../db";
 import { extractJson } from "../ai/openai";
 import { NEWSLETTER_EXTRACTION_PROMPT, ENTITY_EXTRACTION_PROMPT, buildPersonalEmailPrompt } from "../ai/prompts";
 import { loadEmailAccounts } from "../config/email-accounts";
+import { emailEffectiveRelevance } from "./email-category";
 import { eq } from "drizzle-orm";
 
 const CONCURRENCY = 4;
@@ -81,17 +82,7 @@ async function extractItem(
         item.rawContent ?? ""
       );
 
-      // email_category determines effective relevance for Section 2 routing:
-      // general_news and spam get 0 so they're excluded from Section 2
-      const category = classification.email_category ?? "personal_important";
-      let effectiveRelevance: number;
-      if (category === "spam" || category === "general_news") {
-        effectiveRelevance = 0;
-      } else if (category === "automated") {
-        effectiveRelevance = classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 1;
-      } else {
-        effectiveRelevance = classification.urgency === "critical" ? 5 : classification.urgency === "high" ? 4 : 3;
-      }
+      const effectiveRelevance = emailEffectiveRelevance(classification.email_category, classification.urgency);
 
       await db.insert(extractions).values({
         rawItemId: item.id,

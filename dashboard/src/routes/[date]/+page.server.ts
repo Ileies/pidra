@@ -54,6 +54,10 @@ export const load: PageServerLoad = async ({ params }) => {
     WHERE report_date = ${date}
   `;
 
+  const [pendingGate] = await db`
+    SELECT 1 FROM question_gate_sessions WHERE status = 'pending' LIMIT 1
+  `;
+
   const [pipelineRun] = await db`
     SELECT status, failed_step, step_errors, started_at, completed_at, duration_ms
     FROM pipeline_runs
@@ -121,6 +125,7 @@ export const load: PageServerLoad = async ({ params }) => {
     prevDate: availableDates[idx + 1] ?? null,
     nextDate: idx > 0 ? availableDates[idx - 1] : null,
     availableDates,
+    hasPendingQuestions: !!pendingGate,
   };
 };
 

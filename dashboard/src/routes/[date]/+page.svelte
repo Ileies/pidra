@@ -47,6 +47,11 @@
         <span class="{navBtn} border-surface-700 text-surface-200 opacity-30 cursor-default select-none">→</span>
       {/if}
       <a href="/sources" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Quellen</a>
+      {#if data.hasPendingQuestions}
+        <a href="/questions" class="{navBtn} border-warning-700 text-warning-400 hover:bg-surface-800 animate-pulse">⚠ Questions</a>
+      {:else}
+        <a href="/questions" class="{navBtn} border-surface-700 text-surface-500 hover:bg-surface-800">Questions</a>
+      {/if}
     </nav>
   </header>
 

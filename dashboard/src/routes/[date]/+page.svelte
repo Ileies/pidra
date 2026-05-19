@@ -19,6 +19,8 @@
     return n.toLocaleString("de-DE");
   }
 
+  const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
+
   let triggering = false;
 </script>
 
@@ -26,94 +28,94 @@
   <title>PIDRA — {data.date}</title>
 </svelte:head>
 
-<div class="shell">
-  <header>
-    <div class="header-left">
-      <span class="logo">PIDRA</span>
-      <span class="date-label">{fmt(data.date)}</span>
+<div class="flex flex-col min-h-screen">
+  <header class="flex items-center justify-between px-8 py-3 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
+    <div class="flex items-baseline gap-4">
+      <span class="font-bold tracking-widest text-surface-50">PIDRA</span>
+      <span class="text-surface-500 text-sm">{fmt(data.date)}</span>
     </div>
-    <nav>
+    <nav class="flex items-center gap-2">
       {#if data.prevDate}
-        <a href="/{data.prevDate}" class="nav-btn">← {data.prevDate}</a>
+        <a href="/{data.prevDate}" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← {data.prevDate}</a>
       {:else}
-        <span class="nav-btn disabled">←</span>
+        <span class="{navBtn} border-surface-700 text-surface-200 opacity-30 cursor-default select-none">←</span>
       {/if}
-      <a href="/{data.today}" class="nav-btn today">Heute</a>
+      <a href="/{data.today}" class="{navBtn} border-primary-900 text-primary-400 hover:bg-surface-800">Heute</a>
       {#if data.nextDate}
-        <a href="/{data.nextDate}" class="nav-btn">{data.nextDate} →</a>
+        <a href="/{data.nextDate}" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">{data.nextDate} →</a>
       {:else}
-        <span class="nav-btn disabled">→</span>
+        <span class="{navBtn} border-surface-700 text-surface-200 opacity-30 cursor-default select-none">→</span>
       {/if}
-      <a href="/sources" class="nav-btn sources-link">Quellen</a>
+      <a href="/sources" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Quellen</a>
     </nav>
   </header>
 
   {#if data.report}
-    <div class="stats-bar">
-      <span class="stat">
-        <span class="stat-val">{fmtNum(data.report.itemCount)}</span>
-        <span class="stat-lbl">ingested</span>
+    <div class="flex items-center gap-2 px-8 py-2.5 bg-surface-900 border-b border-surface-700 text-xs flex-wrap">
+      <span class="flex items-baseline gap-1">
+        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.itemCount)}</span>
+        <span class="text-surface-500">ingested</span>
       </span>
-      <span class="sep">·</span>
-      <span class="stat">
-        <span class="stat-val">{fmtNum(data.report.itemsIncluded)}</span>
-        <span class="stat-lbl">included</span>
+      <span class="text-surface-700 select-none">·</span>
+      <span class="flex items-baseline gap-1">
+        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.itemsIncluded)}</span>
+        <span class="text-surface-500">included</span>
       </span>
-      <span class="sep">·</span>
-      <span class="stat">
-        <span class="stat-val">{fmtNum(data.report.tokensIn)}</span>
-        <span class="stat-lbl">tok in</span>
+      <span class="text-surface-700 select-none">·</span>
+      <span class="flex items-baseline gap-1">
+        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.tokensIn)}</span>
+        <span class="text-surface-500">tok in</span>
       </span>
-      <span class="sep">·</span>
-      <span class="stat">
-        <span class="stat-val">{fmtNum(data.report.tokensOut)}</span>
-        <span class="stat-lbl">tok out</span>
+      <span class="text-surface-700 select-none">·</span>
+      <span class="flex items-baseline gap-1">
+        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.tokensOut)}</span>
+        <span class="text-surface-500">tok out</span>
       </span>
       {#if data.report.aiCalls != null}
-        <span class="sep">·</span>
-        <span class="stat">
-          <span class="stat-val">{data.report.aiCalls}</span>
-          <span class="stat-lbl">AI calls</span>
+        <span class="text-surface-700 select-none">·</span>
+        <span class="flex items-baseline gap-1">
+          <span class="font-semibold text-surface-50 tabular-nums">{data.report.aiCalls}</span>
+          <span class="text-surface-500">AI calls</span>
         </span>
       {/if}
     </div>
   {/if}
 
-  <main>
+  <main class="flex-1 max-w-4xl w-full mx-auto px-8 py-8 pb-16">
     {#if data.reportHtml}
       <div class="report-body">
         {@html data.reportHtml}
       </div>
     {:else}
-      <div class="empty">
+      <div class="flex flex-col items-center gap-5 pt-20 text-center text-surface-500">
         {#if data.pipelineRun?.status === "running"}
-          <p class="running-msg">Pipeline läuft… Seite in einigen Minuten neu laden.</p>
+          <p class="text-primary-400 text-sm">Pipeline läuft… Seite in einigen Minuten neu laden.</p>
         {:else if data.pipelineRun?.status === "failed"}
-          <div class="error-card">
-            <div class="error-card-header">
-              <span class="error-badge">Fehlgeschlagen</span>
-              <span class="error-step">
-                Step: <strong>{data.pipelineRun.failedStep ?? "unbekannt"}</strong>
+          <div class="w-full max-w-2xl border border-error-500/40 rounded-lg overflow-hidden text-left bg-error-950">
+            <div class="flex items-center gap-3 px-4 py-3 flex-wrap border-b border-error-500/25">
+              <span class="badge text-xs font-semibold uppercase tracking-wider text-error-500 bg-error-500/20 border border-error-500/40">Fehlgeschlagen</span>
+              <span class="text-sm text-surface-200">
+                Step: <strong class="text-surface-50 font-mono">{data.pipelineRun.failedStep ?? "unbekannt"}</strong>
               </span>
               {#if data.pipelineRun.durationMs != null}
-                <span class="error-duration">nach {Math.round(data.pipelineRun.durationMs / 1000)}s</span>
+                <span class="text-xs text-surface-500 ml-auto">nach {Math.round(data.pipelineRun.durationMs / 1000)}s</span>
               {/if}
             </div>
 
             {#each data.pipelineRun.stepErrors as attempt}
-              <div class="attempt">
-                <div class="attempt-meta">
-                  <span class="attempt-badge">Versuch {attempt.attempt}/3</span>
-                  <span class="attempt-ts">
+              <div class="px-4 py-3 border-b border-surface-700/60 last:border-b-0">
+                <div class="flex items-center gap-2.5 mb-1">
+                  <span class="badge text-xs font-semibold text-surface-500 bg-surface-950 border border-surface-700 tabular-nums">Versuch {attempt.attempt}/3</span>
+                  <span class="text-xs text-surface-500 tabular-nums">
                     {new Date(attempt.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </span>
-                  <span class="attempt-step-label">{attempt.step}</span>
+                  <span class="text-xs text-surface-500 font-mono ml-auto">{attempt.step}</span>
                 </div>
-                <pre class="attempt-error">{attempt.error}</pre>
+                <pre class="font-mono text-xs text-error-500 bg-error-950 rounded px-3 py-2 whitespace-pre-wrap break-words m-0">{attempt.error}</pre>
                 {#if attempt.stack}
-                  <details class="stack-details">
-                    <summary>Stack trace</summary>
-                    <pre class="stack">{attempt.stack}</pre>
+                  <details class="mt-1">
+                    <summary class="text-xs text-surface-500 cursor-pointer select-none hover:text-surface-200">Stack trace</summary>
+                    <pre class="font-mono text-xs text-surface-500 bg-surface-950 rounded px-3 py-2 mt-1 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">{attempt.stack}</pre>
                   </details>
                 {/if}
               </div>
@@ -134,300 +136,21 @@
             };
           }}
         >
-          <button type="submit" class="run-btn" disabled={triggering}>
+          <button
+            type="submit"
+            class="px-6 py-2.5 bg-primary-900 border border-primary-400 text-primary-400 rounded-md text-sm cursor-pointer hover:bg-primary-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={triggering}
+          >
             {triggering ? "Wird gestartet…" : data.pipelineRun?.status === "failed" ? "Erneut versuchen" : "Pipeline jetzt starten"}
           </button>
         </form>
         {#if form?.error}
-          <p class="error-msg">{form.error}</p>
+          <p class="text-error-500 text-sm">{form.error}</p>
         {/if}
         {#if form?.triggered}
-          <p class="success-msg">Pipeline gestartet. Seite in ~5 Min. neu laden.</p>
+          <p class="text-success-500 text-sm">Pipeline gestartet. Seite in ~5 Min. neu laden.</p>
         {/if}
       </div>
     {/if}
   </main>
 </div>
-
-<style>
-  .shell {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 2rem;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: baseline;
-    gap: 1rem;
-  }
-
-  .logo {
-    font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: 0.12em;
-    color: var(--text-bright);
-  }
-
-  .date-label {
-    color: var(--text-dim);
-    font-size: 0.875rem;
-  }
-
-  nav {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .nav-btn {
-    padding: 0.3rem 0.75rem;
-    border-radius: 5px;
-    font-size: 0.8rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    cursor: pointer;
-    transition: background 0.1s;
-  }
-
-  .nav-btn:hover {
-    background: var(--bg-hover);
-    text-decoration: none;
-  }
-
-  .nav-btn.today {
-    border-color: var(--accent-dim);
-    color: var(--accent);
-  }
-
-  .nav-btn.disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  .stats-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 2rem;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border);
-    font-size: 0.8rem;
-    flex-wrap: wrap;
-  }
-
-  .stat {
-    display: flex;
-    align-items: baseline;
-    gap: 0.3rem;
-  }
-
-  .stat-val {
-    font-weight: 600;
-    color: var(--text-bright);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stat-lbl {
-    color: var(--text-dim);
-  }
-
-  .sep {
-    color: var(--border);
-    user-select: none;
-  }
-
-  main {
-    flex: 1;
-    max-width: 860px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 2rem 2rem 4rem;
-  }
-
-  .empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.25rem;
-    padding-top: 5rem;
-    text-align: center;
-    color: var(--text-dim);
-  }
-
-  .run-btn {
-    padding: 0.6rem 1.5rem;
-    background: var(--accent-dim);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .run-btn:hover:not(:disabled) {
-    background: #1e3a6e;
-  }
-
-  .run-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .error-msg {
-    color: var(--red);
-    font-size: 0.85rem;
-  }
-
-  .success-msg {
-    color: var(--green);
-    font-size: 0.85rem;
-  }
-
-  .running-msg {
-    color: var(--accent);
-    font-size: 0.9rem;
-  }
-
-  .error-card {
-    width: 100%;
-    max-width: 700px;
-    border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--red) 6%, var(--bg-surface));
-    overflow: hidden;
-    text-align: left;
-  }
-
-  .error-card-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--red) 25%, transparent);
-    flex-wrap: wrap;
-  }
-
-  .error-badge {
-    background: color-mix(in srgb, var(--red) 20%, transparent);
-    color: var(--red);
-    border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
-    border-radius: 4px;
-    padding: 0.15rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .error-step {
-    font-size: 0.85rem;
-    color: var(--text);
-  }
-
-  .error-step strong {
-    color: var(--text-bright);
-    font-family: monospace;
-  }
-
-  .error-duration {
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    margin-left: auto;
-  }
-
-  .attempt {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  }
-
-  .attempt:last-child {
-    border-bottom: none;
-  }
-
-  .attempt-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .attempt-badge {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--text-dim);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 0.1rem 0.4rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .attempt-ts {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .attempt-step-label {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    font-family: monospace;
-    margin-left: auto;
-  }
-
-  .attempt-error {
-    font-family: monospace;
-    font-size: 0.8rem;
-    color: var(--red);
-    background: color-mix(in srgb, var(--red) 8%, var(--bg));
-    border-radius: 4px;
-    padding: 0.5rem 0.75rem;
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  .stack-details {
-    margin-top: 0.4rem;
-  }
-
-  .stack-details summary {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .stack-details summary:hover {
-    color: var(--text);
-  }
-
-  .stack {
-    font-family: monospace;
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    background: var(--bg);
-    border-radius: 4px;
-    padding: 0.5rem 0.75rem;
-    margin: 0.4rem 0 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 300px;
-    overflow-y: auto;
-  }
-</style>

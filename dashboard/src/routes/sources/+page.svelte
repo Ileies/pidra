@@ -4,11 +4,18 @@
 
   export let data: PageData;
 
+  function scoreClass(score: number | null): string {
+    if (score == null) return "text-surface-700";
+    if (score >= 7.5) return "text-success-500";
+    if (score >= 5) return "text-warning-500";
+    return "text-error-500";
+  }
+
   function scoreColor(score: number | null): string {
-    if (score == null) return "#555";
-    if (score >= 7.5) return "#4caf50";
-    if (score >= 5) return "#f9a825";
-    return "#e53935";
+    if (score == null) return "var(--color-surface-700)";
+    if (score >= 7.5) return "var(--color-success-500)";
+    if (score >= 5) return "var(--color-warning-500)";
+    return "var(--color-error-500)";
   }
 
   function fmtScore(score: number | null): string {
@@ -35,51 +42,53 @@
   <title>PIDRA — Quellen</title>
 </svelte:head>
 
-<div class="shell">
-  <header>
-    <div class="header-left">
-      <a href="/" class="logo">PIDRA</a>
-      <span class="page-title">Quellenbewertung</span>
+<div class="flex flex-col min-h-screen">
+  <header class="sticky top-0 z-10 bg-surface-900 border-b border-surface-700">
+    <div class="max-w-5xl mx-auto px-6 flex items-center justify-between py-3">
+      <div class="flex items-center gap-4">
+        <a href="/" class="font-bold tracking-widest text-surface-50 text-lg no-underline hover:underline">PIDRA</a>
+        <span class="text-surface-500 text-sm">Quellenbewertung</span>
+      </div>
+      <nav>
+        <a href="/" class="px-3 py-1 rounded border border-surface-700 text-surface-200 no-underline text-xs hover:bg-surface-800 transition-colors">← Heute</a>
+      </nav>
     </div>
-    <nav>
-      <a href="/" class="nav-btn today">← Heute</a>
-    </nav>
   </header>
 
-  <main>
-    <p class="hint">
+  <main class="max-w-5xl mx-auto px-6 py-6 pb-16 w-full">
+    <p class="text-xs text-surface-500 mb-6 leading-relaxed">
       Score 0–10 (gewichteter Durchschnitt der letzten 30 Tage). Formel: Relevanz × 7 + Aufnahme­quote × 3.
       Eine Quelle deaktivieren schließt sie ab dem nächsten Pipeline-Lauf aus der Extraktion aus.
     </p>
 
-    <table class="sources-table">
+    <table class="w-full border-collapse text-sm">
       <thead>
         <tr>
-          <th class="col-name">Newsletter</th>
-          <th class="col-score">Score 30d</th>
-          <th class="col-sparkline">Verlauf</th>
-          <th class="col-rate">Aufnahme­quote</th>
-          <th class="col-trend">Trend</th>
-          <th class="col-action"></th>
+          <th class="text-left px-3 py-2 text-surface-500 font-normal border-b border-surface-700 whitespace-nowrap">Newsletter</th>
+          <th class="text-right px-3 py-2 text-surface-500 font-normal border-b border-surface-700 whitespace-nowrap">Score 30d</th>
+          <th class="w-24 text-left px-3 py-2 text-surface-500 font-normal border-b border-surface-700">Verlauf</th>
+          <th class="text-right px-3 py-2 text-surface-500 font-normal border-b border-surface-700">Aufnahme­quote</th>
+          <th class="text-center px-3 py-2 text-surface-500 font-normal border-b border-surface-700">Trend</th>
+          <th class="w-48 px-3 py-2 border-b border-surface-700"></th>
         </tr>
       </thead>
       <tbody>
         {#each data.sources as src}
-          <tr class:disabled={!src.isActive}>
-            <td class="col-name">
-              <span class="source-name">{src.sourceName}</span>
+          <tr class:opacity-50={!src.isActive}>
+            <td class="px-3 py-2 border-b border-surface-800">
+              <span class="text-surface-200">{src.sourceName}</span>
               {#if !src.isActive}
-                <span class="badge-disabled">deaktiviert</span>
+                <span class="badge ml-2 bg-surface-800 text-surface-500">deaktiviert</span>
               {/if}
             </td>
-            <td class="col-score">
-              <span class="score-pill" style="color: {scoreColor(src.compositeScore30d)}">
-                {fmtScore(src.compositeScore30d)}<span class="score-denom">/10</span>
+            <td class="px-3 py-2 border-b border-surface-800 text-right">
+              <span class="text-base font-semibold tabular-nums {scoreClass(src.compositeScore30d)}">
+                {fmtScore(src.compositeScore30d)}<span class="text-xs text-surface-700 ml-px">/10</span>
               </span>
             </td>
-            <td class="col-sparkline">
+            <td class="px-3 py-2 border-b border-surface-800">
               {#if src.dailyScores.length > 0}
-                <svg class="spark" viewBox="0 0 80 24" preserveAspectRatio="none">
+                <svg class="w-20 h-6 block" viewBox="0 0 80 24" preserveAspectRatio="none">
                   {#each src.dailyScores.slice().reverse() as day, i}
                     {@const x = (i / Math.max(src.dailyScores.length - 1, 1)) * 78 + 1}
                     {@const y = 23 - ((day.compositeScore ?? 0) / 10) * 22}
@@ -87,10 +96,10 @@
                   {/each}
                 </svg>
               {:else}
-                <span class="no-data">keine Daten</span>
+                <span class="text-surface-700 text-xs">keine Daten</span>
               {/if}
             </td>
-            <td class="col-rate">
+            <td class="px-3 py-2 border-b border-surface-800 text-right">
               {#if src.dailyScores.length > 0}
                 {@const avgRate = src.dailyScores.reduce((s, d) => s + (d.includeRate ?? 0), 0) / src.dailyScores.length}
                 {fmtPct(avgRate)}
@@ -98,29 +107,35 @@
                 —
               {/if}
             </td>
-            <td class="col-trend">{trendLabel(src.qualityTrend)}</td>
-            <td class="col-action">
+            <td class="px-3 py-2 border-b border-surface-800 text-center text-surface-500">{trendLabel(src.qualityTrend)}</td>
+            <td class="px-3 py-2 border-b border-surface-800">
               {#if src.isActive}
                 {#if confirmDisable === src.sourceName}
-                  <div class="confirm-row">
+                  <div class="flex items-center gap-2">
                     <input
                       type="text"
                       placeholder="Grund (optional)"
                       bind:value={disableReason}
-                      class="reason-input"
+                      class="bg-surface-900 border border-surface-700 rounded text-surface-200 text-xs px-2 py-1 w-32"
                     />
                     <form method="POST" action="?/toggle" use:enhance>
                       <input type="hidden" name="sourceName" value={src.sourceName} />
                       <input type="hidden" name="isActive" value="false" />
                       <input type="hidden" name="reason" value={disableReason} />
-                      <button type="submit" class="btn-danger">Bestätigen</button>
+                      <button type="submit" class="px-2.5 py-1 rounded text-xs cursor-pointer bg-error-500 text-white border border-error-500 hover:opacity-80 transition-opacity">Bestätigen</button>
                     </form>
-                    <button class="btn-cancel" on:click={() => { confirmDisable = null; disableReason = ""; }}>
+                    <button
+                      class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:text-surface-200 transition-colors"
+                      on:click={() => { confirmDisable = null; disableReason = ""; }}
+                    >
                       Abbrechen
                     </button>
                   </div>
                 {:else}
-                  <button class="btn-disable" on:click={() => { confirmDisable = src.sourceName; disableReason = ""; }}>
+                  <button
+                    class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:border-error-500 hover:text-error-500 transition-colors"
+                    on:click={() => { confirmDisable = src.sourceName; disableReason = ""; }}
+                  >
                     Deaktivieren
                   </button>
                 {/if}
@@ -128,7 +143,7 @@
                 <form method="POST" action="?/toggle" use:enhance>
                   <input type="hidden" name="sourceName" value={src.sourceName} />
                   <input type="hidden" name="isActive" value="true" />
-                  <button type="submit" class="btn-enable">Aktivieren</button>
+                  <button type="submit" class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-success-500 text-success-500 hover:bg-success-950 transition-colors">Aktivieren</button>
                 </form>
               {/if}
             </td>
@@ -136,156 +151,10 @@
         {/each}
         {#if data.sources.length === 0}
           <tr>
-            <td colspan="6" class="empty-row">Noch keine Quelldaten — läuft nach dem ersten Pipeline-Run.</td>
+            <td colspan="6" class="text-surface-700 text-center py-8">Noch keine Quelldaten — läuft nach dem ersten Pipeline-Run.</td>
           </tr>
         {/if}
       </tbody>
     </table>
   </main>
 </div>
-
-<style>
-  .shell {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 0 1.5rem 4rem;
-    font-family: "Berkeley Mono", "Fira Code", "Courier New", monospace;
-    color: #e0e0e0;
-    background: #0d0d0d;
-    min-height: 100vh;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 0 1rem;
-    border-bottom: 1px solid #222;
-    margin-bottom: 1.5rem;
-  }
-
-  .header-left { display: flex; align-items: center; gap: 1rem; }
-
-  .logo {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #e0e0e0;
-    text-decoration: none;
-    letter-spacing: 0.08em;
-  }
-
-  .page-title { color: #888; font-size: 0.9rem; }
-
-  nav { display: flex; gap: 0.5rem; }
-
-  .nav-btn {
-    padding: 0.3rem 0.75rem;
-    border: 1px solid #333;
-    border-radius: 4px;
-    color: #aaa;
-    text-decoration: none;
-    font-size: 0.82rem;
-    background: transparent;
-  }
-
-  .nav-btn.today { color: #e0e0e0; border-color: #555; }
-
-  .hint {
-    font-size: 0.8rem;
-    color: #666;
-    margin-bottom: 1.5rem;
-    line-height: 1.5;
-  }
-
-  .sources-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
-
-  .sources-table th {
-    text-align: left;
-    padding: 0.5rem 0.75rem;
-    color: #666;
-    font-weight: 400;
-    border-bottom: 1px solid #222;
-    white-space: nowrap;
-  }
-
-  .sources-table td {
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid #181818;
-    vertical-align: middle;
-  }
-
-  tr.disabled td { opacity: 0.45; }
-
-  .source-name { color: #d0d0d0; }
-
-  .badge-disabled {
-    margin-left: 0.5rem;
-    font-size: 0.7rem;
-    background: #333;
-    color: #888;
-    padding: 0.1rem 0.4rem;
-    border-radius: 3px;
-  }
-
-  .score-pill {
-    font-size: 1.05rem;
-    font-weight: 600;
-  }
-
-  .score-denom { font-size: 0.75rem; color: #555; margin-left: 1px; }
-
-  .spark { width: 80px; height: 24px; display: block; }
-
-  .no-data { color: #444; font-size: 0.75rem; }
-
-  .col-name { width: 30%; }
-  .col-score { width: 10%; text-align: right; }
-  .col-sparkline { width: 100px; }
-  .col-rate { width: 10%; text-align: right; }
-  .col-trend { width: 5%; text-align: center; color: #888; }
-  .col-action { width: 200px; }
-
-  .confirm-row { display: flex; align-items: center; gap: 0.5rem; }
-
-  .reason-input {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 4px;
-    color: #d0d0d0;
-    font-family: inherit;
-    font-size: 0.78rem;
-    padding: 0.25rem 0.5rem;
-    width: 130px;
-  }
-
-  .btn-disable, .btn-enable, .btn-danger, .btn-cancel {
-    padding: 0.25rem 0.65rem;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 0.78rem;
-    cursor: pointer;
-    border: 1px solid transparent;
-  }
-
-  .btn-disable {
-    background: transparent;
-    border-color: #444;
-    color: #888;
-  }
-  .btn-disable:hover { border-color: #e53935; color: #e53935; }
-
-  .btn-danger { background: #e53935; color: #fff; border-color: #e53935; }
-  .btn-danger:hover { background: #c62828; }
-
-  .btn-enable { background: transparent; border-color: #4caf50; color: #4caf50; }
-  .btn-enable:hover { background: #1b5e20; }
-
-  .btn-cancel { background: transparent; border-color: #333; color: #666; }
-  .btn-cancel:hover { color: #aaa; }
-
-  .empty-row { color: #555; text-align: center; padding: 2rem 0; }
-</style>

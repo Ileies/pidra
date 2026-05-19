@@ -1,17 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
-import { env } from "$env/dynamic/private";
 import { error, fail } from "@sveltejs/kit";
-import postgres from "postgres";
 import { marked } from "marked";
-
-let _sql: ReturnType<typeof postgres> | null = null;
-function sql() {
-  if (!_sql) {
-    if (!env.DATABASE_URL) throw new Error("DATABASE_URL not set");
-    _sql = postgres(env.DATABASE_URL, { max: 5 });
-  }
-  return _sql;
-}
+import { sql } from "$lib/db";
 
 function extractRefsIds(markdown: string): string[] {
   const ids: string[] = [];

@@ -46,6 +46,8 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
       ...(i.extraction.extractedJson as object),
     })),
     question_answers: Object.keys(questionAnswers).length > 0 ? questionAnswers : null,
+    calendar_next_7_days: ctx.calendarItems,
+    active_todos: ctx.todoItems,
     known_contacts: ctx.knownContacts.map((c) => ({
       identifier: c.identifier,
       name: c.name,

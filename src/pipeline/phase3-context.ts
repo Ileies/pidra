@@ -1,5 +1,6 @@
-import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities } from "../db";
+import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
 import { eq, and, gte, inArray } from "drizzle-orm";
+import type { CalendarEvent, TodoItem } from "../ingest/google";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
@@ -12,6 +13,8 @@ export interface ContextPayload {
   notesPersonal: (typeof notes.$inferSelect)[];
   knownContacts: (typeof contacts.$inferSelect)[];
   sourceQualities: Map<string, number>;
+  calendarItems: CalendarEvent[];
+  todoItems: TodoItem[];
 }
 
 export interface ExtractionWithSource {
@@ -37,6 +40,8 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     allNotes,
     allContacts,
     entityList,
+    calendarRaw,
+    todoRaw,
   ] = await Promise.all([
     db.query.extractions.findMany({
       where: eq(extractions.runDate, runDate),
@@ -47,7 +52,21 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     db.select().from(notes),
     db.select().from(contacts),
     db.select().from(entities).where(eq(entities.status, "active")),
+    db.select({ rawContent: rawItems.rawContent })
+      .from(rawItems)
+      .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "calendar"))),
+    db.select({ rawContent: rawItems.rawContent })
+      .from(rawItems)
+      .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "todo"))),
   ]);
+
+  const calendarItems: CalendarEvent[] = calendarRaw
+    .map((r) => { try { return JSON.parse(r.rawContent ?? ""); } catch { return null; } })
+    .filter(Boolean) as CalendarEvent[];
+
+  const todoItems: TodoItem[] = todoRaw
+    .map((r) => { try { return JSON.parse(r.rawContent ?? ""); } catch { return null; } })
+    .filter(Boolean) as TodoItem[];
 
   const qualityMap = new Map(qualityResult.map((s) => [s.sourceName, s.trustScore ?? 1.0]));
 
@@ -111,7 +130,10 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     (e) => (e.mentionCount ?? 0) >= 3 && mentionedEntityNames.has(e.name.toLowerCase())
   );
 
-  console.log(`[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items, volume: ${volumeSignal}`);
+  console.log(
+    `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items, ` +
+    `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}`
+  );
 
   return {
     volumeSignal,
@@ -124,5 +146,7 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     notesPersonal: allNotes.filter((n) => n.scope === "personal" || n.scope === "global"),
     knownContacts: allContacts,
     sourceQualities: qualityMap,
+    calendarItems,
+    todoItems,
   };
 }

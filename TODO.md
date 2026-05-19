@@ -188,3 +188,35 @@ Several of these are now partially automated by the Context Builder — items ma
 
 ### Future (Phase 8+, do not build yet)
 - [ ] **GitHub activity integration** — GitHub webhook or polling for PR reviews, CI failures, issue mentions across followed repos; most relevant once the briefing system is self-hosted and stable
+
+---
+
+## Phase 8 — Smart Reply (do not build yet)
+
+Only after all prior phases are complete and stable.
+
+### Answerable mail list
+
+- [ ] Add `reply_monitoring: boolean` key to the per-address config block. Only addresses with this flag enabled are considered.
+- [ ] During Ollama personal email classification (Phase 1), add a dedicated pass that decides for each incoming mail from a monitored address whether the mail expects or deserves a reply. Write the result as a flag on the `raw_items` / `extractions` row.
+- [ ] At the bottom of the daily report (dashboard), render a collapsible "Mails worth replying to" panel listing flagged items with sender, subject, and a one-line summary.
+
+### Reply form (dashboard)
+
+Clicking a list item opens a modal/side panel with two mutually exclusive actions:
+
+**Option A — "Later reply" template**
+- Dropdown to select delay: 2 h / 4 h / 8 h / 24 h / 2 days / 3 days / 1 week
+- AI generates a short, polite template in the user's name stating a reply will follow within the chosen timeframe. No prose judgments, no em dashes.
+- Preview shown before sending. Send button triggers actual mail delivery via SMTP (same Netcup credentials as ingestion).
+
+**Option B — AI-drafted full reply**
+- Sonnet drafts a reply using all available context: contact history, active topics, standing context, entity graph. No em dashes in output.
+- Draft displayed in an editable text area.
+- "Regenerate" button triggers a fresh Sonnet call with a temperature nudge.
+- "Send" button delivers the mail via SMTP after user confirmation.
+
+### Constraints
+- Both send paths go through SMTP (no third-party mail API).
+- Sent mails are written to a `sent_replies` table (message_id, raw_item_id, reply_type, sent_at, body_hash) for audit and dedup.
+- The full reply draft (Option B) must pass through the same "no diary content to cloud API" firewall check as all other Sonnet calls.

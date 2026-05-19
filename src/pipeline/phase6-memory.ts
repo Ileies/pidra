@@ -16,7 +16,8 @@ export async function runPhase6(
   runDate: string,
   synthesis: SynthesisResult,
   itemCount: number,
-  itemsIncluded: number
+  itemsIncluded: number,
+  questionGateFired = false,
 ): Promise<string> {
   console.log("[Phase 6] Writing memory and report");
 
@@ -33,7 +34,7 @@ export async function runPhase6(
     tokensIn: synthesis.tokensIn,
     tokensOut: synthesis.tokensOut,
     aiCalls: 2,
-    questionGateFired: false,
+    questionGateFired,
   }).onConflictDoUpdate({
     target: dailyReports.reportDate,
     set: { fullReport, shortSummary: synthesis.section1.slice(0, 500), tokensIn: synthesis.tokensIn, tokensOut: synthesis.tokensOut },

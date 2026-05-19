@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "run:pipeline": "bun run src/pipeline/run.ts",
+    "cron": "bun run src/cron.ts",
     "server": "bun run src/server/index.ts",
     "dashboard": "cd dashboard && bun run dev",
     "db:generate": "drizzle-kit generate",

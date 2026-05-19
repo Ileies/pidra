@@ -3,7 +3,8 @@ import { db, pipelineRuns } from "../db";
 import { runPhase1 } from "./phase1-ingest";
 import { runPhase2 } from "./phase2-extract";
 import { runPhase3 } from "./phase3-context";
-import { runPhase5 } from "./phase5-synthesis";
+import { runPhase4 } from "./phase4-questiongate";
+import { runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
 import { withRetry, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
@@ -36,13 +37,30 @@ export async function runPipeline(runDate?: string): Promise<string> {
     await withRetry("phase1", () => runPhase1(date));
     await withRetry("phase2", () => runPhase2(date));
     const ctx = await withRetry("phase3", () => runPhase3(date));
-    const synthesis = await withRetry("phase5", () => runPhase5(ctx));
+    const gate = await withRetry("phase4", () => runPhase4(date));
+
+    // Section 1 and question gate wait run in parallel.
+    // Section 2 blocks until the gate resolves or times out.
+    const [s1, questionAnswers] = await Promise.all([
+      withRetry("phase5-section1", () => runSection1(ctx)),
+      gate.waitForAnswers(),
+    ]);
+    const s2 = await withRetry("phase5-section2", () => runSection2(ctx, questionAnswers));
+
+    const synthesis = {
+      section1: s1.text,
+      section2: s2.text,
+      tokensIn: s1.tokensIn + s2.tokensIn,
+      tokensOut: s1.tokensOut + s2.tokensOut,
+    };
+
     const report = await withRetry("phase6", () =>
       runPhase6(
         date,
         synthesis,
         ctx.newsletterItems.length + ctx.personalItems.length,
-        ctx.newsletterItems.length
+        ctx.newsletterItems.length,
+        gate.fired,
       )
     );
 

@@ -58,19 +58,31 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
   });
 }
 
+export async function runSection1(ctx: ContextPayload): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
+  console.log("[Phase 5] Section 1 synthesis starting");
+  const result = await synthesize(SECTION1_SYSTEM_PROMPT, buildSection1Payload(ctx));
+  console.log(`[Phase 5] Section 1 done — ${result.tokensIn} in, ${result.tokensOut} out`);
+  return result;
+}
+
+export async function runSection2(
+  ctx: ContextPayload,
+  questionAnswers: Record<string, string> = {}
+): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
+  console.log("[Phase 5] Section 2 synthesis starting");
+  const result = await synthesize(SECTION2_SYSTEM_PROMPT, buildSection2Payload(ctx, questionAnswers));
+  console.log(`[Phase 5] Section 2 done — ${result.tokensIn} in, ${result.tokensOut} out`);
+  return result;
+}
+
 export async function runPhase5(
   ctx: ContextPayload,
   questionAnswers: Record<string, string> = {}
 ): Promise<SynthesisResult> {
-  console.log("[Phase 5] Starting synthesis");
-
   const [s1, s2] = await Promise.all([
-    synthesize(SECTION1_SYSTEM_PROMPT, buildSection1Payload(ctx)),
-    synthesize(SECTION2_SYSTEM_PROMPT, buildSection2Payload(ctx, questionAnswers)),
+    runSection1(ctx),
+    runSection2(ctx, questionAnswers),
   ]);
-
-  console.log(`[Phase 5] Done — ${s1.tokensIn + s2.tokensIn} tokens in, ${s1.tokensOut + s2.tokensOut} tokens out`);
-
   return {
     section1: s1.text,
     section2: s2.text,

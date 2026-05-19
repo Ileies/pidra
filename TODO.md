@@ -18,7 +18,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 - [x] Test IMAP connection to Netcup server (info@pidra.de, mxe96e.netcup.net)
 - [x] Configure Google Calendar API credentials (OAuth 2.0) — Client ID, Secret, Refresh Token in `.env`
 - [x] Configure Google Tasks API credentials — shared OAuth credentials, same token
-- [ ] Set up SMS webhook endpoint (`POST /webhook/sms`)
+- [x] Set up SMS webhook endpoint (`POST /webhook/sms`)
 - [ ] Switch synthesis to Claude Sonnet 4.6 — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [x] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
 
@@ -27,8 +27,8 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 ## Phase 1 — Core Pipeline
 
 - [x] Implement Phase 1 ingestion: IMAP
-- [ ] Implement Phase 1 ingestion: Google Calendar + Google Tasks (see Phase 0 credentials above)
-- [ ] Implement Phase 1 ingestion: SMS via webhook (`POST /webhook/sms`)
+- [x] Implement Phase 1 ingestion: Google Calendar + Google Tasks (see Phase 0 credentials above)
+- [x] Implement Phase 1 ingestion: SMS via webhook (`POST /webhook/sms`)
 - [x] Implement HTML stripping and Message-ID dedup for emails
 - [x] Implement RSS polling for newsletters that support it (run in parallel with IMAP)
 - [x] Implement Ollama newsletter extraction prompt — content pass (currently: OpenAI GPT-4o)

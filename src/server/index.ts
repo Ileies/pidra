@@ -12,6 +12,44 @@ app.use("/api/*", cors({ origin: ["http://localhost:5173", "http://localhost:417
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
+// SMS forwarding webhook — receives messages from Android SMS forwarder app.
+// Expected payload: { from: string, body: string, timestamp?: number }
+// Auth: X-SMS-Secret header must match SMS_WEBHOOK_SECRET env var.
+app.post("/webhook/sms", async (c) => {
+  const secret = process.env.SMS_WEBHOOK_SECRET;
+  if (secret && c.req.header("X-SMS-Secret") !== secret) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const body = await c.req.json() as { from?: string; body?: string; timestamp?: number };
+  const from = body.from?.trim();
+  const text = body.body?.trim();
+  if (!from || !text) return c.json({ error: "Missing from or body" }, 400);
+
+  const tsMs = body.timestamp ?? Date.now();
+  const receivedAt = new Date(tsMs).toISOString();
+  const runDate = receivedAt.split("T")[0];
+  const messageId = `sms:${from}:${tsMs}`;
+
+  const existing = await db
+    .select({ id: rawItems.id })
+    .from(rawItems)
+    .where(eq(rawItems.messageId, messageId))
+    .limit(1);
+  if (existing.length > 0) return c.json({ ok: true, duplicate: true });
+
+  await db.insert(rawItems).values({
+    runDate,
+    sourceType: "sms",
+    sourceName: from,
+    messageId,
+    rawContent: `From: ${from}\n\n${text}`,
+    receivedAt,
+  });
+
+  return c.json({ ok: true });
+});
+
 app.post("/api/pipeline/run", async (c) => {
   const date = new Date().toISOString().split("T")[0];
   runPipeline(date).catch(console.error);

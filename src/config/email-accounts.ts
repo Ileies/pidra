@@ -2,7 +2,6 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 export interface EmailAccount {
-  id: string;
   label: string;
   host: string;
   user: string;

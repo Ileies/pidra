@@ -124,7 +124,7 @@ export async function runPhase2(runDate: string): Promise<void> {
   console.log(`[Phase 2] Starting extraction for ${runDate}`);
 
   const accounts = loadEmailAccounts();
-  const accountMap = new Map(accounts.map((a) => [a.id, a]));
+  const accountMap = new Map(accounts.map((a) => [a.user, a]));
 
   const disabledRows = await db
     .select({ sourceName: sourceQuality.sourceName })

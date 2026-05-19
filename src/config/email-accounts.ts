@@ -16,8 +16,6 @@ export interface EmailAccount {
   classifyNewsVsPersonal: boolean;
   // Injected into the AI classification prompt for this account's emails
   customInstructions: string | null;
-  // Own addresses for this account — skip self-sent emails
-  selfEmails: string[];
 }
 
 let _accounts: EmailAccount[] | null = null;

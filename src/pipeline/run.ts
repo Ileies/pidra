@@ -8,6 +8,7 @@ import { runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
 import { withRetry, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
+import { sendPushNotifications } from "../push";
 
 export async function runPipeline(runDate?: string): Promise<string> {
   const date = runDate ?? new Date().toISOString().split("T")[0];
@@ -69,6 +70,16 @@ export async function runPipeline(runDate?: string): Promise<string> {
       .update(pipelineRuns)
       .set({ status: "completed", completedAt: new Date().toISOString(), durationMs })
       .where(eq(pipelineRuns.id, run.id));
+
+    const notificationSummary = synthesis.section1
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(" ")
+      .slice(0, 120);
+    sendPushNotifications(date, notificationSummary).catch(console.error);
 
     console.log(`\n=== Pipeline complete in ${Math.round(durationMs / 1000)}s ===\n`);
     return report;

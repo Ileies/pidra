@@ -95,7 +95,7 @@ export const entityRelations = pgTable("entity_relations", {
   firstSeen: dateStr("first_seen"),
   lastSeen: dateStr("last_seen"),
   confirmed: boolean("confirmed").default(false),
-});
+}, (t) => [unique("entity_relations_from_to_type").on(t.fromId, t.toId, t.relationType)]);
 
 export const entityAppearances = pgTable("entity_appearances", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -216,6 +216,14 @@ export interface StepAttemptError {
   stack?: string;
   ts: string;
 }
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  endpoint: text("endpoint").unique().notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+});
 
 export const pipelineRuns = pgTable("pipeline_runs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

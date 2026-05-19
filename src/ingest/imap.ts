@@ -54,7 +54,7 @@ function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Bu
 }
 
 export async function ingestImapAccount(account: EmailAccount, runDate: string): Promise<number> {
-  console.log(`[Ingest/IMAP] [${account.id}] Connecting to ${account.host}...`);
+  console.log(`[Ingest/IMAP] [${account.user}] Connecting to ${account.host}...`);
 
   const imap = await openImap(account);
   const lookbackDays = parseInt(process.env.IMAP_LOOKBACK_DAYS ?? "1");
@@ -68,7 +68,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     imap.end();
   }
 
-  console.log(`[Ingest/IMAP] [${account.id}] Fetched ${raw.length} messages`);
+  console.log(`[Ingest/IMAP] [${account.user}] Fetched ${raw.length} messages`);
 
   let stored = 0;
   for (const buffer of raw) {
@@ -110,7 +110,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
       runDate,
       sourceType,
       sourceName: sourceName ?? (parsed.from?.value[0]?.name ?? from),
-      accountId: account.id,
+      accountId: account.user,
       messageId,
       rawContent: `Subject: ${subject}\nFrom: ${from}\n\n${content}`,
       receivedAt: parsed.date?.toISOString() ?? new Date().toISOString(),
@@ -119,6 +119,6 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     stored++;
   }
 
-  console.log(`[Ingest/IMAP] [${account.id}] Stored ${stored} new items`);
+  console.log(`[Ingest/IMAP] [${account.user}] Stored ${stored} new items`);
   return stored;
 }

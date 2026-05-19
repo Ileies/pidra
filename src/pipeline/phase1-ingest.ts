@@ -32,7 +32,7 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
     if (r.status === "fulfilled") {
       emailCount += r.value;
     } else {
-      console.error(`[Phase 1] Account "${accounts[i].id}" failed:`, r.reason);
+      console.error(`[Phase 1] Account "${accounts[i].user}" failed:`, r.reason);
     }
   }
 

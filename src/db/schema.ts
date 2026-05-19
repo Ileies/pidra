@@ -184,6 +184,31 @@ export const skillExecutions = pgTable("skill_executions", {
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
+export interface GateQuestion {
+  id: string;
+  item_type: string; // email | sms
+  from: string;
+  subject?: string;
+  question: string;
+}
+
+export interface GateAnswer {
+  id: string;
+  answer: string;
+}
+
+export const questionGateSessions = pgTable("question_gate_sessions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: text("run_id").unique().notNull(),
+  runDate: dateStr("run_date").notNull(),
+  questions: jsonb("questions").notNull().$type<GateQuestion[]>(),
+  answers: jsonb("answers").$type<GateAnswer[]>(),
+  status: text("status").default("pending"), // pending | answered | timed_out
+  timeoutAt: timestamptz("timeout_at").notNull(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  answeredAt: timestamptz("answered_at"),
+});
+
 export interface StepAttemptError {
   step: string;
   attempt: number;

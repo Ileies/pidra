@@ -1,5 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { onMount } from "svelte";
+  import { env } from "$env/dynamic/public";
   import type { PageData, ActionData } from "./$types";
 
   export let data: PageData;
@@ -22,6 +24,65 @@
   const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
 
   let triggering = false;
+
+  type NotifState = "unsupported" | "denied" | "unsubscribed" | "subscribed" | "busy";
+  let notifState: NotifState = "unsupported";
+
+  onMount(async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (Notification.permission === "denied") { notifState = "denied"; return; }
+    notifState = "unsubscribed";
+    const sw = await navigator.serviceWorker.ready;
+    const sub = await sw.pushManager.getSubscription();
+    if (sub) notifState = "subscribed";
+  });
+
+  function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
+    const padding = "=".repeat((4 - (b64.length % 4)) % 4);
+    const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+
+  async function toggleNotifications() {
+    notifState = "busy";
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      const existing = await sw.pushManager.getSubscription();
+
+      if (existing) {
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: existing.endpoint }),
+        });
+        await existing.unsubscribe();
+        notifState = "unsubscribed";
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { notifState = "denied"; return; }
+
+      const sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(env.PUBLIC_VAPID_KEY),
+      });
+
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sub.toJSON()),
+      });
+
+      notifState = "subscribed";
+    } catch (e) {
+      console.error("[push]", e);
+      notifState = "unsubscribed";
+    }
+  }
 </script>
 
 <svelte:head>
@@ -51,6 +112,13 @@
         <a href="/questions" class="{navBtn} border-warning-700 text-warning-400 hover:bg-surface-800 animate-pulse">⚠ Questions</a>
       {:else}
         <a href="/questions" class="{navBtn} border-surface-700 text-surface-500 hover:bg-surface-800">Questions</a>
+      {/if}
+      {#if notifState === "unsubscribed"}
+        <button on:click={toggleNotifications} class="{navBtn} border-surface-700 text-surface-500 hover:bg-surface-800 cursor-pointer bg-transparent">Notify</button>
+      {:else if notifState === "subscribed"}
+        <button on:click={toggleNotifications} class="{navBtn} border-success-700 text-success-400 hover:bg-surface-800 cursor-pointer bg-transparent">Notify ✓</button>
+      {:else if notifState === "busy"}
+        <span class="{navBtn} border-surface-700 text-surface-600 opacity-50 select-none">…</span>
       {/if}
     </nav>
   </header>

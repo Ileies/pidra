@@ -70,8 +70,6 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
 
   console.log(`[Ingest/IMAP] [${account.id}] Fetched ${raw.length} messages`);
 
-  const selfEmailsLower = account.selfEmails.map((e) => e.toLowerCase());
-
   let stored = 0;
   for (const buffer of raw) {
     const parsed = await simpleParser(buffer);
@@ -81,9 +79,6 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     const subject = parsed.subject ?? "";
 
     const senderEmail = ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase();
-
-    // Skip self-sent emails for this account
-    if (selfEmailsLower.some((e) => senderEmail.includes(e))) continue;
 
     // Skip Substack system notifications
     if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") continue;

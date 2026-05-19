@@ -9,8 +9,6 @@ export interface EmailAccount {
   folder: string;
   // If true, use newsletter domain detection (for the dedicated news inbox)
   isNewsAccount: boolean;
-  // If true, AI adds email_category field to distinguish personal vs. noise
-  classifyNewsVsPersonal: boolean;
   // Injected into the AI classification prompt for this account's emails
   customInstructions: string | null;
 }

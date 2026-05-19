@@ -1,6 +1,5 @@
 import Parser from "rss-parser";
-import { db, rawItems } from "../db";
-import { eq } from "drizzle-orm";
+import { db, rawItems, rawItemExists } from "../db";
 import { RSS_FEEDS } from "../config/rss-feeds";
 
 const parser = new Parser({ timeout: 15000 });
@@ -37,11 +36,7 @@ async function ingestFeed(sourceName: string, feedUrl: string, since: Date, runD
     const dedupKey = item.guid ?? item.link ?? null;
     if (!dedupKey) continue;
 
-    const existing = await db.select({ id: rawItems.id })
-      .from(rawItems)
-      .where(eq(rawItems.messageId, dedupKey))
-      .limit(1);
-    if (existing.length > 0) continue;
+    if (await rawItemExists(dedupKey)) continue;
 
     const content = buildRawContent(item, sourceName);
     await db.insert(rawItems).values({

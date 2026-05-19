@@ -2,6 +2,8 @@ import { db, dailyReports, activeTopics, entities, contacts, notes, extractions,
 import { eq, gte, and, sql as drizzleSql } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
 
+const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
+
 function parseSystemBlock(text: string): Record<string, any> | null {
   const match = text.match(/<!--SYSTEM\s*([\s\S]*?)\s*-->/);
   if (!match) return null;
@@ -127,10 +129,8 @@ async function writeSourceDailyScores(runDate: string): Promise<void> {
     const itemsReceived = relevances.length;
     if (itemsReceived === 0) continue;
 
-    const avgRelevance = relevances.reduce((s, v) => s + v, 0) / relevances.length;
-    const avgEffectiveRelevance = effectives.length
-      ? effectives.reduce((s, v) => s + v, 0) / effectives.length
-      : avgRelevance;
+    const avgRelevance = avg(relevances);
+    const avgEffectiveRelevance = effectives.length ? avg(effectives) : avgRelevance;
     const itemsIncluded = effectives.filter((v) => v >= 3).length;
     const includeRate = itemsIncluded / itemsReceived;
     // composite 0–10: quality-weighted (7pts) + breadth signal (3pts)

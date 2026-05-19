@@ -70,10 +70,5 @@ export function classifyEmail(from: string): { sourceType: "newsletter" | "perso
     }
   }
 
-  // Substack catch-all (any @substack.com sender is a newsletter)
-  if (senderDomain === "substack.com" || senderDomain.endsWith(".substack.com")) {
-    return { sourceType: "newsletter", sourceName: senderName || null };
-  }
-
   return { sourceType: "personal_email", sourceName: senderEmail };
 }

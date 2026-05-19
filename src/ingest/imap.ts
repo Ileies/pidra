@@ -1,7 +1,6 @@
 import Imap from "imap";
 import { simpleParser } from "mailparser";
-import { db, rawItems } from "../db";
-import { eq } from "drizzle-orm";
+import { db, rawItems, rawItemExists } from "../db";
 import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
 import { RSS_SOURCE_NAMES } from "../config/rss-feeds";
@@ -83,14 +82,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     // Skip Substack system notifications
     if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") continue;
 
-    // Dedup by Message-ID
-    if (messageId) {
-      const existing = await db.select({ id: rawItems.id })
-        .from(rawItems)
-        .where(eq(rawItems.messageId, messageId))
-        .limit(1);
-      if (existing.length > 0) continue;
-    }
+    if (messageId && await rawItemExists(messageId)) continue;
 
     const { sourceType, sourceName } = account.isNewsAccount
       ? classifyEmail(from)

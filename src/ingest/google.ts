@@ -1,6 +1,5 @@
 import { google } from "googleapis";
-import { db, rawItems } from "../db";
-import { eq } from "drizzle-orm";
+import { db, rawItems, rawItemExists } from "../db";
 
 export interface CalendarEvent {
   id: string;
@@ -54,13 +53,7 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
     if (!event.id) continue;
 
     const messageId = `calendar:${runDate}:${event.id}`;
-
-    const existing = await db
-      .select({ id: rawItems.id })
-      .from(rawItems)
-      .where(eq(rawItems.messageId, messageId))
-      .limit(1);
-    if (existing.length > 0) continue;
+    if (await rawItemExists(messageId)) continue;
 
     const isAllDay = !event.start?.dateTime;
     const content: CalendarEvent = {
@@ -113,13 +106,7 @@ export async function ingestGoogleTasks(runDate: string): Promise<number> {
       if (!task.id || task.status === "completed") continue;
 
       const messageId = `todo:${runDate}:${task.id}`;
-
-      const existing = await db
-        .select({ id: rawItems.id })
-        .from(rawItems)
-        .where(eq(rawItems.messageId, messageId))
-        .limit(1);
-      if (existing.length > 0) continue;
+      if (await rawItemExists(messageId)) continue;
 
       const content: TodoItem = {
         id: task.id,

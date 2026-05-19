@@ -23,6 +23,10 @@ export interface ExtractionWithSource {
   sourceType: string;
 }
 
+function parseJsonRows<T>(rows: { rawContent: string | null }[]): T[] {
+  return rows.flatMap((r) => { try { return [JSON.parse(r.rawContent ?? "") as T]; } catch { return []; } });
+}
+
 function corroborationBonus(sourceCount: number): number {
   if (sourceCount >= 4) return 1.0;
   if (sourceCount === 3) return 0.7;
@@ -60,13 +64,8 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "todo"))),
   ]);
 
-  const calendarItems: CalendarEvent[] = calendarRaw
-    .map((r) => { try { return JSON.parse(r.rawContent ?? ""); } catch { return null; } })
-    .filter(Boolean) as CalendarEvent[];
-
-  const todoItems: TodoItem[] = todoRaw
-    .map((r) => { try { return JSON.parse(r.rawContent ?? ""); } catch { return null; } })
-    .filter(Boolean) as TodoItem[];
+  const calendarItems = parseJsonRows<CalendarEvent>(calendarRaw);
+  const todoItems = parseJsonRows<TodoItem>(todoRaw);
 
   const qualityMap = new Map(qualityResult.map((s) => [s.sourceName, s.trustScore ?? 1.0]));
 

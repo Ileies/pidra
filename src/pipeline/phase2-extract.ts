@@ -143,9 +143,7 @@ export async function runPhase2(runDate: string): Promise<void> {
     while (queue.length > 0) {
       const item = queue.shift()!;
       const account = item.accountId ? accountMap.get(item.accountId) : null;
-      const customInstructions = account?.classifyNewsVsPersonal
-        ? (account.customInstructions ?? null)
-        : null;
+      const customInstructions = account?.customInstructions ?? null;
       await extractItem(item, runDate, customInstructions);
     }
   });

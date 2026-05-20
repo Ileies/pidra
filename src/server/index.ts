@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
-import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, skillExecutions, rawItemExists } from "../db";
+import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, skillExecutions, rawItemExists, promptVersions } from "../db";
 import type { GateAnswer, GateQuestion } from "../db/schema";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
@@ -290,6 +290,63 @@ async function braveSearch(query: string): Promise<string> {
     return "";
   }
 }
+
+// --- Prompt Versions ---
+
+app.get("/api/prompts", async (c) => {
+  const rows = await db.select().from(promptVersions).orderBy(desc(promptVersions.createdAt));
+  return c.json(rows);
+});
+
+app.post("/api/prompts", async (c) => {
+  const body = await c.req.json() as { section: string; promptText: string; changeSummary?: string };
+  const { section, promptText, changeSummary } = body;
+  if (!section || !promptText) return c.json({ error: "section and promptText required" }, 400);
+
+  const existing = await db.select({ version: promptVersions.version })
+    .from(promptVersions)
+    .where(eq(promptVersions.section, section))
+    .orderBy(desc(promptVersions.version))
+    .limit(1);
+
+  const nextVersion = (existing[0]?.version ?? 0) + 1;
+
+  const [row] = await db.insert(promptVersions).values({
+    section,
+    promptText,
+    changeSummary: changeSummary ?? null,
+    version: nextVersion,
+    active: false,
+  }).returning();
+
+  return c.json(row, 201);
+});
+
+app.post("/api/prompts/:id/approve", async (c) => {
+  const id = c.req.param("id");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+
+  const [target] = await db.select().from(promptVersions).where(eq(promptVersions.id, id)).limit(1);
+  if (!target) return c.json({ error: "Not found" }, 404);
+
+  // Deactivate all versions of the same section, then activate this one
+  await db.update(promptVersions).set({ active: false }).where(eq(promptVersions.section, target.section));
+  await db.update(promptVersions).set({ active: true, approvedAt: new Date().toISOString() }).where(eq(promptVersions.id, id));
+
+  return c.json({ ok: true, section: target.section, version: target.version });
+});
+
+app.delete("/api/prompts/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+
+  const [target] = await db.select({ active: promptVersions.active }).from(promptVersions).where(eq(promptVersions.id, id)).limit(1);
+  if (!target) return c.json({ error: "Not found" }, 404);
+  if (target.active) return c.json({ error: "Cannot delete the active prompt version" }, 409);
+
+  await db.delete(promptVersions).where(eq(promptVersions.id, id));
+  return c.json({ ok: true });
+});
 
 loadSkills().catch(console.error);
 

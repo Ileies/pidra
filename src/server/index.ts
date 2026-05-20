@@ -2,14 +2,82 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
-import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, rawItemExists } from "../db";
+import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, skillExecutions, rawItemExists } from "../db";
 import type { GateAnswer, GateQuestion } from "../db/schema";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
+import { loadSkills, getSkill, listSkills, type RiskLevel } from "../skills/loader";
 
 const app = new Hono();
 
 app.use("/api/*", cors({ origin: ["http://localhost:5173", "http://localhost:4173"] }));
+
+// --- Skills Bridge ---
+
+app.get("/skills", (c) => c.json(listSkills().map((s) => ({
+  name: s.name,
+  description: s.description,
+  risk_level: s.risk_level,
+  parameters: s.parameters,
+}))));
+
+const CRITICAL_DELAY_MS = 30_000;
+
+app.post("/skills/execute", async (c) => {
+  const body = await c.req.json() as {
+    skill: string;
+    parameters?: Record<string, unknown>;
+    triggered_by?: string;
+    run_id?: string;
+    authorization_level?: "auto" | "confirm";
+  };
+
+  const { skill: skillName, parameters = {}, triggered_by = "manual", run_id } = body;
+
+  if (!skillName) return c.json({ error: "skill is required" }, 400);
+
+  const skill = getSkill(skillName);
+  if (!skill) return c.json({ error: `Unknown skill: ${skillName}` }, 404);
+
+  const today = new Date().toISOString().split("T")[0];
+  const [execRow] = await db.insert(skillExecutions).values({
+    runDate: today,
+    skillName,
+    parameters,
+    status: "pending",
+    triggeredBy: triggered_by,
+  }).returning({ id: skillExecutions.id });
+
+  if (skill.risk_level === "critical") {
+    await db.update(skillExecutions).set({ status: "rejected" }).where(eq(skillExecutions.id, execRow.id));
+    return c.json({ status: "rejected", reason: "critical skills require manual review and cannot be auto-executed" }, 403);
+  }
+
+  if (skill.risk_level === "high") {
+    await db.update(skillExecutions).set({ status: "pending" }).where(eq(skillExecutions.id, execRow.id));
+    return c.json({ status: "pending_confirmation", message: "high-risk skill requires confirmation", execution_id: execRow.id }, 202);
+  }
+
+  if (skill.risk_level === "medium") {
+    console.log(`[Skills] Medium-risk skill executed: ${skillName} — triggered_by=${triggered_by}`);
+  }
+
+  try {
+    const result = await skill.execute(parameters);
+    await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, execRow.id));
+    return c.json({ status: "executed", result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, execRow.id));
+    return c.json({ status: "failed", error: msg }, 500);
+  }
+});
+
+app.get("/api/skills/executions", async (c) => {
+  const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
+  const rows = await db.select().from(skillExecutions).orderBy(desc(skillExecutions.createdAt)).limit(limit);
+  return c.json(rows);
+});
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
@@ -222,6 +290,8 @@ async function braveSearch(query: string): Promise<string> {
     return "";
   }
 }
+
+loadSkills().catch(console.error);
 
 export default {
   port: Number(process.env.SKILLS_BRIDGE_PORT ?? 4000),

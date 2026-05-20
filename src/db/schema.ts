@@ -235,3 +235,33 @@ export const pipelineRuns = pgTable("pipeline_runs", {
   completedAt: timestamptz("completed_at"),
   durationMs: integer("duration_ms"),
 });
+
+export const standingContext = pgTable("standing_context", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").unique().notNull(), // e.g. daily_life_rules | recurring_commitments | university
+  value: text("value").notNull(),
+  source: text("source").default("context_builder"), // context_builder | user | system
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+});
+
+export const contextBuilderRuns = pgTable("context_builder_runs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  mode: text("mode").notNull(), // full | update | resume
+  status: text("status").notNull().default("running"), // running | completed | failed | interrupted
+  startedAt: timestamptz("started_at").default(sql`now()`),
+  completedAt: timestamptz("completed_at"),
+  itemsIndexed: integer("items_indexed").default(0),
+  itemsSkipped: integer("items_skipped").default(0),
+  sonnetTokensIn: integer("sonnet_tokens_in").default(0),
+  sonnetTokensOut: integer("sonnet_tokens_out").default(0),
+  outputPath: text("output_path"),
+  errorLog: jsonb("error_log").$type<{ source: string; error: string; ts: string }[]>(),
+});
+
+export const contextBuilderIndexedItems = pgTable("context_builder_indexed_items", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => contextBuilderRuns.id),
+  source: text("source").notNull(), // email | keep | tasks | github
+  itemId: text("item_id").notNull(), // message-id, note id, task id, repo name
+  indexedAt: timestamptz("indexed_at").default(sql`now()`),
+}, (t) => [unique("cb_indexed_source_item").on(t.source, t.itemId)]);

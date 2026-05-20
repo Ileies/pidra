@@ -99,21 +99,21 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ## Phase 5 — Self-Improvement Loop
 
-- [ ] Implement weekly meta-run analytics computation (Bun, no AI)
-- [ ] Implement prompt diff generation (1 Sonnet call, Sunday evening)
-- [ ] Implement prompt approval flow (question API + `prompt_versions` table)
-- [ ] Implement entity graph pruning (Bun, weekly)
-- [ ] Implement weekly review conversation (3 questions → Sonnet → notes writes)
+- [x] Implement weekly meta-run analytics computation (Bun, no AI)
+- [x] Implement prompt diff generation (1 Sonnet call, Sunday evening)
+- [x] Implement prompt approval flow (question API + `prompt_versions` table)
+- [x] Implement entity graph pruning (Bun, weekly)
+- [x] Implement weekly review conversation (3 questions → Sonnet → notes writes)
 
 ---
 
 ## Phase 6 — Polish and Monitoring
 
-- [ ] Source quality dashboard in SvelteKit (trust scores, include rates per source)
-- [ ] Entity graph explorer (basic table view: name, type, mention count, status)
-- [ ] Notes management UI (view, add, delete)
-- [ ] Error monitoring: email fallback if daily run fails
-- [ ] Performance logging: token usage, run times, source coverage per run
+- [x] Source quality dashboard in SvelteKit (trust scores, include rates per source)
+- [x] Entity graph explorer (basic table view: name, type, mention count, status)
+- [x] Notes management UI (view, add, delete)
+- [x] Error monitoring: pipeline failures visible in dashboard (no email — dashboard is the primary interface)
+- [x] Performance logging: token usage, run times, source coverage per run (stored in daily_reports + pipeline_runs)
 - [ ] Begin adding medium-risk skills gradually
 
 ---

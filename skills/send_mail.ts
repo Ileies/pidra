@@ -7,7 +7,7 @@ const skill: Skill = {
   description: "Send an email from one of the configured accounts",
   risk_level: "medium",
   parameters: {
-    account: { type: "string", required: true, description: "Sender account user address (must match a user in email-accounts.json)" },
+    account: { type: "string", required: true, description: "Sender address — must match a user or alias in email-accounts.json" },
     to: { type: "string", required: true, description: "Recipient email address" },
     subject: { type: "string", required: true, description: "Email subject" },
     body: { type: "string", required: true, description: "Email body (plain text)" },
@@ -15,11 +15,18 @@ const skill: Skill = {
   execute: async (params) => {
     const accounts = loadEmailAccounts();
     const key = String(params.account ?? "").trim().toLowerCase();
-    const account = accounts.find((a) => a.user.toLowerCase() === key);
+    const account = accounts.find(
+      (a) =>
+        a.user.toLowerCase() === key ||
+        (a.aliases ?? []).some((alias) => alias.toLowerCase() === key),
+    );
     if (!account) {
-      const available = accounts.map((a) => a.user).join(", ");
+      const available = accounts
+        .flatMap((a) => [a.user, ...(a.aliases ?? [])])
+        .join(", ");
       throw new Error(`No account matching "${params.account}". Available: ${available}`);
     }
+    const fromAddress = key === account.user.toLowerCase() ? account.user : key;
 
     const to = String(params.to ?? "").trim();
     const subject = String(params.subject ?? "").trim();
@@ -34,13 +41,13 @@ const skill: Skill = {
     });
 
     const info = await transport.sendMail({
-      from: account.user,
+      from: fromAddress,
       to,
       subject,
       text: body,
     });
 
-    return `Email sent from ${account.user} to ${to} (messageId=${info.messageId})`;
+    return `Email sent from ${fromAddress} to ${to} (messageId=${info.messageId})`;
   },
 };
 

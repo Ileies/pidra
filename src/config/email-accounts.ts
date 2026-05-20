@@ -9,6 +9,7 @@ export interface EmailAccount {
   folder: string;
   isNewsAccount: boolean;
   customInstructions: string | null;
+  aliases?: string[];
   // Optional SMTP overrides — derived from host when omitted
   smtp_host?: string;
   smtp_port?: number;

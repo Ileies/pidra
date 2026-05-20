@@ -4,8 +4,8 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-b
 
 The **Context Builder** (`context-builder/`) is a separate standalone tool — its own detailed TODO is in `CONTEXT_BUILDER_PLAN.md`. Run it before the first pipeline run to pre-seed contacts, entities, and standing context. High-level status:
 
-- [ ] Context Builder: sub-project scaffolding and DB migrations
-- [ ] Context Builder: full first run (pre-seeds `entities`, `contacts`, `standing_context`)
+- [x] Context Builder: sub-project scaffolding and DB migrations
+- [ ] Context Builder: full first run (pre-seeds `entities`, `contacts`, `standing_context`) — requires Ollama + gkeepapi setup
 - [ ] Context Builder: set up monthly update run cadence
 
 ---

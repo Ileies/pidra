@@ -1,6 +1,7 @@
-import { db, dailyReports, activeTopics, entities, entityRelations, contacts, notes, extractions, rawItems, sourceDailyScores, sourceQuality } from "../db";
+import { db, dailyReports, activeTopics, entities, entityRelations, contacts, notes, extractions, rawItems, sourceDailyScores, sourceQuality, skillExecutions } from "../db";
 import { eq, gte, and, sql as drizzleSql } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
+import { getSkill } from "../skills/loader";
 
 const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
 
@@ -76,6 +77,8 @@ export async function runPhase6(
         status: "active",
       }).onConflictDoNothing();
     }
+
+    await processSkillSuggestions(s1System.skill_suggestions ?? [], runDate, "report_section");
   }
 
   // Parse and apply Section 2 SYSTEM block
@@ -246,6 +249,12 @@ async function markDormantEntities(runDate: string): Promise<void> {
     .set({ status: "dormant" })
     .where(and(eq(entities.status, "active"), drizzleSql`last_mentioned < ${threshold}`))
     .returning({ id: entities.id });
+
+  // Reactivate any dormant entity mentioned in today's run
+  await db
+    .update(entities)
+    .set({ status: "active" })
+    .where(and(eq(entities.status, "dormant"), eq(entities.lastMentioned, runDate)));
 
   if (result.length > 0) {
     console.log(`[Phase 6] Marked ${result.length} entity(ies) as dormant (absent > 14 days)`);

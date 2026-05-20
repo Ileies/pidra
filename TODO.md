@@ -59,7 +59,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 - [x] Implement entity knowledge graph (Ollama extraction → upsert pipeline)
 - [x] Implement entity context injection into Sonnet synthesis payload (trigger: mention_count ≥ 3)
 - [x] Implement source quality table + weekly scoring job (Bun, no AI)
-- [ ] Implement feedback mechanism 1: implicit behavioral signals (calendar/todo cross-reference)
+- [x] Implement feedback mechanism 1: implicit behavioral signals (calendar/todo cross-reference)
 - [x] Implement explicit +/- rating UI in SvelteKit dashboard
 - [x] Implement dormant entity detection (mark absent 14+ days as dormant; Slot 2 trigger live)
 

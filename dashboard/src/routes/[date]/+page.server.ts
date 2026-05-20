@@ -39,7 +39,7 @@ export const load: PageServerLoad = async ({ params }) => {
   const [report] = await db`
     SELECT report_date, full_report, short_summary,
            item_count, items_included, items_filtered,
-           tokens_in, tokens_out, ai_calls, created_at
+           tokens_in, tokens_out, ai_calls, web_searches_run, created_at
     FROM daily_reports
     WHERE report_date = ${date}
   `;
@@ -92,6 +92,7 @@ export const load: PageServerLoad = async ({ params }) => {
           tokensIn: report.tokens_in as number | null,
           tokensOut: report.tokens_out as number | null,
           aiCalls: report.ai_calls as number | null,
+          webSearchesRun: report.web_searches_run as number | null,
           createdAt: report.created_at as string | null,
         }
       : null,

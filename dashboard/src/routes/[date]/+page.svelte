@@ -151,6 +151,13 @@
           <span class="text-surface-500">AI calls</span>
         </span>
       {/if}
+      {#if data.report.webSearchesRun != null && data.report.webSearchesRun > 0}
+        <span class="text-surface-700 select-none">·</span>
+        <span class="flex items-baseline gap-1">
+          <span class="font-semibold text-surface-50 tabular-nums">{data.report.webSearchesRun}</span>
+          <span class="text-surface-500">web searches</span>
+        </span>
+      {/if}
     </div>
   {/if}
 

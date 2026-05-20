@@ -2,6 +2,7 @@ import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities
 import { eq, and } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { isPersonalItemIncluded } from "./email-category";
+import { runAllSlots, type WebSearchResult } from "../search/slots";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
@@ -16,6 +17,7 @@ export interface ContextPayload {
   sourceQualities: Map<string, number>;
   calendarItems: CalendarEvent[];
   todoItems: TodoItem[];
+  webSearchResults: WebSearchResult[];
 }
 
 export interface ExtractionWithSource {
@@ -38,21 +40,23 @@ function corroborationBonus(sourceCount: number): number {
 export async function runPhase3(runDate: string): Promise<ContextPayload> {
   console.log(`[Phase 3] Assembling context for ${runDate}`);
 
+  // Fetch topics first (needed for Slot 1 query generation)
+  const topicsResult = await db.select().from(activeTopics).where(eq(activeTopics.status, "active"));
+
   const [
     todaysExtractions,
-    topicsResult,
     qualityResult,
     allNotes,
     allContacts,
     entityList,
     calendarRaw,
     todoRaw,
+    webSearchResults,
   ] = await Promise.all([
     db.query.extractions.findMany({
       where: eq(extractions.runDate, runDate),
       with: { rawItem: true },
     }),
-    db.select().from(activeTopics).where(eq(activeTopics.status, "active")),
     db.select().from(sourceQuality),
     db.select().from(notes),
     db.select().from(contacts),
@@ -63,6 +67,10 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "todo"))),
+    runAllSlots(topicsResult, runDate).catch((err) => {
+      console.warn("[Phase 3] Web search failed, continuing without:", err);
+      return [] as WebSearchResult[];
+    }),
   ]);
 
   const calendarItems = parseJsonRows<CalendarEvent>(calendarRaw);
@@ -125,7 +133,8 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
 
   console.log(
     `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items, ` +
-    `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}`
+    `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}, ` +
+    `${webSearchResults.length} web search slot(s)`
   );
 
   return {
@@ -141,5 +150,6 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     sourceQualities: qualityMap,
     calendarItems,
     todoItems,
+    webSearchResults,
   };
 }

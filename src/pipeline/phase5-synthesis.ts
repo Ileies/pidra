@@ -10,6 +10,9 @@ export interface SynthesisResult {
 }
 
 function buildSection1Payload(ctx: ContextPayload): string {
+  const slot1 = ctx.webSearchResults.find((r) => r.slot === 1);
+  const slot2 = ctx.webSearchResults.find((r) => r.slot === 2);
+
   return JSON.stringify({
     volume_signal: ctx.volumeSignal,
     high_relevance_count: ctx.highRelevanceCount,
@@ -34,10 +37,16 @@ function buildSection1Payload(ctx: ContextPayload): string {
       mention_count: e.mentionCount,
     })),
     notes_intel: ctx.notesIntel.map((n) => n.content),
+    web_search: {
+      slot1_topic_deepdive: slot1 ? { query: slot1.query, topic_id: slot1.topicId, results: slot1.results } : null,
+      slot2_dormant_entity: slot2 ? { query: slot2.query, entity: slot2.entityName, results: slot2.results } : null,
+    },
   });
 }
 
 function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<string, string> = {}): string {
+  const slot3 = ctx.webSearchResults.find((r) => r.slot === 3);
+
   return JSON.stringify({
     personal_items: ctx.personalItems.map((i) => ({
       id: i.extraction.id,
@@ -55,6 +64,7 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
       priority: c.priority,
     })),
     notes_personal: ctx.notesPersonal.map((n) => n.content),
+    web_search_mentions: slot3 ? { target: slot3.target, query: slot3.query, results: slot3.results } : null,
   });
 }
 

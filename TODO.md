@@ -56,22 +56,22 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ## Phase 3 — Memory and Compounding
 
-- [ ] Implement entity knowledge graph (Ollama extraction → upsert pipeline)
-- [ ] Implement entity context injection into Sonnet synthesis payload (trigger: mention_count ≥ 3)
-- [ ] Implement source quality table + weekly scoring job (Bun, no AI)
+- [x] Implement entity knowledge graph (Ollama extraction → upsert pipeline)
+- [x] Implement entity context injection into Sonnet synthesis payload (trigger: mention_count ≥ 3)
+- [x] Implement source quality table + weekly scoring job (Bun, no AI)
 - [ ] Implement feedback mechanism 1: implicit behavioral signals (calendar/todo cross-reference)
-- [ ] Implement explicit +/- rating UI in SvelteKit dashboard
-- [ ] Implement dormant entity detection + web search Slot 2 trigger
+- [x] Implement explicit +/- rating UI in SvelteKit dashboard
+- [x] Implement dormant entity detection (mark absent 14+ days as dormant; Slot 2 trigger live)
 
 ---
 
 ## Phase 4 — Web Search + Skills Bridge
 
-- [ ] Choose web search API (start with Brave Search free tier — 2,000 calls/month)
-- [ ] Abstract behind internal `POST /search` interface
-- [ ] Implement Slot 1: top active topic deep-dive (always runs)
-- [ ] Implement Slot 2: dormant high-importance entity monitor (conditional)
-- [ ] Implement Slot 3: self/project reputation monitoring (daily, rotating targets)
+- [x] Choose web search API (Brave Search free tier — 2,000 calls/month)
+- [x] Abstract behind internal search module (src/search/)
+- [x] Implement Slot 1: top active topic deep-dive (always runs)
+- [x] Implement Slot 2: dormant high-importance entity monitor (conditional)
+- [x] Implement Slot 3: self/project reputation monitoring (daily, rotating targets)
 - [ ] Build Claude Code skills bridge: local REST API + TypeScript skill loader (`/skills` dir)
 - [ ] Implement starting skills (see below)
 - [ ] Integrate skill suggestions from Sonnet `<!--SYSTEM-->` output

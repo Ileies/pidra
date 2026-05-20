@@ -7,3 +7,7 @@ dist/
 .idea/
 dashboard/.svelte-kit/
 dashboard/build/
+context-builder/output/
+context-builder/.checkpoint.json
+context-builder/errors.json
+context-builder/.keep-token.json

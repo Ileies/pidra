@@ -115,6 +115,10 @@ Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`). Rul
 
 When adding a new pipeline phase, always wrap the call with `withRetry("phaseN", () => runPhaseN(...))` — never call phase functions directly in `run.ts`.
 
+## Privacy
+
+Never use real personal information in code, comments, or examples — no real email addresses, names, phone numbers, or other PII. Use placeholders like `user@example.com` instead.
+
 ## What to build next
 
 See `TODO.md` for the current phase and open items. Phases 0–6 are complete. The Context Builder scaffolding is done. What remains before a first real run: Ollama setup, gkeepapi auth (`context-builder/scripts/keep-auth.py`).

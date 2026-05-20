@@ -1,5 +1,5 @@
 import { db, dailyReports, activeTopics, entities, entityRelations, contacts, notes, extractions, rawItems, sourceDailyScores, sourceQuality } from "../db";
-import { eq, gte, and, inArray, sql as drizzleSql } from "drizzle-orm";
+import { eq, gte, and, sql as drizzleSql } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
 
 const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
@@ -20,6 +20,7 @@ export async function runPhase6(
   itemCount: number,
   itemsIncluded: number,
   questionGateFired = false,
+  webSearchesRun = 0,
 ): Promise<string> {
   console.log("[Phase 6] Writing memory and report");
 
@@ -37,6 +38,7 @@ export async function runPhase6(
     tokensOut: synthesis.tokensOut,
     aiCalls: 2,
     questionGateFired,
+    webSearchesRun,
   }).onConflictDoUpdate({
     target: dailyReports.reportDate,
     set: { fullReport, shortSummary: synthesis.section1.slice(0, 500), tokensIn: synthesis.tokensIn, tokensOut: synthesis.tokensOut },
@@ -99,6 +101,7 @@ export async function runPhase6(
 
   await writeSourceDailyScores(runDate);
   await upsertEntitiesFromExtractions(runDate);
+  await markDormantEntities(runDate);
 
   console.log("[Phase 6] Done");
   return fullReport;
@@ -233,4 +236,18 @@ async function upsertEntitiesFromExtractions(runDate: string): Promise<void> {
   }
 
   console.log(`[Phase 6] Upserted ${entityMap.size} entities, ${relationList.length} relation(s) from Ollama output`);
+}
+
+async function markDormantEntities(runDate: string): Promise<void> {
+  const threshold = new Date(Date.now() - 14 * 86400_000).toISOString().split("T")[0];
+
+  const result = await db
+    .update(entities)
+    .set({ status: "dormant" })
+    .where(and(eq(entities.status, "active"), drizzleSql`last_mentioned < ${threshold}`))
+    .returning({ id: entities.id });
+
+  if (result.length > 0) {
+    console.log(`[Phase 6] Marked ${result.length} entity(ies) as dormant (absent > 14 days)`);
+  }
 }

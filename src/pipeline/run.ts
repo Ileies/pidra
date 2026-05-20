@@ -62,6 +62,7 @@ export async function runPipeline(runDate?: string): Promise<string> {
         ctx.newsletterItems.length + ctx.personalItems.length,
         ctx.newsletterItems.length,
         gate.fired,
+        ctx.webSearchResults.length,
       )
     );
 

@@ -7,6 +7,9 @@
 
   let loading = false;
 
+  // Track optimistic rating state per item (synced from server on load)
+  let ratings: Record<string, string | null> = Object.fromEntries(data.items.map((i) => [i.id, i.rating ?? null]));
+
   function fmtDate(s: string | null) {
     if (!s) return "—";
     return new Date(s).toLocaleString("de-DE", {
@@ -108,6 +111,34 @@
               <pre class="mt-3 text-xs whitespace-pre-wrap break-words text-surface-500 max-h-96 overflow-y-auto bg-surface-950 border border-surface-700 rounded px-4 py-3 leading-relaxed">{item.rawContent}</pre>
             </details>
           {/if}
+
+          <div class="flex items-center gap-2 pt-1 border-t border-surface-800 mt-1">
+            <span class="text-xs text-surface-600">Relevanz-Signal:</span>
+            {#each [["1", "+", "success"] as const, ["-1", "−", "error"] as const] as [signal, label, color]}
+              <form
+                method="POST"
+                action="?/rate"
+                use:enhance={({ formData }) => {
+                  const id = formData.get("extraction_id") as string;
+                  const sig = formData.get("signal") as string;
+                  const et = sig === "1" ? "explicit_plus" : "explicit_minus";
+                  ratings[id] = ratings[id] === et ? null : et;
+                  return async ({ update }) => update({ reset: false });
+                }}
+              >
+                <input type="hidden" name="extraction_id" value={item.id} />
+                <input type="hidden" name="signal" value={signal} />
+                <button
+                  type="submit"
+                  class="w-7 h-7 rounded text-sm font-bold transition-colors border
+                    {ratings[item.id] === (signal === '1' ? 'explicit_plus' : 'explicit_minus')
+                      ? color === 'success' ? 'bg-success-700 border-success-500 text-white' : 'bg-error-700 border-error-500 text-white'
+                      : 'bg-surface-800 border-surface-700 text-surface-400 hover:border-surface-500'}"
+                  title={signal === "1" ? "Relevant — war gut" : "Nicht relevant"}
+                >{label}</button>
+              </form>
+            {/each}
+          </div>
         </article>
       {/each}
     </div>

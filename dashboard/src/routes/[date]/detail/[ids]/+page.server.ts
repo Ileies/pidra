@@ -36,6 +36,13 @@ export const load: PageServerLoad = async ({ params }) => {
 
   if (items.length === 0) error(404, "Items not found");
 
+  const ratedRows = await db`
+    SELECT extraction_id, event_type FROM feedback_events
+    WHERE extraction_id::text = ANY(${idList})
+    AND event_type IN ('explicit_plus', 'explicit_minus')
+  `;
+  const ratingMap = new Map((ratedRows as unknown as { extraction_id: string; event_type: string }[]).map((r) => [r.extraction_id, r.event_type]));
+
   return {
     date,
     ids,
@@ -48,6 +55,7 @@ export const load: PageServerLoad = async ({ params }) => {
       novelty: row.novelty as string | null,
       relevanceScore: row.relevance_score as number | null,
       effectiveRelevance: row.effective_relevance as number | null,
+      rating: (ratingMap.get(row.id as string) ?? null) as string | null,
       extracted: row.extracted_json as {
         headline?: string;
         key_claim?: string;
@@ -63,6 +71,25 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions: Actions = {
+  rate: async ({ request }) => {
+    const data = await request.formData();
+    const extractionId = (data.get("extraction_id") as string | null)?.trim();
+    const signal = data.get("signal") as string | null;
+
+    if (!extractionId || !UUID_RE.test(extractionId)) return fail(400, { error: "Invalid extraction_id" });
+    if (signal !== "1" && signal !== "-1") return fail(400, { error: "Invalid signal" });
+
+    const db = sql();
+    const eventType = signal === "1" ? "explicit_plus" : "explicit_minus";
+    const signalValue = parseInt(signal, 10);
+
+    // Remove any prior rating for this extraction, then insert fresh
+    await db`DELETE FROM feedback_events WHERE extraction_id = ${extractionId} AND event_type IN ('explicit_plus', 'explicit_minus')`;
+    await db`INSERT INTO feedback_events (extraction_id, event_type, signal_value) VALUES (${extractionId}, ${eventType}, ${signalValue})`;
+
+    return { rated: extractionId, eventType };
+  },
+
   zusammenfassen: async ({ params }) => {
     const { date, ids } = params;
     const idList = parseIds(ids);

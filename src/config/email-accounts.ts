@@ -7,10 +7,17 @@ export interface EmailAccount {
   user: string;
   password: string;
   folder: string;
-  // If true, use newsletter domain detection (for the dedicated news inbox)
   isNewsAccount: boolean;
-  // Injected into the AI classification prompt for this account's emails
   customInstructions: string | null;
+  // Optional SMTP overrides — derived from host when omitted
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_secure?: boolean;
+}
+
+export function smtpHost(account: EmailAccount): string {
+  if (account.smtp_host) return account.smtp_host;
+  return account.host.replace(/^imap\./, "smtp.");
 }
 
 let _accounts: EmailAccount[] | null = null;

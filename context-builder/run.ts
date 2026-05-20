@@ -63,7 +63,7 @@ async function getSkipSet(source: string): Promise<Set<string>> {
 }
 
 async function main(): Promise<void> {
-  const config = await loadConfig();
+  const config = loadConfig();
   await loadErrors();
 
   const mode = await detectMode();

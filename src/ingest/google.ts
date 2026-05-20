@@ -30,6 +30,14 @@ function createAuthClient() {
   return auth;
 }
 
+export async function getCalendarClient() {
+  return google.calendar({ version: "v3", auth: createAuthClient() });
+}
+
+export async function getTasksClient() {
+  return google.tasks({ version: "v1", auth: createAuthClient() });
+}
+
 export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   const auth = createAuthClient();
   const calendar = google.calendar({ version: "v3", auth });

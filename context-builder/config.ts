@@ -1,15 +1,7 @@
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { loadEmailAccounts, type EmailAccount } from "../src/config/email-accounts";
 
-export interface EmailAccount {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  tls: boolean;
-  isNewsAccount: boolean;
-  label?: string;
-}
+export type { EmailAccount };
 
 export interface Config {
   emailAccounts: EmailAccount[];
@@ -20,18 +12,9 @@ export interface Config {
   outputDir: string;
 }
 
-export async function loadConfig(): Promise<Config> {
-  const accountsPath = resolve(import.meta.dir, "email-accounts.json");
-  let emailAccounts: EmailAccount[] = [];
-  try {
-    const raw = await readFile(accountsPath, "utf-8");
-    emailAccounts = JSON.parse(raw);
-  } catch {
-    console.warn("[config] No email-accounts.json found — email source will be skipped");
-  }
-
+export function loadConfig(): Config {
   return {
-    emailAccounts,
+    emailAccounts: loadEmailAccounts(),
     emailYears: Number(process.env.CONTEXT_BUILDER_EMAIL_YEARS ?? 3),
     githubToken: process.env.GITHUB_TOKEN ?? null,
     ollamaModel: process.env.OLLAMA_MODEL ?? "qwen2.5:14b",

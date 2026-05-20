@@ -1,5 +1,5 @@
-import { db, questionGateSessions, notes, dailyReports, feedbackEvents, activeTopics } from "../db";
-import { eq, desc, gte, and } from "drizzle-orm";
+import { db, questionGateSessions, notes, dailyReports, activeTopics } from "../db";
+import { eq, desc, gte } from "drizzle-orm";
 import { synthesize } from "../ai/openai";
 import type { GateQuestion, GateAnswer } from "../db/schema";
 
@@ -28,14 +28,6 @@ export async function runWeeklyReview(): Promise<void> {
     .from(dailyReports)
     .where(gte(dailyReports.reportDate, weekStart))
     .orderBy(desc(dailyReports.reportDate));
-
-  const [feedbackRow] = await db
-    .select({
-      plus: eq(feedbackEvents.eventType, "explicit_plus"),
-    })
-    .from(feedbackEvents)
-    .where(gte(feedbackEvents.createdAt, new Date(Date.now() - 7 * 86400_000).toISOString()))
-    .limit(1);
 
   const topTopics = await db
     .select({ headline: activeTopics.headline, domain: activeTopics.domain, updateCount: activeTopics.updateCount })

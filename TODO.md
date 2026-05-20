@@ -72,10 +72,10 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 - [x] Implement Slot 1: top active topic deep-dive (always runs)
 - [x] Implement Slot 2: dormant high-importance entity monitor (conditional)
 - [x] Implement Slot 3: self/project reputation monitoring (daily, rotating targets)
-- [ ] Build Claude Code skills bridge: local REST API + TypeScript skill loader (`/skills` dir)
-- [ ] Implement starting skills (see below)
-- [ ] Integrate skill suggestions from Sonnet `<!--SYSTEM-->` output
-- [ ] Implement skill execution log in SvelteKit dashboard
+- [x] Build Claude Code skills bridge: local REST API + TypeScript skill loader (`/skills` dir)
+- [x] Implement starting skills (write_note, delete_note, run_web_search, add_todo_item, complete_todo_item, add_calendar_event)
+- [x] Integrate skill suggestions from Sonnet `<!--SYSTEM-->` output
+- [x] Implement skill execution log in SvelteKit dashboard
 
 ### Starting skills
 

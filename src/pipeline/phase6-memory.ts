@@ -260,3 +260,47 @@ async function markDormantEntities(runDate: string): Promise<void> {
     console.log(`[Phase 6] Marked ${result.length} entity(ies) as dormant (absent > 14 days)`);
   }
 }
+
+async function processSkillSuggestions(
+  suggestions: { skill: string; reason: string; parameters: Record<string, unknown> }[],
+  runDate: string,
+  triggeredBy: string,
+): Promise<void> {
+  for (const suggestion of suggestions) {
+    const skill = getSkill(suggestion.skill);
+    if (!skill) {
+      console.warn(`[Phase 6] Unknown skill suggestion: ${suggestion.skill} — skipped`);
+      continue;
+    }
+
+    if (skill.risk_level === "low") {
+      const [row] = await db.insert(skillExecutions).values({
+        runDate,
+        skillName: skill.name,
+        parameters: suggestion.parameters,
+        status: "pending",
+        triggeredBy,
+      }).returning({ id: skillExecutions.id });
+
+      try {
+        const result = await skill.execute(suggestion.parameters);
+        await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, row.id));
+        console.log(`[Phase 6] Skill executed: ${skill.name} — ${result.slice(0, 80)}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, row.id));
+        console.error(`[Phase 6] Skill failed: ${skill.name} — ${msg}`);
+      }
+    } else {
+      // Medium/high/critical: log as pending for manual review
+      await db.insert(skillExecutions).values({
+        runDate,
+        skillName: skill.name,
+        parameters: suggestion.parameters,
+        status: "pending",
+        triggeredBy,
+      });
+      console.log(`[Phase 6] Skill suggestion logged (${skill.risk_level}, manual review): ${skill.name}`);
+    }
+  }
+}

@@ -50,6 +50,13 @@
       "when": 1779224879970,
       "tag": "0006_solid_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779289849249,
+      "tag": "0007_ambitious_raider",
+      "breakpoints": true
     }
   ]
 }

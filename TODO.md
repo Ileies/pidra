@@ -46,10 +46,10 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ## Phase 2 — Question Gate + Delivery
 
-- [ ] Implement question gate: batching, question API endpoints, 45-min timeout behavior
-- [ ] Implement Section 1 / Section 2 parallelization during gate wait
-- [ ] Implement PWA + Web Push notifications in SvelteKit
-- [ ] Implement contacts table and contact-learning loop (question → contacts write)
+- [x] Implement question gate: batching, question API endpoints, 45-min timeout behavior
+- [x] Implement Section 1 / Section 2 parallelization during gate wait
+- [x] Implement PWA + Web Push notifications in SvelteKit
+- [x] Implement contacts table and contact-learning loop (question → contacts write)
 - [x] Set up Bun cron for automated daily run (default: 06:30)
 
 ---

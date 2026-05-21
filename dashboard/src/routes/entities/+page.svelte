@@ -17,13 +17,13 @@
   };
 
   function fmtDate(s: string | null) {
-    if (!s) return "—";
+    if (!s) return "-";
     return new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
   }
 </script>
 
 <svelte:head>
-  <title>PIDRA — Entities</title>
+  <title>PIDRA - Entities</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -95,17 +95,17 @@
                     <div class="text-xs text-surface-500 mt-0.5 max-w-xs truncate">{entity.summary}</div>
                   {/if}
                 </td>
-                <td class="px-4 py-2.5 text-surface-400 whitespace-nowrap">{entity.type ?? "—"}</td>
-                <td class="px-4 py-2.5 text-surface-500 hidden sm:table-cell">{entity.domain ?? "—"}</td>
+                <td class="px-4 py-2.5 text-surface-400 whitespace-nowrap">{entity.type ?? "-"}</td>
+                <td class="px-4 py-2.5 text-surface-500 hidden sm:table-cell">{entity.domain ?? "-"}</td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-surface-200">{entity.mention_count ?? 0}</td>
                 <td class="px-4 py-2.5">
                   <span class="badge text-xs border {STATUS_CLASS[entity.status ?? ''] ?? 'text-surface-500 bg-surface-900 border-surface-700'}">
-                    {entity.status ?? "—"}
+                    {entity.status ?? "-"}
                   </span>
                 </td>
                 <td class="px-4 py-2.5 hidden md:table-cell">
                   <span class="{IMPORTANCE_CLASS[entity.importance ?? ''] ?? 'text-surface-600'} text-xs">
-                    {entity.importance ?? "—"}
+                    {entity.importance ?? "-"}
                   </span>
                 </td>
                 <td class="px-4 py-2.5 text-right text-surface-500 text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(entity.last_mentioned)}</td>

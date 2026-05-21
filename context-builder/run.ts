@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   const today = new Date().toISOString().split("T")[0];
   const runId = `cb-${today}-${Date.now()}`;
 
-  console.log(`\n=== Context Builder — ${mode} mode${dryRun ? " (dry run)" : ""} ===\n`);
+  console.log(`\n=== Context Builder - ${mode} mode${dryRun ? " (dry run)" : ""} ===\n`);
 
   // Insert run record
   let dbRunId: string | undefined;

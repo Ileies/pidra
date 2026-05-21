@@ -12,13 +12,13 @@
   };
 
   function fmtDate(s: string | null) {
-    if (!s) return "—";
+    if (!s) return "-";
     return new Date(s).toLocaleString("de-DE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 </script>
 
 <svelte:head>
-  <title>PIDRA — Skills</title>
+  <title>PIDRA - Skills</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

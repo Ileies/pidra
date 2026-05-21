@@ -16,7 +16,7 @@ export interface EmailAccount {
   isNewsAccount: boolean;
   customInstructions: string | null;
   aliases?: string[];
-  // Optional SMTP overrides — derived from host when omitted
+  // Optional SMTP overrides - derived from host when omitted
   smtp_host?: string;
   smtp_port?: number;
   smtp_secure?: boolean;

@@ -18,7 +18,7 @@
   const SCOPES = ["global", "intel", "personal", "contact", "search"];
 
   function fmtDate(s: string | null) {
-    if (!s) return "—";
+    if (!s) return "-";
     return new Date(s).toLocaleString("de-DE", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
@@ -26,7 +26,7 @@
 </script>
 
 <svelte:head>
-  <title>PIDRA — Notes</title>
+  <title>PIDRA - Notes</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

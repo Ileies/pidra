@@ -17,7 +17,7 @@
   }
 
   function fmtNum(n: number | null | undefined) {
-    if (n == null) return "—";
+    if (n == null) return "-";
     return n.toLocaleString("de-DE");
   }
 
@@ -86,7 +86,7 @@
 </script>
 
 <svelte:head>
-  <title>PIDRA — {data.date}</title>
+  <title>PIDRA - {data.date}</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

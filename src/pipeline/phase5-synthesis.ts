@@ -71,7 +71,7 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
 async function synthesizeSection(name: string, prompt: string, payload: string) {
   console.log(`[Phase 5] ${name} synthesis starting`);
   const result = await synthesize(prompt, payload);
-  console.log(`[Phase 5] ${name} done — ${result.tokensIn} in, ${result.tokensOut} out`);
+  console.log(`[Phase 5] ${name} done - ${result.tokensIn} in, ${result.tokensOut} out`);
   return result;
 }
 

@@ -19,12 +19,12 @@
   }
 
   function fmtScore(score: number | null): string {
-    if (score == null) return "—";
+    if (score == null) return "-";
     return score.toFixed(1);
   }
 
   function fmtPct(v: number | null): string {
-    if (v == null) return "—";
+    if (v == null) return "-";
     return Math.round(v * 100) + "%";
   }
 
@@ -39,7 +39,7 @@
 </script>
 
 <svelte:head>
-  <title>PIDRA — Quellen</title>
+  <title>PIDRA - Quellen</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -104,7 +104,7 @@
                 {@const avgRate = src.dailyScores.reduce((s, d) => s + (d.includeRate ?? 0), 0) / src.dailyScores.length}
                 {fmtPct(avgRate)}
               {:else}
-                —
+                -
               {/if}
             </td>
             <td class="px-3 py-2 border-b border-surface-800 text-center text-surface-500">{trendLabel(src.qualityTrend)}</td>
@@ -151,7 +151,7 @@
         {/each}
         {#if data.sources.length === 0}
           <tr>
-            <td colspan="6" class="text-surface-700 text-center py-8">Noch keine Quelldaten — läuft nach dem ersten Pipeline-Run.</td>
+            <td colspan="6" class="text-surface-700 text-center py-8">Noch keine Quelldaten - läuft nach dem ersten Pipeline-Run.</td>
           </tr>
         {/if}
       </tbody>

@@ -59,7 +59,7 @@ app.post("/skills/execute", async (c) => {
   }
 
   if (skill.risk_level === "medium") {
-    console.log(`[Skills] Medium-risk skill executed: ${skillName} — triggered_by=${triggered_by}`);
+    console.log(`[Skills] Medium-risk skill executed: ${skillName} - triggered_by=${triggered_by}`);
   }
 
   try {
@@ -81,7 +81,7 @@ app.get("/api/skills/executions", async (c) => {
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-// SMS forwarding webhook — receives messages from Android SMS forwarder app.
+// SMS forwarding webhook - receives messages from Android SMS forwarder app.
 // Expected payload: { from: string, body: string, timestamp?: number }
 // Auth: X-SMS-Secret header must match SMS_WEBHOOK_SECRET env var.
 app.post("/webhook/sms", async (c) => {
@@ -214,7 +214,7 @@ app.patch("/api/sources/:name", async (c) => {
   return c.json({ ok: true, sourceName, isActive: body.isActive });
 });
 
-// GET /api/questions/pending — dashboard polls for the most recent pending gate session
+// GET /api/questions/pending - dashboard polls for the most recent pending gate session
 app.get("/api/questions/pending", async (c) => {
   const rows = await db
     .select()
@@ -227,7 +227,7 @@ app.get("/api/questions/pending", async (c) => {
   return c.json({ pending: true, session: rows[0] });
 });
 
-// POST /api/questions/:runId/answers — user submits answers from the dashboard
+// POST /api/questions/:runId/answers - user submits answers from the dashboard
 app.post("/api/questions/:runId/answers", async (c) => {
   const runId = c.req.param("runId");
   const body = await c.req.json() as { answers: GateAnswer[] };
@@ -284,7 +284,7 @@ async function braveSearch(query: string): Promise<string> {
     if (!res.ok) return "";
     const data = await res.json() as { results?: Array<{ title: string; description?: string }> };
     return (data.results ?? [])
-      .map((r) => `${r.title} — ${r.description ?? ""}`)
+      .map((r) => `${r.title} - ${r.description ?? ""}`)
       .join("\n");
   } catch {
     return "";

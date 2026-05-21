@@ -88,7 +88,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
       ? classifyEmail(from)
       : { sourceType: "personal_email" as const, sourceName: senderEmail };
 
-    // Skip newsletters covered by RSS — RSS content is cleaner and already ingested
+    // Skip newsletters covered by RSS - RSS content is cleaner and already ingested
     if (sourceType === "newsletter" && sourceName && RSS_SOURCE_NAMES.has(sourceName)) continue;
 
     const content = cleanEmailContent(

@@ -18,7 +18,7 @@ export function stripHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&mdash;/g, "—")
+    .replace(/&mdash;/g, "-")
     .replace(/&ndash;/g, "–")
     .replace(/&hellip;/g, "…")
     // Collapse runs of whitespace/blank lines

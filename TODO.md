@@ -1,38 +1,39 @@
-# PIDRA — Build TODO
+# PIDRA - Build TODO
 
 Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md §22–23`. Work top-to-bottom within each phase before starting the next.
 
-The **Context Builder** (`context-builder/`) is a separate standalone tool — its own detailed TODO is in `CONTEXT_BUILDER_PLAN.md`. Run it before the first pipeline run to pre-seed contacts, entities, and standing context. High-level status:
+The **Context Builder** (`context-builder/`) is a separate standalone tool - its own detailed TODO is in `CONTEXT_BUILDER_PLAN.md`. Run it before the first pipeline run to pre-seed contacts, entities, and standing context. High-level status:
 
 - [x] Context Builder: sub-project scaffolding and DB migrations
-- [ ] Context Builder: full first run (pre-seeds `entities`, `contacts`, `standing_context`) — requires Ollama + gkeepapi setup
+- [ ] Context Builder: full first run (pre-seeds `entities`, `contacts`, `standing_context`) - requires Ollama + gkeepapi setup
 - [ ] Context Builder: set up monthly update run cadence
 
 ---
 
-## Phase 0 — Infrastructure
+## Phase 0 - Infrastructure
 
 - [x] Set up Postgres database, run schema migrations with DrizzleORM
 - [x] Configure Bun project structure
-- [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization) — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
+- [ ] Set up Ollama with qwen2.5:14b (Q4_K_M quantization) - **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [x] Test IMAP connection to Netcup server (info@pidra.de, mxe96e.netcup.net)
-- [x] Configure Google Calendar API credentials (OAuth 2.0) — Client ID, Secret, Refresh Token in `.env`
-- [x] Configure Google Tasks API credentials — shared OAuth credentials, same token
+- [x] Configure Google Calendar API credentials (OAuth 2.0) - Client ID, Secret, Refresh Token in `.env`
+- [x] Configure Google Tasks API credentials - shared OAuth credentials, same token
 - [x] Set up SMS webhook endpoint (`POST /webhook/sms`)
-- [ ] Switch synthesis to Claude Sonnet 4.6 — **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
+- [ ] Switch synthesis to Claude Sonnet 4.6 - **do last, after all other phases are stable** (OpenAI GPT-4o is the stand-in until then)
 - [x] RSS feed audit: for each of the 32 newsletters, check if an RSS feed exists. Build a `rss_feeds` config mapping `source_name → rss_url | null`. Newsletters with RSS skip IMAP (cleaner content, no HTML footers).
 
 ---
 
-## Phase 1 — Core Pipeline
+## Phase 1 - Core Pipeline
 
 - [x] Implement Phase 1 ingestion: IMAP
 - [x] Implement Phase 1 ingestion: Google Calendar + Google Tasks (see Phase 0 credentials above)
 - [x] Implement Phase 1 ingestion: SMS via webhook (`POST /webhook/sms`)
 - [x] Implement HTML stripping and Message-ID dedup for emails
+- [ ] Per-account sender ignore list: add `ignore: string[]` field to `email-accounts.json` account config; skip any incoming mail from a listed sender address at ingest time (Phase 1), before any processing or DB write
 - [x] Implement RSS polling for newsletters that support it (run in parallel with IMAP)
-- [x] Implement Ollama newsletter extraction prompt — content pass (currently: OpenAI GPT-4o)
-- [x] Implement Ollama entity extraction prompt — second pass, batched (currently: OpenAI GPT-4o)
+- [x] Implement Ollama newsletter extraction prompt - content pass (currently: OpenAI GPT-4o)
+- [x] Implement Ollama entity extraction prompt - second pass, batched (currently: OpenAI GPT-4o)
 - [x] Implement Ollama personal email classification prompt (currently: OpenAI GPT-4o)
 - [x] Implement Phase 3 context assembly: active topics, entity lookup, novelty scoring
 - [x] Implement effective relevance calculation + volume signal (light / normal / heavy)
@@ -44,7 +45,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ---
 
-## Phase 2 — Question Gate + Delivery
+## Phase 2 - Question Gate + Delivery
 
 - [x] Implement question gate: batching, question API endpoints, 45-min timeout behavior
 - [x] Implement Section 1 / Section 2 parallelization during gate wait
@@ -54,7 +55,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ---
 
-## Phase 3 — Memory and Compounding
+## Phase 3 - Memory and Compounding
 
 - [x] Implement entity knowledge graph (Ollama extraction → upsert pipeline)
 - [x] Implement entity context injection into Sonnet synthesis payload (trigger: mention_count ≥ 3)
@@ -65,9 +66,9 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ---
 
-## Phase 4 — Web Search + Skills Bridge
+## Phase 4 - Web Search + Skills Bridge
 
-- [x] Choose web search API (Brave Search free tier — 2,000 calls/month)
+- [x] Choose web search API (Brave Search free tier - 2,000 calls/month)
 - [x] Abstract behind internal search module (src/search/)
 - [x] Implement Slot 1: top active topic deep-dive (always runs)
 - [x] Implement Slot 2: dormant high-importance entity monitor (conditional)
@@ -97,7 +98,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ---
 
-## Phase 5 — Self-Improvement Loop
+## Phase 5 - Self-Improvement Loop
 
 - [x] Implement weekly meta-run analytics computation (Bun, no AI)
 - [x] Implement prompt diff generation (1 Sonnet call, Sunday evening)
@@ -107,25 +108,25 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool — i
 
 ---
 
-## Phase 6 — Polish and Monitoring
+## Phase 6 - Polish and Monitoring
 
 - [x] Source quality dashboard in SvelteKit (trust scores, include rates per source)
 - [x] Entity graph explorer (basic table view: name, type, mention count, status)
 - [x] Notes management UI (view, add, delete)
-- [x] Error monitoring: pipeline failures visible in dashboard (no email — dashboard is the primary interface)
+- [x] Error monitoring: pipeline failures visible in dashboard (no email - dashboard is the primary interface)
 - [x] Performance logging: token usage, run times, source coverage per run (stored in daily_reports + pipeline_runs)
 - [ ] Begin adding medium-risk skills gradually
 
 ---
 
-## Phase 7 — Passive Context Sources (Day 60+)
+## Phase 7 - Passive Context Sources (Day 60+)
 
 Only begin after Phase 6 is complete and the pipeline has been stable for 2+ weeks.
 
 ### Google Keep (~1,000 notes)
-- [x] **Decide on Keep API approach** — Decided in `CONTEXT_BUILDER_PLAN.md`: gkeepapi (Python subprocess) only. No Takeout fallback — both would be equally fragile and double the complexity.
-- [ ] **Bulk initial import** — Handled by Context Builder (not this pipeline). Run Context Builder first; it indexes all ~1,000 notes and seeds entities/standing_context. No separate import script needed here.
-- [ ] Build Keep notes Ollama indexer for **ongoing daily delta** — after Context Builder's initial run, implement nightly/weekly re-scan of new/modified notes only (reuses Context Builder's `context_builder_indexed_items` skip-set)
+- [x] **Decide on Keep API approach** - Decided in `CONTEXT_BUILDER_PLAN.md`: gkeepapi (Python subprocess) only. No Takeout fallback - both would be equally fragile and double the complexity.
+- [ ] **Bulk initial import** - Handled by Context Builder (not this pipeline). Run Context Builder first; it indexes all ~1,000 notes and seeds entities/standing_context. No separate import script needed here.
+- [ ] Build Keep notes Ollama indexer for **ongoing daily delta** - after Context Builder's initial run, implement nightly/weekly re-scan of new/modified notes only (reuses Context Builder's `context_builder_indexed_items` skip-set)
 - [ ] Implement Phase 3 entity → Keep lookup and context injection (query `keep_notes` for entities surfaced in today's extractions)
 - [ ] Create `keep_notes` and `keep_index` tables for pipeline use (separate from Context Builder's own tables)
 
@@ -150,7 +151,7 @@ Only begin after Phase 6 is complete and the pipeline has been stable for 2+ wee
 ## Open Decisions (required before noted phase)
 
 ### Before Phase 4
-- [ ] **Web search API choice** — Candidates:
+- [ ] **Web search API choice** - Candidates:
 
   | API | Strengths | Pricing |
   |---|---|---|
@@ -162,36 +163,36 @@ Only begin after Phase 6 is complete and the pipeline has been stable for 2+ wee
 
   Recommendation: start with Brave (free tier = 3/day × 30 days exactly). Abstract behind internal `POST /search` so switching costs nothing. Upgrade to Tavily or Exa after 30 days if quality is insufficient.
 
-- [ ] **Email self-hosting migration** — Currently on Netcup hosted email. Self-hosting (Postfix/Dovecot or Stalwart) is possible but not a blocker — IMAP interface is identical regardless. Decide after the system is stable.
+- [ ] **Email self-hosting migration** - Currently on Netcup hosted email. Self-hosting (Postfix/Dovecot or Stalwart) is possible but not a blocker - IMAP interface is identical regardless. Decide after the system is stable.
 
 ### Before Phase 7
-- [x] **Keep API approach** — Decided: gkeepapi (Python subprocess) only. Auth flow and fetch scripts live in `context-builder/scripts/`. Phase 7's pipeline integration reuses the same approach for ongoing delta ingestion. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
-- [ ] **Diary format and location** — Must be decided before implementing the diary reader. Options: Markdown files in a directory (simplest, easiest for Ollama), SQLite database (queryable), Obsidian vault. If the diary is in a mobile app (Day One, Journey, etc.), build an export pipeline first.
+- [x] **Keep API approach** - Decided: gkeepapi (Python subprocess) only. Auth flow and fetch scripts live in `context-builder/scripts/`. Phase 7's pipeline integration reuses the same approach for ongoing delta ingestion. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
+- [ ] **Diary format and location** - Must be decided before implementing the diary reader. Options: Markdown files in a directory (simplest, easiest for Ollama), SQLite database (queryable), Obsidian vault. If the diary is in a mobile app (Day One, Journey, etc.), build an export pipeline first.
 
 ### Anytime (pre-seed before first run)
 
-Several of these are now partially automated by the Context Builder — items marked *(CB)* will be populated by its first run. Manual review/supplement is still needed after the run.
+Several of these are now partially automated by the Context Builder - items marked *(CB)* will be populated by its first run. Manual review/supplement is still needed after the run.
 
-- [ ] **Family email addresses** *(CB)* — Context Builder extracts contacts from email history and seeds the `contacts` table. After the first CB run, verify the output and add names/relationships for entries it couldn't infer. (Identifiers are blank in `CONTEXT_AND_DECISIONS.md §8`.)
-- [ ] **Client email domains** *(CB)* — Context Builder will recognize `hacibaba`, `zigarren-puro`, `is-rhein-sieg`, `alexanderhenkel` from email patterns and set initial importance. Verify `priority: high` is correctly set post-run; override manually if not.
-- [ ] **Default Google Tasks list for system-created items** — Confirm "To-Do Now" or "Work"; without this, `add_todo_item` skill defaults to an arbitrary list
-- [ ] **Daily Life Rules** *(CB)* — Context Builder reads the Keep "Daily Life Rules" category and seeds `standing_context` with the extracted rules. After the first CB run, review the `standing_context` table — correct any misextracted rules and add anything that wasn't captured.
-- [ ] **Recurring financial commitments** *(CB partially)* — Context Builder may extract recurring commitments from email history (bank notifications, subscription confirmations). Supplement with any that don't appear in email (cash payments, rent).
-- [ ] **University details** — University name, program, current semester: lets Section 2 correctly prioritize Uni-tagged tasks/emails and auto-boost urgency during exam periods. Not auto-extracted — add manually or as a `standing_context` entry.
-- [ ] **China trip dates** — Add to Google Calendar if not already there; the system auto-detects calendar entries and boosts China content in the 2-week pre-trip window
-- [ ] **Preferred wake-up/read time** — Adjust cron from default 06:30 to match actual morning routine
+- [ ] **Family email addresses** *(CB)* - Context Builder extracts contacts from email history and seeds the `contacts` table. After the first CB run, verify the output and add names/relationships for entries it couldn't infer. (Identifiers are blank in `CONTEXT_AND_DECISIONS.md §8`.)
+- [ ] **Client email domains** *(CB)* - Context Builder will recognize `hacibaba`, `zigarren-puro`, `is-rhein-sieg`, `alexanderhenkel` from email patterns and set initial importance. Verify `priority: high` is correctly set post-run; override manually if not.
+- [ ] **Default Google Tasks list for system-created items** - Confirm "To-Do Now" or "Work"; without this, `add_todo_item` skill defaults to an arbitrary list
+- [ ] **Daily Life Rules** *(CB)* - Context Builder reads the Keep "Daily Life Rules" category and seeds `standing_context` with the extracted rules. After the first CB run, review the `standing_context` table - correct any misextracted rules and add anything that wasn't captured.
+- [ ] **Recurring financial commitments** *(CB partially)* - Context Builder may extract recurring commitments from email history (bank notifications, subscription confirmations). Supplement with any that don't appear in email (cash payments, rent).
+- [ ] **University details** - University name, program, current semester: lets Section 2 correctly prioritize Uni-tagged tasks/emails and auto-boost urgency during exam periods. Not auto-extracted - add manually or as a `standing_context` entry.
+- [ ] **China trip dates** - Add to Google Calendar if not already there; the system auto-detects calendar entries and boosts China content in the 2-week pre-trip window
+- [ ] **Preferred wake-up/read time** - Adjust cron from default 06:30 to match actual morning routine
 
 ### At 30-day mark
-- [ ] Evaluate Netzpolitik.org as source #33 (EU digital regulation coverage — qwen2.5:14b handles German, no model change needed)
-- [ ] Evaluate web search quality — upgrade from Brave to Tavily or Exa if result quality is insufficient
-- [ ] Before running Context Builder for the first time: review the "Shower ideas" Keep category manually — likely contains entity references worth setting `importance = high` before the graph builds them organically. Flag these to the CB run so it can set correct importance scores during extraction.
+- [ ] Evaluate Netzpolitik.org as source #33 (EU digital regulation coverage - qwen2.5:14b handles German, no model change needed)
+- [ ] Evaluate web search quality - upgrade from Brave to Tavily or Exa if result quality is insufficient
+- [ ] Before running Context Builder for the first time: review the "Shower ideas" Keep category manually - likely contains entity references worth setting `importance = high` before the graph builds them organically. Flag these to the CB run so it can set correct importance scores during extraction.
 
 ### Future (Phase 8+, do not build yet)
-- [ ] **GitHub activity integration** — GitHub webhook or polling for PR reviews, CI failures, issue mentions across followed repos; most relevant once the briefing system is self-hosted and stable
+- [ ] **GitHub activity integration** - GitHub webhook or polling for PR reviews, CI failures, issue mentions across followed repos; most relevant once the briefing system is self-hosted and stable
 
 ---
 
-## Phase 8 — Smart Reply (do not build yet)
+## Phase 8 - Smart Reply (do not build yet)
 
 Only after all prior phases are complete and stable.
 
@@ -205,12 +206,12 @@ Only after all prior phases are complete and stable.
 
 Clicking a list item opens a modal/side panel with two mutually exclusive actions:
 
-**Option A — "Later reply" template**
+**Option A - "Later reply" template**
 - Dropdown to select delay: 2 h / 4 h / 8 h / 24 h / 2 days / 3 days / 1 week
 - AI generates a short, polite template in the user's name stating a reply will follow within the chosen timeframe. No prose judgments, no em dashes.
 - Preview shown before sending. Send button triggers actual mail delivery via SMTP (same Netcup credentials as ingestion).
 
-**Option B — AI-drafted full reply**
+**Option B - AI-drafted full reply**
 - Sonnet drafts a reply using all available context: contact history, active topics, standing context, entity graph. No em dashes in output.
 - Draft displayed in an editable text area.
 - "Regenerate" button triggers a fresh Sonnet call with a temperature nudge.

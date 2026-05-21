@@ -66,5 +66,5 @@ export async function pruneEntityGraph(): Promise<void> {
     console.log(`[entity-pruning] Removed ${deleted.length} orphaned entity relations`);
   }
 
-  console.log(`[entity-pruning] Done — archived ${archived.length}, deleted ${toDelete.length}, removed ${deleted.length} orphaned relations`);
+  console.log(`[entity-pruning] Done - archived ${archived.length}, deleted ${toDelete.length}, removed ${deleted.length} orphaned relations`);
 }

@@ -11,7 +11,7 @@
   let ratings: Record<string, string | null> = Object.fromEntries(data.items.map((i) => [i.id, i.rating ?? null]));
 
   function fmtDate(s: string | null) {
-    if (!s) return "—";
+    if (!s) return "-";
     return new Date(s).toLocaleString("de-DE", {
       day: "2-digit",
       month: "short",
@@ -42,7 +42,7 @@
 </script>
 
 <svelte:head>
-  <title>PIDRA — Detail {data.date}</title>
+  <title>PIDRA - Detail {data.date}</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -134,7 +134,7 @@
                     {ratings[item.id] === (signal === '1' ? 'explicit_plus' : 'explicit_minus')
                       ? color === 'success' ? 'bg-success-700 border-success-500 text-white' : 'bg-error-700 border-error-500 text-white'
                       : 'bg-surface-800 border-surface-700 text-surface-400 hover:border-surface-500'}"
-                  title={signal === "1" ? "Relevant — war gut" : "Nicht relevant"}
+                  title={signal === "1" ? "Relevant - war gut" : "Nicht relevant"}
                 >{label}</button>
               </form>
             {/each}
@@ -146,7 +146,7 @@
     <section class="border-t border-surface-700 pt-6 flex flex-col gap-3">
       <h3 class="text-base font-semibold text-surface-50">Tiefer eintauchen</h3>
       <p class="text-sm text-surface-500">
-        Lädt frische Web-Suchergebnisse und erstellt eine personalisierte Analyse — ohne Redundanz zum Report.
+        Lädt frische Web-Suchergebnisse und erstellt eine personalisierte Analyse - ohne Redundanz zum Report.
       </p>
 
       <form

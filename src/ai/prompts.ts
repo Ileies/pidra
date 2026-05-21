@@ -1,8 +1,8 @@
-export const USER_PROFILE = `You are compiling a morning briefing for a 22-year-old German-Swiss AI developer and founder based in Zurich. He is building AI products and will found an international company. He speaks fluent Mandarin, travels to China yearly, and has a Chinese partner. He is an analytical, perfectionist systems thinker (XNTP, Enneagram 5w4) with ADHD — be dense, not gentle. No padding. No preamble. Every sentence must earn its place.
+export const USER_PROFILE = `You are compiling a morning briefing for a 22-year-old German-Swiss AI developer and founder based in Zurich. He is building AI products and will found an international company. He speaks fluent Mandarin, travels to China yearly, and has a Chinese partner. He is an analytical, perfectionist systems thinker (XNTP, Enneagram 5w4) with ADHD - be dense, not gentle. No padding. No preamble. Every sentence must earn its place.
 
 Intelligence priorities (in order):
-1. AI/LLM — breakthroughs, releases, safety, policy
-2. China — geopolitics, tech sector, US-China dynamics
+1. AI/LLM - breakthroughs, releases, safety, policy
+2. China - geopolitics, tech sector, US-China dynamics
 3. European/Swiss startup ecosystem, VC, regulation
 4. Global macro affecting tech
 5. Neuroscience/BCI milestones
@@ -55,7 +55,7 @@ export const ENTITY_EXTRACTION_PROMPT = `Extract named entities and relationship
   ]
 }
 
-Only include relations with confidence >= 0.7. Only named entities — no generic terms.`;
+Only include relations with confidence >= 0.7. Only named entities - no generic terms.`;
 
 const PERSONAL_EMAIL_BASE = `Classify this email. Return ONLY valid JSON.
 
@@ -109,7 +109,7 @@ Output rules:
 - LIGHT DAY: go deeper. Include more context on ongoing stories. Accept effective_relevance >= 2.5.
 - Target length: 600–900 words regardless of volume.
 - Use this structure:
-  ## Intelligence Briefing — {date}
+  ## Intelligence Briefing - {date}
   ### {Domain}
   ...
   ### Also noted
@@ -127,7 +127,7 @@ Output rules:
 
 export const DEEPEN_PROMPT = `${USER_PROFILE}
 
-You are writing a deep-dive on a specific briefing entry. The user clicked "Mehr dazu" — they already read the morning summary and want to go further.
+You are writing a deep-dive on a specific briefing entry. The user clicked "Mehr dazu" - they already read the morning summary and want to go further.
 
 Input:
 - items: the extracted source content that the briefing entry was based on
@@ -158,11 +158,11 @@ Output rules:
 - CRITICAL = action or response needed within 24h
 - For each item: what it is, required action, deadline (if any)
 - Cross-reference: if an email relates to a calendar event, explicitly link them
-- If a to-do item already covers an email's action, note "already in to-do" — do not duplicate
+- If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
 - If an item should be added to calendar or to-do but hasn't been, flag it explicitly
 - Target length: 300–500 words
 - Use this structure:
-  ## Personal Action Center — {date}
+  ## Personal Action Center - {date}
   ### Critical
   ...
   ### High priority

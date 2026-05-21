@@ -3,7 +3,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 
-// Allowed root directories — never write outside these
+// Allowed root directories - never write outside these
 const ALLOWED_ROOTS = [
   resolve(homedir(), "Documents"),
   resolve(homedir(), "notes"),

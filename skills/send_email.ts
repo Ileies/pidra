@@ -1,7 +1,7 @@
 import type { Skill } from "../src/skills/loader";
 import nodemailer from "nodemailer";
 
-// Only used for outbound mail — never for pipeline failure alerts.
+// Only used for outbound mail - never for pipeline failure alerts.
 // Sender is always the system IMAP account; recipient must be explicitly allowed.
 const ALLOWED_RECIPIENTS = (process.env.ALLOWED_EMAIL_RECIPIENTS ?? "ileies200@gmail.com")
   .split(",")

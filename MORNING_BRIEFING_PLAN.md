@@ -1,4 +1,4 @@
-# Morning Briefing System — Complete Build Plan
+# Morning Briefing System - Complete Build Plan
 
 > AI-powered daily intelligence tool. Ingests 32 newsletters, personal emails, SMS, calendar, and to-do list. Produces a structured two-section report every morning. Gets smarter every day through compounding feedback loops, an entity knowledge graph, and weekly self-improvement runs.
 
@@ -35,10 +35,10 @@
 
 **Two output sections:**
 
-**Section 1 — Intelligence Briefing**
-World-facing intelligence: everything the user couldn't know without active research. Organized by topic domain, not by source. Cross-referenced with previous reports. Never re-introduces known stories — only updates and novel developments.
+**Section 1 - Intelligence Briefing**
+World-facing intelligence: everything the user couldn't know without active research. Organized by topic domain, not by source. Cross-referenced with previous reports. Never re-introduces known stories - only updates and novel developments.
 
-**Section 2 — Personal Action Center**
+**Section 2 - Personal Action Center**
 Life logistics: emails requiring response, payment deadlines, invitations, upcoming calendar events with context, tasks approaching due date, SMS requiring follow-up. Prioritized by urgency. Cross-linked with calendar and to-do list to avoid duplication.
 
 **System behavior over time:**
@@ -56,9 +56,9 @@ Life logistics: emails requiring response, payment deadlines, invitations, upcom
 - Runs qwen2.5:14b (primary model) fully in VRAM at concurrency 4 with significant headroom
 - 24GB enables future upgrade to 32b models without hardware change
 - Faster inference than 4070 Ti Super, relevant when processing 50+ items in parallel
-- Server already runs Minecraft + AI models — the 4090 avoids resource contention
+- Server already runs Minecraft + AI models - the 4090 avoids resource contention
 
-**Fallback:** RTX 4070 Ti Super (16GB VRAM) — fits 14b model, less future-proof
+**Fallback:** RTX 4070 Ti Super (16GB VRAM) - fits 14b model, less future-proof
 
 **RAM:** 32GB minimum system RAM recommended for NixOS + Postgres + Bun + Ollama concurrent operation
 
@@ -70,14 +70,14 @@ Life logistics: emails requiring response, payment deadlines, invitations, upcom
 |---|---|
 | Runtime | Bun |
 | Frontend | SvelteKit (dashboard + PWA) |
-| Local AI | Ollama — qwen2.5:14b (primary), llama3.1:8b (fallback) |
+| Local AI | Ollama - qwen2.5:14b (primary), llama3.1:8b (fallback) |
 | Cloud AI | Claude Sonnet 4.6 (synthesis) |
 | Database | Postgres + DrizzleORM |
 | Email ingestion | IMAP (Netcup server) |
 | SMS ingestion | Android SMS forwarding service → webhook endpoint |
 | Calendar | Google Calendar API |
 | To-do | Google Tasks API |
-| Web search | **TODO — see §23** |
+| Web search | **TODO - see §23** |
 | Push notifications | Web Push API (PWA) |
 | Scheduling | Bun cron (built-in) |
 | Skill execution | Custom REST API → Claude Code bridge |
@@ -126,7 +126,7 @@ All English unless noted. Ranked by signal quality for this user's profile.
 
 **Monthly volume estimate:** ~350–400 emails/month across all 32 sources.
 
-**Netzpolitik.org** (German, digital politics/EU regulation) — keep subscribed for personal reading; evaluate for inclusion in briefing after 30 days of operation.
+**Netzpolitik.org** (German, digital politics/EU regulation) - keep subscribed for personal reading; evaluate for inclusion in briefing after 30 days of operation.
 
 ---
 
@@ -134,13 +134,13 @@ All English unless noted. Ranked by signal quality for this user's profile.
 
 This system combines three architectural paradigms:
 
-**Architecture B — Map-Reduce Processing Spine**
+**Architecture B - Map-Reduce Processing Spine**
 Every item (newsletter, email, SMS) is independently extracted by Ollama into structured JSON, stored in Postgres, then reduced into a synthesis payload for Sonnet. Parallelized via `Promise.allSettled` with concurrency limiting.
 
-**Architecture C — Structured Memory Layer**
-All continuity is achieved through explicit Postgres tables (active topics, entity graph, source quality, prompt versions) — no vector stores, no probabilistic retrieval. Keyword-based novelty scoring. RSS feeds used where available as a cleaner alternative to email HTML.
+**Architecture C - Structured Memory Layer**
+All continuity is achieved through explicit Postgres tables (active topics, entity graph, source quality, prompt versions) - no vector stores, no probabilistic retrieval. Keyword-based novelty scoring. RSS feeds used where available as a cleaner alternative to email HTML.
 
-**Architecture D — Topic-Graph Output**
+**Architecture D - Topic-Graph Output**
 Section 1 is organized by topic domain, not by source. The entity knowledge graph enriches synthesis with relationship context. Cross-source corroboration scores determine story priority.
 
 **Compounding Intelligence Layer** (on top of B+C+D)
@@ -152,7 +152,7 @@ Three feedback loops (implicit behavioral, explicit ratings, weekly review), sou
 
 **Trigger:** Bun cron at configurable time (default: 06:30 local)
 
-### Phase 1 — Parallel Ingestion (T+0s)
+### Phase 1 - Parallel Ingestion (T+0s)
 All sources fetched simultaneously via `Promise.allSettled`. Failures are isolated and logged; they do not block other sources.
 
 ```
@@ -169,7 +169,7 @@ Raw items written to `raw_items` table. Items already seen (by Message-ID) are s
 
 **RSS supplement:** For newsletters that publish RSS feeds, poll RSS in parallel with IMAP. RSS content is cleaner (no HTML footers, unsubscribe links). Use RSS when available, IMAP as fallback.
 
-### Phase 2 — Ollama Extraction (T+8s, parallel, concurrency: 4)
+### Phase 2 - Ollama Extraction (T+8s, parallel, concurrency: 4)
 Two Ollama calls per newsletter email:
 1. **Content extraction** → claims, topics, entities, relevance score (see §9)
 2. **Entity extraction** → named entities and relationships for the knowledge graph
@@ -181,33 +181,33 @@ All calls fire in parallel, limited to 4 concurrent. At ~2s per call, 52 items f
 
 Failed Ollama calls fall back to passing raw stripped content directly to Sonnet with a `ollama_failed: true` flag.
 
-### Phase 3 — Context Assembly + Web Search (T+12s, parallel with Phase 2)
+### Phase 3 - Context Assembly + Web Search (T+12s, parallel with Phase 2)
 While Ollama runs, simultaneously:
 - Query `active_topics` (status = active, last 14 days)
 - Query `entity_graph` for entities mentioned in today's extractions
 - Query `source_quality` for all 32 sources
 - Query `notes` (all non-expired)
-- Query `contacts` (all known) — pre-seeded from day 1 by Context Builder
-- Query `standing_context` (type = rule | preference) — pre-seeded by Context Builder from Keep "Daily Life Rules"; injected into Section 2 system prompt
+- Query `contacts` (all known) - pre-seeded from day 1 by Context Builder
+- Query `standing_context` (type = rule | preference) - pre-seeded by Context Builder from Keep "Daily Life Rules"; injected into Section 2 system prompt
 - Compute novelty flags: keyword match between today's extraction topic_tags and active topic headlines
 - Compute corroboration: group items by entity overlap, count sources per story
 - Fire 3 web search slots (see §15)
 - Compute volume signal: count items with effective relevance ≥ 3
 
-### Phase 4 — Question Gate (T+42s, conditional)
+### Phase 4 - Question Gate (T+42s, conditional)
 If any item has `unknown_context: true`:
 - Batch all questions into a single POST to the question API
 - Section 1 synthesis begins immediately (unblocked)
 - Section 2 synthesis blocks until answers received or 45-minute timeout
 
-### Phase 5 — Sonnet Synthesis (T+42s for S1, T+answer for S2)
+### Phase 5 - Sonnet Synthesis (T+42s for S1, T+answer for S2)
 Two separate Sonnet 4.6 calls (see §17 for full prompts).
 - **Call A** (Section 1): ~8–10K tokens in, ~1,200 tokens out, ~15–20s
 - **Call B** (Section 2): ~6–8K tokens in, ~800 tokens out, ~12–15s
 
 Both calls use the current prompt version from `prompt_versions` table.
 
-### Phase 6 — Output & Memory Writes (T+140s, async)
+### Phase 6 - Output & Memory Writes (T+140s, async)
 - Merge Section 1 and Section 2 into final report (Markdown)
 - Deliver via SvelteKit dashboard + PWA push notification (see §20)
 - Write to `daily_reports` (full report + short_summary)
@@ -464,7 +464,7 @@ Extract named entities and relationships from the text below. Return ONLY valid 
   ]
 }
 
-Only include relations with confidence ≥ 0.7. Only named entities — no generic terms.
+Only include relations with confidence ≥ 0.7. Only named entities - no generic terms.
 
 TEXT:
 {{stripped_email_content}}
@@ -582,7 +582,7 @@ The following is assembled into a structured JSON object before each Sonnet call
 ## 11. Entity Knowledge Graph
 
 ### Purpose
-Every named entity appearing in any report becomes a node. Edges capture relationships. By day 90+, when a new item mentions any known entity, the synthesis payload is automatically enriched with relationship context — Sonnet doesn't need to infer who or what things are.
+Every named entity appearing in any report becomes a node. Edges capture relationships. By day 90+, when a new item mentions any known entity, the synthesis payload is automatically enriched with relationship context - Sonnet doesn't need to infer who or what things are.
 
 ### Growth trajectory
 | Day | ~Entities | ~Relations | Capability |
@@ -595,7 +595,7 @@ Every named entity appearing in any report becomes a node. Edges capture relatio
 ### Entity context injection
 When an entity with `mention_count >= 3` appears in today's extractions, inject a context block into the Sonnet payload:
 ```
-[Entity context: OpenAI — AI lab, heads Sam Altman. Competes with: Anthropic, Google DeepMind. Recent: GPT-5 release controversy (active topic #12).]
+[Entity context: OpenAI - AI lab, heads Sam Altman. Competes with: Anthropic, Google DeepMind. Recent: GPT-5 release controversy (active topic #12).]
 ```
 
 ### Dormant entity alerts
@@ -646,7 +646,7 @@ Applied on top of trust-adjusted scores. If the same story (by entity overlap) a
 
 ### Source retirement suggestion
 If a source's trust_score < 0.5 for 30+ consecutive days:
-- System writes a note: "Consider unsubscribing from [X] — 0 high-relevance items in 30 days, ~800 tokens/day Ollama processing wasted."
+- System writes a note: "Consider unsubscribing from [X] - 0 high-relevance items in 30 days, ~800 tokens/day Ollama processing wasted."
 - Never acted on automatically.
 
 ---
@@ -655,7 +655,7 @@ If a source's trust_score < 0.5 for 30+ consecutive days:
 
 Three mechanisms, each with different signal quality and friction:
 
-### Mechanism 1 — Implicit behavioral signals (zero friction, automatic)
+### Mechanism 1 - Implicit behavioral signals (zero friction, automatic)
 Detection logic in Phase 6:
 - If a report item's topic/entity appears in a new calendar event within 24h → `revealed_relevance = 5`
 - If a report item's topic appears in a new to-do item within 24h → `revealed_relevance = 4`
@@ -664,15 +664,15 @@ Detection logic in Phase 6:
 
 Detected via cross-referencing today's calendar/todo writes with report items by keyword/entity overlap.
 
-### Mechanism 2 — Explicit ratings (optional, ~10 seconds)
+### Mechanism 2 - Explicit ratings (optional, ~10 seconds)
 User can reply to question API with:
 ```
 +{item_id}  →  revealed_relevance = 5, domain interest score +0.1
 -{item_id}  →  revealed_relevance = 1, add filter pattern to notes
 ```
-Item IDs are short codes printed next to each item in the report. Not required — system works without this, but accelerates calibration significantly.
+Item IDs are short codes printed next to each item in the report. Not required - system works without this, but accelerates calibration significantly.
 
-### Mechanism 3 — Weekly review conversation (5 min, via Claude Code API)
+### Mechanism 3 - Weekly review conversation (5 min, via Claude Code API)
 Once per week (Sunday evening or Monday morning), system sends 3 questions:
 1. "What story from this week did you wish you'd seen more of?"
 2. "What did you consistently find irrelevant?"
@@ -696,7 +696,7 @@ Recomputed weekly. Decays toward 1.0 over 90 days without fresh feedback (preven
 
 **Trigger:** Sunday, configurable time (default: 20:00)
 
-### Step 1 — Analytics computation (Bun, no AI)
+### Step 1 - Analytics computation (Bun, no AI)
 ```
 Compute from last 7 days:
 - Per domain: include_rate, avg_revealed_relevance, downstream_action_rate
@@ -707,7 +707,7 @@ Compute from last 7 days:
 - Question gate: how many questions fired, how many were repeats (same sender)
 ```
 
-### Step 2 — Prompt diff generation (1 Sonnet call, ~$0.04)
+### Step 2 - Prompt diff generation (1 Sonnet call, ~$0.04)
 Sonnet receives: analytics summary, current active prompt versions, last 7 report short_summaries, weekly review answers (if any).
 
 Output format:
@@ -727,13 +727,13 @@ Output format:
 }
 ```
 
-### Step 3 — Human approval (via question API)
-Proposed changes sent as a structured message. User responds with approve/reject per change ID. Rejected changes are logged with reason — system will not re-propose the same change for 30 days.
+### Step 3 - Human approval (via question API)
+Proposed changes sent as a structured message. User responds with approve/reject per change ID. Rejected changes are logged with reason - system will not re-propose the same change for 30 days.
 
-### Step 4 — Entity graph pruning (Bun, no AI)
+### Step 4 - Entity graph pruning (Bun, no AI)
 Apply pruning rules from §11.
 
-### Step 5 — Source quality recalculation (Bun, no AI)
+### Step 5 - Source quality recalculation (Bun, no AI)
 Apply trust score update rules from §12. Log threshold crossings to notes.
 
 **Total weekly cost:** ~$0.04 (1 Sonnet call) + Bun compute (free)
@@ -744,9 +744,9 @@ Apply trust score update rules from §12. Log threshold crossings to notes.
 
 Three search slots per day. All fire in parallel at Phase 3. Results processed by Ollama before reaching Sonnet (relevance filter: if Ollama scores web result relevance < 3, discard silently).
 
-**Web search API:** TODO — see §23
+**Web search API:** TODO - see §23
 
-### Slot 1 — Top active topic deep-dive (always runs)
+### Slot 1 - Top active topic deep-dive (always runs)
 **What:** Take the active topic with highest `update_count` OR highest corroboration today. Search for developments beyond what newsletters covered.
 
 **Query construction (Ollama):**
@@ -760,14 +760,14 @@ Today: {{ISO_date}}
 
 **Integration:** Results appended to that topic's synthesis block, labeled `[web]`.
 
-### Slot 2 — Dormant entity monitor (conditional)
+### Slot 2 - Dormant entity monitor (conditional)
 **Trigger:** An entity with `importance = high` AND `status = dormant` (absent 10+ days)
 
 **Query:** `{entity_name} news {current_month} {current_year}`
 
 **Integration:** If result is relevant (Ollama score ≥ 3): treated as a new item with `source_name = "web"`, elevated effective relevance. If irrelevant: discarded.
 
-### Slot 3 — Self/project reputation monitoring (daily, rotating targets)
+### Slot 3 - Self/project reputation monitoring (daily, rotating targets)
 **Target list** (stored in `notes`, scope = "search", manually maintained):
 - User's own name
 - Company name (once founded)
@@ -823,14 +823,14 @@ Expected response:
 ```
 
 ### Parallelization during wait
-- Section 1 synthesis begins immediately — never waits for question gate
+- Section 1 synthesis begins immediately - never waits for question gate
 - Section 2 synthesis blocks until gate resolves or timeout
 - Final delivery: both sections merged and delivered together
 
 ### Timeout behavior (45 minutes)
 Section 2 proceeds with unresolved items marked:
 ```
-⚠ Unresolved context: email from alex@neuralbridge.io — classified as "unknown". 
+⚠ Unresolved context: email from alex@neuralbridge.io - classified as "unknown". 
 Action required: answer pending question to update contact profile.
 ```
 
@@ -855,12 +855,12 @@ After ~2 weeks: question gate fires rarely, only for genuinely new contacts.
 You are compiling a morning briefing for a 22-year-old German-Swiss AI developer and founder 
 based in Zurich. He is building AI products and will found an international company. He speaks 
 fluent Mandarin, travels to China yearly, and has a Chinese partner. He is an analytical, 
-perfectionist systems thinker (XNTP, Enneagram 5w4) with ADHD — be dense, not gentle. 
+perfectionist systems thinker (XNTP, Enneagram 5w4) with ADHD - be dense, not gentle. 
 No padding. No preamble. Every sentence must earn its place.
 
 Intelligence priorities (in order):
-1. AI/LLM — breakthroughs, releases, safety, policy
-2. China — geopolitics, tech sector, US-China dynamics
+1. AI/LLM - breakthroughs, releases, safety, policy
+2. China - geopolitics, tech sector, US-China dynamics
 3. European/Swiss startup ecosystem, VC, regulation
 4. Global macro affecting tech
 5. Neuroscience/BCI milestones
@@ -893,7 +893,7 @@ Output rules:
 - LIGHT DAY: go deeper. Include more context on ongoing stories. Accept effective_relevance >= 2.5.
 - Target length: 600–900 words regardless of volume.
 - Use this structure:
-  ## Intelligence Briefing — {date}
+  ## Intelligence Briefing - {date}
   ### {Domain}
   ...
   ### Also noted
@@ -928,13 +928,13 @@ Output rules:
 - CRITICAL = action or response needed within 24h
 - For each item: what it is, required action, deadline (if any)
 - Cross-reference: if an email relates to a calendar event, explicitly link them
-- If a to-do item already covers an email's action, note "already in to-do" — do not duplicate
+- If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
 - If an item should be added to calendar or to-do but hasn't been, flag it explicitly
 - If intelligence section covered something directly relevant to a personal item, reference it
 - Section for any self/project mentions found in web search (omit if none)
 - Target length: 300–500 words
 - Use this structure:
-  ## Personal Action Center — {date}
+  ## Personal Action Center - {date}
   ### Critical
   ...
   ### High priority
@@ -962,7 +962,7 @@ After both Sonnet calls complete, parse the `<!--SYSTEM ... -->` JSON blocks to 
 ## 18. Claude Code API Bridge (Skills System)
 
 ### Philosophy
-The bridge is an extensible local REST API that accepts structured skill execution requests from the briefing system. Skills are TypeScript modules loaded from a `/skills` directory — adding a `.ts` file auto-registers the skill. The system starts with conservative skills and capabilities expand over time as trust is established.
+The bridge is an extensible local REST API that accepts structured skill execution requests from the briefing system. Skills are TypeScript modules loaded from a `/skills` directory - adding a `.ts` file auto-registers the skill. The system starts with conservative skills and capabilities expand over time as trust is established.
 
 The morning briefing system is the primary caller, but the bridge is designed for any automated system to use.
 
@@ -1040,7 +1040,7 @@ Allowlist is a JSON file, manually maintained. Starting allowlist:
 New skills are added by creating a new `.ts` file in the skills directory. The bridge auto-discovers and registers it on next restart. Keep a `skills/README.md` documenting all installed skills, their risk levels, and the date added. Before adding a `critical`-risk skill, test it manually for 2 weeks.
 
 ### Security
-- Bridge binds to `localhost` only — never exposed to internet
+- Bridge binds to `localhost` only - never exposed to internet
 - All executions logged to `skill_executions` table
 - Weekly review: check skill_executions for unexpected patterns
 - `critical` skills have a 30-second built-in delay after confirmation receipt before execution (allows cancellation)
@@ -1050,7 +1050,7 @@ New skills are added by creating a new `.ts` file in the skills directory. The b
 ## 19. External Integrations
 
 ### Email (IMAP)
-- Server: Netcup hosted (self-hosted migration possible later — plan is compatible with either)
+- Server: Netcup hosted (self-hosted migration possible later - plan is compatible with either)
 - Protocol: IMAP with Message-ID dedup (already-seen emails skipped)
 - Polling: active pull at Phase 1, not IMAP IDLE (more reliable for batch processing)
 - All newsletters and personal emails forward to a single unified inbox for ingestion
@@ -1077,7 +1077,7 @@ New skills are added by creating a new `.ts` file in the skills directory. The b
 - Do not cache in Postgres
 
 ### Web Search
-- **TODO** — See §23. API to be decided.
+- **TODO** - See §23. API to be decided.
 - Interface: `POST /search` internal endpoint that wraps whichever API is chosen
 - Abstracted behind a single interface so the search provider can be swapped without changing pipeline code
 
@@ -1095,7 +1095,7 @@ Three additional data sources that enrich the system's understanding of the user
 
 **What it does NOT do:** Never dumps all 1,000 notes into a Sonnet prompt. Never scans notes on every run.
 
-**Initial bulk import:** Handled by the **Context Builder** (`context-builder/`), not this pipeline. Context Builder performs the one-time full scan of all ~1,000 notes via gkeepapi (Python subprocess), extracts entities and summaries with Ollama, and seeds the `entities` and `standing_context` tables. Run Context Builder before Phase 7 work begins — the `keep_notes` and `keep_index` tables it populates are what Phase 7 reads. See `CONTEXT_BUILDER_PLAN.md` for the full indexing architecture and API decision.
+**Initial bulk import:** Handled by the **Context Builder** (`context-builder/`), not this pipeline. Context Builder performs the one-time full scan of all ~1,000 notes via gkeepapi (Python subprocess), extracts entities and summaries with Ollama, and seeds the `entities` and `standing_context` tables. Run Context Builder before Phase 7 work begins - the `keep_notes` and `keep_index` tables it populates are what Phase 7 reads. See `CONTEXT_BUILDER_PLAN.md` for the full indexing architecture and API decision.
 
 **Architecture:**
 
@@ -1104,14 +1104,14 @@ Three additional data sources that enrich the system's understanding of the user
 *During Phase 3 (daily, fast Postgres lookup):*
 For each of today's top 10 entities by effective relevance, query `keep_index` for entity overlap. If matches found, retrieve the relevant note summaries (not full text). Inject into Section 1 synthesis payload as a `user_prior_context` block:
 ```
-[Prior context: You have 3 notes mentioning Neuralink — last from February, tagged "BCI investment thesis".]
+[Prior context: You have 3 notes mentioning Neuralink - last from February, tagged "BCI investment thesis".]
 ```
 Sonnet uses this to connect today's news to existing thinking. This is how the system feels like it knows you rather than treating you as a generic reader.
 
 *Weekly re-index (ongoing delta):*
 Run Ollama extraction on notes created or modified since last Context Builder run. ~5–10 new notes per week typically. Reuses the same gkeepapi scripts and `context_builder_indexed_items` skip-set from Context Builder. No full re-index needed.
 
-**API challenge:** Decided — gkeepapi (Python subprocess) only. Auth scripts live in `context-builder/scripts/`. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
+**API challenge:** Decided - gkeepapi (Python subprocess) only. Auth scripts live in `context-builder/scripts/`. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
 
 **Tables:**
 ```sql
@@ -1181,7 +1181,7 @@ chat_signals (
 
 **Retention:** `chat_signals` rows older than 30 days are deleted. Only the rolling 4-week window matters.
 
-**Privacy note:** The chat history DB stays on the local server. Ollama processes it locally. Only the abstract signal JSON leaves the local processing step — and only to Postgres, not to any cloud API. Raw chat content is never read by Sonnet.
+**Privacy note:** The chat history DB stays on the local server. Ollama processes it locally. Only the abstract signal JSON leaves the local processing step - and only to Postgres, not to any cloud API. Raw chat content is never read by Sonnet.
 
 **User control:** A toggle in the SvelteKit dashboard enables/disables this feature entirely. Specific chat sessions can be flagged as excluded (e.g., private conversations) by tagging them in the chat history DB.
 
@@ -1189,14 +1189,14 @@ chat_signals (
 
 ### 20.3 Diary
 
-**Role:** Personal context and emotional register. The most powerful of the three sources for Section 2 quality. Allows the system to understand the user's current life phase, emotional state, and active personal concerns — and frame personal action items accordingly.
+**Role:** Personal context and emotional register. The most powerful of the three sources for Section 2 quality. Allows the system to understand the user's current life phase, emotional state, and active personal concerns - and frame personal action items accordingly.
 
 **What it does NOT do:** Raw diary content NEVER leaves the local server. NEVER processed by any cloud API including Claude Sonnet. This is a hard architectural rule, not a configurable option.
 
 **Architecture:**
 
 *Weekly personal context extraction (Ollama, Sunday):*
-Ollama reads the last 7 diary entries and produces an abstract personal context block. The prompt is deliberately abstract — it extracts themes, not content:
+Ollama reads the last 7 diary entries and produces an abstract personal context block. The prompt is deliberately abstract - it extracts themes, not content:
 ```
 Read these diary entries. Do NOT summarize the content. Extract only:
 - Overall emotional valence (positive / neutral / stressed / struggling)
@@ -1279,14 +1279,14 @@ personal_context (
 
 ### PWA push notification
 - Trigger: Phase 6, after report is written to `daily_reports`
-- Message: "Morning briefing ready — {item_count} items" (no content in notification)
+- Message: "Morning briefing ready - {item_count} items" (no content in notification)
 - Implementation: Web Push API, service worker in SvelteKit PWA
 - Requires HTTPS: ensure server has valid SSL (Let's Encrypt on Netcup)
 
 ### Report format
 Final Markdown structure:
 ```markdown
-# Morning Briefing — Monday, 6 May 2025
+# Morning Briefing - Monday, 6 May 2025
 
 ---
 
@@ -1328,9 +1328,9 @@ Final Markdown structure:
 | Web search API | Depends on provider | ~$0–5 |
 | **Total monthly** | | **~$2.20–7.20** |
 
-The Ollama pre-processing layer compresses raw input from ~49,600 tokens to ~12,600 tokens before Sonnet — a 75% reduction. Without this, monthly Sonnet cost would be ~$8–12.
+The Ollama pre-processing layer compresses raw input from ~49,600 tokens to ~12,600 tokens before Sonnet - a 75% reduction. Without this, monthly Sonnet cost would be ~$8–12.
 
 ---
 
-*Plan version: 1.1 — passive context sources added*
+*Plan version: 1.1 - passive context sources added*
 *Build with: Bun + SvelteKit + Postgres + DrizzleORM + Ollama (qwen2.5:14b) + Claude Sonnet 4.6*

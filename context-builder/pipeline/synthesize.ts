@@ -40,7 +40,7 @@ export async function synthesizeContacts(contacts: ContactProfile[]): Promise<st
     `You are building a contact directory for a personal briefing system. Given email interaction data, write a concise contact profile summary (max 2000 tokens).
 Format: for each high-importance contact, one line: "Name <email>: relationship/role, key topics".
 Group medium-importance contacts together. Skip low-importance.
-Be specific and factual — no guessing. Use only what the data shows.`,
+Be specific and factual - no guessing. Use only what the data shows.`,
     input,
   );
 }
@@ -120,7 +120,7 @@ export async function synthesizePatch(existingContext: string, deltaSummaries: P
     `Update this existing personal context document with new information from the delta summaries.
 
 The existing context reflects ${counts.existing} previously indexed items.
-The delta contains ${counts.delta} new items. Merge proportionally — do not alter conclusions
+The delta contains ${counts.delta} new items. Merge proportionally - do not alter conclusions
 drawn from the existing context unless directly contradicted by the delta.
 Add new contacts and entities if present. Do not shrink the document.`,
     JSON.stringify({ existing_context: existingContext, delta: deltaSummaries }),

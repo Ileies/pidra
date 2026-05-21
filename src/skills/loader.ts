@@ -34,7 +34,7 @@ export async function loadSkills(): Promise<void> {
       const mod = await import(join(skillsDir, file));
       const skill: Skill = mod.default;
       if (!skill?.name || !skill?.execute) {
-        console.warn(`[Skills] ${file} has no valid default export — skipped`);
+        console.warn(`[Skills] ${file} has no valid default export - skipped`);
         continue;
       }
       registry.set(skill.name, skill);

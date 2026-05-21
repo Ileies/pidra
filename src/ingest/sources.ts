@@ -3,7 +3,7 @@
 export const NEWSLETTER_SOURCES: Record<string, string> = {
   // Domain patterns → source name
   "astralcodexten.com": "Astral Codex Ten",
-  "substack.com": "", // catch-all substack — name inferred from sender name
+  "substack.com": "", // catch-all substack - name inferred from sender name
   "erikhoel.substack.com": "The Intrinsic Perspective",
   "exponentialview.co": "Exponential View",
   "importai.substack.com": "Import AI",
@@ -38,7 +38,7 @@ export const NEWSLETTER_SOURCES: Record<string, string> = {
   "netzpolitik.org": "Netzpolitik.org",
 };
 
-// Email addresses that are "self" — never classify as incoming action item
+// Email addresses that are "self" - never classify as incoming action item
 export const SELF_EMAILS = [
   "info@pidra.de",
   "elias.klassen@offlimits-it.com",

@@ -82,6 +82,8 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     // Skip Substack system notifications
     if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") continue;
 
+    if (account.ignore?.some((addr) => addr.toLowerCase() === senderEmail)) continue;
+
     if (messageId && await rawItemExists(messageId)) continue;
 
     const { sourceType, sourceName } = account.isNewsAccount

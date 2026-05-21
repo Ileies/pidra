@@ -70,6 +70,6 @@ export async function ingestRssFeeds(runDate: string): Promise<number> {
     if (r.status === "fulfilled") total += r.value;
   }
 
-  console.log(`[Ingest/RSS] Done — ${total} new items from ${Object.keys(RSS_FEEDS).length} feeds`);
+  console.log(`[Ingest/RSS] Done - ${total} new items from ${Object.keys(RSS_FEEDS).length} feeds`);
   return total;
 }

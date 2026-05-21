@@ -61,7 +61,7 @@ function render(): void {
   const costEst = ((sonnetTokensIn / 1_000_000) * 3.0 + (sonnetTokensOut / 1_000_000) * 15.0).toFixed(3);
 
   process.stdout.write("\x1B[2J\x1B[H"); // clear screen, move to top
-  process.stdout.write(`\x1B[1mContext Builder\x1B[0m — ${currentState.mode} mode — ${elapsedStr} elapsed\n\n`);
+  process.stdout.write(`\x1B[1mContext Builder\x1B[0m - ${currentState.mode} mode - ${elapsedStr} elapsed\n\n`);
 
   for (const phase of phases) {
     const bar = phase.done ? "✓" : phase.total > 0 ? `${phase.processed}/${phase.total}` : "…";

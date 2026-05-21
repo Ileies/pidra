@@ -134,7 +134,7 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
       {
         role: "system",
         content:
-          "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the active prompts. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal — for each change: which section, what to change, and why. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
+          "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the active prompts. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
       },
       {
         role: "user",

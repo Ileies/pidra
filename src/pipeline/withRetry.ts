@@ -38,7 +38,7 @@ export async function withRetry<T>(
         stack: error.stack,
         ts: new Date().toISOString(),
       });
-      console.error(`[${step} — attempt ${attempt}/${maxAttempts}] FAILED: ${error.message}`);
+      console.error(`[${step} - attempt ${attempt}/${maxAttempts}] FAILED: ${error.message}`);
 
       if (attempt < maxAttempts) {
         await Bun.sleep(RETRY_DELAYS_MS[attempt - 1] ?? 5000);

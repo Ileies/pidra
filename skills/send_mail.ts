@@ -7,7 +7,7 @@ const skill: Skill = {
   description: "Send an email from one of the configured accounts",
   risk_level: "medium",
   parameters: {
-    account: { type: "string", required: true, description: "Sender address — must match a user or alias in email-accounts.json" },
+    account: { type: "string", required: true, description: "Sender address - must match a user or alias in email-accounts.json" },
     to: { type: "string", required: true, description: "Recipient email address" },
     subject: { type: "string", required: true, description: "Email subject" },
     body: { type: "string", required: true, description: "Email body (plain text)" },

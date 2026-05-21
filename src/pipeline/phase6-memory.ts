@@ -25,7 +25,7 @@ export async function runPhase6(
 ): Promise<string> {
   console.log("[Phase 6] Writing memory and report");
 
-  const fullReport = `# Morning Briefing — ${runDate}\n\n---\n\n${synthesis.section1}\n\n---\n\n${synthesis.section2}`;
+  const fullReport = `# Morning Briefing - ${runDate}\n\n---\n\n${synthesis.section1}\n\n---\n\n${synthesis.section2}`;
 
   // Write daily report
   await db.insert(dailyReports).values({
@@ -269,7 +269,7 @@ async function processSkillSuggestions(
   for (const suggestion of suggestions) {
     const skill = getSkill(suggestion.skill);
     if (!skill) {
-      console.warn(`[Phase 6] Unknown skill suggestion: ${suggestion.skill} — skipped`);
+      console.warn(`[Phase 6] Unknown skill suggestion: ${suggestion.skill} - skipped`);
       continue;
     }
 
@@ -285,11 +285,11 @@ async function processSkillSuggestions(
       try {
         const result = await skill.execute(suggestion.parameters);
         await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, row.id));
-        console.log(`[Phase 6] Skill executed: ${skill.name} — ${result.slice(0, 80)}`);
+        console.log(`[Phase 6] Skill executed: ${skill.name} - ${result.slice(0, 80)}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, row.id));
-        console.error(`[Phase 6] Skill failed: ${skill.name} — ${msg}`);
+        console.error(`[Phase 6] Skill failed: ${skill.name} - ${msg}`);
       }
     } else {
       // Medium/high/critical: log as pending for manual review

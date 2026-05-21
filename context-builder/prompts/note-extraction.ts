@@ -2,7 +2,7 @@ export const NOTE_EXTRACTION_PROMPT = `Extract key information from this Google 
 {
   "title": "string",
   "category": "label from the note or inferred",
-  "summary": "max 80 chars — what this note is about",
+  "summary": "max 80 chars - what this note is about",
   "entities": ["people, orgs, projects, concepts mentioned"],
   "type": "rule | reminder | idea | list | reference | diary | other",
   "importance": "high | medium | low"

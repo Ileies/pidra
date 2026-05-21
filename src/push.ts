@@ -13,7 +13,7 @@ export async function sendPushNotifications(date: string, summary: string | null
   if (subs.length === 0) return;
 
   const payload = JSON.stringify({
-    title: `PIDRA — ${date}`,
+    title: `PIDRA - ${date}`,
     body: summary?.slice(0, 120) ?? "Tagesreport bereit.",
     url: `/${date}`,
   });

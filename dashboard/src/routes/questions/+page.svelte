@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-  <title>PIDRA — Questions</title>
+  <title>PIDRA - Questions</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -39,7 +39,7 @@
 
     {#if !data.session}
       <div class="text-surface-400 text-sm text-center py-16">
-        No pending questions — the gate is not active.
+        No pending questions - the gate is not active.
       </div>
     {:else}
       <div class="mb-6 flex items-baseline gap-3">
@@ -67,7 +67,7 @@
                 <span class="text-xs text-surface-500 uppercase tracking-wider">{q.item_type}</span>
                 <span class="text-surface-300 text-sm font-medium">{q.from}</span>
                 {#if q.subject}
-                  <span class="text-surface-500 text-xs truncate max-w-xs">— {q.subject}</span>
+                  <span class="text-surface-500 text-xs truncate max-w-xs">- {q.subject}</span>
                 {/if}
               </div>
               <p class="text-surface-100 text-sm mb-4">{q.question}</p>

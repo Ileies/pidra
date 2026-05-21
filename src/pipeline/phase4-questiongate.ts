@@ -28,7 +28,7 @@ export async function runPhase4(runDate: string): Promise<GateResult> {
     .where(and(eq(extractions.runDate, runDate), eq(extractions.unknownContext, true)));
 
   if (unknownItems.length === 0) {
-    console.log("[Phase 4] No unknown context items — gate not fired");
+    console.log("[Phase 4] No unknown context items - gate not fired");
     return { fired: false, runId, waitForAnswers: async () => ({}) };
   }
 
@@ -50,7 +50,7 @@ export async function runPhase4(runDate: string): Promise<GateResult> {
     .values({ runId, runDate, questions, status: "pending", timeoutAt })
     .onConflictDoNothing();
 
-  console.log(`[Phase 4] Gate fired — ${questions.length} question(s) for run ${runId}`);
+  console.log(`[Phase 4] Gate fired - ${questions.length} question(s) for run ${runId}`);
 
   const waitForAnswers = async (): Promise<Record<string, string>> => {
     const deadline = Date.now() + TIMEOUT_MINUTES * 60 * 1000;
@@ -68,7 +68,7 @@ export async function runPhase4(runDate: string): Promise<GateResult> {
 
       if (session.status === "answered" && session.answers) {
         const answers = session.answers as GateAnswer[];
-        console.log(`[Phase 4] Gate answered — ${answers.length} answer(s)`);
+        console.log(`[Phase 4] Gate answered - ${answers.length} answer(s)`);
         return Object.fromEntries(answers.map((a) => [a.id, a.answer]));
       }
     }

@@ -12,7 +12,7 @@ import { sendPushNotifications } from "../push";
 
 export async function runPipeline(runDate?: string): Promise<string> {
   const date = runDate ?? new Date().toISOString().split("T")[0];
-  console.log(`\n=== PIDRA Pipeline — ${date} ===\n`);
+  console.log(`\n=== PIDRA Pipeline - ${date} ===\n`);
 
   const start = Date.now();
 

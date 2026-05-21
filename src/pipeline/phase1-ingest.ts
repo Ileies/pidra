@@ -45,7 +45,7 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
   };
 
   console.log(
-    `[Phase 1] Done — ${result.total} items (${emailCount} email, ${rssCount} RSS, ${calendarCount} calendar, ${todoCount} todos)`
+    `[Phase 1] Done - ${result.total} items (${emailCount} email, ${rssCount} RSS, ${calendarCount} calendar, ${todoCount} todos)`
   );
   return result;
 }

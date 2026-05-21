@@ -6,8 +6,8 @@ export const EMAIL_EXTRACTION_PROMPT = `Extract key information from this email.
   "date": "YYYY-MM-DD",
   "category": "work | personal | financial | service | automated | spam",
   "importance": "high | medium | low",
-  "summary": "max 60 chars — what the email is about",
-  "action_required": "string or null — what the user needs to do, if anything",
+  "summary": "max 60 chars - what the email is about",
+  "action_required": "string or null - what the user needs to do, if anything",
   "entities": ["names of people, orgs, projects mentioned"],
   "sentiment": "positive | neutral | negative"
 }

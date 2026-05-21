@@ -70,7 +70,7 @@ const server = Bun.serve({
     } catch (err) {
       console.error("\nFailed to exchange code:", err);
       setTimeout(() => { server.stop(); process.exit(1); }, 300);
-      return new Response("Token exchange failed — check terminal.", { status: 500 });
+      return new Response("Token exchange failed - check terminal.", { status: 500 });
     }
   },
 });

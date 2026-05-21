@@ -28,15 +28,15 @@ export const RSS_FEEDS: Record<string, string> = {
   "NeuroNews International": "https://neuronewsinternational.com/feed",
 };
 
-// Quick lookup set — used by IMAP ingestor to skip emails from RSS-covered sources.
+// Quick lookup set - used by IMAP ingestor to skip emails from RSS-covered sources.
 export const RSS_SOURCE_NAMES = new Set(Object.keys(RSS_FEEDS));
 
-// Sources without public RSS — ingested via IMAP only:
-// - Money Stuff (Bloomberg) — no public RSS
-// - China Brief (Foreign Policy) — paid, RSS blocked
-// - Benedict Evans — deliberately disabled RSS
-// - Term Sheet (Fortune) — no public RSS
-// - TLDR AI — no official RSS
-// - PESTLE and MORTAR — no RSS
-// - Console.dev — no public RSS endpoint
-// - Bytes.dev — no official RSS
+// Sources without public RSS - ingested via IMAP only:
+// - Money Stuff (Bloomberg) - no public RSS
+// - China Brief (Foreign Policy) - paid, RSS blocked
+// - Benedict Evans - deliberately disabled RSS
+// - Term Sheet (Fortune) - no public RSS
+// - TLDR AI - no official RSS
+// - PESTLE and MORTAR - no RSS
+// - Console.dev - no public RSS endpoint
+// - Bytes.dev - no official RSS

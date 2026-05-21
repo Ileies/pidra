@@ -1,39 +1,39 @@
-# Context Builder — Plan & TODO
+# Context Builder - Plan & TODO
 
-> **Third standalone tool in the PIDRA ecosystem.** Performs a comprehensive scan of all personal data sources, compresses them locally with Ollama, and synthesizes a structured long-term context document with a small number of targeted Sonnet calls. Runs in two modes: **full** (first run or explicit rebuild) and **update** (incremental — skips already-indexed items and merges new ones proportionally into the existing context). Output seeds PIDRA's entity graph, contacts table, and standing context — and produces a standalone human-readable "life snapshot."
+> **Third standalone tool in the PIDRA ecosystem.** Performs a comprehensive scan of all personal data sources, compresses them locally with Ollama, and synthesizes a structured long-term context document with a small number of targeted Sonnet calls. Runs in two modes: **full** (first run or explicit rebuild) and **update** (incremental - skips already-indexed items and merges new ones proportionally into the existing context). Output seeds PIDRA's entity graph, contacts table, and standing context - and produces a standalone human-readable "life snapshot."
 
 ---
 
 ## What this tool is NOT
 
-- Not a daily runner — runs on demand or monthly.
-- Not the main pipeline — it feeds it.
-- Not a backup tool — it extracts meaning, not raw data.
-- Not a cloud sync — all heavy processing happens locally via Ollama.
+- Not a daily runner - runs on demand or monthly.
+- Not the main pipeline - it feeds it.
+- Not a backup tool - it extracts meaning, not raw data.
+- Not a cloud sync - all heavy processing happens locally via Ollama.
 
 ---
 
 ## Design Constraints
 
 ### The context window problem
-Even a single large email account can produce 10k+ emails. No single Sonnet context window can hold this. Solution: **two-pass architecture** — Ollama reads everything and outputs only compact JSON (≤80 chars per item), Sonnet sees only the compressed summaries.
+Even a single large email account can produce 10k+ emails. No single Sonnet context window can hold this. Solution: **two-pass architecture** - Ollama reads everything and outputs only compact JSON (≤80 chars per item), Sonnet sees only the compressed summaries.
 
 ### The cost problem
 Processing 5,000 emails × 1,000 Keep notes × full Sonnet would cost $30–100+. With Ollama compression first, total Sonnet cost is **$0.40–$1.00** for the full run.
 
 ### The failure-at-99% problem
-Every processed item is written to a checkpoint file immediately. A crash resumes from the exact item it stopped at — no work is lost, no API costs are doubled. Partial results are always written: if GitHub fails, email + Keep + Tasks still produce useful output.
+Every processed item is written to a checkpoint file immediately. A crash resumes from the exact item it stopped at - no work is lost, no API costs are doubled. Partial results are always written: if GitHub fails, email + Keep + Tasks still produce useful output.
 
 ### The "what to store" problem
 Raw email bodies, full note text, full README content: **never stored in the output**. Only stored: metadata + Ollama-compressed extraction (one JSON object per item, ≤200 bytes). The final Sonnet synthesis result is stored. The raw source data stays in its origin system.
 
 ### The delta update problem
-After a full run, re-running must not rebuild from scratch. Equally, running with only 5 new emails must not produce a context dominated by those 5 emails — the existing index built from 2,847 emails represents far more signal. Solution: **proportional patch synthesis**.
+After a full run, re-running must not rebuild from scratch. Equally, running with only 5 new emails must not produce a context dominated by those 5 emails - the existing index built from 2,847 emails represents far more signal. Solution: **proportional patch synthesis**.
 
 How it works:
-1. A persistent index state (Postgres table `context_builder_runs`) records every indexed item's ID and the run it was indexed in. On re-run, any item whose ID already appears in `context_builder_runs` is skipped entirely — no Ollama call, no fetch.
+1. A persistent index state (Postgres table `context_builder_runs`) records every indexed item's ID and the run it was indexed in. On re-run, any item whose ID already appears in `context_builder_runs` is skipped entirely - no Ollama call, no fetch.
 2. Only genuinely new items are processed through the Ollama extraction pipeline.
-3. The delta synthesis step receives: the **existing context document** (already compressed, ~3,000 tokens) + only the **new item extractions** (the delta). The prompt explicitly states the ratio: "The existing context reflects N items indexed previously. The delta contains M new items. Merge proportionally — do not alter conclusions drawn from N unless directly contradicted by the delta. Add new contacts and entities if present."
+3. The delta synthesis step receives: the **existing context document** (already compressed, ~3,000 tokens) + only the **new item extractions** (the delta). The prompt explicitly states the ratio: "The existing context reflects N items indexed previously. The delta contains M new items. Merge proportionally - do not alter conclusions drawn from N unless directly contradicted by the delta. Add new contacts and entities if present."
 4. The result replaces the previous context document, but the edit distance should be small for a small delta.
 
 **When to recommend a full rebuild instead:** If the delta exceeds 30% of total indexed items (e.g., first run after 6 months of heavy email volume), warn the user and suggest `--full` for a cleaner result. The update still runs if the user proceeds, but the warning is logged.
@@ -61,7 +61,7 @@ Processes all items across all sources. Ignores any existing index state. At the
 ### Update mode
 1. Fetches item IDs from each source (headers only for email, note IDs for Keep, task IDs for Tasks)
 2. Filters out any ID already present in `context_builder_runs.indexed_item_ids`
-3. Only processes the delta — Ollama extraction for new items only
+3. Only processes the delta - Ollama extraction for new items only
 4. Skips re-synthesis for sources where delta is zero (e.g., no new Keep notes → skip Keep synthesis entirely)
 5. Runs patch synthesis for sources that have a delta (see Design Constraints → delta update problem)
 6. Appends new item IDs to `context_builder_runs`
@@ -85,7 +85,7 @@ If the previous run was interrupted (crash, manual stop), the checkpoint file st
 
 ```
 context-builder/
-  run.ts                    # entry point — orchestrates all phases
+  run.ts                    # entry point - orchestrates all phases
   progress.ts               # live terminal progress display
   checkpoint.ts             # read/write/resume checkpoint state
   errors.ts                 # error logger with retry logic
@@ -123,13 +123,13 @@ The tool reads `email-accounts.json` and classifies each account by its `isNewsA
 
 | `isNewsAccount` | Strategy |
 |---|---|
-| `true` | **Skip extraction.** Header-count only — newsletter content is already handled by the main pipeline. |
+| `true` | **Skip extraction.** Header-count only - newsletter content is already handled by the main pipeline. |
 | `false` | Full extraction, subject to time window below. |
 
 No account addresses are hardcoded. Adding or removing an account in `email-accounts.json` is all that is needed.
 
 **Per email pipeline:**
-1. Fetch headers only first (IMAP ENVELOPE) — get `from`, `subject`, `date`, `message-id` (no body download yet)
+1. Fetch headers only first (IMAP ENVELOPE) - get `from`, `subject`, `date`, `message-id` (no body download yet)
 2. Deduplicate against already-processed checkpoint
 3. Filter: skip automated system emails (no-reply, noreply, mailer-daemon, calendar invites from bots)
 4. Fetch body only for surviving emails
@@ -169,7 +169,7 @@ Small dataset. No Ollama pass needed.
 
 - Use GitHub REST API v3 (`api.github.com/users/ileies/repos`)
 - Per repo: name, description, language, topics, stars, last_push, open issues count
-- Per repo: fetch README (first 400 chars only — the "pitch line")
+- Per repo: fetch README (first 400 chars only - the "pitch line")
 - Per repo: last 10 commits (message + date only, no diff)
 - Total data: ~20–30 repos, ~15,000 tokens input
 - 1 Sonnet call → project portfolio summary → **~$0.04**
@@ -191,27 +191,27 @@ Small dataset. No Ollama pass needed.
 ## Pipeline Phases
 
 ```
-Phase 0  — Mode detection + Inventory   [~2 min]   Detect full/update/resume, count items, estimate runtime
-Phase 1  — Email Headers                [~5 min]   Fetch headers, diff against index, plan extraction
-Phase 2  — Email Extraction             [~30-90 min / ~2-10 min delta] Ollama pass, new items only
-Phase 3  — Contact Grouping             [~1 min]   Group new extractions by sender
-Phase 4  — Contact Synthesis            [~2 min]   Sonnet: contact profiles (skipped if delta=0)
-Phase 5  — Tasks Fetch                  [~1 min]   Google Tasks API (always runs)
-Phase 6  — Tasks Synthesis              [~1 min]   Sonnet: commitments (always runs)
-Phase 7  — Keep Fetch                   [~2 min]   gkeepapi fetch, diff against index
-Phase 8  — Keep Extraction              [~15-30 min / ~1-5 min delta] Ollama pass, new notes only
-Phase 9  — Keep Synthesis               [~5 min]   Sonnet per category (skipped if delta=0 for that category)
-Phase 10 — GitHub Fetch                 [~2 min]   REST API (always runs)
-Phase 11 — GitHub Synthesis             [~1 min]   Sonnet: project portfolio (always runs)
-Phase 12 — Synthesis                    [~2 min]   Full context document (full mode) OR patch synthesis (update mode)
-Phase 13 — DB Seeding                   [~1 min]   Write seeds + update context_builder_runs
-Phase 14 — Report                       [~1 min]   Write JSON + Markdown output files
+Phase 0  - Mode detection + Inventory   [~2 min]   Detect full/update/resume, count items, estimate runtime
+Phase 1  - Email Headers                [~5 min]   Fetch headers, diff against index, plan extraction
+Phase 2  - Email Extraction             [~30-90 min / ~2-10 min delta] Ollama pass, new items only
+Phase 3  - Contact Grouping             [~1 min]   Group new extractions by sender
+Phase 4  - Contact Synthesis            [~2 min]   Sonnet: contact profiles (skipped if delta=0)
+Phase 5  - Tasks Fetch                  [~1 min]   Google Tasks API (always runs)
+Phase 6  - Tasks Synthesis              [~1 min]   Sonnet: commitments (always runs)
+Phase 7  - Keep Fetch                   [~2 min]   gkeepapi fetch, diff against index
+Phase 8  - Keep Extraction              [~15-30 min / ~1-5 min delta] Ollama pass, new notes only
+Phase 9  - Keep Synthesis               [~5 min]   Sonnet per category (skipped if delta=0 for that category)
+Phase 10 - GitHub Fetch                 [~2 min]   REST API (always runs)
+Phase 11 - GitHub Synthesis             [~1 min]   Sonnet: project portfolio (always runs)
+Phase 12 - Synthesis                    [~2 min]   Full context document (full mode) OR patch synthesis (update mode)
+Phase 13 - DB Seeding                   [~1 min]   Write seeds + update context_builder_runs
+Phase 14 - Report                       [~1 min]   Write JSON + Markdown output files
 ```
 
 Phases 1–4 (email), 5–6 (tasks), 7–9 (Keep), and 10–11 (GitHub) run in parallel after Phase 0.
 Phases 12–14 run sequentially after all parallel phases complete.
 
-**In update mode, phases with delta=0 are logged as `✓ skipped (no new items)` in the progress display — they do not run at all.**
+**In update mode, phases with delta=0 are logged as `✓ skipped (no new items)` in the progress display - they do not run at all.**
 
 ---
 
@@ -221,25 +221,25 @@ Terminal UI, live-updating (redraws every 500ms):
 
 ```
 ╔══════════════════════════════════════════════════════════╗
-║  PIDRA Context Builder — 2026-05-18                      ║
+║  PIDRA Context Builder - 2026-05-18                      ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Phase                    Status     Progress    Errors  ║
 ╠══════════════════════════════════════════════════════════╣
-║  0. Inventory             ✓ done     —           0       ║
+║  0. Inventory             ✓ done     -           0       ║
 ║  1. Email headers         ✓ done     2,847 msgs   0       ║
 ║  2. Email extraction      ▶ running  1,241/2,447  3       ║
-║  3. Contact grouping      ◌ pending  —           —       ║
-║  4. Contact synthesis     ◌ pending  —           —       ║
+║  3. Contact grouping      ◌ pending  -           -       ║
+║  4. Contact synthesis     ◌ pending  -           -       ║
 ║  5. Tasks fetch           ✓ done     132 items   0       ║
 ║  6. Tasks synthesis       ✓ done     1 call      0       ║
 ║  7. Keep fetch            ✓ done     1,008 notes 0       ║
 ║  8. Keep extraction       ▶ running  724/1,008   2       ║
-║  9. Keep synthesis        ◌ pending  —           —       ║
+║  9. Keep synthesis        ◌ pending  -           -       ║
 ║ 10. GitHub fetch          ✓ done     23 repos    0       ║
 ║ 11. GitHub synthesis      ✓ done     1 call      0       ║
-║ 12. Final synthesis       ◌ pending  —           —       ║
-║ 13. DB seeding            ◌ pending  —           —       ║
-║ 14. Report                ◌ pending  —           —       ║
+║ 12. Final synthesis       ◌ pending  -           -       ║
+║ 13. DB seeding            ◌ pending  -           -       ║
+║ 14. Report                ◌ pending  -           -       ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Elapsed: 00:47:23    ETA: ~01:12:00    Cost: $0.07      ║
 ║  Checkpoint: context-builder/.checkpoint.json            ║
@@ -357,7 +357,7 @@ Return JSON only.
 
 ---
 
-## Sonnet Synthesis Prompts (structure only — full prompts written during impl)
+## Sonnet Synthesis Prompts (structure only - full prompts written during impl)
 
 ### Contact profiles (Sonnet)
 Input: all sender profiles (email + name + list of compressed email summaries)
@@ -375,17 +375,17 @@ Output: `{ interests[], known_entities[], travel_plans[], key_memories[], person
 Input: GitHub repo data
 Output: `{ active_projects[], completed_projects[], tech_stack[], patterns[] }`
 
-### Final context document — full mode (Sonnet)
+### Final context document - full mode (Sonnet)
 Input: all four synthesis outputs above
 Output: full context document (see Output Format below)
 
-### Patch synthesis — update mode (Sonnet)
+### Patch synthesis - update mode (Sonnet)
 Input:
 - Existing context document (the last completed run's JSON, ~3,000 tokens)
 - Delta contact profiles (new senders only, if any)
-- Delta tasks synthesis (always included — tasks change)
+- Delta tasks synthesis (always included - tasks change)
 - Delta Keep synthesis (new notes only, per category, if any)
-- GitHub synthesis (always included — repos change)
+- GitHub synthesis (always included - repos change)
 - Ratio metadata: `{ existing_items: N, delta_items: M }`
 
 Prompt structure:
@@ -412,7 +412,7 @@ Output: updated context document, replaces the previous one.
 ## Output Format
 
 ### `context-builder/output/context-YYYY-MM-DD.json`
-Each run produces a new dated file. The previous file is not overwritten — update runs patch the content but save to a new date-stamped file, allowing rollback by simply pointing to an older file.
+Each run produces a new dated file. The previous file is not overwritten - update runs patch the content but save to a new date-stamped file, allowing rollback by simply pointing to an older file.
 
 ```json
 {
@@ -440,12 +440,12 @@ Each run produces a new dated file. The previous file is not overwritten — upd
 
 ### `context-builder/output/context-YYYY-MM-DD.md`
 Human-readable version. Sections:
-1. **Profile Snapshot** — who this is, languages, roles
-2. **Active Commitments** — by urgency (Critical / High / Normal)
-3. **Project Portfolio** — active, paused, done
-4. **Contact Network** — top 30 contacts with relationship notes
-5. **Knowledge Map** — interest domains, entity list, travel plans
-6. **Context Notes** — selected Keep memories and rules
+1. **Profile Snapshot** - who this is, languages, roles
+2. **Active Commitments** - by urgency (Critical / High / Normal)
+3. **Project Portfolio** - active, paused, done
+4. **Contact Network** - top 30 contacts with relationship notes
+5. **Knowledge Map** - interest domains, entity list, travel plans
+6. **Context Notes** - selected Keep memories and rules
 
 ---
 
@@ -541,7 +541,7 @@ After context builder runs once, PIDRA uses its output as follows:
 - **Entity importance scoring** uses `importance` field from context builder seeds
 - **Question gate** skips known contacts (already in `contacts` table from context builder)
 
-The context builder is **not** a dependency of the daily pipeline — it only improves the pipeline's quality from day one.
+The context builder is **not** a dependency of the daily pipeline - it only improves the pipeline's quality from day one.
 
 ---
 
@@ -566,7 +566,7 @@ The context builder is **not** a dependency of the daily pipeline — it only im
 - [ ] Write config loader `context-builder/config.ts`
 - [ ] Add `standing_context` migration to DrizzleORM schema + generate migration
 
-### Phase 0 — Mode detection + Inventory
+### Phase 0 - Mode detection + Inventory
 - [ ] Implement mode detection: read `context_builder_runs` table → decide full / update / resume
 - [ ] In update mode: load previously indexed item IDs per source into memory (used as skip-set throughout)
 - [ ] Implement IMAP header count (per account, no body fetch)
@@ -577,7 +577,7 @@ The context builder is **not** a dependency of the daily pipeline — it only im
 - [ ] If delta > 30% of total indexed items, print rebuild recommendation and ask to confirm before proceeding
 - [ ] Print inventory table + estimated runtime
 
-### Phase 1–4 — Email
+### Phase 1–4 - Email
 - [ ] Implement `sources/email.ts`: IMAP header-only fetch (ENVELOPE) for all non-news accounts in parallel
 - [ ] Implement sender dedup filter (skip `no-reply`, `noreply`, `mailer-daemon`, `notifications@`, etc.)
 - [ ] Implement time window filter (configurable years, default 3)
@@ -589,13 +589,13 @@ The context builder is **not** a dependency of the daily pipeline — it only im
 - [ ] Write Sonnet contact synthesis prompt
 - [ ] Implement contact synthesis call (batched: max 50 senders per call; skipped entirely if delta=0)
 
-### Phase 5–6 — Google Tasks
+### Phase 5–6 - Google Tasks
 - [ ] Implement `sources/tasks.ts`: fetch all lists + all tasks via Google Tasks API
 - [ ] Filter: exclude completed tasks older than 90 days
 - [ ] Write Sonnet tasks synthesis prompt
 - [ ] Implement tasks synthesis call
 
-### Phase 7–9 — Google Keep
+### Phase 7–9 - Google Keep
 - [ ] Write `context-builder/scripts/keep-auth.py` (one-time token fetch via gkeepapi)
 - [ ] Write `context-builder/scripts/keep-fetch.py` (fetch all notes → stdout JSON)
 - [ ] Implement `sources/keep.ts`: Bun subprocess → gkeepapi
@@ -605,20 +605,20 @@ The context builder is **not** a dependency of the daily pipeline — it only im
 - [ ] Write Sonnet Keep synthesis prompt (per category)
 - [ ] Implement per-category synthesis calls (skipped for categories where delta=0)
 
-### Phase 10–11 — GitHub
+### Phase 10–11 - GitHub
 - [ ] Implement `sources/github.ts`: list repos (public + private) via REST API v3
 - [ ] Fetch per repo: description, language, last_push, README (first 400 chars), last 10 commit messages
 - [ ] Write Sonnet GitHub synthesis prompt
 - [ ] Implement GitHub synthesis call
 
-### Phase 12 — Synthesis (full or patch)
+### Phase 12 - Synthesis (full or patch)
 - [ ] Write Sonnet full context synthesis prompt (`prompts/synthesis/final.ts`)
-- [ ] Write Sonnet patch synthesis prompt (`prompts/synthesis/patch.ts`) — includes ratio metadata and proportionality instruction
+- [ ] Write Sonnet patch synthesis prompt (`prompts/synthesis/patch.ts`) - includes ratio metadata and proportionality instruction
 - [ ] Implement full synthesis call (input: all phase outputs)
 - [ ] Implement patch synthesis call (input: existing context JSON + delta summaries only)
 - [ ] Parse and validate output structure (same schema for both modes)
 
-### Phase 13 — DB Seeding
+### Phase 13 - DB Seeding
 - [ ] Add `standing_context` table to Drizzle schema
 - [ ] Generate and apply migration
 - [ ] Implement `output/db-writer.ts`: upsert contacts into `contacts` table
@@ -626,7 +626,7 @@ The context builder is **not** a dependency of the daily pipeline — it only im
 - [ ] Implement `standing_context` seeding (replace-all strategy)
 - [ ] Write completed run record to `context_builder_runs` (status, item counts, cost, output path)
 
-### Phase 14 — Report output
+### Phase 14 - Report output
 - [ ] Implement `output/builder.ts`: JSON output writer
 - [ ] Implement Markdown output writer (14 sections, human-readable)
 - [ ] Print final summary: items processed, errors, cost, output file paths
@@ -655,8 +655,8 @@ The context builder is **not** a dependency of the daily pipeline — it only im
 
 ## Open Decisions (resolve before implementing)
 
-- [x] **Keep API approach** — gkeepapi only. No Takeout fallback — both approaches are equally fragile (gkeepapi can break on Google updates; Takeout format can change too), and maintaining both doubles the complexity. If gkeepapi breaks, fix it or wait for the library to update. The tool simply fails the Keep phase and continues with other sources.
-- [ ] **GitHub PAT scope** — `repo` scope gives access to private repos but is broad. Alternative: use GitHub App installation token (narrower). Decision: use PAT with `repo` scope for now — this is a personal tool, not exposed to network.
-- [ ] **News account email treatment** — Accounts with `isNewsAccount: true` are skipped by default (newsletter content is in the main pipeline). But such an account may still receive personal replies or non-newsletter subscriptions. Decision: fetch headers only for `isNewsAccount: true` accounts, then extract any email where `from` is not in the known newsletter sender list. Sender list sourced from `rss-feeds` config + IMAP news sources config.
-- [x] **Rerun cadence** — Decided: update mode is the default on subsequent runs (auto-detected via `context_builder_runs` table). `--full` forces a rebuild. `--update` forces delta even if first run. 30% delta threshold triggers a rebuild recommendation. Patch synthesis ensures new items are weighted proportionally to the existing index size.
-- [ ] **Output location** — `context-builder/output/` vs. a path in the main PIDRA data dir. Decision: keep in `context-builder/output/` for now. The DB seeding is the primary integration mechanism, not file-sharing.
+- [x] **Keep API approach** - gkeepapi only. No Takeout fallback - both approaches are equally fragile (gkeepapi can break on Google updates; Takeout format can change too), and maintaining both doubles the complexity. If gkeepapi breaks, fix it or wait for the library to update. The tool simply fails the Keep phase and continues with other sources.
+- [ ] **GitHub PAT scope** - `repo` scope gives access to private repos but is broad. Alternative: use GitHub App installation token (narrower). Decision: use PAT with `repo` scope for now - this is a personal tool, not exposed to network.
+- [ ] **News account email treatment** - Accounts with `isNewsAccount: true` are skipped by default (newsletter content is in the main pipeline). But such an account may still receive personal replies or non-newsletter subscriptions. Decision: fetch headers only for `isNewsAccount: true` accounts, then extract any email where `from` is not in the known newsletter sender list. Sender list sourced from `rss-feeds` config + IMAP news sources config.
+- [x] **Rerun cadence** - Decided: update mode is the default on subsequent runs (auto-detected via `context_builder_runs` table). `--full` forces a rebuild. `--update` forces delta even if first run. 30% delta threshold triggers a rebuild recommendation. Patch synthesis ensures new items are weighted proportionally to the existing index size.
+- [ ] **Output location** - `context-builder/output/` vs. a path in the main PIDRA data dir. Decision: keep in `context-builder/output/` for now. The DB seeding is the primary integration mechanism, not file-sharing.

@@ -30,7 +30,7 @@ The **Context Builder** (`context-builder/`) is a separate standalone tool - its
 - [x] Implement Phase 1 ingestion: Google Calendar + Google Tasks (see Phase 0 credentials above)
 - [x] Implement Phase 1 ingestion: SMS via webhook (`POST /webhook/sms`)
 - [x] Implement HTML stripping and Message-ID dedup for emails
-- [ ] Per-account sender ignore list: add `ignore: string[]` field to `email-accounts.json` account config; skip any incoming mail from a listed sender address at ingest time (Phase 1), before any processing or DB write
+- [x] Per-account sender ignore list: add `ignore: string[]` field to `email-accounts.json` account config; skip any incoming mail from a listed sender address at ingest time (Phase 1), before any processing or DB write
 - [x] Implement RSS polling for newsletters that support it (run in parallel with IMAP)
 - [x] Implement Ollama newsletter extraction prompt - content pass (currently: OpenAI GPT-4o)
 - [x] Implement Ollama entity extraction prompt - second pass, batched (currently: OpenAI GPT-4o)

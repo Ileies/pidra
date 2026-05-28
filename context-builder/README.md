@@ -19,7 +19,21 @@ nix shell nixpkgs#python3 nixpkgs#python3Packages.pip -c sh -c \
   "python3 -m venv /tmp/gkeep-venv && /tmp/gkeep-venv/bin/pip install gkeepapi -q && /tmp/gkeep-venv/bin/python3 context-builder/scripts/keep-auth.py"
 ```
 
-You will need a Google App Password (generate one at myaccount.google.com/apppasswords). The token is saved to `context-builder/.keep-token.json` and used automatically by all subsequent runs.
+**Important: app passwords do not work.** Google's Android auth endpoint (`gpsoauth`) returns `BadAuthentication` for all accounts as of 2025, even with a valid app password and 2FA enabled. The only working path is a browser cookie exchange:
+
+1. Open `https://accounts.google.com/EmbeddedSetup` in a browser while logged into the Google account.
+2. Click "I agree". The page appears to hang - this is normal.
+3. Open DevTools - Application - Cookies - `accounts.google.com`.
+4. Find the cookie named `oauth_token` (value starts with `oauth2_4/...`).
+5. Paste it into the prompt when the script asks for it.
+
+The script exchanges the cookie for a long-lived master token (`aas_et/...`) via `gpsoauth.exchange_token`, verifies it against gkeepapi, saves it to `context-builder/.keep-token.json`, and prints the line to add to `.env`:
+
+```
+GKEEPAPI_MASTER_TOKEN=aas_et/...
+```
+
+The master token does not expire. You only need to repeat this if it gets revoked.
 
 ## Running
 

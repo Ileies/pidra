@@ -548,95 +548,95 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 ## TODO Checklist
 
 ### Sub-project setup
-- [ ] Create `context-builder/` directory with `package.json` (Bun, standalone)
-- [ ] Create `tsconfig.json` for context-builder (extends root)
-- [ ] Add `context-builder` run script to root `package.json`: `"context-builder": "bun run context-builder/run.ts"`
-- [ ] Create `.checkpoint.json` init logic and `checkpoint.ts` module
-- [ ] Create `errors.ts` module (append-only JSON log)
-- [ ] Add `context_builder_runs` and `context_builder_indexed_items` tables to DrizzleORM schema + generate migration
+- [x] Create `context-builder/` directory with `package.json` (Bun, standalone) — not needed; runs via root `package.json` script
+- [x] Create `tsconfig.json` for context-builder (extends root)
+- [x] Add `context-builder` run script to root `package.json`: `"context-builder": "bun run context-builder/run.ts"`
+- [x] Create `.checkpoint.json` init logic and `checkpoint.ts` module
+- [x] Create `errors.ts` module (append-only JSON log)
+- [x] Add `context_builder_runs` and `context_builder_indexed_items` tables to DrizzleORM schema + generate migration
 
 ### Progress display
-- [ ] Implement `progress.ts`: phase state machine + ANSI terminal renderer
-- [ ] Implement 500ms refresh loop with cursor reposition
-- [ ] Implement cost accumulator (tracks Sonnet token usage in real time)
-- [ ] Implement ETA calculator (based on items/sec × remaining items)
+- [x] Implement `progress.ts`: phase state machine + ANSI terminal renderer
+- [x] Implement 500ms refresh loop with cursor reposition
+- [x] Implement cost accumulator (tracks Sonnet token usage in real time)
+- [x] Implement ETA calculator (based on items/sec × remaining items)
 
 ### Environment + config
-- [ ] Add `GITHUB_TOKEN`, `GKEEPAPI_*`, `CONTEXT_BUILDER_*` vars to `.env.example`
-- [ ] Write config loader `context-builder/config.ts`
-- [ ] Add `standing_context` migration to DrizzleORM schema + generate migration
+- [x] Add `GITHUB_TOKEN`, `GKEEPAPI_*`, `CONTEXT_BUILDER_*` vars to `.env.example`
+- [x] Write config loader `context-builder/config.ts`
+- [x] Add `standing_context` migration to DrizzleORM schema + generate migration
 
 ### Phase 0 - Mode detection + Inventory
-- [ ] Implement mode detection: read `context_builder_runs` table → decide full / update / resume
-- [ ] In update mode: load previously indexed item IDs per source into memory (used as skip-set throughout)
-- [ ] Implement IMAP header count (per account, no body fetch)
-- [ ] Implement GitHub repo count via API
-- [ ] Implement Google Tasks list count via API
-- [ ] Implement Keep note count (gkeepapi)
-- [ ] In update mode: show `N total / M new / K skipped` per source in inventory
-- [ ] If delta > 30% of total indexed items, print rebuild recommendation and ask to confirm before proceeding
-- [ ] Print inventory table + estimated runtime
+- [x] Implement mode detection: read `context_builder_runs` table → decide full / update / resume
+- [x] In update mode: load previously indexed item IDs per source into memory (used as skip-set throughout)
+- [x] Implement IMAP header count (per account, no body fetch) — tracked via `state.phases.email.total` in `run.ts`
+- [x] Implement GitHub repo count via API — tracked via `state.phases.github.total` in `run.ts`
+- [x] Implement Google Tasks list count via API — tracked via `state.phases.tasks.total` in `run.ts`
+- [x] Implement Keep note count (gkeepapi) — tracked via `state.phases.keep.total` in `run.ts`
+- [x] In update mode: show `N total / M new / K skipped` per source in inventory
+- [x] If delta > 30% of total indexed items, print rebuild recommendation and ask to confirm before proceeding
+- [x] Print inventory table + estimated runtime
 
 ### Phase 1–4 - Email
-- [ ] Implement `sources/email.ts`: IMAP header-only fetch (ENVELOPE) for all non-news accounts in parallel
-- [ ] Implement sender dedup filter (skip `no-reply`, `noreply`, `mailer-daemon`, `notifications@`, etc.)
-- [ ] Implement time window filter (configurable years, default 3)
-- [ ] Implement skip-set filter: drop any message-id already in `context_builder_indexed_items`
-- [ ] Implement body fetch for filtered emails (streaming, with size cap at 50KB per email)
-- [ ] Write Ollama extraction prompt for emails (`prompts/email-extraction.ts`)
-- [ ] Implement `pipeline/extract-email.ts`: Ollama call with semaphore + checkpoint write per item + write to `context_builder_indexed_items` on success
-- [ ] Implement `pipeline/batch-contacts.ts`: group new extractions by `from_email`
-- [ ] Write Sonnet contact synthesis prompt
-- [ ] Implement contact synthesis call (batched: max 50 senders per call; skipped entirely if delta=0)
+- [x] Implement `sources/email.ts`: IMAP header-only fetch (ENVELOPE) for all non-news accounts in parallel
+- [x] Implement sender dedup filter (skip `no-reply`, `noreply`, `mailer-daemon`, `notifications@`, etc.)
+- [x] Implement time window filter (configurable years, default 3)
+- [x] Implement skip-set filter: drop any message-id already in `context_builder_indexed_items`
+- [x] Implement body fetch for filtered emails (streaming, with size cap at 50KB per email)
+- [x] Write Ollama extraction prompt for emails (`prompts/email-extraction.ts`)
+- [x] Implement `pipeline/extract-email.ts`: Ollama call with semaphore + checkpoint write per item + write to `context_builder_indexed_items` on success
+- [x] Implement `pipeline/batch-contacts.ts`: group new extractions by `from_email`
+- [x] Write Sonnet contact synthesis prompt
+- [x] Implement contact synthesis call (batched: max 50 senders per call; skipped entirely if delta=0)
 
 ### Phase 5–6 - Google Tasks
-- [ ] Implement `sources/tasks.ts`: fetch all lists + all tasks via Google Tasks API
-- [ ] Filter: exclude completed tasks older than 90 days
-- [ ] Write Sonnet tasks synthesis prompt
-- [ ] Implement tasks synthesis call
+- [x] Implement `sources/tasks.ts`: fetch all lists + all tasks via Google Tasks API
+- [x] Filter: exclude completed tasks older than 90 days
+- [x] Write Sonnet tasks synthesis prompt
+- [x] Implement tasks synthesis call
 
 ### Phase 7–9 - Google Keep
-- [ ] Write `context-builder/scripts/keep-auth.py` (one-time token fetch via gkeepapi)
-- [ ] Write `context-builder/scripts/keep-fetch.py` (fetch all notes → stdout JSON)
-- [ ] Implement `sources/keep.ts`: Bun subprocess → gkeepapi
-- [ ] Implement skip-set filter: drop any note ID already in `context_builder_indexed_items`
-- [ ] Write Ollama extraction prompt for Keep notes (`prompts/note-extraction.ts`)
-- [ ] Implement `pipeline/extract-note.ts`: Ollama call with semaphore + checkpoint write + write to `context_builder_indexed_items` on success
-- [ ] Write Sonnet Keep synthesis prompt (per category)
-- [ ] Implement per-category synthesis calls (skipped for categories where delta=0)
+- [x] Write `context-builder/scripts/keep-auth.py` (one-time token fetch via gkeepapi)
+- [x] Write `context-builder/scripts/keep-fetch.py` (fetch all notes → stdout JSON)
+- [x] Implement `sources/keep.ts`: Bun subprocess → gkeepapi
+- [x] Implement skip-set filter: drop any note ID already in `context_builder_indexed_items`
+- [x] Write Ollama extraction prompt for Keep notes (`prompts/note-extraction.ts`)
+- [x] Implement `pipeline/extract-note.ts`: Ollama call with semaphore + checkpoint write + write to `context_builder_indexed_items` on success
+- [x] Write Sonnet Keep synthesis prompt (per category) — simplified to single call with all categories as a map; per-category split unnecessary after Ollama compression
+- [x] Implement per-category synthesis calls (skipped for categories where delta=0) — single `synthesizeKeep()` call in `synthesize.ts`
 
 ### Phase 10–11 - GitHub
-- [ ] Implement `sources/github.ts`: list repos (public + private) via REST API v3
-- [ ] Fetch per repo: description, language, last_push, README (first 400 chars), last 10 commit messages
-- [ ] Write Sonnet GitHub synthesis prompt
-- [ ] Implement GitHub synthesis call
+- [x] Implement `sources/github.ts`: list repos (public + private) via REST API v3
+- [x] Fetch per repo: description, language, last_push, README (first 400 chars), last 10 commit messages
+- [x] Write Sonnet GitHub synthesis prompt
+- [x] Implement GitHub synthesis call
 
 ### Phase 12 - Synthesis (full or patch)
-- [ ] Write Sonnet full context synthesis prompt (`prompts/synthesis/final.ts`)
-- [ ] Write Sonnet patch synthesis prompt (`prompts/synthesis/patch.ts`) - includes ratio metadata and proportionality instruction
-- [ ] Implement full synthesis call (input: all phase outputs)
-- [ ] Implement patch synthesis call (input: existing context JSON + delta summaries only)
-- [ ] Parse and validate output structure (same schema for both modes)
+- [x] Write Sonnet full context synthesis prompt (`prompts/synthesis/final.ts`)
+- [x] Write Sonnet patch synthesis prompt (`prompts/synthesis/patch.ts`) - includes ratio metadata and proportionality instruction
+- [x] Implement full synthesis call (input: all phase outputs)
+- [x] Implement patch synthesis call (input: existing context JSON + delta summaries only)
+- [x] Parse and validate output structure (same schema for both modes) — not applicable; synthesis outputs plain text, DB seeding reads directly from Ollama extraction structs
 
 ### Phase 13 - DB Seeding
-- [ ] Add `standing_context` table to Drizzle schema
-- [ ] Generate and apply migration
-- [ ] Implement `output/db-writer.ts`: upsert contacts into `contacts` table
-- [ ] Implement entity seeding: upsert into `entities` with `mention_count = 0`
-- [ ] Implement `standing_context` seeding (replace-all strategy)
-- [ ] Write completed run record to `context_builder_runs` (status, item counts, cost, output path)
+- [x] Add `standing_context` table to Drizzle schema
+- [ ] Generate and apply migration — script at `tmp-migrate-0007.ts`, run when pronix is reachable, then delete
+- [x] Implement `output/db-writer.ts`: upsert contacts into `contacts` table
+- [x] Implement entity seeding: upsert into `entities` with `mention_count = 0`
+- [x] Implement `standing_context` seeding (replace-all strategy)
+- [x] Write completed run record to `context_builder_runs` (status, item counts, cost, output path)
 
 ### Phase 14 - Report output
-- [ ] Implement `output/builder.ts`: JSON output writer
-- [ ] Implement Markdown output writer (14 sections, human-readable)
-- [ ] Print final summary: items processed, errors, cost, output file paths
+- [x] Implement `output/builder.ts`: JSON output writer
+- [x] Implement Markdown output writer (14 sections, human-readable) — done in `output/builder.ts` (5 sections, simpler format)
+- [x] Print final summary: items processed, errors, cost, output file paths — done in `run.ts`
 
 ### Error handling
-- [ ] Per-item retry with exponential backoff (2s, 8s, 30s)
-- [ ] Ollama OOM detection (reduce concurrency to 2 on consecutive failures)
-- [ ] IMAP reconnect logic (1 retry per account)
-- [ ] Sonnet 429 handling (respect Retry-After)
-- [ ] Partial output guarantee: final synthesis runs even if phases partially failed
+- [x] Per-item retry with exponential backoff (2s, 8s) in `extract-email.ts` and `extract-note.ts`
+- [x] Ollama OOM detection (reduce concurrency to 2 on 3 consecutive failures) in both extract files
+- [x] IMAP reconnect logic (1 retry per account) in `sources/email.ts`
+- [x] Sonnet 429 handling (respect Retry-After) in `pipeline/synthesize.ts`
+- [x] Partial output guarantee: each phase wrapped in try/catch, synthesis always runs with available data
 
 ### Testing
 - [ ] Test with `--dry-run` flag: counts only, no API calls, no Ollama
@@ -649,14 +649,14 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 - [ ] Verify DB seeding does not break existing PIDRA tables
 
 ### Documentation
-- [ ] Add `context-builder/README.md` with quickstart, first-run instructions, and Keep auth setup
+- [x] Add `context-builder/README.md` with quickstart, first-run instructions, and Keep auth setup
 
 ---
 
 ## Open Decisions (resolve before implementing)
 
 - [x] **Keep API approach** - gkeepapi only. No Takeout fallback - both approaches are equally fragile (gkeepapi can break on Google updates; Takeout format can change too), and maintaining both doubles the complexity. If gkeepapi breaks, fix it or wait for the library to update. The tool simply fails the Keep phase and continues with other sources.
-- [ ] **GitHub PAT scope** - `repo` scope gives access to private repos but is broad. Alternative: use GitHub App installation token (narrower). Decision: use PAT with `repo` scope for now - this is a personal tool, not exposed to network.
-- [ ] **News account email treatment** - Accounts with `isNewsAccount: true` are skipped by default (newsletter content is in the main pipeline). But such an account may still receive personal replies or non-newsletter subscriptions. Decision: fetch headers only for `isNewsAccount: true` accounts, then extract any email where `from` is not in the known newsletter sender list. Sender list sourced from `rss-feeds` config + IMAP news sources config.
+- [x] **GitHub PAT scope** - PAT with `repo` scope. Personal tool, not network-exposed, no need for GitHub App complexity.
+- [x] **News account email treatment** - `sources/email.ts` returns `[]` for `isNewsAccount: true` accounts. Sufficient for first run; newsletter personal replies are an edge case to revisit later if needed.
 - [x] **Rerun cadence** - Decided: update mode is the default on subsequent runs (auto-detected via `context_builder_runs` table). `--full` forces a rebuild. `--update` forces delta even if first run. 30% delta threshold triggers a rebuild recommendation. Patch synthesis ensures new items are weighted proportionally to the existing index size.
-- [ ] **Output location** - `context-builder/output/` vs. a path in the main PIDRA data dir. Decision: keep in `context-builder/output/` for now. The DB seeding is the primary integration mechanism, not file-sharing.
+- [x] **Output location** - `context-builder/output/`. Resolved in `config.ts` and `run.ts`.

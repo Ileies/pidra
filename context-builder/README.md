@@ -35,6 +35,8 @@ GKEEPAPI_MASTER_TOKEN=aas_et/...
 
 The master token does not expire. You only need to repeat this if it gets revoked.
 
+**Why a proper OAuth2 flow is not possible:** Google Keep has no public API. The scopes gkeepapi uses (`memento`, `reminders`) are internal Android/GMS scopes that do not appear in Google's OAuth2 scope registry for third-party apps - you cannot request them in a consent screen. Calendar and Tasks work via standard OAuth2 because they have official APIs; Keep does not. The EmbeddedSetup cookie method is the least hacky option available.
+
 ## Running
 
 ```sh

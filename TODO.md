@@ -6,7 +6,7 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md`. Phases 0-6 are complete
 
 - **[INFRA]** Apply migration 0007: run `bun run tmp-migrate-0007.ts` when pronix is reachable, then delete the file
 - **[INFRA]** Set up Ollama on this machine + pull `qwen2.5:14b`
-- **[INFRA]** gkeepapi one-time auth: `nix shell nixpkgs#python3Packages.gkeepapi -c python3 context-builder/scripts/keep-auth.py`
+- **[INFRA]** gkeepapi one-time auth: see README in `context-builder/` (gkeepapi not in nixpkgs, use pip venv)
 - **[FEATURE]** Context Builder: full first run - pre-seeds `entities`, `contacts`, `standing_context`
 - **[FEATURE]** Context Builder: set up monthly update run cadence (cron or manual)
 - **[INFRA]** Test pipeline with real newsletters for 3 days, tune Ollama prompts

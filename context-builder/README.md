@@ -12,11 +12,14 @@ One-shot tool that scans all personal data sources (email, Google Keep, Google T
 
 ## One-time: Google Keep auth
 
+gkeepapi is not packaged in nixpkgs, so install it via pip in a temporary venv:
+
 ```sh
-nix shell nixpkgs#python3Packages.gkeepapi -c python3 context-builder/scripts/keep-auth.py
+nix shell nixpkgs#python3 nixpkgs#python3Packages.pip -c sh -c \
+  "python3 -m venv /tmp/gkeep-venv && /tmp/gkeep-venv/bin/pip install gkeepapi -q && /tmp/gkeep-venv/bin/python3 context-builder/scripts/keep-auth.py"
 ```
 
-Follow the prompt, then copy the printed master token into `.env` as `GKEEPAPI_MASTER_TOKEN`.
+You will need a Google App Password (generate one at myaccount.google.com/apppasswords). The token is saved to `context-builder/.keep-token.json` and used automatically by all subsequent runs.
 
 ## Running
 

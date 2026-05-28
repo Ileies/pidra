@@ -6,17 +6,38 @@ import json
 import sys
 
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), "../.keep-token.json")
+ENV_PATH = os.path.join(os.path.dirname(__file__), "../../.env")
+
+
+def load_env(path):
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
 
 def main():
-    if not os.path.exists(TOKEN_PATH):
-        print(json.dumps({"error": "No token found. Run keep-auth.py first."}), file=sys.stderr)
-        return 1
+    load_env(ENV_PATH)
 
-    with open(TOKEN_PATH) as f:
-        creds = json.load(f)
+    email = os.environ.get("GKEEPAPI_EMAIL")
+    master_token = os.environ.get("GKEEPAPI_MASTER_TOKEN")
+
+    if not email or not master_token:
+        if not os.path.exists(TOKEN_PATH):
+            print(json.dumps({"error": "No token found. Run keep-auth.py first."}), file=sys.stderr)
+            return 1
+        with open(TOKEN_PATH) as f:
+            creds = json.load(f)
+        email = creds["email"]
+        master_token = creds["master_token"]
 
     keep = gkeepapi.Keep()
-    keep.authenticate(creds["email"], creds["master_token"])
+    keep.authenticate(email, master_token)
     keep.sync()
 
     notes = []
@@ -34,6 +55,7 @@ def main():
 
     print(json.dumps(notes, ensure_ascii=False))
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

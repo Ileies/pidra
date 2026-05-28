@@ -6,9 +6,9 @@ import {
   makeInitialCheckpoint,
   type CheckpointState,
 } from "./checkpoint";
-import { loadErrors } from "./errors";
-import { startProgress, updateProgress, stopProgress } from "./progress";
-import { fetchEmailItems } from "./sources/email";
+import { loadErrors, logError, getErrors } from "./errors";
+import { startProgress, updateProgress, stopProgress, pauseProgress, resumeProgress } from "./progress";
+import { fetchEmailItems, type EmailItem } from "./sources/email";
 import { fetchTaskItems } from "./sources/tasks";
 import { fetchKeepNotes } from "./sources/keep";
 import { fetchGitHubRepos } from "./sources/github";
@@ -22,12 +22,13 @@ import {
   synthesizeGitHub,
   synthesizeFullContext,
   synthesizePatch,
+  type SynthesisResult,
 } from "./pipeline/synthesize";
 import { seedContacts, seedEntities, seedStandingContext } from "./output/db-writer";
 import { writeOutputFiles } from "./output/builder";
 import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -51,7 +52,7 @@ async function detectMode(): Promise<"full" | "update" | "resume"> {
     .orderBy(contextBuilderRuns.startedAt)
     .limit(1);
 
-  return lastRun || forceUpdate ? "update" : "full";
+  return (lastRun || forceUpdate) ? "update" : "full";
 }
 
 async function getSkipSet(source: string): Promise<Set<string>> {
@@ -60,6 +61,33 @@ async function getSkipSet(source: string): Promise<Set<string>> {
     .from(contextBuilderIndexedItems)
     .where(eq(contextBuilderIndexedItems.source, source));
   return new Set(rows.map((r) => r.itemId));
+}
+
+async function getTotalIndexedCount(): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(contextBuilderIndexedItems);
+  return Number(row?.n ?? 0);
+}
+
+function printInventory(info: {
+  emailNew: number; emailSkipped: number;
+  tasks: number;
+  keepNew: number; keepSkipped: number;
+  github: number;
+  mode: string;
+}): void {
+  const col = (s: string, w: number) => s.padEnd(w);
+  console.log("\n=== Source Inventory ===");
+  if (info.mode === "update") {
+    console.log(`  ${col("Email", 10)} ${info.emailNew} new  (${info.emailSkipped} already indexed)`);
+    console.log(`  ${col("Tasks", 10)} ${info.tasks} (always re-fetched)`);
+    console.log(`  ${col("Keep", 10)} ${info.keepNew} new  (${info.keepSkipped} already indexed)`);
+  } else {
+    console.log(`  ${col("Email", 10)} ${info.emailNew}`);
+    console.log(`  ${col("Tasks", 10)} ${info.tasks}`);
+    console.log(`  ${col("Keep", 10)} ${info.keepNew}`);
+  }
+  console.log(`  ${col("GitHub", 10)} ${info.github} repos (always re-fetched)`);
+  console.log("========================\n");
 }
 
 async function main(): Promise<void> {
@@ -72,7 +100,6 @@ async function main(): Promise<void> {
 
   console.log(`\n=== Context Builder - ${mode} mode${dryRun ? " (dry run)" : ""} ===\n`);
 
-  // Insert run record
   let dbRunId: string | undefined;
   if (!dryRun) {
     const [runRow] = await db
@@ -86,86 +113,166 @@ async function main(): Promise<void> {
   if (!dryRun) await saveCheckpoint(state);
   startProgress(state);
 
-  try {
-    // --- Phase 1: Email ---
-    const emailSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("email");
-    const allEmailItems: Awaited<ReturnType<typeof fetchEmailItems>> = [];
+  // === FETCH PHASE ===
 
+  let allEmailItems: EmailItem[] = [];
+  let emailSkipped = 0;
+  let emailSkipSet = new Set<string>();
+
+  try {
+    emailSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("email");
     for (const account of config.emailAccounts) {
       if (account.isNewsAccount) continue;
-      const items = await fetchEmailItems(account, config.emailYears, emailSkipSet);
+      const { items, skipped } = await fetchEmailItems(account, config.emailYears, emailSkipSet);
       allEmailItems.push(...items);
+      emailSkipped += skipped;
     }
-
     state.phases.email.total = allEmailItems.length;
-    updateProgress(state);
+    state.phases.email.skipped = emailSkipped;
+  } catch (err) {
+    await logError("phase:email-fetch", err);
+  }
+  updateProgress(state);
 
-    let emailExtractions: Awaited<ReturnType<typeof extractEmails>> = [];
-    if (!dryRun && allEmailItems.length > 0) {
-      emailExtractions = await extractEmails(allEmailItems, dbRunId!, config.ollamaModel, (done) => {
-        state.phases.email.processed = done;
-        updateProgress(state);
-      });
-    }
-    state.phases.email.done = true;
-    if (!dryRun) await saveCheckpoint(state);
-    updateProgress(state);
-
-    // --- Phase 2: Tasks ---
-    const taskItems = await fetchTaskItems();
+  let taskItems: Awaited<ReturnType<typeof fetchTaskItems>> = [];
+  try {
+    taskItems = await fetchTaskItems();
     state.phases.tasks.total = taskItems.length;
-    updateProgress(state);
-
-    // --- Phase 3: Keep ---
-    const keepSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("keep");
-    const keepNotes = await fetchKeepNotes();
-    state.phases.keep.total = keepNotes.filter((n) => !keepSkipSet.has(n.id)).length;
-    updateProgress(state);
-
-    let noteExtractions: Awaited<ReturnType<typeof extractNotes>> = [];
-    if (!dryRun && keepNotes.length > 0) {
-      noteExtractions = await extractNotes(keepNotes, dbRunId!, config.ollamaModel, keepSkipSet, (done) => {
-        state.phases.keep.processed = done;
-        updateProgress(state);
-      });
-    }
-    state.phases.keep.done = true;
     state.phases.tasks.done = true;
-    if (!dryRun) await saveCheckpoint(state);
-    updateProgress(state);
+  } catch (err) {
+    await logError("phase:tasks-fetch", err);
+    state.phases.tasks.done = true;
+  }
+  updateProgress(state);
 
-    // --- Phase 4: GitHub ---
-    let githubRepos: Awaited<ReturnType<typeof fetchGitHubRepos>> = [];
+  let keepNotes: Awaited<ReturnType<typeof fetchKeepNotes>> = [];
+  let keepSkipSet = new Set<string>();
+  let keepNewCount = 0;
+
+  try {
+    keepSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("keep");
+    keepNotes = await fetchKeepNotes();
+    keepNewCount = keepNotes.filter((n) => !keepSkipSet.has(n.id)).length;
+    state.phases.keep.total = keepNewCount;
+    state.phases.keep.skipped = keepSkipSet.size;
+  } catch (err) {
+    await logError("phase:keep-fetch", err);
+  }
+  updateProgress(state);
+
+  let githubRepos: Awaited<ReturnType<typeof fetchGitHubRepos>> = [];
+  try {
     if (config.githubToken) {
       githubRepos = await fetchGitHubRepos(config.githubToken);
     }
     state.phases.github.total = githubRepos.length;
     state.phases.github.done = true;
-    updateProgress(state);
+  } catch (err) {
+    await logError("phase:github-fetch", err);
+    state.phases.github.done = true;
+  }
+  updateProgress(state);
 
-    if (dryRun) {
-      stopProgress();
-      console.log("\n[dry-run] Inventory complete:");
-      console.log(`  Email: ${allEmailItems.length} items`);
-      console.log(`  Tasks: ${taskItems.length} items`);
-      console.log(`  Keep: ${keepNotes.length} notes (${state.phases.keep.total} new)`);
-      console.log(`  GitHub: ${githubRepos.length} repos`);
-      return;
+  // === INVENTORY TABLE ===
+  pauseProgress();
+  printInventory({
+    emailNew: allEmailItems.length,
+    emailSkipped,
+    tasks: taskItems.length,
+    keepNew: keepNewCount,
+    keepSkipped: keepSkipSet.size,
+    github: githubRepos.length,
+    mode,
+  });
+
+  // === 30% DELTA WARNING (update mode only) ===
+  if (mode === "update") {
+    const totalIndexed = await getTotalIndexedCount();
+    if (totalIndexed > 0) {
+      const delta = allEmailItems.length + keepNewCount;
+      const ratio = delta / totalIndexed;
+      if (ratio > 0.3) {
+        console.warn(`WARNING: Delta (${delta} items) is ${Math.round(ratio * 100)}% of existing index (${totalIndexed} items).`);
+        console.warn(`Consider running with --full for a cleaner result. Proceeding with update anyway.\n`);
+      }
     }
+  }
 
-    // --- Phase 5: Synthesis ---
-    const contactProfiles = batchContacts(emailExtractions);
-    const notesByCategory = noteExtractions.reduce((map, n) => {
-      const arr = map.get(n.category) ?? [];
-      arr.push(n);
-      map.set(n.category, arr);
-      return map;
-    }, new Map<string, typeof noteExtractions>());
+  if (dryRun) {
+    if (dbRunId) {
+      await db.update(contextBuilderRuns)
+        .set({ status: "completed", completedAt: new Date().toISOString(), itemsIndexed: 0 })
+        .where(eq(contextBuilderRuns.id, dbRunId));
+    }
+    await clearCheckpoint();
+    return;
+  }
 
-    let fullContext: string;
+  resumeProgress(state);
+
+  // === EXTRACTION PHASE ===
+
+  let emailExtractions: Awaited<ReturnType<typeof extractEmails>> = [];
+  try {
+    if (allEmailItems.length > 0) {
+      emailExtractions = await extractEmails(allEmailItems, dbRunId!, config.ollamaModel, (done) => {
+        state.phases.email.processed = done;
+        updateProgress(state);
+      });
+    }
+  } catch (err) {
+    await logError("phase:email-extract", err);
+  } finally {
+    state.phases.email.done = true;
+    await saveCheckpoint(state);
+    updateProgress(state);
+  }
+
+  let noteExtractions: Awaited<ReturnType<typeof extractNotes>> = [];
+  try {
+    if (keepNotes.length > 0) {
+      noteExtractions = await extractNotes(keepNotes, dbRunId!, config.ollamaModel, keepSkipSet, (done) => {
+        state.phases.keep.processed = done;
+        updateProgress(state);
+      });
+    }
+  } catch (err) {
+    await logError("phase:keep-extract", err);
+  } finally {
+    state.phases.keep.done = true;
+    await saveCheckpoint(state);
+    updateProgress(state);
+  }
+
+  // === SYNTHESIS PHASE (always runs with whatever data is available) ===
+
+  const contactProfiles = batchContacts(emailExtractions);
+  const notesByCategory = noteExtractions.reduce((map, n) => {
+    const arr = map.get(n.category) ?? [];
+    arr.push(n);
+    map.set(n.category, arr);
+    return map;
+  }, new Map<string, typeof noteExtractions>());
+
+  let parts: Omit<SynthesisResult, "fullContext"> = { contacts: "", tasks: "", keep: "", github: "" };
+  let fullContext = "";
+
+  try {
+    const [contactsSummary, tasksSummary, keepSummary, githubSummary] = await Promise.allSettled([
+      emailExtractions.length > 0 ? synthesizeContacts(contactProfiles) : Promise.resolve("No email data"),
+      taskItems.length > 0 ? synthesizeTasks(taskItems) : Promise.resolve("No task data"),
+      noteExtractions.length > 0 ? synthesizeKeep(notesByCategory) : Promise.resolve("No Keep data"),
+      githubRepos.length > 0 ? synthesizeGitHub(githubRepos) : Promise.resolve("No GitHub data"),
+    ]);
+
+    parts = {
+      contacts: contactsSummary.status === "fulfilled" ? contactsSummary.value : "",
+      tasks: tasksSummary.status === "fulfilled" ? tasksSummary.value : "",
+      keep: keepSummary.status === "fulfilled" ? keepSummary.value : "",
+      github: githubSummary.status === "fulfilled" ? githubSummary.value : "",
+    };
 
     if (mode === "update") {
-      // Load previous context document for patch synthesis
       const [lastRun] = await db
         .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
         .from(contextBuilderRuns)
@@ -181,104 +288,70 @@ async function main(): Promise<void> {
         } catch {}
       }
 
-      const deltaParts = {
-        contacts: emailExtractions.length > 0 ? await synthesizeContacts(contactProfiles) : undefined,
-        tasks: await synthesizeTasks(taskItems),
-        keep: noteExtractions.length > 0 ? await synthesizeKeep(notesByCategory) : undefined,
-        github: githubRepos.length > 0 ? await synthesizeGitHub(githubRepos) : undefined,
-      };
-
       const existingCount = lastRun?.itemsIndexed ?? 0;
       const deltaCount = emailExtractions.length + noteExtractions.length + githubRepos.length;
 
       fullContext = existingContext
-        ? await synthesizePatch(existingContext, deltaParts, { existing: existingCount, delta: deltaCount })
-        : await synthesizeFullContext({ contacts: deltaParts.contacts ?? "", tasks: deltaParts.tasks, keep: deltaParts.keep ?? "", github: deltaParts.github ?? "" });
+        ? await synthesizePatch(existingContext, parts, { existing: existingCount, delta: deltaCount })
+        : await synthesizeFullContext(parts);
     } else {
-      const [contactsSummary, tasksSummary, keepSummary, githubSummary] = await Promise.all([
-        emailExtractions.length > 0 ? synthesizeContacts(contactProfiles) : Promise.resolve("No email data"),
-        synthesizeTasks(taskItems),
-        noteExtractions.length > 0 ? synthesizeKeep(notesByCategory) : Promise.resolve("No Keep data"),
-        githubRepos.length > 0 ? synthesizeGitHub(githubRepos) : Promise.resolve("No GitHub data"),
-      ]);
-
-      fullContext = await synthesizeFullContext({ contacts: contactsSummary, tasks: tasksSummary, keep: keepSummary, github: githubSummary });
-
-      const { jsonPath, mdPath } = await writeOutputFiles(
-        { contacts: contactsSummary, tasks: tasksSummary, keep: keepSummary, github: githubSummary, fullContext },
-        config.outputDir,
-        today,
-      );
-
-      state.phases.synthesis.done = true;
-      updateProgress(state);
-
-      // --- Phase 6: DB Seeding ---
-      await seedContacts(contactProfiles);
-      await seedEntities(emailExtractions, noteExtractions);
-      await seedStandingContext(noteExtractions);
-
-      state.phases.dbSeed.done = true;
-      updateProgress(state);
-
-      // Finalize run record
-      const totalIndexed = emailExtractions.length + noteExtractions.length + githubRepos.length + taskItems.length;
-      await db
-        .update(contextBuilderRuns)
-        .set({ status: "completed", completedAt: new Date().toISOString(), itemsIndexed: totalIndexed, outputPath: jsonPath })
-        .where(eq(contextBuilderRuns.id, dbRunId!));
-
-      await clearCheckpoint();
-
-      stopProgress();
-      console.log(`\nContext Builder complete!`);
-      console.log(`Output: ${mdPath}`);
-      console.log(`Items indexed: ${totalIndexed}`);
-      return;
+      fullContext = await synthesizeFullContext(parts);
     }
+  } catch (err) {
+    await logError("phase:synthesis", err);
+  }
 
-    // Update mode output path
-    const { jsonPath, mdPath } = await writeOutputFiles(
-      { contacts: "", tasks: "", keep: "", github: "", fullContext },
+  state.phases.synthesis.done = true;
+  updateProgress(state);
+
+  // === OUTPUT FILES ===
+  let jsonPath = "";
+  let mdPath = "";
+  try {
+    const paths = await writeOutputFiles(
+      { ...parts, fullContext },
       config.outputDir,
       today,
     );
+    jsonPath = paths.jsonPath;
+    mdPath = paths.mdPath;
+  } catch (err) {
+    await logError("phase:output", err);
+  }
 
-    state.phases.synthesis.done = true;
-    updateProgress(state);
-
+  // === DB SEEDING ===
+  try {
     await seedContacts(contactProfiles);
     await seedEntities(emailExtractions, noteExtractions);
     await seedStandingContext(noteExtractions);
+  } catch (err) {
+    await logError("phase:db-seed", err);
+  }
 
-    state.phases.dbSeed.done = true;
-    updateProgress(state);
+  state.phases.dbSeed.done = true;
+  updateProgress(state);
 
-    const totalIndexed = emailExtractions.length + noteExtractions.length + githubRepos.length + taskItems.length;
+  // === FINALIZE ===
+  const totalIndexed = emailExtractions.length + noteExtractions.length + githubRepos.length + taskItems.length;
+
+  if (dbRunId) {
     await db
       .update(contextBuilderRuns)
-      .set({ status: "completed", completedAt: new Date().toISOString(), itemsIndexed: totalIndexed, outputPath: jsonPath })
-      .where(eq(contextBuilderRuns.id, dbRunId!));
-
-    await clearCheckpoint();
-    stopProgress();
-    console.log(`\nContext Builder complete!`);
-    console.log(`Output: ${mdPath}`);
-    console.log(`Items indexed: ${totalIndexed}`);
-
-  } catch (err) {
-    state.phases.synthesis.done = false;
-    await saveCheckpoint(state);
-    if (dbRunId) {
-      await db
-        .update(contextBuilderRuns)
-        .set({ status: "interrupted" })
-        .where(eq(contextBuilderRuns.id, dbRunId));
-    }
-    stopProgress();
-    console.error("\nContext Builder failed:", err);
-    process.exit(1);
+      .set({ status: "completed", completedAt: new Date().toISOString(), itemsIndexed: totalIndexed, outputPath: jsonPath || null })
+      .where(eq(contextBuilderRuns.id, dbRunId));
   }
+
+  await clearCheckpoint();
+  stopProgress();
+
+  const errors = getErrors();
+  console.log(`\nContext Builder complete!`);
+  console.log(`  Items indexed : ${totalIndexed}`);
+  if (mdPath) console.log(`  Output        : ${mdPath}`);
+  if (errors.length > 0) console.log(`  Errors logged : ${errors.length} (see context-builder/errors.json)`);
 }
 
-main();
+main().catch(async (err) => {
+  console.error("\nContext Builder failed:", err);
+  process.exit(1);
+});

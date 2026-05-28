@@ -6,10 +6,10 @@ export interface CheckpointState {
   mode: "full" | "update" | "resume";
   startedAt: string;
   phases: {
-    email: { total: number; processed: number; done: boolean };
-    tasks: { total: number; processed: number; done: boolean };
-    keep: { total: number; processed: number; done: boolean };
-    github: { total: number; processed: number; done: boolean };
+    email: { total: number; processed: number; skipped: number; done: boolean };
+    tasks: { total: number; processed: number; skipped: number; done: boolean };
+    keep: { total: number; processed: number; skipped: number; done: boolean };
+    github: { total: number; processed: number; skipped: number; done: boolean };
     synthesis: { done: boolean };
     dbSeed: { done: boolean };
   };
@@ -43,10 +43,10 @@ export function makeInitialCheckpoint(runId: string, mode: "full" | "update" | "
     mode,
     startedAt: new Date().toISOString(),
     phases: {
-      email: { total: 0, processed: 0, done: false },
-      tasks: { total: 0, processed: 0, done: false },
-      keep: { total: 0, processed: 0, done: false },
-      github: { total: 0, processed: 0, done: false },
+      email: { total: 0, processed: 0, skipped: 0, done: false },
+      tasks: { total: 0, processed: 0, skipped: 0, done: false },
+      keep: { total: 0, processed: 0, skipped: 0, done: false },
+      github: { total: 0, processed: 0, skipped: 0, done: false },
       synthesis: { done: false },
       dbSeed: { done: false },
     },

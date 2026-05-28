@@ -18,7 +18,10 @@ export interface EmailExtraction {
 }
 
 const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const SEMAPHORE_LIMIT = 4;
+const BASE_LIMIT = Number(process.env.CONTEXT_BUILDER_OLLAMA_CONCURRENCY ?? 4);
+
+let currentLimit = BASE_LIMIT;
+let consecutiveFailures = 0;
 
 async function extractWithOllama(model: string, content: string): Promise<Record<string, unknown>> {
   const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
@@ -39,21 +42,45 @@ async function extractWithOllama(model: string, content: string): Promise<Record
   return JSON.parse(data.message.content);
 }
 
+async function extractWithRetry(model: string, content: string): Promise<Record<string, unknown>> {
+  const delays = [2000, 8000];
+  let lastErr: unknown;
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      const result = await extractWithOllama(model, content);
+      consecutiveFailures = 0;
+      return result;
+    } catch (err) {
+      lastErr = err;
+      if (i < delays.length) await Bun.sleep(delays[i]);
+    }
+  }
+  consecutiveFailures++;
+  if (consecutiveFailures >= 3 && currentLimit > 2) {
+    currentLimit = Math.max(2, Math.floor(currentLimit / 2));
+    process.stderr.write(`\n[ollama:email] Reducing concurrency to ${currentLimit} after ${consecutiveFailures} consecutive failures\n`);
+  }
+  throw lastErr;
+}
+
 export async function extractEmails(
   emails: EmailItem[],
   runId: string,
   model: string,
   onProgress?: (done: number) => void,
 ): Promise<EmailExtraction[]> {
+  // Reset module state per run
+  currentLimit = BASE_LIMIT;
+  consecutiveFailures = 0;
+
   const results: EmailExtraction[] = [];
   let active = 0;
   let done = 0;
-  const queue = [...emails];
 
   const runOne = async (email: EmailItem): Promise<void> => {
     try {
       const content = `From: ${email.fromName} <${email.from}>\nSubject: ${email.subject}\nDate: ${email.date}\n\n${email.body}`;
-      const json = await extractWithOllama(model, content);
+      const json = await extractWithRetry(model, content);
 
       const extraction: EmailExtraction = {
         messageId: email.messageId,
@@ -70,7 +97,6 @@ export async function extractEmails(
 
       results.push(extraction);
 
-      // Mark as indexed
       await db.insert(contextBuilderIndexedItems).values({
         runId,
         source: "email",
@@ -84,10 +110,9 @@ export async function extractEmails(
     }
   };
 
-  // Semaphore
   const workers: Promise<void>[] = [];
-  for (const email of queue) {
-    while (active >= SEMAPHORE_LIMIT) {
+  for (const email of emails) {
+    while (active >= currentLimit) {
       await Promise.race(workers);
     }
     active++;

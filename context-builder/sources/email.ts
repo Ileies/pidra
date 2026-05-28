@@ -13,7 +13,11 @@ export interface EmailItem {
   body: string;
 }
 
-// Senders to always skip
+export interface EmailFetchResult {
+  items: EmailItem[];
+  skipped: number;
+}
+
 const SKIP_PATTERNS = [/no-?reply/i, /noreply/i, /mailer-daemon/i, /notifications?@/i, /do-?not-?reply/i, /bounce/i];
 
 function shouldSkip(from: string): boolean {
@@ -99,20 +103,24 @@ function fetchBody(imap: Imap, uid: number): Promise<string> {
   });
 }
 
-export async function fetchEmailItems(account: EmailAccount, yearsBack: number, skipIds: Set<string>): Promise<EmailItem[]> {
-  if (account.isNewsAccount) return [];
+async function doFetch(account: EmailAccount, yearsBack: number, skipIds: Set<string>): Promise<EmailFetchResult> {
+  if (account.isNewsAccount) return { items: [], skipped: 0 };
 
   const since = new Date();
   since.setFullYear(since.getFullYear() - yearsBack);
 
   const imap = await openImap(account);
   const results: EmailItem[] = [];
+  let skipped = 0;
 
   try {
     const headers = await fetchHeadersSince(imap, since);
 
     for (const h of headers) {
-      if (skipIds.has(h.messageId)) continue;
+      if (skipIds.has(h.messageId)) {
+        skipped++;
+        continue;
+      }
       if (shouldSkip(h.from)) continue;
 
       try {
@@ -139,5 +147,20 @@ export async function fetchEmailItems(account: EmailAccount, yearsBack: number, 
     imap.end();
   }
 
-  return results;
+  return { items: results, skipped };
+}
+
+export async function fetchEmailItems(account: EmailAccount, yearsBack: number, skipIds: Set<string>): Promise<EmailFetchResult> {
+  try {
+    return await doFetch(account, yearsBack, skipIds);
+  } catch (err) {
+    process.stderr.write(`[email:${account.user}] IMAP error, reconnecting once...\n`);
+    await Bun.sleep(3000);
+    try {
+      return await doFetch(account, yearsBack, skipIds);
+    } catch (err2) {
+      await logError(`email:${account.user}`, err2);
+      return { items: [], skipped: 0 };
+    }
+  }
 }

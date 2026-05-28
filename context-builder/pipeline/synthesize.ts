@@ -24,6 +24,29 @@ async function call(system: string, user: string): Promise<string> {
   return res.choices[0].message.content ?? "";
 }
 
+async function callWithRetry(system: string, user: string): Promise<string> {
+  const delays = [2000, 8000, 30000];
+  let lastErr: unknown;
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      return await call(system, user);
+    } catch (err) {
+      lastErr = err;
+      const status = (err as { status?: number }).status;
+      if (status === 429) {
+        const wait = delays[i] ?? 60000;
+        process.stderr.write(`[openai] 429 rate limit, waiting ${wait / 1000}s...\n`);
+        await Bun.sleep(wait);
+      } else if (i < delays.length) {
+        await Bun.sleep(delays[i]);
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export async function synthesizeContacts(contacts: ContactProfile[]): Promise<string> {
   const top = contacts.slice(0, 50);
   const input = JSON.stringify(top.map((c) => ({
@@ -36,7 +59,7 @@ export async function synthesizeContacts(contacts: ContactProfile[]): Promise<st
     entities: c.entities,
   })));
 
-  return call(
+  return callWithRetry(
     `You are building a contact directory for a personal briefing system. Given email interaction data, write a concise contact profile summary (max 2000 tokens).
 Format: for each high-importance contact, one line: "Name <email>: relationship/role, key topics".
 Group medium-importance contacts together. Skip low-importance.
@@ -49,7 +72,7 @@ export async function synthesizeTasks(tasks: TaskItem[]): Promise<string> {
   const active = tasks.filter((t) => t.status === "needsAction");
   const recentDone = tasks.filter((t) => t.status === "completed").slice(0, 20);
 
-  return call(
+  return callWithRetry(
     `Summarize these Google Tasks into a concise active commitments overview (max 500 tokens).
 List active tasks grouped by list, with due dates where present.
 Note any patterns (overdue items, recurring task types, project clusters).
@@ -64,7 +87,7 @@ export async function synthesizeKeep(notesByCategory: Map<string, NoteExtraction
     input[cat] = notes.map((n) => ({ summary: n.summary, type: n.type, importance: n.importance }));
   }
 
-  return call(
+  return callWithRetry(
     `Summarize these Google Keep notes into a personal knowledge overview (max 800 tokens).
 Group by category. For each category: what are the main themes? Are there standing rules, recurring reminders, or important references?
 Format as readable plain text. Flag any high-importance rules that should always be kept in context.`,
@@ -73,7 +96,7 @@ Format as readable plain text. Flag any high-importance rules that should always
 }
 
 export async function synthesizeGitHub(repos: GitHubRepo[]): Promise<string> {
-  return call(
+  return callWithRetry(
     `Summarize these GitHub repositories into a project portfolio overview (max 600 tokens).
 For each active repo (pushed in last 6 months): name, purpose (from description/README), primary language, recent activity direction.
 Group stale repos briefly. Note main technical domains and skill areas.`,
@@ -98,7 +121,7 @@ export interface SynthesisResult {
 }
 
 export async function synthesizeFullContext(parts: Omit<SynthesisResult, "fullContext">): Promise<string> {
-  return call(
+  return callWithRetry(
     `You are building a long-term personal context document for a morning briefing AI system.
 Given structured summaries from multiple data sources, produce a coherent context document.
 
@@ -116,7 +139,7 @@ This document will be injected into daily briefings to personalize them.`,
 }
 
 export async function synthesizePatch(existingContext: string, deltaSummaries: Partial<Omit<SynthesisResult, "fullContext">>, counts: { existing: number; delta: number }): Promise<string> {
-  return call(
+  return callWithRetry(
     `Update this existing personal context document with new information from the delta summaries.
 
 The existing context reflects ${counts.existing} previously indexed items.

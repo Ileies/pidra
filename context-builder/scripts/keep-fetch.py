@@ -16,7 +16,7 @@ def main():
         creds = json.load(f)
 
     keep = gkeepapi.Keep()
-    keep.resume(creds["email"], creds["master_token"])
+    keep.authenticate(creds["email"], creds["master_token"])
     keep.sync()
 
     notes = []

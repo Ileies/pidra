@@ -17,7 +17,10 @@ export interface NoteExtraction {
 }
 
 const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const SEMAPHORE_LIMIT = 4;
+const BASE_LIMIT = Number(process.env.CONTEXT_BUILDER_OLLAMA_CONCURRENCY ?? 4);
+
+let currentLimit = BASE_LIMIT;
+let consecutiveFailures = 0;
 
 async function extractWithOllama(model: string, content: string): Promise<Record<string, unknown>> {
   const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
@@ -38,6 +41,27 @@ async function extractWithOllama(model: string, content: string): Promise<Record
   return JSON.parse(data.message.content);
 }
 
+async function extractWithRetry(model: string, content: string): Promise<Record<string, unknown>> {
+  const delays = [2000, 8000];
+  let lastErr: unknown;
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      const result = await extractWithOllama(model, content);
+      consecutiveFailures = 0;
+      return result;
+    } catch (err) {
+      lastErr = err;
+      if (i < delays.length) await Bun.sleep(delays[i]);
+    }
+  }
+  consecutiveFailures++;
+  if (consecutiveFailures >= 3 && currentLimit > 2) {
+    currentLimit = Math.max(2, Math.floor(currentLimit / 2));
+    process.stderr.write(`\n[ollama:keep] Reducing concurrency to ${currentLimit} after ${consecutiveFailures} consecutive failures\n`);
+  }
+  throw lastErr;
+}
+
 export async function extractNotes(
   notes: KeepNote[],
   runId: string,
@@ -45,6 +69,10 @@ export async function extractNotes(
   skipIds: Set<string>,
   onProgress?: (done: number) => void,
 ): Promise<NoteExtraction[]> {
+  // Reset module state per run
+  currentLimit = BASE_LIMIT;
+  consecutiveFailures = 0;
+
   const results: NoteExtraction[] = [];
   let active = 0;
   let done = 0;
@@ -53,7 +81,7 @@ export async function extractNotes(
   const runOne = async (note: KeepNote): Promise<void> => {
     try {
       const content = `Title: ${note.title}\nLabels: ${note.labels.join(", ")}\n\n${note.text}`;
-      const json = await extractWithOllama(model, content);
+      const json = await extractWithRetry(model, content);
 
       results.push({
         id: note.id,
@@ -82,7 +110,7 @@ export async function extractNotes(
 
   const workers: Promise<void>[] = [];
   for (const note of toProcess) {
-    while (active >= SEMAPHORE_LIMIT) {
+    while (active >= currentLimit) {
       await Promise.race(workers);
     }
     active++;

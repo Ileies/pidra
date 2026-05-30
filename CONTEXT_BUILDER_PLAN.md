@@ -620,7 +620,7 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 
 ### Phase 13 - DB Seeding
 - [x] Add `standing_context` table to Drizzle schema
-- [ ] Generate and apply migration — script at `tmp-migrate-0007.ts`, run when pronix is reachable, then delete
+- [x] Generate and apply migration — script at `tmp-migrate-0007.ts`, run when pronix is reachable, then delete
 - [x] Implement `output/db-writer.ts`: upsert contacts into `contacts` table
 - [x] Implement entity seeding: upsert into `entities` with `mention_count = 0`
 - [x] Implement `standing_context` seeding (replace-all strategy)

@@ -1,7 +1,11 @@
-import type { PageServerLoad } from "./$types";
+import type { PageServerLoad, Actions } from "./$types";
+import { fail } from "@sveltejs/kit";
 import { readFile } from "node:fs/promises";
 import { marked } from "marked";
+import { env } from "$env/dynamic/private";
 import { sql } from "$lib/db";
+
+const API = env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 /**
  * The synthesised context document lives on disk, not in Postgres, and its path is recorded on
@@ -71,5 +75,32 @@ export const load: PageServerLoad = async () => {
         WHERE source = 'keep')::int                               AS indexed_keep
   `;
 
-  return { run: run ?? null, doc, docError, standing, counts };
+  // The correction layer over everything above. Shown next to the harvest on purpose: the
+  // harvested text is never edited, so this list is the only place the current truth is visible.
+  const corrections = await db`
+    SELECT id, target_kind, target_key, operation, statement, supersedes_text, rationale,
+           source, created_at
+    FROM context_corrections
+    WHERE status = 'active'
+    ORDER BY created_at DESC
+  `;
+
+  return { run: run ?? null, doc, docError, standing, counts, corrections };
+};
+
+export const actions: Actions = {
+  revertCorrection: async ({ request }) => {
+    const form = await request.formData();
+    const id = String(form.get("id") ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { error: "Invalid correction id" });
+
+    try {
+      const res = await fetch(`${API}/api/context/corrections/${id}/revert`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) return fail(res.status, { error: body.error ?? "Revert failed" });
+      return { message: body.message as string };
+    } catch (err) {
+      return fail(502, { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  },
 };

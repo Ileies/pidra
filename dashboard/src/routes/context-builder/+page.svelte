@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { enhance } from "$app/forms";
   import type { ContextBuilderStatus } from "$lib/server/contextBuilder";
-  import type { PageData } from "./$types";
+  import type { ActionData, PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let status = $state<ContextBuilderStatus | null>(null);
   let starting = $state(false);
@@ -131,6 +132,7 @@
       <span class="text-surface-500 text-sm">Context Builder</span>
     </div>
     <nav class="flex items-center gap-2">
+      <a href="/chat" class="{navBtn} border-primary-700 text-primary-400 hover:bg-surface-800">Kontext korrigieren</a>
       <a href="/" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← Heute</a>
     </nav>
   </header>
@@ -188,6 +190,65 @@
         </p>
       </section>
     {/if}
+
+    <!-- The correction layer. The harvest above is never rewritten, so this is where the
+         current truth lives; reverting one puts the harvest back in charge of that fact. -->
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
+      <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+        <h2 class="text-surface-200 text-sm font-semibold">Korrekturen ({data.corrections.length})</h2>
+        <a href="/chat" class="text-primary-400 text-xs no-underline hover:text-primary-300">Im Chat korrigieren →</a>
+      </div>
+      <p class="text-surface-500 text-xs mb-3">
+        Werden zusätzlich zum Dokument in jedes Briefing injiziert und schlagen es dort, wo sie sich
+        widersprechen. Nichts oben wird dabei überschrieben.
+      </p>
+
+      {#if form?.error}
+        <p class="text-error-400 text-xs mb-3">{form.error}</p>
+      {:else if form?.message}
+        <p class="text-success-400 text-xs mb-3">{form.message}</p>
+      {/if}
+
+      {#if data.corrections.length === 0}
+        <p class="text-surface-500 text-sm">
+          Keine aktiven Korrekturen. Falsche Beziehungen oder Fakten im Dokument lassen sich im
+          <a href="/chat" class="text-primary-400 no-underline hover:text-primary-300">Context Chat</a> beheben.
+        </p>
+      {:else}
+        <ul class="flex flex-col gap-3 text-sm">
+          {#each data.corrections as correction}
+            <li class="border-b border-surface-800 pb-3 last:border-0">
+              <div class="flex items-start justify-between gap-3 flex-wrap">
+                <div class="min-w-0 flex-1">
+                  <div class="text-surface-500 text-xs">
+                    <code>{correction.target_kind}:{correction.target_key}</code> · {correction.operation} · {correction.source}
+                  </div>
+                  <div class="text-surface-100 mt-1 whitespace-pre-wrap break-words">{correction.statement}</div>
+                  {#if correction.supersedes_text}
+                    <div class="text-surface-600 text-xs mt-1 line-through whitespace-pre-wrap break-words">
+                      {correction.supersedes_text}
+                    </div>
+                  {/if}
+                  {#if correction.rationale}
+                    <div class="text-surface-500 text-xs mt-1 whitespace-pre-wrap break-words">{correction.rationale}</div>
+                  {/if}
+                  <div class="text-surface-600 text-xs mt-1">{fmtTs(correction.created_at)}</div>
+                </div>
+                <form method="POST" action="?/revertCorrection" use:enhance class="shrink-0">
+                  <input type="hidden" name="id" value={correction.id} />
+                  <button
+                    type="submit"
+                    class="{navBtn} border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer"
+                  >
+                    Zurücknehmen
+                  </button>
+                </form>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
 
     {#if data.standing.length > 0}
       <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">

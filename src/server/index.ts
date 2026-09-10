@@ -8,6 +8,8 @@ import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { loadSkills, listSkills } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
+import { sendMessage, listConversations, getConversation } from "../ai/chat";
+import { listActiveCorrections, revertCorrection, CorrectionError } from "../context/corrections";
 
 const app = new Hono();
 
@@ -324,6 +326,48 @@ app.delete("/api/prompts/:id", async (c) => {
 
   await db.delete(promptVersions).where(eq(promptVersions.id, id));
   return c.json({ ok: true });
+});
+
+// --- Context revision chat ---
+
+app.get("/api/chat/conversations", async (c) => c.json(await listConversations()));
+
+app.get("/api/chat/conversations/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  const found = await getConversation(id);
+  if (!found) return c.json({ error: "Not found" }, 404);
+  return c.json(found);
+});
+
+app.post("/api/chat", async (c) => {
+  const body = await c.req.json() as { message?: string; conversation_id?: string };
+  const message = body.message?.trim();
+  if (!message) return c.json({ error: "message is required" }, 400);
+  if (body.conversation_id && !/^[0-9a-f-]{36}$/i.test(body.conversation_id)) {
+    return c.json({ error: "Invalid conversation_id" }, 400);
+  }
+
+  try {
+    return c.json(await sendMessage(message, body.conversation_id));
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
+
+// --- Context corrections ---
+
+app.get("/api/context/corrections", async (c) => c.json(await listActiveCorrections()));
+
+app.post("/api/context/corrections/:id/revert", async (c) => {
+  const id = c.req.param("id");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  try {
+    return c.json({ ok: true, message: await revertCorrection(id) });
+  } catch (err) {
+    if (err instanceof CorrectionError) return c.json({ error: err.message }, 409);
+    throw err;
+  }
 });
 
 loadSkills().catch(console.error);

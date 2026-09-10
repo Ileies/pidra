@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { ReasoningEffort } from "openai/resources/shared";
+import type { FunctionTool, ResponseInput, ResponseInputItem } from "openai/resources/responses/responses";
 import { stripControlChars } from "../util/text";
 
 if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
@@ -133,4 +134,62 @@ export async function synthesize(
   opts.onUsage?.(tokensIn, tokensOut);
 
   return { text: response.output_text, tokensIn, tokensOut };
+}
+
+export type { FunctionTool, ResponseInput, ResponseInputItem };
+
+export interface ConverseOptions extends SynthesizeOptions {
+  tools?: FunctionTool[];
+}
+
+export interface ConverseResult {
+  text: string;
+  /** Every item the model produced, to be fed back as input on the next turn of the loop. */
+  output: ResponseInput;
+  functionCalls: { callId: string; name: string; argumentsJson: string }[];
+  tokensIn: number;
+  tokensOut: number;
+}
+
+/**
+ * One turn of a tool-calling conversation. The caller owns the loop: it executes the returned
+ * `functionCalls`, appends their `function_call_output` items to the input and calls again.
+ *
+ * `store: false` means the API keeps nothing between turns, so the full item list - reasoning
+ * items and function calls included - has to be replayed on every call. That is why `output` is
+ * handed back verbatim rather than reduced to text.
+ */
+export async function converse(
+  systemPrompt: string,
+  input: ResponseInput,
+  opts: ConverseOptions = {},
+): Promise<ConverseResult> {
+  const response = await withFlexRetry(() =>
+    openai.responses.create({
+      model: SYNTHESIS_MODEL,
+      store: false,
+      service_tier: "flex",
+      reasoning: { effort: opts.reasoningEffort ?? "low" },
+      instructions: systemPrompt,
+      input,
+      max_output_tokens: opts.maxOutputTokens ?? 4096,
+      ...(opts.tools?.length ? { tools: opts.tools, tool_choice: "auto" as const } : {}),
+    })
+  );
+
+  const tokensIn = response.usage?.input_tokens ?? 0;
+  const tokensOut = response.usage?.output_tokens ?? 0;
+  opts.onUsage?.(tokensIn, tokensOut);
+
+  const functionCalls = response.output
+    .filter((item): item is Extract<typeof item, { type: "function_call" }> => item.type === "function_call")
+    .map((item) => ({ callId: item.call_id, name: item.name, argumentsJson: item.arguments }));
+
+  return {
+    text: response.output_text,
+    output: response.output as ResponseInput,
+    functionCalls,
+    tokensIn,
+    tokensOut,
+  };
 }

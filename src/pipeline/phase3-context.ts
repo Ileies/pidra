@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { isPersonalItemIncluded } from "./email-category";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
+import { loadLongTermContext, type LongTermContext } from "./long-term-context";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
@@ -18,6 +19,8 @@ export interface ContextPayload {
   calendarItems: CalendarEvent[];
   todoItems: TodoItem[];
   webSearchResults: WebSearchResult[];
+  /** Context Builder output: standing rules plus the pre-split long-term context document. */
+  longTermContext: LongTermContext;
 }
 
 export interface ExtractionWithSource {
@@ -131,10 +134,18 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     (e) => (e.mentionCount ?? 0) >= 3 && mentionedEntityNames.has(e.name.toLowerCase())
   );
 
+  const longTermContext = await loadLongTermContext();
+  if (longTermContext.problem) {
+    // Not fatal: the briefing is simply less personalised without it.
+    console.warn(`[Phase 3] long-term context unavailable - ${longTermContext.problem}`);
+  }
+
   console.log(
     `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items, ` +
     `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}, ` +
-    `${webSearchResults.length} web search slot(s)`
+    `${webSearchResults.length} web search slot(s), ` +
+    `${longTermContext.standingRules.length} standing rule(s), ` +
+    `context doc ${longTermContext.personalSections.length + longTermContext.intelSections.length} chars`
   );
 
   return {
@@ -151,5 +162,6 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     calendarItems,
     todoItems,
     webSearchResults,
+    longTermContext,
   };
 }

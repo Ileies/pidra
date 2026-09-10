@@ -37,6 +37,9 @@ function buildSection1Payload(ctx: ContextPayload): string {
       mention_count: e.mentionCount,
     })),
     notes_intel: ctx.notesIntel.map((n) => n.content),
+    // Interests and technical profile from the Context Builder document: what the user cares
+    // about, for judging which of today's items actually matter to them.
+    long_term_context: ctx.longTermContext.intelSections || null,
     web_search: {
       slot1_topic_deepdive: slot1 ? { query: slot1.query, topic_id: slot1.topicId, results: slot1.results } : null,
       slot2_dormant_entity: slot2 ? { query: slot2.query, entity: slot2.entityName, results: slot2.results } : null,
@@ -64,6 +67,13 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
       priority: c.priority,
     })),
     notes_personal: ctx.notesPersonal.map((n) => n.content),
+    // Context Builder output. standing_rules are the user's own persistent rules; identity,
+    // commitments and standing context give the triage the background it needs to know who a
+    // sender is and whether an item matters.
+    standing_rules: ctx.longTermContext.standingRules.length > 0
+      ? ctx.longTermContext.standingRules.map((r) => r.value)
+      : null,
+    long_term_context: ctx.longTermContext.personalSections || null,
     web_search_mentions: slot3 ? { target: slot3.target, query: slot3.query, results: slot3.results } : null,
   });
 }

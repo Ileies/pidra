@@ -7,6 +7,12 @@ import { eq } from "drizzle-orm";
 
 const CONCURRENCY = 4;
 
+// The only source types `extractItem` has a branch for. Todos and calendar events are read
+// straight out of `raw_items` by Phase 3, so they never need a model call. Keep this in sync
+// with the branches in `extractItem`: anything missing here is silently never extracted,
+// anything extra pads the failure ratio below with guaranteed successes.
+const EXTRACTABLE_SOURCE_TYPES = new Set(["newsletter", "personal_email", "sms"]);
+
 interface NewsletterExtraction {
   source: string;
   date: string;
@@ -126,8 +132,19 @@ export async function runPhase2(runDate: string): Promise<void> {
   const disabledSources = new Set(disabledRows.map((r) => r.sourceName));
 
   const items = await db.select().from(rawItems).where(eq(rawItems.runDate, runDate));
-  const activeItems = items.filter((item) => !item.sourceName || !disabledSources.has(item.sourceName));
-  const skipped = items.length - activeItems.length;
+
+  // Drop the types that need no model call before anything else. Previously they stayed in the
+  // queue, returned true from `extractItem` without doing work, and inflated both the log line
+  // and the denominator of the abort check at the end: 171 todos turned a total wipeout of
+  // every newsletter and email into a 16% failure rate, well under the 50% threshold.
+  const extractable = items.filter((item) => EXTRACTABLE_SOURCE_TYPES.has(item.sourceType));
+  const activeItems = extractable.filter((item) => !item.sourceName || !disabledSources.has(item.sourceName));
+
+  const passthrough = items.length - extractable.length;
+  const skipped = extractable.length - activeItems.length;
+  if (passthrough > 0) {
+    console.log(`[Phase 2] ${passthrough} item(s) need no extraction (todo/calendar) - read directly by Phase 3`);
+  }
   if (skipped > 0) console.log(`[Phase 2] Skipping ${skipped} items from disabled sources`);
   console.log(`[Phase 2] ${activeItems.length} items to extract`);
 

@@ -16,7 +16,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 
 - **Runtime:** Bun (not Node, not tsx - Bun APIs throughout)
 - **Frontend:** SvelteKit
-- **AI (current):** OpenAI GPT-4o - used for both extraction and synthesis during early development
+- **AI (current):** OpenAI GPT-5.6 Luna - used for both extraction and synthesis during early development
 - **AI (target):** Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis
 - **DB:** Postgres via DrizzleORM (Bun SQL driver), running on pronix (`192.168.10.85`)
 - **OS:** NixOS
@@ -24,12 +24,17 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 ## OpenAI API rules
 
 - **Always pass `store: false`** on every OpenAI API call. No exceptions. This prevents request/response storage on OpenAI's servers.
+- **Always pass `service_tier: "flex"`.** Roughly half the cost for extra latency; 429 means "no flex capacity", so retry with backoff rather than failing the caller. `withFlexRetry` in `src/ai/openai.ts` does this.
+- **`gpt-5.6-luna` rejects `temperature` and `max_tokens` with a hard 400.** Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions), and control determinism with strict JSON schemas plus `reasoning.effort` instead of temperature.
+- **Go through `src/ai/openai.ts`.** `extractJson()` and `synthesize()` centralise the model IDs, the flex tier, `store: false`, and retries. Don't construct a second `new OpenAI(...)` client elsewhere.
+- **Prefer strict JSON schemas for extraction.** Pass `schema` to `extractJson()`; it removes both field drift and truncated-JSON parse failures.
 
 ## Architecture rules (non-negotiable)
 
-- **Ollama extracts, Sonnet synthesizes.** Ollama outputs only structured JSON - no prose, no judgments. Sonnet sees only compressed Ollama output, never raw email HTML.
+- **Extraction outputs only structured JSON** - no prose, no judgments. Synthesis sees only compressed extraction output, never raw email HTML. The two-stage split is the rule; which model fills each stage is not. Both stages currently run on `gpt-5.6-luna` (see `src/ai/openai.ts`). The local Ollama path was removed from the Context Builder on 2026-09-10: the 9B model truncated its own JSON mid-object and hit 90 s timeouts, so runs never completed.
 - **No vector stores.** Decided, not revisiting. All retrieval is explicit keyword/entity lookup against Postgres.
-- **Diary content never reaches any cloud API.** This constraint must be enforced at the code level - there must be no call path from the diary reader to any Sonnet API call.
+- **Credentials never reach any cloud API.** Enforced at the code level, at the fetch choke point rather than in a consumer, so no later call path can bypass it. Currently: `sources/keep.ts` drops every Keep note labelled `Credentials` (passwords, card and bank details, identity-document numbers) before any consumer sees it; the label list is `CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS`. Any new personal source needs its own equivalent filter.
+- **Diary and other intimate personal content is deliberately in scope** (owner's decision, 2026-09-10). The context document is meant to be thorough about who the user is, and this content is some of the richest signal available; it goes to the API like anything else, under `store: false`. This supersedes the earlier "diary content never reaches a cloud API" rule, which is now narrowed to credentials above.
 - **Prompt changes require human approval.** The weekly meta-run proposes diffs; nothing auto-applies. The `prompt_versions` table tracks active prompts. The `/prompts` dashboard page handles review and activation.
 - **Dashboard is the primary interface - never send emails for system events.** The user's goal is to not read email. Errors, alerts, and notifications go to the dashboard only (via `pipeline_runs`, `notes`, or the UI). The `send_email` skill and `nodemailer` exist only for user-initiated AI actions, not system monitoring.
 

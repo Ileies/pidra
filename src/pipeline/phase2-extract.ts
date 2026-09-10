@@ -42,7 +42,7 @@ async function extractItem(
   item: typeof rawItems.$inferSelect,
   runDate: string,
   accountCustomInstructions: string | null
-): Promise<void> {
+): Promise<boolean> {
   try {
     if (item.sourceType === "newsletter") {
       const [newsletterData, entityData] = await Promise.all([
@@ -97,6 +97,7 @@ async function extractItem(
         aiFailed: false,
       });
     }
+    return true;
   } catch (err) {
     console.error(`Extraction failed for item ${item.id}:`, err);
     await db.insert(extractions).values({
@@ -108,6 +109,7 @@ async function extractItem(
       novelty: "new",
       aiFailed: true,
     });
+    return false;
   }
 }
 
@@ -129,16 +131,25 @@ export async function runPhase2(runDate: string): Promise<void> {
   if (skipped > 0) console.log(`[Phase 2] Skipping ${skipped} items from disabled sources`);
   console.log(`[Phase 2] ${activeItems.length} items to extract`);
 
+  const results: boolean[] = [];
   const queue = [...activeItems];
   const workers = Array.from({ length: CONCURRENCY }, async () => {
     while (queue.length > 0) {
       const item = queue.shift()!;
       const account = item.accountId ? accountMap.get(item.accountId) : null;
       const customInstructions = account?.customInstructions ?? null;
-      await extractItem(item, runDate, customInstructions);
+      results.push(await extractItem(item, runDate, customInstructions));
     }
   });
 
   await Promise.allSettled(workers);
-  console.log(`[Phase 2] Extraction complete`);
+
+  const failed = results.filter((ok) => !ok).length;
+  if (results.length > 0 && failed / results.length > 0.5) {
+    throw new Error(
+      `[Phase 2] ${failed}/${results.length} items failed extraction (>50%) - aborting run instead of synthesizing from a near-empty context`
+    );
+  }
+
+  console.log(`[Phase 2] Extraction complete (${failed}/${results.length} failed)`);
 }

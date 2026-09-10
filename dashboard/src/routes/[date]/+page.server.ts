@@ -32,7 +32,10 @@ function localToday(): string {
 
 export const load: PageServerLoad = async ({ params }) => {
   const { date } = params;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error(400, "Invalid date format");
+  // `[date]` is a root-level dynamic segment, so it swallows every unmatched single-segment
+  // path - including the /favicon.ico every browser requests unprompted. Those are missing
+  // resources, not bad requests, and a 400 in the network tab reads like an app failure.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error(404, "Not found");
 
   const db = sql();
 

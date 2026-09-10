@@ -11,7 +11,7 @@ function parseIds(raw: string): string[] {
 
 export const load: PageServerLoad = async ({ params }) => {
   const { date, ids } = params;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error(400, "Invalid date");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error(404, "Not found");
 
   const idList = parseIds(ids);
   if (idList.length === 0) error(400, "No valid item IDs");

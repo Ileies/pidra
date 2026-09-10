@@ -11,3 +11,4 @@ context-builder/output/
 context-builder/.checkpoint.json
 context-builder/errors.json
 context-builder/.keep-token.json
+context-builder/.venv/

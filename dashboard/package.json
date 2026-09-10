@@ -2,6 +2,7 @@
   "name": "pidra-dashboard",
   "private": true,
   "version": "0.0.1",
+  "homepage": "https://github.com/Ileies/pidra",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -20,6 +21,7 @@
     "@sveltejs/kit": "^2.16.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tailwindcss/vite": "^4.3.0",
+    "@types/bun": "^1.4.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "tailwindcss": "^4.3.0",

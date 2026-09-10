@@ -1,0 +1,240 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary)}
+.section{margin-bottom:1.5rem}
+.label{font-size:13px;color:var(--color-text-secondary);margin-bottom:6px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:1.5rem}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.metric-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.metric-value{font-size:22px;font-weight:500}
+.metric-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.slider-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.slider-row label{font-size:13px;color:var(--color-text-secondary);min-width:140px}
+.slider-row input{flex:1}
+.slider-row span{font-size:13px;font-weight:500;min-width:36px;text-align:right}
+.chart-wrap{position:relative;width:100%;height:260px;margin:1rem 0}
+.verdict{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:1.5rem}
+.verdict-label{font-size:11px;font-weight:500;color:var(--color-text-tertiary);letter-spacing:.05em;margin-bottom:6px}
+.verdict-main{font-size:15px;font-weight:500;margin-bottom:4px}
+.verdict-sub{font-size:12px;color:var(--color-text-secondary);line-height:1.5}
+.tab-row{display:flex;gap:6px;margin-bottom:1rem}
+.tab{font-size:12px;padding:5px 10px;border:0.5px solid var(--color-border-secondary);border-radius:16px;background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.tab.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500}
+.cut-list{display:flex;flex-direction:column;gap:6px}
+.cut-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px}
+.cut-num{font-weight:500;color:var(--color-text-tertiary);min-width:22px}
+.cut-name{font-weight:500;margin-bottom:2px}
+.cut-reason{color:var(--color-text-secondary);line-height:1.4}
+.cut-badge{font-size:10px;padding:2px 6px;border-radius:8px;margin-left:6px;white-space:nowrap}
+.badge-red{background:#FCEBEB;color:#A32D2D}
+.badge-amber{background:#FAEEDA;color:#854F0B}
+.keep-list{display:flex;flex-direction:column;gap:4px}
+.keep-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--border-radius-md);font-size:12px;background:var(--color-background-secondary)}
+.keep-rank{color:var(--color-text-tertiary);min-width:24px;font-size:11px}
+.keep-name{flex:1;font-weight:500}
+.keep-why{color:var(--color-text-secondary);font-size:11px}
+</style>
+
+<h2 class="sr-only">Newsletter subscription optimizer for AI news compiler project</h2>
+
+<div class="section">
+  <div class="label">Adjust to your compiler setup</div>
+  <div class="slider-row">
+    <label>Model input ($/M tokens)</label>
+    <input type="range" id="inputPrice" min="1" max="15" step="1" value="3" oninput="update()">
+    <span id="inputPriceVal">$3</span>
+  </div>
+  <div class="slider-row">
+    <label>Avg tokens per email</label>
+    <input type="range" id="tokensPerEmail" min="500" max="3000" step="100" value="1200" oninput="update()">
+    <span id="tokensPerEmailVal">1200</span>
+  </div>
+  <div class="slider-row">
+    <label>Newsletters subscribed</label>
+    <input type="range" id="count" min="1" max="50" step="1" value="32" oninput="update()">
+    <span id="countVal">32</span>
+  </div>
+</div>
+
+<div class="metrics" id="metrics"></div>
+
+<div class="verdict" id="verdict"></div>
+
+<div class="section">
+  <div class="label">Monthly token volume by count</div>
+  <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Line chart showing cumulative monthly tokens as newsletter count increases from 1 to 50, with sweet spot marked">Token volume rises steeply before 35 then flattens.</canvas></div>
+</div>
+
+<div class="tab-row">
+  <button class="tab active" onclick="showTab('cut',this)">What to cut (18 newsletters)</button>
+  <button class="tab" onclick="showTab('keep',this)">Final stack (32 newsletters)</button>
+</div>
+<div id="tab-content"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const newsletters=[
+{rank:1,name:"Astral Codex Ten",freq:4,tokens:2500,keep:true},
+{rank:2,name:"The Intrinsic Perspective",freq:3,tokens:2200,keep:true},
+{rank:3,name:"Exponential View",freq:4,tokens:2000,keep:true},
+{rank:4,name:"Import AI",freq:4,tokens:1800,keep:true},
+{rank:5,name:"The Diff",freq:20,tokens:1800,keep:true},
+{rank:6,name:"Not Boring",freq:8,tokens:3000,keep:true},
+{rank:7,name:"Money Stuff",freq:20,tokens:2200,keep:true},
+{rank:8,name:"Sinocism",freq:16,tokens:1500,keep:true},
+{rank:9,name:"The Generalist",freq:4,tokens:4000,keep:true},
+{rank:10,name:"Farnam Street",freq:4,tokens:1800,keep:true},
+{rank:11,name:"Works in Progress",freq:2,tokens:3000,keep:true},
+{rank:12,name:"Experimental History",freq:2,tokens:2500,keep:true},
+{rank:13,name:"Noahpinion",freq:12,tokens:2000,keep:true},
+{rank:14,name:"China Brief",freq:4,tokens:1200,keep:true},
+{rank:15,name:"TLDR AI",freq:22,tokens:800,keep:true},
+{rank:16,name:"MIT Tech Review",freq:22,tokens:900,keep:true},
+{rank:17,name:"Benedict Evans",freq:4,tokens:1500,keep:true},
+{rank:18,name:"SemiAnalysis",freq:3,tokens:3500,keep:true},
+{rank:19,name:"Term Sheet",freq:22,tokens:700,keep:true},
+{rank:20,name:"ChinaTalk",freq:3,tokens:2000,keep:true},
+{rank:21,name:"Hacker Newsletter",freq:4,tokens:800,keep:true},
+{rank:22,name:"Quanta Magazine",freq:4,tokens:1000,keep:true},
+{rank:23,name:"FoundMyFitness",freq:2,tokens:2000,keep:true},
+{rank:24,name:"PESTLE and MORTAR",freq:4,tokens:1500,keep:true},
+{rank:25,name:"Lenny's Newsletter",freq:4,tokens:2000,keep:false,cutReason:"Overlaps with Not Boring on product/startup strategy. Not Boring is denser for your use case.",cutType:"overlap"},
+{rank:26,name:"What's on Weibo",freq:3,tokens:1200,keep:true},
+{rank:27,name:"Interconnected",freq:2,tokens:1800,keep:true},
+{rank:28,name:"Zeihan on Geopolitics",freq:20,tokens:600,keep:false,cutReason:"Daily volume (20/month) with overlapping geo themes from PESTLE, War on the Rocks, and Geopolitical Dispatch. Zeihan is the most ideologically repetitive — his framework is singular and gets tiring.",cutType:"overlap"},
+{rank:29,name:"War on the Rocks",freq:20,tokens:1000,keep:true},
+{rank:30,name:"CB Insights",freq:4,tokens:1200,keep:false,cutReason:"Data is useful but you can access it on-demand. As a newsletter input it adds mostly VC funding trivia rather than insight. Low insight-per-token ratio.",cutType:"lowsignal"},
+{rank:31,name:"The Batch",freq:4,tokens:1200,keep:false,cutReason:"Overlaps with Import AI (#4), which is sharper. Andrew Ng's takes are good but Import AI already covers the research space with more technical depth.",cutType:"overlap"},
+{rank:32,name:"TLDR (main)",freq:22,tokens:700,keep:false,cutReason:"TLDR AI (#15) already covers your most relevant content. The general TLDR overlaps heavily with MIT Tech Review (#16). Redundant.",cutType:"overlap"},
+{rank:33,name:"Palladium Magazine",freq:2,tokens:3000,keep:true},
+{rank:34,name:"Peter Attia Newsletter",freq:4,tokens:1200,keep:false,cutReason:"FoundMyFitness (#23) covers the longevity science space with more research density. Attia's newsletter is essentially a podcast digest — low token efficiency for your compiler.",cutType:"lowsignal"},
+{rank:35,name:"StrictlyVC",freq:22,tokens:600,keep:false,cutReason:"Term Sheet (#19) covers the same VC news with better sourcing and more analytical depth. Keeping both adds ~13,200 tokens/month of near-duplicate content.",cutType:"overlap"},
+{rank:36,name:"Geopolitical Dispatch",freq:20,tokens:900,keep:false,cutReason:"You already have PESTLE (#24), War on the Rocks (#29), and Zeihan (cut). Three deep geopolitics sources is already one too many. This is the most expensive overlap — 18,000 tokens/month of redundancy.",cutType:"overlap"},
+{rank:37,name:"Console.dev",freq:4,tokens:700,keep:true},
+{rank:38,name:"Bytes.dev",freq:4,tokens:700,keep:true},
+{rank:39,name:"Following the Yuan",freq:2,tokens:1500,keep:true},
+{rank:40,name:"The Rundown AI",freq:22,tokens:700,keep:false,cutReason:"Overlaps with TLDR AI (#15). Both are daily AI digests covering the same stories. TLDR AI has cleaner format for parsing — keep that one, drop this.",cutType:"overlap"},
+{rank:41,name:"Examine.com",freq:1,tokens:1500,keep:false,cutReason:"Not really a news newsletter — it's a reference database. Doesn't fit the compiler format and has minimal news volume to synthesize.",cutType:"wrongformat"},
+{rank:42,name:"David Sinclair",freq:1,tokens:1000,keep:false,cutReason:"Extremely low cadence (1-2/month), niche within health, and FoundMyFitness already covers the longevity space rigorously. Almost zero compiler value.",cutType:"lowsignal"},
+{rank:43,name:"Netzpolitik.org",freq:20,tokens:800,keep:true},
+{rank:44,name:"Chartr",freq:12,tokens:600,keep:false,cutReason:"Primarily visual — charts don't parse well into text-based compiler output. The insight-per-token ratio for text extraction is poor. Useful to read yourself, not useful to feed an LLM.",cutType:"wrongformat"},
+{rank:45,name:"Hacker News Digest",freq:22,tokens:600,keep:false,cutReason:"Hacker Newsletter (#21) is already your curated HN feed. This is a second HN aggregator — pure redundancy. 13,200 tokens/month for no unique coverage.",cutType:"overlap"},
+{rank:46,name:"The Browser",freq:20,tokens:500,keep:false,cutReason:"Eclectic curation is valuable to read personally, but the content is too random for a structured news compiler. Low topical density per token.",cutType:"wrongformat"},
+{rank:47,name:"Changelog News",freq:4,tokens:600,keep:false,cutReason:"Console.dev (#37) and Bytes.dev (#38) already cover the dev tooling space. Third dev curation source with diminishing coverage uplift.",cutType:"overlap"},
+{rank:48,name:"Margins",freq:2,tokens:2000,keep:false,cutReason:"Irregular cadence and overlaps thematically with Not Boring and Palladium. Insufficient unique signal for the token cost in compiler context.",cutType:"overlap"},
+{rank:49,name:"NeuroNews International",freq:4,tokens:700,keep:true},
+{rank:50,name:"Dense Discovery",freq:4,tokens:800,keep:false,cutReason:"Design/culture focus doesn't fit your compiler's intelligence-gathering mandate. High quality for personal reading, low compiler value.",cutType:"wrongformat"},
+];
+
+const cutReasons={overlap:"Redundant coverage",lowsignal:"Low signal/token",wrongformat:"Bad for LLM parsing"};
+
+let chart=null;
+
+function calcMonthlyTokens(n){
+  return newsletters.slice(0,n).reduce((sum,x)=>sum+x.freq*x.tokens,0);
+}
+
+function calcMonthlyEmails(n){
+  return newsletters.slice(0,n).reduce((sum,x)=>sum+x.freq,0);
+}
+
+function update(){
+  const inputPrice=+document.getElementById('inputPrice').value;
+  const tokensPerEmail=+document.getElementById('tokensPerEmail').value;
+  const count=+document.getElementById('count').value;
+  document.getElementById('inputPriceVal').textContent='$'+inputPrice;
+  document.getElementById('tokensPerEmailVal').textContent=tokensPerEmail.toLocaleString();
+  document.getElementById('countVal').textContent=count;
+
+  const totalTokens=calcMonthlyTokens(count);
+  const totalEmails=calcMonthlyEmails(count);
+  const monthlyCost=(totalTokens/1000000)*inputPrice;
+  const dailyEmails=Math.round(totalEmails/30);
+
+  document.getElementById('metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Monthly tokens (input)</div><div class="metric-value">${(totalTokens/1000000).toFixed(1)}M</div><div class="metric-sub">~${(totalTokens/30/1000).toFixed(0)}K/day</div></div>
+    <div class="metric"><div class="metric-label">Monthly cost</div><div class="metric-value">$${monthlyCost.toFixed(2)}</div><div class="metric-sub">Input only</div></div>
+    <div class="metric"><div class="metric-label">Emails/month</div><div class="metric-value">${totalEmails.toLocaleString()}</div><div class="metric-sub">~${dailyEmails}/day avg</div></div>
+    <div class="metric"><div class="metric-label">Unique domains</div><div class="metric-value">${count}</div><div class="metric-sub">Coverage sources</div></div>
+  `;
+
+  let verdictMain,verdictSub;
+  if(count<=15){verdictMain="Too thin — major blind spots";verdictSub="You're missing whole domains. Geopolitics, China, health, and philosophy get no coverage. Your daily report will be AI-heavy and topic-narrow.";}
+  else if(count<=24){verdictMain="Solid core — minimal redundancy";verdictSub="Clean stack, near-zero redundancy. But you're missing some unique B-tier sources with zero overlap. Some domains still underrepresented.";}
+  else if(count<=32){verdictMain="Optimal range — high coverage, low waste";verdictSub="~32 is the sweet spot. All major domains covered with >1 source, redundancy eliminated, token cost remains minimal. Every email you receive adds unique signal.";}
+  else if(count<=40){verdictMain="Diminishing returns beginning";verdictSub="You're paying token cost for redundant coverage. Multiple sources now cover the same daily stories. Your LLM will spend tokens deduplicating instead of synthesizing.";}
+  else{verdictMain="Significant redundancy — not worth it";verdictSub="Above 40, you're feeding near-duplicate content to your compiler. Token cost is still cheap, but the model's synthesis quality degrades when it's forced to reconcile 3-4 sources saying the same thing.";}
+
+  document.getElementById('verdict').innerHTML=`<div class="verdict-label">Assessment at ${count} newsletters</div><div class="verdict-main">${verdictMain}</div><div class="verdict-sub">${verdictSub}</div>`;
+
+  updateChart(count,inputPrice);
+}
+
+function updateChart(selected,inputPrice){
+  const labels=[],data=[],costs=[],sweetSpot=[];
+  for(let i=1;i<=50;i++){
+    labels.push(i);
+    const t=calcMonthlyTokens(i);
+    data.push(Math.round(t/1000));
+    costs.push(+((t/1000000)*inputPrice).toFixed(2));
+    sweetSpot.push(i>=25&&i<=35?Math.round(t/1000):null);
+  }
+  const ctx=document.getElementById('chart').getContext('2d');
+  if(chart)chart.destroy();
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Total tokens (K)',data,borderColor:'#888780',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,yAxisID:'y'},
+        {label:'Sweet spot',data:sweetSpot,borderColor:'#1D9E75',borderWidth:3,pointRadius:0,tension:0.3,fill:false,yAxisID:'y',spanGaps:false},
+        {label:'Selected',data:labels.map(l=>l===selected?data[l-1]:null),borderColor:'#534AB7',borderWidth:0,pointRadius:6,pointBackgroundColor:'#534AB7',yAxisID:'y'}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{if(c.datasetIndex===0)return `${c.parsed.y.toLocaleString()}K tokens`;if(c.datasetIndex===2)return `Selected: ${selected} newsletters`;return null;}}}},
+      scales:{
+        x:{title:{display:true,text:'Number of newsletters',font:{size:11},color:'#888780'},ticks:{maxTicksLimit:10,font:{size:10}},grid:{display:false}},
+        y:{title:{display:true,text:'Monthly tokens (K)',font:{size:11},color:'#888780'},ticks:{font:{size:10},callback:v=>v.toLocaleString()+'K'},grid:{color:'rgba(136,135,128,0.1)'}}
+      }
+    }
+  });
+}
+
+let activeTab='cut';
+function showTab(tab,btn){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTab();
+}
+
+function renderTab(){
+  const el=document.getElementById('tab-content');
+  if(activeTab==='cut'){
+    const cuts=newsletters.filter(n=>!n.keep);
+    el.innerHTML='<div class="cut-list">'+cuts.map(n=>`
+      <div class="cut-item">
+        <span class="cut-num">#${n.rank}</span>
+        <div>
+          <div class="cut-name">${n.name}<span class="cut-badge ${n.cutType==='overlap'?'badge-amber':'badge-red'}">${cutReasons[n.cutType]}</span></div>
+          <div class="cut-reason">${n.cutReason}</div>
+        </div>
+      </div>`).join('')+'</div>';
+  } else {
+    const keeps=newsletters.filter(n=>n.keep);
+    el.innerHTML='<div class="keep-list">'+keeps.map(n=>`
+      <div class="keep-item">
+        <span class="keep-rank">#${n.rank}</span>
+        <span class="keep-name">${n.name}</span>
+        <span class="keep-why">~${n.freq}×/mo</span>
+      </div>`).join('')+'</div>';
+  }
+}
+
+update();
+renderTab();
+</script>

@@ -111,6 +111,7 @@
       <a href="/entities" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Entities</a>
       <a href="/notes" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Notes</a>
       <a href="/skills" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Skills</a>
+      <a href="/context-builder" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Context Builder</a>
       {#if data.hasPendingQuestions}
         <a href="/questions" class="{navBtn} border-warning-700 text-warning-400 hover:bg-surface-800 animate-pulse">⚠ Questions</a>
       {:else}

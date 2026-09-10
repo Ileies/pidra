@@ -1,59 +1,72 @@
-import type { PageServerLoad, Actions } from "./$types";
-import { fail } from "@sveltejs/kit";
+import type { PageServerLoad } from "./$types";
 import { sql } from "$lib/db";
 
+export interface NoteRow {
+  id: string;
+  content: string;
+  scope: string;
+  created_at: string;
+  updated_at: string | null;
+  expires_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  deleted_at: string | null;
+  revision_count: number;
+}
+
+const SORTS = ["newest", "oldest", "edited"] as const;
+const VIEWS = ["active", "deleted", "all"] as const;
+
+/**
+ * Reads only. Writes go to the bridge through `/api/notes`, so `src/notes/store.ts` stays the
+ * single writer and every edit lands in `note_revisions`. Keeping the read here means the page
+ * still renders when the bridge is down.
+ */
 export const load: PageServerLoad = async ({ url }) => {
-  const scopeFilter = url.searchParams.get("scope") ?? "";
+  const scope = url.searchParams.get("scope") ?? "";
+  const query = (url.searchParams.get("q") ?? "").trim();
+  const sortParam = url.searchParams.get("sort") ?? "newest";
+  const viewParam = url.searchParams.get("view") ?? "active";
+
+  const sort = (SORTS as readonly string[]).includes(sortParam) ? sortParam : "newest";
+  const view = (VIEWS as readonly string[]).includes(viewParam) ? viewParam : "active";
 
   const rows = await sql()`
-    SELECT id, content, scope, created_at, expires_at, created_by
-    FROM notes
+    SELECT
+      n.id, n.content, n.scope, n.created_at, n.updated_at, n.expires_at,
+      n.created_by, n.updated_by, n.deleted_at,
+      (SELECT count(*) FROM note_revisions r WHERE r.note_id = n.id)::int AS revision_count
+    FROM notes n
     WHERE
-      (${scopeFilter} = '' OR scope = ${scopeFilter})
-    ORDER BY created_at DESC
+      (${scope} = '' OR n.scope = ${scope})
+      AND (${query} = '' OR n.content ILIKE ${"%" + query + "%"})
+      AND CASE
+            WHEN ${view} = 'deleted' THEN n.deleted_at IS NOT NULL
+            WHEN ${view} = 'all' THEN TRUE
+            ELSE n.deleted_at IS NULL
+          END
+    ORDER BY
+      CASE WHEN ${sort} = 'oldest' THEN n.created_at END ASC,
+      CASE WHEN ${sort} = 'edited' THEN coalesce(n.updated_at, n.created_at) END DESC,
+      n.created_at DESC
     LIMIT 200
   `;
 
+  // The trash count drives the badge on the trash toggle, so a soft-deleted note is never lost
+  // just because the user forgot the view exists.
+  const [counts] = await sql()`
+    SELECT
+      count(*) FILTER (WHERE deleted_at IS NULL)::int AS active,
+      count(*) FILTER (WHERE deleted_at IS NOT NULL)::int AS deleted
+    FROM notes
+  `;
+
   return {
-    notes: rows as unknown as {
-      id: string;
-      content: string;
-      scope: string;
-      created_at: string;
-      expires_at: string | null;
-      created_by: string | null;
-    }[],
-    scopeFilter,
+    notes: rows as unknown as NoteRow[],
+    scopeFilter: scope,
+    query,
+    sort,
+    view,
+    counts: counts as unknown as { active: number; deleted: number },
   };
-};
-
-export const actions: Actions = {
-  add: async ({ request }) => {
-    const data = await request.formData();
-    const content = (data.get("content") as string | null)?.trim() ?? "";
-    const scope = (data.get("scope") as string | null) ?? "global";
-
-    if (!content) return fail(400, { error: "Content required" });
-
-    const validScopes = ["global", "intel", "personal", "contact", "search"];
-    if (!validScopes.includes(scope)) return fail(400, { error: "Invalid scope" });
-
-    await sql()`
-      INSERT INTO notes (content, scope, created_by)
-      VALUES (${content}, ${scope}, 'user')
-    `;
-
-    return { added: true };
-  },
-
-  delete: async ({ request }) => {
-    const data = await request.formData();
-    const id = data.get("id") as string | null;
-
-    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { error: "Invalid id" });
-
-    await sql()`DELETE FROM notes WHERE id = ${id} AND created_by = 'user'`;
-
-    return { deleted: true };
-  },
 };

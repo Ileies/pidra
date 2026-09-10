@@ -86,6 +86,9 @@ export const entities = pgTable("entities", {
   mentionCount: integer("mention_count").default(1),
   status: text("status").default("active"), // active | dormant
   importance: text("importance").default("normal"), // high | normal | low
+  // Set by a `revise_context` correction. Re-seeds and bulk writers must leave the corrected
+  // fields alone; see CONTEXT_REVISION_PLAN.md.
+  locked: boolean("locked").default(false),
 });
 
 export const entityRelations = pgTable("entity_relations", {
@@ -145,6 +148,8 @@ export const contacts = pgTable("contacts", {
   contextNotes: text("context_notes"),
   firstSeen: dateStr("first_seen").default(sql`CURRENT_DATE`),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
+  // Set by a `revise_context` correction; `seedContacts` skips locked rows on re-seed.
+  locked: boolean("locked").default(false),
 });
 
 export const notes = pgTable("notes", {
@@ -258,6 +263,59 @@ export const contextBuilderRuns = pgTable("context_builder_runs", {
   sonnetTokensOut: integer("sonnet_tokens_out").default(0),
   outputPath: text("output_path"),
   errorLog: jsonb("error_log").$type<{ source: string; error: string; ts: string }[]>(),
+});
+
+/**
+ * The correction layer over the harvested long-term context.
+ *
+ * Append-only by design: harvested information is never overwritten, only adjusted and
+ * complemented. Rows are never deleted and never edited except to flip `status`, so the
+ * history of what the harvest believed and what the user corrected stays intact. Full
+ * reasoning in `CONTEXT_REVISION_PLAN.md`.
+ */
+export const contextCorrections = pgTable("context_corrections", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  targetKind: text("target_kind").notNull(), // document | standing_context | entity | contact
+  // Document heading, standing_context key, entity name, or contact identifier.
+  targetKey: text("target_key").notNull(),
+  operation: text("operation").notNull(), // amend | complement | retract
+  /** The correct fact in the user's voice. Injected verbatim into the daily synthesis payload. */
+  statement: text("statement").notNull(),
+  /** The wrong text being corrected, quoted from the harvest. Kept so the model can see both. */
+  supersedesText: text("supersedes_text"),
+  rationale: text("rationale"),
+  /** Pre-merge snapshot of a structured row, so a revert restores exactly what was there. */
+  previousState: jsonb("previous_state").$type<Record<string, unknown>>(),
+  source: text("source").notNull().default("chat"), // chat | user | system
+  status: text("status").notNull().default("active"), // active | reverted
+  conversationId: uuid("conversation_id"),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  revertedAt: timestamptz("reverted_at"),
+});
+
+export const chatConversations = pgTable("chat_conversations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title"),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+});
+
+export interface ChatToolCall {
+  call_id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: string;
+  status?: string;
+}
+
+export const chatMessages = pgTable("chat_messages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: uuid("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // user | assistant
+  content: text("content").notNull().default(""),
+  /** Skill calls the assistant made on this turn, with their results, for replay and display. */
+  toolCalls: jsonb("tool_calls").$type<ChatToolCall[]>(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
 export const contextBuilderIndexedItems = pgTable("context_builder_indexed_items", {

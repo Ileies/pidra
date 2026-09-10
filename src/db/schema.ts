@@ -7,10 +7,12 @@ import {
   boolean,
   integer,
   real,
-  jsonb,
   unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+// Not `jsonb` from pg-core: that one double-encodes on the Bun SQL driver. Same signature, so
+// every column below is unchanged. See src/db/jsonb.ts.
+import { jsonb } from "./jsonb";
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: "string" });
 const dateStr = (name: string) => date(name, { mode: "string" });

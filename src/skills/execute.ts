@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, skillExecutions } from "../db";
 import { getSkill, type SkillContext } from "./loader";
+import { isSkillAllowed, SURFACES, type Surface } from "../ai/surfaces";
 
 export type ExecutionStatus = "executed" | "failed" | "rejected" | "pending_confirmation" | "unknown_skill";
 
@@ -16,12 +17,18 @@ export interface ExecutionOptions {
   conversationId?: string | null;
   /** The pipeline run this call belongs to. Defaults to today, which is wrong for a backfill. */
   runDate?: string;
+  /**
+   * The dashboard page the call came from. When set, only that surface's skills may run - the
+   * check lives here rather than in the chat loop so no later caller can bypass it, and because
+   * the surface arrives from a client and is therefore untrusted.
+   */
+  surface?: Surface;
 }
 
 /**
- * The single path every skill call takes, whether it comes from the REST bridge or from the
- * chat. Risk gating and the `skill_executions` audit log live here so a second caller cannot
- * accidentally bypass either.
+ * The single path every skill call takes, whether it comes from the REST bridge, the pipeline or
+ * the chat. Risk gating, the surface policy and the `skill_executions` audit log live here so a
+ * second caller cannot accidentally bypass any of them.
  */
 export async function executeSkill(
   skillName: string,
@@ -37,6 +44,15 @@ export async function executeSkill(
     .insert(skillExecutions)
     .values({ runDate, skillName, parameters, status: "pending", triggeredBy })
     .returning({ id: skillExecutions.id });
+
+  // The surface policy is checked before the risk level: a skill that does not belong on the page
+  // must not run even if it is harmless elsewhere. The rejection is logged rather than swallowed,
+  // so a policy that is too tight shows up on /skills instead of as silent weirdness.
+  if (options.surface && !isSkillAllowed(options.surface, skillName)) {
+    const message = `${skillName} is not available on the ${options.surface} page (allowed there: ${SURFACES[options.surface].skills.join(", ")})`;
+    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, execRow.id));
+    return { status: "rejected", message, executionId: execRow.id };
+  }
 
   if (skill.risk_level === "critical") {
     await db.update(skillExecutions).set({ status: "rejected" }).where(eq(skillExecutions.id, execRow.id));

@@ -303,7 +303,7 @@ Weekly meta-run generates diff. Never auto-applied. Each change approved/rejecte
 
 **Sonnet synthesizes, never processes.** Sees only compressed Ollama output (~12K tokens), not raw email HTML (~50K tokens). Quality is higher, cost is lower.
 
-**Vector stores rejected categorically.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction beats probabilistic retrieval. Not revisiting this decision.
+**Vector stores rejected for the briefing path.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction beats probabilistic retrieval. Revised 2026-09-10: this stays true for the pipeline, but the blanket "never revisiting" does not - a vector store is planned for the far future, for search over the *archive* rather than for deciding what enters a report. Nothing in the current phases may add one.
 
 **No prompt changes without human approval.** System can propose (weekly meta-run). Cannot apply. The user's information diet is too important to delegate to an automated optimization loop.
 

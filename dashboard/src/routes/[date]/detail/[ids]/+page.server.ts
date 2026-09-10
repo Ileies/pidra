@@ -6,6 +6,20 @@ import { parseJsonb } from "$lib/jsonb";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * The sender is not a column. `src/ingest/imap.ts` stores mail as
+ * "Subject: ...\nFrom: ...\n\n<body>", so it has to be read back out of that header block.
+ *
+ * Match only within the block before the first blank line: a quoted reply in the body very
+ * often carries its own "From:" line, and an unanchored search would show the wrong person.
+ * RSS, calendar and todo items have no header and correctly yield null.
+ */
+function parseSender(rawContent: string | null): string | null {
+  if (!rawContent) return null;
+  const header = rawContent.split("\n\n", 1)[0];
+  return header.match(/^From:\s*(.+)$/m)?.[1]?.trim() || null;
+}
+
 function parseIds(raw: string): string[] {
   return raw.split(",").filter((id) => UUID_RE.test(id)).slice(0, 10);
 }
@@ -27,6 +41,7 @@ export const load: PageServerLoad = async ({ params }) => {
       e.novelty,
       r.source_type,
       r.source_name,
+      r.account_id,
       r.raw_content,
       r.received_at
     FROM extractions e
@@ -53,6 +68,8 @@ export const load: PageServerLoad = async ({ params }) => {
       sourceType: row.source_type as string,
       receivedAt: row.received_at as string | null,
       rawContent: row.raw_content as string | null,
+      sender: parseSender(row.raw_content as string | null),
+      receiver: row.account_id as string | null,
       novelty: row.novelty as string | null,
       relevanceScore: row.relevance_score as number | null,
       effectiveRelevance: row.effective_relevance as number | null,

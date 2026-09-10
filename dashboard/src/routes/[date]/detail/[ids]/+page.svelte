@@ -73,6 +73,21 @@
             {/if}
           </div>
 
+          {#if item.sender || item.receiver}
+            <dl class="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
+              {#if item.sender}
+                <dt class="text-surface-600">Von:</dt>
+                <dd class="text-surface-200 break-all">{item.sender}</dd>
+              {/if}
+              {#if item.receiver}
+                <dt class="text-surface-600">An:</dt>
+                <dd class="text-surface-200 break-all">{item.receiver}</dd>
+              {/if}
+            </dl>
+          {:else if item.sourceType === "newsletter"}
+            <p class="text-xs text-surface-600">Via RSS-Feed - kein Absender/Empfänger</p>
+          {/if}
+
           {#if item.extracted?.headline}
             <h2 class="text-base font-semibold text-surface-50 leading-snug">{item.extracted.headline}</h2>
           {/if}

@@ -64,7 +64,7 @@ export const ENTITY_EXTRACTION_PROMPT = `Extract named entities and relationship
 
 Only include relations with confidence >= 0.7. Only named entities - no generic terms.`;
 
-const PERSONAL_EMAIL_BASE = `Classify this email. Return ONLY valid JSON.
+export const PERSONAL_EMAIL_PROMPT = `Classify this email. Return ONLY valid JSON.
 
 {
   "type": "invoice|invitation|reply_needed|automated|spam|personal|legal|unknown",
@@ -89,11 +89,15 @@ Rules:
 - critical = response or action needed within 24h
 - invoice from unknown sender always = unknown_context true`;
 
-export const PERSONAL_EMAIL_PROMPT = PERSONAL_EMAIL_BASE;
-
-export function buildPersonalEmailPrompt(customInstructions: string | null): string {
-  if (!customInstructions) return PERSONAL_EMAIL_BASE;
-  return `Account context: ${customInstructions}\n\n${PERSONAL_EMAIL_BASE}`;
+/**
+ * `base` is the effective classification prompt for the run, which is the constant above unless
+ * a `personal_classification` version is active in `prompt_versions` - see `active-prompts.ts`.
+ * The per-account instructions are prepended either way, so activating a version never drops
+ * the account context.
+ */
+export function buildPersonalEmailPrompt(base: string, customInstructions: string | null): string {
+  if (!customInstructions) return base;
+  return `Account context: ${customInstructions}\n\n${base}`;
 }
 
 export const SECTION1_SYSTEM_PROMPT = `${BRIEFING_STYLE}

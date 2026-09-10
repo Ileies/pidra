@@ -1,5 +1,5 @@
+import { activePrompt, type PromptSection } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
-import { SECTION1_SYSTEM_PROMPT, SECTION2_SYSTEM_PROMPT } from "../ai/prompts";
 import { formatForPrompt } from "../context/corrections";
 import type { ContextPayload } from "./phase3-context";
 
@@ -90,19 +90,23 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
   });
 }
 
-async function synthesizeSection(name: string, prompt: string, payload: string) {
-  console.log(`[Phase 5] ${name} synthesis starting`);
-  const result = await synthesize(prompt, payload);
+// The prompt is resolved here rather than imported, so activating a version on /prompts takes
+// effect on the next run without a deploy. `activePrompt` falls back to the code constant.
+async function synthesizeSection(name: string, section: PromptSection, payload: string) {
+  const prompt = await activePrompt(section);
+  const label = prompt.source === "db" ? `prompt v${prompt.version}` : "code prompt";
+  console.log(`[Phase 5] ${name} synthesis starting (${label})`);
+  const result = await synthesize(prompt.text, payload);
   console.log(`[Phase 5] ${name} done - ${result.tokensIn} in, ${result.tokensOut} out`);
   return result;
 }
 
 export function runSection1(ctx: ContextPayload) {
-  return synthesizeSection("Section 1", SECTION1_SYSTEM_PROMPT, buildSection1Payload(ctx));
+  return synthesizeSection("Section 1", "section1", buildSection1Payload(ctx));
 }
 
 export function runSection2(ctx: ContextPayload, questionAnswers: Record<string, string> = {}) {
-  return synthesizeSection("Section 2", SECTION2_SYSTEM_PROMPT, buildSection2Payload(ctx, questionAnswers));
+  return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, questionAnswers));
 }
 
 export async function runPhase5(

@@ -1,5 +1,6 @@
-import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes, promptVersions } from "../db";
+import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes } from "../db";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, avg } from "drizzle-orm";
+import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { openai, SYNTHESIS_MODEL as MODEL, withFlexRetry } from "../ai/openai";
 
 export interface WeeklyAnalytics {
@@ -100,12 +101,10 @@ export async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyA
 }
 
 export async function generatePromptDiff(analytics: WeeklyAnalytics): Promise<string | null> {
-  const activePrompts = await db
-    .select()
-    .from(promptVersions)
-    .where(eq(promptVersions.active, true));
-
-  if (activePrompts.length === 0) return null;
+  // The effective prompts, not just the rows in `prompt_versions`. The table is empty until the
+  // first version is approved, and reviewing nothing was the wrong answer for that state: the
+  // baselines in the code are what the week actually ran on.
+  const effective = await resolveActivePrompts();
 
   const analyticsText = `
 Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
@@ -120,8 +119,12 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
 - Bottom sources: ${analytics.bottomSources.map((s) => `${s.name} (${s.avgComposite.toFixed(1)})`).join(", ")}
 `.trim();
 
-  const promptSummary = activePrompts
-    .map((p) => `=== ${p.section} (v${p.version}) ===\n${p.promptText.slice(0, 600)}${p.promptText.length > 600 ? "…" : ""}`)
+  const promptSummary = PROMPT_SECTIONS
+    .map((section) => {
+      const p = effective[section];
+      const label = p.source === "db" ? `v${p.version}` : "code baseline";
+      return `=== ${section} (${label}) ===\n${p.text.slice(0, 600)}${p.text.length > 600 ? "…" : ""}`;
+    })
     .join("\n\n");
 
   const response = await withFlexRetry(() =>
@@ -133,7 +136,7 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
         {
           role: "system",
           content:
-            "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the active prompts. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
+            "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the prompts the week actually ran on. Each prompt is labelled either with its approved version number or as 'code baseline', which means no version has been approved for that section yet. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Nothing you propose is applied automatically: a human reviews it and approves it as a new version. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
         },
         {
           role: "user",

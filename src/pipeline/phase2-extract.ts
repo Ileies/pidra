@@ -1,6 +1,7 @@
 import { db, rawItems, extractions, sourceQuality } from "../db";
+import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
-import { NEWSLETTER_EXTRACTION_PROMPT, ENTITY_EXTRACTION_PROMPT, buildPersonalEmailPrompt } from "../ai/prompts";
+import { buildPersonalEmailPrompt } from "../ai/prompts";
 import { loadEmailAccounts } from "../config/email-accounts";
 import { emailEffectiveRelevance } from "./email-category";
 import { eq } from "drizzle-orm";
@@ -44,16 +45,21 @@ interface PersonalEmailClassification {
   todo_suggested: boolean;
 }
 
+// Resolved once per run, not per item: the whole point is that every item in a run is extracted
+// with the same prompt, and 300 items must not mean 900 lookups.
+type ExtractionPrompts = Record<Extract<PromptSection, "extraction" | "entity_extraction" | "personal_classification">, EffectivePrompt>;
+
 async function extractItem(
   item: typeof rawItems.$inferSelect,
   runDate: string,
-  accountCustomInstructions: string | null
+  accountCustomInstructions: string | null,
+  prompts: ExtractionPrompts
 ): Promise<boolean> {
   try {
     if (item.sourceType === "newsletter") {
       const [newsletterData, entityData] = await Promise.all([
-        extractJson<NewsletterExtraction>(NEWSLETTER_EXTRACTION_PROMPT, item.rawContent ?? ""),
-        extractJson<EntityExtraction>(ENTITY_EXTRACTION_PROMPT, item.rawContent ?? ""),
+        extractJson<NewsletterExtraction>(prompts.extraction.text, item.rawContent ?? ""),
+        extractJson<EntityExtraction>(prompts.entity_extraction.text, item.rawContent ?? ""),
       ]);
 
       for (const extracted of newsletterData.items) {
@@ -82,7 +88,7 @@ async function extractItem(
         });
       }
     } else if (item.sourceType === "personal_email" || item.sourceType === "sms") {
-      const prompt = buildPersonalEmailPrompt(accountCustomInstructions);
+      const prompt = buildPersonalEmailPrompt(prompts.personal_classification.text, accountCustomInstructions);
       const classification = await extractJson<PersonalEmailClassification>(
         prompt,
         item.rawContent ?? ""
@@ -125,6 +131,8 @@ export async function runPhase2(runDate: string): Promise<void> {
   const accounts = loadEmailAccounts();
   const accountMap = new Map(accounts.map((a) => [a.user, a]));
 
+  const prompts = await resolveActivePrompts();
+
   const disabledRows = await db
     .select({ sourceName: sourceQuality.sourceName })
     .from(sourceQuality)
@@ -155,7 +163,7 @@ export async function runPhase2(runDate: string): Promise<void> {
       const item = queue.shift()!;
       const account = item.accountId ? accountMap.get(item.accountId) : null;
       const customInstructions = account?.customInstructions ?? null;
-      results.push(await extractItem(item, runDate, customInstructions));
+      results.push(await extractItem(item, runDate, customInstructions, prompts));
     }
   });
 

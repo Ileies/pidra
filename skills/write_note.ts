@@ -1,25 +1,27 @@
 import type { Skill } from "../src/skills/loader";
-import { db, notes } from "../src/db";
+import { createNote, NOTE_SCOPES } from "../src/notes/store";
 
 const skill: Skill = {
   name: "write_note",
-  description: "Write a note to the briefing system notes store",
+  description:
+    "Write a note to the briefing system notes store. Notes are standing instructions and context " +
+    "for the daily briefing: 'intel' and 'global' notes steer Section 1, 'personal' and 'global' steer Section 2.",
   risk_level: "low",
   parameters: {
     content: { type: "string", required: true, description: "Note content" },
-    scope: { type: "string", required: false, description: "global | intel | personal | contact | search (default: global)" },
+    scope: { type: "string", required: false, description: `One of: ${NOTE_SCOPES.join(" | ")} (default: global)` },
+    expires_at: { type: "string", required: false, description: "Optional expiry date as YYYY-MM-DD" },
   },
-  execute: async (params) => {
-    const content = String(params.content ?? "").trim();
-    if (!content) throw new Error("content is required");
-    const scope = String(params.scope ?? "global");
-    const validScopes = ["global", "intel", "personal", "contact", "search"];
-    const [row] = await db.insert(notes).values({
-      content,
-      scope: validScopes.includes(scope) ? scope : "global",
-      createdBy: "system",
-    }).returning({ id: notes.id });
-    return `Note created with id=${row.id}`;
+  execute: async (params, ctx) => {
+    const note = await createNote(
+      {
+        content: String(params.content ?? ""),
+        scope: params.scope ? String(params.scope) : undefined,
+        expiresAt: params.expires_at ? String(params.expires_at) : null,
+      },
+      { by: ctx.actor, skillExecutionId: ctx.executionId, conversationId: ctx.conversationId },
+    );
+    return `Note created with id=${note.id} (scope: ${note.scope})`;
   },
 };
 

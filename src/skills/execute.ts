@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, skillExecutions } from "../db";
-import { getSkill } from "./loader";
+import { getSkill, type SkillContext } from "./loader";
 
 export type ExecutionStatus = "executed" | "failed" | "rejected" | "pending_confirmation" | "unknown_skill";
 
@@ -9,6 +9,13 @@ export interface ExecutionOutcome {
   /** Human-readable result or reason. Goes back to the caller and, for chat, to the model. */
   message: string;
   executionId?: string;
+}
+
+export interface ExecutionOptions {
+  /** The conversation a chat-triggered call belongs to, recorded on whatever the skill writes. */
+  conversationId?: string | null;
+  /** The pipeline run this call belongs to. Defaults to today, which is wrong for a backfill. */
+  runDate?: string;
 }
 
 /**
@@ -20,14 +27,15 @@ export async function executeSkill(
   skillName: string,
   parameters: Record<string, unknown>,
   triggeredBy: string,
+  options: ExecutionOptions = {},
 ): Promise<ExecutionOutcome> {
   const skill = getSkill(skillName);
   if (!skill) return { status: "unknown_skill", message: `Unknown skill: ${skillName}` };
 
-  const today = new Date().toISOString().split("T")[0];
+  const runDate = options.runDate ?? new Date().toISOString().split("T")[0];
   const [execRow] = await db
     .insert(skillExecutions)
-    .values({ runDate: today, skillName, parameters, status: "pending", triggeredBy })
+    .values({ runDate, skillName, parameters, status: "pending", triggeredBy })
     .returning({ id: skillExecutions.id });
 
   if (skill.risk_level === "critical") {
@@ -51,8 +59,16 @@ export async function executeSkill(
     console.log(`[Skills] Medium-risk skill executed: ${skillName} - triggered_by=${triggeredBy}`);
   }
 
+  const ctx: SkillContext = {
+    executionId: execRow.id,
+    triggeredBy,
+    conversationId: options.conversationId ?? null,
+    // A write from the chat is the assistant's, anything else is the system acting on its own.
+    actor: triggeredBy === "chat" ? "chat" : "system",
+  };
+
   try {
-    const result = await skill.execute(parameters);
+    const result = await skill.execute(parameters, ctx);
     await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, execRow.id));
     return { status: "executed", message: result, executionId: execRow.id };
   } catch (err) {

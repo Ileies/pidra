@@ -9,12 +9,26 @@ export interface SkillParam {
   description?: string;
 }
 
+/**
+ * What `executeSkill` knows about the call, handed to the skill so a write can be attributed.
+ * A skill that does not need any of it simply declares `execute: async (params) => ...`.
+ */
+export interface SkillContext {
+  /** The `skill_executions` row this call is already logged under. */
+  executionId: string;
+  triggeredBy: string;
+  /** Set when the call came from the chat, for the provenance trail on what it wrote. */
+  conversationId?: string | null;
+  /** Who the write is attributed to in a revision trail. */
+  actor: "user" | "chat" | "system";
+}
+
 export interface Skill {
   name: string;
   description: string;
   risk_level: RiskLevel;
   parameters: Record<string, SkillParam>;
-  execute: (params: Record<string, unknown>) => Promise<string>;
+  execute: (params: Record<string, unknown>, ctx: SkillContext) => Promise<string>;
 }
 
 const registry = new Map<string, Skill>();

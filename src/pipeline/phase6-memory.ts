@@ -1,7 +1,9 @@
-import { db, dailyReports, activeTopics, entities, entityRelations, contacts, notes, extractions, rawItems, sourceDailyScores, sourceQuality, skillExecutions } from "../db";
+import { db, dailyReports, activeTopics, entities, entityRelations, contacts, extractions, rawItems, sourceDailyScores, sourceQuality, skillExecutions } from "../db";
 import { eq, gte, and, inArray, sql as drizzleSql } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
 import { getSkill } from "../skills/loader";
+import { executeSkill } from "../skills/execute";
+import { createNote } from "../notes/store";
 
 const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
 
@@ -208,11 +210,13 @@ export async function runPhase6(
     }
 
     for (const note of s2System.notes_to_write ?? []) {
-      await db.insert(notes).values({
-        content: note.content,
-        scope: note.scope ?? "global",
-        createdBy: "system",
-      });
+      // Through the store, so a pipeline-written note is editable and reversible like any other.
+      // A malformed one is skipped rather than allowed to fail the step.
+      try {
+        await createNote({ content: note.content, scope: note.scope ?? "global" }, { by: "system" });
+      } catch (err) {
+        console.warn(`[Phase 6] Skipped a note from the SYSTEM block: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
 
@@ -399,22 +403,14 @@ async function processSkillSuggestions(
     }
 
     if (skill.risk_level === "low") {
-      const [row] = await db.insert(skillExecutions).values({
-        runDate,
-        skillName: skill.name,
-        parameters: suggestion.parameters,
-        status: "pending",
-        triggeredBy,
-      }).returning({ id: skillExecutions.id });
-
-      try {
-        const result = await skill.execute(suggestion.parameters);
-        await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, row.id));
-        console.log(`[Phase 6] Skill executed: ${skill.name} - ${result.slice(0, 80)}`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, row.id));
-        console.error(`[Phase 6] Skill failed: ${skill.name} - ${msg}`);
+      // Through the shared choke point, which owns the audit row and the risk gating. Only `low`
+      // reaches it: a medium-risk skill must not auto-run off a model suggestion, which is why
+      // the branch below still just logs one for review.
+      const outcome = await executeSkill(skill.name, suggestion.parameters, triggeredBy, { runDate });
+      if (outcome.status === "executed") {
+        console.log(`[Phase 6] Skill executed: ${skill.name} - ${outcome.message.slice(0, 80)}`);
+      } else {
+        console.error(`[Phase 6] Skill ${outcome.status}: ${skill.name} - ${outcome.message}`);
       }
     } else {
       // Medium/high/critical: log as pending for manual review

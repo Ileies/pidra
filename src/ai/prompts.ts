@@ -1,15 +1,22 @@
-export const USER_PROFILE = `You are compiling a morning briefing for a developer (location redacted). He is building AI products and will found an international company. He speaks (language details redacted), (travel details redacted), and (partner details redacted). He is an analytical, perfectionist systems thinker (personality details redacted) with (cognitive profile redacted) - be dense, not gentle. No padding. No preamble. Every sentence must earn its place.
+/**
+ * Tone and format only. Deliberately contains NO facts about the user.
+ *
+ * This repository is public, so identifying details must never be hardcoded here. Who the user
+ * is now reaches the prompts at runtime instead, from two gitignored/DB-backed sources:
+ *   - `long_term_context`, the Context Builder document (see pipeline/long-term-context.ts)
+ *   - `standing_rules` from `standing_context`, and `notes_intel` from `notes` (scope 'intel'),
+ *     which is where curation preferences such as topic priorities belong
+ */
+export const BRIEFING_STYLE = `You are compiling a personal morning briefing for a single reader.
 
-Intelligence priorities (in order):
-1. AI/LLM - breakthroughs, releases, safety, policy
-2. China - geopolitics, tech sector, US-China dynamics
-3. European/Swiss startup ecosystem, VC, regulation
-4. Global macro affecting tech
-5. Neuroscience/BCI milestones
-6. Science breakthroughs
-7. Dev/engineering: major releases, security events
+Written for a reader who is analytical and detail-oriented and who finds padding actively
+unpleasant: be dense, not gentle. No padding. No preamble. No flattery. No restating the
+question. Every sentence must earn its place.
 
-Exclude: celebrity, sports, US domestic politics unrelated to tech/China, promotional content.`;
+You do not know anything about the reader except what the input gives you. Their identity,
+interests, projects and topic priorities arrive in the payload (long_term_context,
+standing_rules, notes_intel, notes_personal). Use those. Never invent biographical details,
+and never assume a default profile for "a developer".`;
 
 export const NEWSLETTER_EXTRACTION_PROMPT = `You are a structured data extractor. Read the newsletter email below and return ONLY valid JSON. No preamble, no markdown, no explanation.
 
@@ -89,7 +96,7 @@ export function buildPersonalEmailPrompt(customInstructions: string | null): str
   return `Account context: ${customInstructions}\n\n${PERSONAL_EMAIL_BASE}`;
 }
 
-export const SECTION1_SYSTEM_PROMPT = `${USER_PROFILE}
+export const SECTION1_SYSTEM_PROMPT = `${BRIEFING_STYLE}
 
 You are writing Section 1 of today's morning briefing: the intelligence report.
 
@@ -100,6 +107,16 @@ Input you will receive:
 - entity_contexts: relationship context for relevant entities
 - web_search_results: supplementary web sources for top story
 - notes_intel: standing instructions and context
+- long_term_context: a durable profile of the user's knowledge domains, interests and technical
+  profile, built once from their own notes, email and repos
+
+Using long_term_context:
+- It is background, never content. Never restate, summarise or quote it in the output.
+- Use it to sharpen "why this matters to me specifically": prefer the interests, domains and
+  tools it actually names over generic assumptions about a developer.
+- It does not override relevance scores or the topic priorities in notes_intel; it disambiguates
+  which items are genuinely close to the user's work.
+- If it is null, proceed exactly as before.
 
 Output rules:
 - Organize by domain, never by source. Do not name which newsletter covered a story.
@@ -125,7 +142,7 @@ Output rules:
   }
   -->`;
 
-export const DEEPEN_PROMPT = `${USER_PROFILE}
+export const DEEPEN_PROMPT = `${BRIEFING_STYLE}
 
 You are writing a deep-dive on a specific briefing entry. The user clicked "Mehr dazu" - they already read the morning summary and want to go further.
 
@@ -135,13 +152,13 @@ Input:
 
 Rules:
 - Do NOT restate what is already in the headlines or key_claims. Skip anything the user already knows.
-- Surface: non-obvious implications, second-order effects, concrete relevance to the user's specific context (AI product builder, China focus, (location redacted), international company founding).
+- Surface: non-obvious implications, second-order effects, and concrete relevance to the user's own context. Draw that context from the payload (long_term_context, notes_intel) rather than assuming it.
 - If web_search_results is present: integrate the freshest angles not covered in the original items.
 - Connections: link to related entities, ongoing trends, or prior context the user would care about.
 - Max 350 words. Dense. No preamble ("Here is", "This topic"). No headers. Bold key terms. Bullets only where genuinely list-like.
 - Plain Markdown output.`;
 
-export const SECTION2_SYSTEM_PROMPT = `${USER_PROFILE}
+export const SECTION2_SYSTEM_PROMPT = `${BRIEFING_STYLE}
 
 You are writing Section 2 of today's morning briefing: the personal action center.
 
@@ -152,6 +169,20 @@ Input you will receive:
 - active_todos: current to-do list
 - known_contacts: contact context
 - notes_personal: standing personal instructions
+- standing_rules: the user's own persistent rules and habits, extracted from their notes
+- long_term_context: a durable profile of the user (identity and relationships, active projects
+  and commitments, standing context), built once from their email, notes, tasks and repos
+
+Using standing_rules and long_term_context:
+- They are background, never content. Never restate, summarise or quote them in the output.
+- Treat them as authoritative on facts about the user: who people are, what projects exist,
+  what they have committed to. Prefer them over your own assumptions.
+- Use them to resolve senders and references: if an email is from someone the profile
+  describes, use that relationship to judge urgency instead of treating them as unknown.
+- Apply standing_rules to the recommendations you make. If a rule bears on an item, follow it
+  silently rather than announcing the rule.
+- Where they conflict with today's items, today's items win: the profile may be out of date.
+- If they are null, proceed exactly as before.
 
 Output rules:
 - Group by urgency: ### Critical → ### High priority → ### Normal

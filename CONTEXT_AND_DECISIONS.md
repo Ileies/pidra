@@ -21,11 +21,20 @@
 
 ## 1. Builder Profile
 
-**Role:** Solo developer.  
-**Languages:** German (native), English (fluent), (language details redacted).  
-**China:** Annual trips, (partner details redacted), deep personal and strategic investment - not casual geopolitical interest. Calendar pre-trip window (2 weeks before any China flight) should trigger boosted China content in intelligence section.  
+> **The profile itself is not gone, it moved.** This repository is public, so identifying
+> details live in Postgres instead: `standing_context`, under the `profile_*` keys
+> (`profile_identity`, `profile_china`, `profile_company`, `profile_university`,
+> `profile_stack`, `profile_family_and_partner`, `profile_language_handling`).
+> They are injected into the daily briefing at runtime as `standing_rules`, alongside the
+> Context Builder's generated document. See `src/pipeline/long-term-context.ts`.
+>
+> What follows is only the design rationale, which is safe to publish.
+
+**Role:** Solo developer, working alone across the whole stack.  
+**Languages:** Reads sources in several languages, including Chinese - source selection assumes that, so non-English newsletters are in scope.  
+**China:** A standing personal and strategic interest rather than a casual geopolitical one. A calendar pre-trip window (2 weeks before any China flight) should trigger boosted China content in the intelligence section.  
 **Company:** Planning to found internationally. EU and Swiss regulatory context is professionally relevant, not just interesting.  
-**Cognitive style:** (cognitive profile redacted). Needs high novelty per paragraph, clear section structure, no recap sentences, no padding. Format is functionally important, not aesthetic preference.  
+**Cognitive style:** Needs high novelty per paragraph, clear section structure, no recap sentences, no padding. Format is functionally important, not aesthetic preference.  
 **Stack:** Bun, SvelteKit, Postgres, DrizzleORM, NixOS, Ollama, Claude API, GitHub. Self-hosts on own server (Netcup, migration possible). All projects solo-built.  
 **University:** Currently enrolled - 7 active Uni tasks in Google Tasks. Uni emails and deadlines are real priority items for Section 2.
 
@@ -79,7 +88,7 @@ These are ordered. When forced to choose between two stories, rank by this list.
 
 ## 4. Report Format Requirements
 
-These are functional requirements, not style preferences. (cognitive profile redacted) + high-density reading pattern means:
+These are functional requirements, not style preferences. A high-density reading pattern means:
 
 - **No recap sentences.** "As mentioned above," "as we can see," "this means that" - never.
 - **No padding.** Every sentence must introduce something new.
@@ -110,7 +119,7 @@ Tier S = essential daily reads. Tier A = high-value, subscribe immediately. Tier
 
 **S - Money Stuff** (Matt Levine): Best financial writer active. 3,000-word daily essays on finance events. High income + founding plans make this essential. Free (Bloomberg signup).
 
-**S - Sinocism** (Bill Bishop): Gold standard China newsletter. The annual China trips and (language details redacted) make this professionally critical. Limited free / $20/month - worth it.
+**S - Sinocism** (Bill Bishop): Gold standard China newsletter. The standing China interest makes this professionally critical. Limited free / $20/month - worth it.
 
 **A - The Generalist** (Mario Gabriele): 5,000-word company/sector analyses. Investment-bank research quality.
 
@@ -205,23 +214,32 @@ User has ~1,000 notes across these categories. The Keep integration (Phase 7) sh
 
 ## 8. Known Contacts (pre-seed for question gate)
 
-Pre-seeding these contacts eliminates question gate firings for known family and relationship contacts on day one.
+Pre-seeding contacts eliminates question gate firings for known family and relationship contacts on day one.
 
-| Identifier | Name | Relationship | Priority | Notes |
-|---|---|---|---|---|
-| (user's own email addresses) | Self | Owner | - | Never classify as incoming action item |
-| (name redacted) | Girlfriend | Partner, Chinese, ENFJ | critical | Chinese national; may send messages in Chinese |
-| (redacted) | Father | (details redacted) |
-| (redacted) | Mother | (details redacted) |
-| (redacted) | Sister | (details redacted) |
-| (redacted) | Brother | (details redacted) |
-| (redacted) | Sister | (details redacted) |
-| (redacted) | Sister | (details redacted) |
-| (redacted) | Brother | (details redacted) |
+> **The contact list is not gone, it moved.** This repository is public and the list describes
+> third parties, including minors, who have not consented to being published. It now lives in
+> Postgres: the relationship context in `standing_context` under `profile_family_and_partner`
+> and `profile_language_handling`, and real addresses in the `contacts` table as the Context
+> Builder learns them from actual mail. Both reach the briefing at runtime.
 
-**Note:** Actual email addresses and phone numbers for family members should be added before running the system. The table above provides names and relationship context; identifiers (email/phone) must be filled in during setup.
+The shape of what belongs in `contacts`, one row per person:
 
-**Girlfriend language note:** (name redacted) may communicate in Chinese. Ollama (qwen2.5:14b) handles Chinese input. Ensure Section 2 classification prompt explicitly handles non-English personal emails - extract and classify in English regardless of source language.
+| Column | Purpose |
+|---|---|
+| `identifier` | Email address or phone number. Must be an address; the seeding step rejects anything else |
+| `name` | Display name, as decoded from the mail header |
+| `relationship` | Free text, e.g. "family", "partner", "client" - drives urgency weighting |
+| `priority` | `critical` / `high` / `normal` - the question gate never fires for a known contact |
+
+Design notes that shaped it, with no personal detail attached:
+
+- **Own addresses** are never classified as an incoming action item. Configured via
+  `email-accounts.json` plus `SELF_EMAILS`, never in source.
+- **Close family and partners** warrant `critical` or `high` priority so the question gate does
+  not interrogate the user about people it should already know.
+- **Non-English personal mail is expected.** Personal contacts may write in a language other
+  than English, so the Section 2 classification prompt must extract and classify in English
+  regardless of source language rather than treating it as unparseable.
 
 ---
 

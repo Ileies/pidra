@@ -1,0 +1,542 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary);font-size:13px}
+.nav{display:flex;gap:4px;flex-wrap:wrap;padding:1rem 0 .75rem;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:1rem}
+.nav-btn{font-size:12px;padding:5px 11px;border:0.5px solid var(--color-border-secondary);border-radius:16px;background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;white-space:nowrap}
+.nav-btn.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500}
+.page{display:none}
+.page.active{display:block}
+h3{font-size:15px;font-weight:500;margin-bottom:.75rem;margin-top:1.25rem}
+h3:first-child{margin-top:0}
+p{font-size:13px;color:var(--color-text-secondary);line-height:1.65;margin-bottom:.75rem}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:10px}
+.card-title{font-size:13px;font-weight:500;margin-bottom:4px}
+.card-body{font-size:12px;color:var(--color-text-secondary);line-height:1.6}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:8px;font-weight:500;margin-right:4px;margin-bottom:3px}
+.b-local{background:#EAF3DE;color:#3B6D11}
+.b-sonnet{background:#EEEDFE;color:#3C3489}
+.b-haiku{background:#E1F5EE;color:#085041}
+.b-free{background:#EAF3DE;color:#3B6D11}
+.b-warn{background:#FAEEDA;color:#854F0B}
+.b-stop{background:#FCEBEB;color:#A32D2D}
+.b-pg{background:#E6F1FB;color:#0C447C}
+.phase{border-left:2px solid var(--color-border-secondary);padding-left:12px;margin-bottom:14px}
+.phase-label{font-size:10px;font-weight:500;letter-spacing:.06em;color:var(--color-text-tertiary);margin-bottom:3px}
+.phase-title{font-size:14px;font-weight:500;margin-bottom:3px}
+.phase-sub{font-size:12px;color:var(--color-text-secondary);line-height:1.55;margin-bottom:6px}
+.phase-meta{display:flex;gap:6px;flex-wrap:wrap}
+.pipeline{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin:8px 0}
+.ps{font-size:11px;padding:4px 9px;border:0.5px solid var(--color-border-tertiary);border-radius:5px;background:var(--color-background-secondary);white-space:nowrap}
+.pa{font-size:11px;color:var(--color-text-tertiary);padding:0 2px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.pc-label{font-size:10px;font-weight:500;color:var(--color-text-tertiary);letter-spacing:.06em;margin-bottom:5px}
+.pc-item{font-size:12px;color:var(--color-text-secondary);padding:2px 0;line-height:1.5}
+.pc-item.pro::before{content:"+ ";color:#1D9E75;font-weight:500}
+.pc-item.con::before{content:"— ";color:#E24B4A}
+.note{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:10px}
+.note strong{color:var(--color-text-primary);font-weight:500}
+code{font-family:var(--font-mono);font-size:11px;background:var(--color-background-secondary);padding:1px 5px;border-radius:4px;color:var(--color-text-primary)}
+.schema-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}
+.schema-table th{text-align:left;padding:5px 8px;font-weight:500;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.schema-table td{padding:4px 8px;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:top}
+.schema-table td:first-child{font-family:var(--font-mono);font-size:10px;color:var(--color-text-primary)}
+.schema-table td:nth-child(2){color:var(--color-text-tertiary)}
+.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.metric-label{font-size:10px;color:var(--color-text-tertiary);margin-bottom:3px}
+.metric-value{font-size:20px;font-weight:500}
+.metric-sub{font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+.go-btn{font-size:12px;padding:7px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;margin-top:8px}
+.go-btn:hover{background:var(--color-background-secondary)}
+.sep{border:none;border-top:0.5px solid var(--color-border-tertiary);margin:1rem 0}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+</style>
+
+<h2 class="sr-only">Complete product and architecture plan for the morning briefing system</h2>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="show('overview',this)">Overview</button>
+  <button class="nav-btn" onclick="show('pipeline',this)">Full pipeline</button>
+  <button class="nav-btn" onclick="show('ollama',this)">Local AI layer</button>
+  <button class="nav-btn" onclick="show('context',this)">Context strategy</button>
+  <button class="nav-btn" onclick="show('questions',this)">Question flow</button>
+  <button class="nav-btn" onclick="show('prompts',this)">Prompt engineering</button>
+  <button class="nav-btn" onclick="show('schema',this)">Data schema</button>
+  <button class="nav-btn" onclick="show('cost',this)">Cost analysis</button>
+</div>
+
+<div id="page-overview" class="page active">
+  <h3>What this system is</h3>
+  <p>A fully automated morning briefing engine that ingests newsletters, personal emails, SMS, calendar events, and your to-do list — then produces a single daily report split into two sections: world intelligence and personal action center. It has long-term memory, knows when to ask you questions before proceeding, and uses your local Ollama instance to do the heavy lifting before handing a compact, high-density payload to Sonnet 4.6 for final synthesis.</p>
+
+  <h3>The two-section model</h3>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Section 1 — intelligence briefing</div>
+      <div class="card-body">Everything you couldn't have known without doing research. Newsletter content, geopolitical events, AI breakthroughs, market shifts, science milestones. Organized by topic, not by source. Cross-referenced with previous reports. Never repeats old news — only updates and novelties.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Section 2 — personal action center</div>
+      <div class="card-body">Your life logistics. Emails requiring response, payment deadlines, invitations, tasks approaching due date, SMS that need follow-up, calendar events next week with context. Prioritized by urgency. Cross-linked to calendar and to-do list so items already logged are not repeated.</div>
+    </div>
+  </div>
+
+  <h3>Core design decisions</h3>
+  <div class="card">
+    <div class="card-title">Why not one huge prompt?</div>
+    <div class="card-body">32 newsletters at ~1,200 tokens each = ~38,000 tokens of raw email content — before personal emails, SMS, or context. At 200K context that fits, but Sonnet 4.6's output quality degrades badly when the input is mostly noise. More importantly: you'd pay to process promotional footers, unsubscribe links, and repeated boilerplate. The Ollama pre-processing layer eliminates ~60–70% of tokens before Sonnet ever sees the data.</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Why not vector stores?</div>
+    <div class="card-body">Correct instinct. With cosine similarity thresholds you will silently drop information — a story that's phrased unusually, a niche topic in an unfamiliar domain, or a low-similarity item that is actually the most important thing that day. For a daily briefing where completeness matters, explicit structured extraction beats probabilistic retrieval every time.</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Why not summarize each newsletter with Sonnet?</div>
+    <div class="card-body">Not cost — at your usage level that's maybe $3/month extra. The real problem is latency: 32 sequential Sonnet calls would take 3–5 minutes. With Ollama running locally and parallelized, those 32 extractions finish in ~45 seconds with zero API cost. Sonnet is reserved for the one task where its reasoning quality actually matters: final synthesis and judgment.</div>
+  </div>
+
+  <h3>System components at a glance</h3>
+  <div class="grid3">
+    <div class="card"><div class="card-title">Ingestion</div><div class="card-body">IMAP polling, SMS webhook, Google Calendar API, to-do API, notes store read</div></div>
+    <div class="card"><div class="card-title">Ollama layer</div><div class="card-body">Parallel extraction, classification, dedup scoring, urgency flagging, question detection</div></div>
+    <div class="card"><div class="card-title">Context retrieval</div><div class="card-body">Previous report summaries (Postgres), active topics table, long-term notes, known contacts</div></div>
+    <div class="card"><div class="card-title">Question gate</div><div class="card-body">Batch unknown-context questions to you via API. Pipeline blocks on Section 2. Section 1 continues in parallel.</div></div>
+    <div class="card"><div class="card-title">Sonnet synthesis</div><div class="card-body">Two synthesis calls: one per section. Structured prompts with full user profile and context payload.</div></div>
+    <div class="card"><div class="card-title">Output & memory</div><div class="card-body">Report delivered, daily summary stored, active topics updated, notes written, calendar/todo updated via API</div></div>
+  </div>
+  <button class="go-btn" onclick="sendPrompt('Tell me more about how the Ollama pre-processing layer works in detail')">Tell me more about the Ollama layer ↗</button>
+</div>
+
+<div id="page-pipeline" class="page">
+  <h3>Full execution pipeline</h3>
+  <p>All phases run in Bun. Phases 1–3 are fully parallel. Phase 4 is a conditional gate. Phases 5–6 run after the gate resolves.</p>
+
+  <div class="phase">
+    <div class="phase-label">Phase 1 — parallel ingestion</div>
+    <div class="phase-title">Fetch all sources simultaneously</div>
+    <div class="phase-sub">One <code>Promise.allSettled</code> launches all source fetches at once. Each source is isolated — a failed IMAP poll doesn't block the calendar fetch. Failures are logged and noted in the report ("3 newsletters unavailable today").</div>
+    <div class="pipeline">
+      <span class="ps">IMAP poll (newsletters + personal)</span><span class="pa">||</span>
+      <span class="ps">SMS webhook receive</span><span class="pa">||</span>
+      <span class="ps">Google Calendar API</span><span class="pa">||</span>
+      <span class="ps">To-do API</span><span class="pa">||</span>
+      <span class="ps">Notes store read</span>
+    </div>
+    <div class="phase-meta"><span class="badge b-free">No AI cost</span><span class="badge b-pg">Postgres write: raw items</span></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label">Phase 2 — ollama extraction (parallel)</div>
+    <div class="phase-title">Local AI processes every item</div>
+    <div class="phase-sub">Ollama (llama3.1:8b or qwen2.5:14b recommended) runs one extraction call per email/SMS. For newsletters: extract claims, topics, entities, novelty score. For personal emails: extract type, urgency, required action, unknown-context flag. Output is structured JSON. All calls fire in parallel — limited to 4 concurrent by your server's RAM.</div>
+    <div class="pipeline">
+      <span class="ps">32× newsletter → extract JSON</span><span class="pa">+</span>
+      <span class="ps">N× personal email → classify + flag</span><span class="pa">+</span>
+      <span class="ps">SMS → classify + flag</span>
+    </div>
+    <div class="phase-meta"><span class="badge b-local">Ollama (free)</span><span class="badge b-pg">Postgres write: extractions</span></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label">Phase 3 — context assembly</div>
+    <div class="phase-title">Pull memory and compute dedup</div>
+    <div class="phase-sub">Retrieve last 14 days of report summaries from Postgres. Query the active topics table (stories that span multiple days). Load long-term notes. Load known contacts table (built over time). Compute a novelty score per extracted item: items whose topic string closely matches a recent report topic get flagged as "continuation" rather than "new". This is done with simple string/keyword matching in Bun — no vectors needed at this scale.</div>
+    <div class="pipeline">
+      <span class="ps">Query: last 14 report summaries</span><span class="pa">→</span>
+      <span class="ps">Query: active topics</span><span class="pa">→</span>
+      <span class="ps">Query: notes + contacts</span><span class="pa">→</span>
+      <span class="ps">Compute novelty flags</span>
+    </div>
+    <div class="phase-meta"><span class="badge b-free">No AI cost</span><span class="badge b-pg">Postgres read only</span></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label">Phase 4 — question gate (conditional)</div>
+    <div class="phase-title">Ask before synthesizing personal section</div>
+    <div class="phase-sub">If any personal email or SMS has <code>unknown_context: true</code>, batch all questions into one API call to your custom endpoint. Section 1 (intelligence briefing) synthesis begins immediately in parallel. Section 2 (personal) is blocked until you respond. Timeout: 45 minutes — after which Section 2 proceeds with an explicit note about each unresolved context gap.</div>
+    <div class="pipeline">
+      <span class="ps">Batch unknown-context items</span><span class="pa">→</span>
+      <span class="ps">POST to your question API</span><span class="pa">→</span>
+      <span class="ps">WAIT (Section 2 blocked)</span><span class="pa">||</span>
+      <span class="ps">Section 1 begins (unblocked)</span>
+    </div>
+    <div class="phase-meta"><span class="badge b-warn">Conditional pause</span></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label">Phase 5 — sonnet synthesis (two calls)</div>
+    <div class="phase-title">Final report generation</div>
+    <div class="phase-sub">Two separate Sonnet 4.6 calls with distinct system prompts and structured input payloads. Call A: intelligence briefing — receives newsletter extractions, novelty flags, active topics context, and your intel profile. Call B: personal action center — receives personal email/SMS extractions, your question answers, calendar next 7 days, to-do list, deadlines. Each call is given a strict output format so parsing is reliable.</div>
+    <div class="pipeline">
+      <span class="ps">Call A: intel payload → Section 1</span><span class="pa">||</span>
+      <span class="ps">Call B: personal payload → Section 2</span>
+    </div>
+    <div class="phase-meta"><span class="badge b-sonnet">Sonnet 4.6 (×2)</span></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-label">Phase 6 — output and memory update</div>
+    <div class="phase-title">Deliver report, update all stores</div>
+    <div class="phase-sub">Merge Sections 1 and 2 into final report. Deliver via your preferred channel (push notification, email, SvelteKit dashboard). Store today's report summary in Postgres. Update active topics table: close resolved stories, add new ones, increment continuation count. Optionally POST to Claude Code API if the report surfaces a task needing your local dev environment.</div>
+    <div class="pipeline">
+      <span class="ps">Merge + deliver report</span><span class="pa">→</span>
+      <span class="ps">Store daily summary</span><span class="pa">→</span>
+      <span class="ps">Update active topics</span><span class="pa">→</span>
+      <span class="ps">Write notes if needed</span><span class="pa">→</span>
+      <span class="ps">Optional: POST to Claude Code API</span>
+    </div>
+    <div class="phase-meta"><span class="badge b-free">No AI cost</span><span class="badge b-pg">Postgres write: summary + topics</span></div>
+  </div>
+</div>
+
+<div id="page-ollama" class="page">
+  <h3>The local AI layer</h3>
+  <p>Ollama is not a fallback — it's the workhorse. By the time Sonnet sees any data, Ollama has already compressed, structured, and filtered everything. This is the architectural decision that makes the whole system economically trivial and fast.</p>
+
+  <h3>Recommended model</h3>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">qwen2.5:14b — primary recommendation</div>
+      <div class="card-body">Stronger multilingual ability (important for your German newsletters and potential Chinese sources). Excellent at structured JSON extraction. Better reasoning than llama3.1:8b for edge cases. Runs comfortably on your server if you have 16GB+ VRAM or 32GB RAM.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">llama3.1:8b — if RAM-constrained</div>
+      <div class="card-body">Fast, reliable, cheap on RAM. Good at classification and extraction tasks. Will occasionally miss nuance in long analytical essays (Astral Codex Ten, Not Boring). Acceptable fallback if 14b is too slow for your server.</div>
+    </div>
+  </div>
+
+  <h3>What Ollama does per item</h3>
+  <div class="card">
+    <div class="card-title">Newsletter extraction prompt (structured JSON output)</div>
+    <div class="card-body" style="font-family:var(--font-mono);font-size:11px;line-height:1.7;white-space:pre-wrap">Extract from this newsletter email. Return ONLY valid JSON:
+{
+  "source": "newsletter name",
+  "items": [
+    {
+      "headline": "one sentence max",
+      "topic_tags": ["AI", "China", "finance", ...],
+      "key_claim": "the actual claim or finding, 2 sentences max",
+      "entities": ["person/org/place names"],
+      "novelty": "new|continuation|repeat",
+      "relevance_score": 1-5
+    }
+  ],
+  "skip_reason": null or "promotional|duplicate|off-topic"
+}</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Personal email classification prompt</div>
+    <div class="card-body" style="font-family:var(--font-mono);font-size:11px;line-height:1.7;white-space:pre-wrap">{
+  "type": "invoice|invitation|reply_needed|automated|spam|personal|legal|unknown",
+  "urgency": "critical|high|normal|low",
+  "deadline": "ISO date or null",
+  "action_required": "one sentence or null",
+  "unknown_context": true/false,
+  "question_for_user": "what do you need to know? or null",
+  "sender_known": true/false
+}</div>
+  </div>
+
+  <h3>What Ollama does NOT do</h3>
+  <div class="note"><strong>Don't ask Ollama to write prose, make judgments about geopolitical significance, or synthesize across sources.</strong> Its job is purely structural: compress text → JSON, classify, flag. When you ask it to write "a summary of what matters today in AI", the output quality is unreliable and you lose the structured data you need for Sonnet's prompt. Keep Ollama as a lossless compressor, not an analyst.</div>
+
+  <h3>Parallelization strategy</h3>
+  <p>Run Ollama calls with a concurrency limit of 4 (adjust based on your server specs). With 32 newsletters + ~20 personal emails = ~52 calls. At ~2 seconds each with concurrency 4, this finishes in roughly 26 seconds wall time. Use Bun's <code>Promise.allSettled</code> with a simple semaphore. Failed calls fall back to passing the raw email text directly to Sonnet with a note: "Ollama extraction failed — raw content follows."</p>
+</div>
+
+<div id="page-context" class="page">
+  <h3>Context management strategy</h3>
+  <p>This is the hardest part of the system. The goal: Sonnet should always know what happened recently, never repeat itself, but also never silently drop a continuing story just because it was mentioned yesterday.</p>
+
+  <h3>The active topics table</h3>
+  <p>Every story that appears in the report gets written to an <code>active_topics</code> table. This is the core of your cross-day memory. It stores:</p>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Purpose</th></tr>
+    <tr><td>topic_id</td><td>uuid</td><td>Unique story identifier</td></tr>
+    <tr><td>headline</td><td>text</td><td>Short canonical title of the story</td></tr>
+    <tr><td>domain</td><td>text</td><td>AI / China / Finance / etc.</td></tr>
+    <tr><td>first_seen</td><td>date</td><td>When it first appeared</td></tr>
+    <tr><td>last_updated</td><td>date</td><td>Last day a new development arrived</td></tr>
+    <tr><td>status</td><td>active/resolved/dormant</td><td>Is it still developing?</td></tr>
+    <tr><td>running_summary</td><td>text</td><td>2-3 sentence current state</td></tr>
+    <tr><td>update_count</td><td>int</td><td>How many days has it appeared</td></tr>
+    <tr><td>sources</td><td>text[]</td><td>Which newsletters covered it</td></tr>
+  </table>
+
+  <h3>What goes into Sonnet's context payload</h3>
+  <div class="card">
+    <div class="card-title">Context block fed to Sonnet (Section 1 synthesis)</div>
+    <div class="card-body">
+      <p style="margin-bottom:6px">1. <strong>Active topics</strong>: all stories from the last 14 days with their running_summary. These go first — Sonnet must update them, not re-introduce them.</p>
+      <p style="margin-bottom:6px">2. <strong>Today's extractions</strong>: structured JSON from Ollama, relevance-scored, novelty-flagged. Only items with relevance ≥ 3 and novelty = "new" or "continuation" are included. Relevance 1–2 items are silently dropped.</p>
+      <p style="margin-bottom:6px">3. <strong>Your profile block</strong>: a compact 200-token profile telling Sonnet what you care about (see Prompt Engineering tab).</p>
+      <p>4. <strong>Light day / heavy day signal</strong>: a computed integer — "today has 12 high-relevance items" vs "today has 47". Sonnet uses this to calibrate depth vs breadth.</p>
+    </div>
+  </div>
+
+  <h3>Handling variable daily volume</h3>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Light days (&lt;10 high-relevance items)</div>
+      <div class="card-body">Instruct Sonnet to go deeper on fewer stories. Include more context about ongoing topics. Acceptable to include relevance-3 items that would be cut on heavy days. Report is shorter but denser per topic.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Heavy days (&gt;30 high-relevance items)</div>
+      <div class="card-body">Hard cap: include only top 20 by relevance score. Instruct Sonnet: "this is a high-volume day — prioritize ruthlessly. Items below the cut should be listed in a brief 'also noted' section with one line each."</div>
+    </div>
+  </div>
+
+  <h3>The notes store</h3>
+  <p>The system can write free-form notes to a <code>notes</code> table at any time — including after the report is delivered. Use cases: "User asked me not to include Miles & More promotional emails." "User confirmed that [company X] is a client — treat emails from them as high-priority." "Ongoing: user is negotiating with [party Y] — flag any related news." Notes are retrieved in full on every run (they should stay small — prune aggressively).</p>
+
+  <h3>Known contacts table</h3>
+  <p>Built over time as you answer the question gate. Starts empty. After 2 weeks of use, Sonnet will know that "sarah@startup.ch" is a potential investor, "lina@firma.de" is your girlfriend's colleague, etc. This eliminates repeat questions about the same senders and personalizes urgency scoring.</p>
+</div>
+
+<div id="page-questions" class="page">
+  <h3>The question gate</h3>
+  <p>The most important UX innovation in this system. Instead of silently proceeding with wrong assumptions, the tool pauses and asks you — but only when it genuinely doesn't know, and only once per run, batched.</p>
+
+  <h3>Triggering conditions</h3>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Unknown sender</div>
+      <div class="card-body">Email from someone not in the contacts table and not inferable from domain. Question: "Email from jan@innovate.io with subject 'Partnership proposal' — who is this?"</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ambiguous action</div>
+      <div class="card-body">Email that requires a decision but the context is missing. "Reply from [known contact] about meeting timing — do you want this added to your calendar?"</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Unusual financial item</div>
+      <div class="card-body">Invoice or payment request from an unknown party. Never assumed to be valid — always flagged.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">SMS from unknown number</div>
+      <div class="card-body">Any SMS not in the known contacts table. Context question asked before classification.</div>
+    </div>
+  </div>
+
+  <h3>Question batching and format</h3>
+  <div class="card">
+    <div class="card-body" style="font-family:var(--font-mono);font-size:11px;line-height:1.8">POST /api/questions
+{
+  "run_id": "2025-05-06-morning",
+  "timeout_minutes": 45,
+  "questions": [
+    {
+      "id": "q1",
+      "item_type": "email",
+      "from": "alex@neuralbridge.io",
+      "subject": "Following up on our conversation",
+      "question": "Who is Alex from NeuralBridge? Should this be treated as a lead, a partner inquiry, or personal?"
+    },
+    {
+      "id": "q2",
+      "item_type": "sms",
+      "from": "+41 79 123 4567",
+      "preview": "Hey, confirmed for Thursday",
+      "question": "Who is this contact? What's being confirmed for Thursday?"
+    }
+  ]
+}</div>
+  </div>
+
+  <h3>Parallelization during the wait</h3>
+  <div class="note">
+    <strong>Section 1 (intelligence briefing) does not wait.</strong> It starts immediately after Phase 3 completes regardless of whether questions are pending. Only Section 2 (personal action center) blocks on the gate. In most cases, Section 1 finishes and is ready to deliver while you're still answering the questions. Final delivery is: both sections together once the gate resolves.
+  </div>
+
+  <h3>Timeout behavior</h3>
+  <p>If no answer arrives within 45 minutes, Section 2 proceeds with explicit gap notes:</p>
+  <div class="card">
+    <div class="card-body" style="font-size:12px;line-height:1.7">⚠ <strong>Unresolved context (question unanswered):</strong> Email from alex@neuralbridge.io classified as "unknown" — included below without personalized context. Please respond to pending question to update contact profile.</div>
+  </div>
+
+  <h3>Contact learning loop</h3>
+  <p>Every answered question writes to the contacts table. After ~2 weeks, question rate drops to near zero for existing contacts. New contacts still trigger the gate. This is your system learning your social graph over time with zero explicit configuration.</p>
+</div>
+
+<div id="page-prompts" class="page">
+  <h3>Prompt engineering</h3>
+  <p>Two distinct system prompts. Each is compact by design — Sonnet's intelligence needs direction, not walls of instruction.</p>
+
+  <h3>Your profile block (shared by both prompts, ~200 tokens)</h3>
+  <div class="card">
+    <div class="card-body" style="font-size:12px;line-height:1.75">You are compiling a personal morning briefing for a single reader. You do not know anything about the reader except what the input gives you - their identity, interests and priorities arrive in the payload at runtime. Priorities, in order of importance for the intelligence section:<br><br>
+    1. AI/LLM breakthroughs, model releases, capability jumps, policy<br>
+    2. China — geopolitics, tech sector, US-China dynamics, domestic policy<br>
+    3. European/Swiss startup ecosystem, VC funding, regulation<br>
+    4. Global macro: interest rates, currency, geopolitical crises affecting tech<br>
+    5. Neuroscience and BCI milestones<br>
+    6. Science breakthroughs (physics, biology, longevity)<br>
+    7. Software engineering: major framework releases, security events<br><br>
+    Exclude: celebrity, sports, US domestic politics unrelated to tech/China, promotional content, anything below relevance 3. He reads fast and thinks faster — be dense, not gentle. No padding sentences.</div>
+  </div>
+
+  <h3>Section 1 synthesis prompt (intelligence)</h3>
+  <div class="card">
+    <div class="card-body" style="font-size:12px;line-height:1.75">
+    <strong>Ongoing stories (update, do not re-introduce):</strong> [active_topics JSON]<br>
+    <strong>Today's extracted items:</strong> [ollama_extractions JSON — relevance ≥ 3 only]<br>
+    <strong>Volume signal:</strong> [N] high-relevance items today. [light/normal/heavy] day.<br><br>
+    Write Section 1 of today's briefing. Rules:<br>
+    — Group by domain, not by source. Never mention which newsletter a story came from.<br>
+    — For ongoing stories: start with "UPDATE:" and reference how it has developed. Do not re-explain the background.<br>
+    — For new stories: introduce concisely, state the key claim, state why it matters to me.<br>
+    — If 3+ sources covered the same story, note the cross-source weight: "(covered by 4 sources)".<br>
+    — Heavy days: ruthless top-20 cut, then one-line "also noted" section.<br>
+    — Target length: 600–900 words regardless of volume.</div>
+  </div>
+
+  <h3>Section 2 synthesis prompt (personal)</h3>
+  <div class="card">
+    <div class="card-body" style="font-size:12px;line-height:1.75">
+    <strong>Personal email/SMS extractions:</strong> [ollama_extractions JSON]<br>
+    <strong>Question answers received:</strong> [answered_questions JSON or "none pending"]<br>
+    <strong>Calendar — next 7 days:</strong> [calendar JSON]<br>
+    <strong>To-do list — all items:</strong> [todo JSON]<br>
+    <strong>Known context:</strong> [relevant notes + contacts]<br><br>
+    Write Section 2 of today's briefing. Rules:<br>
+    — Group by urgency: Critical (deadline within 24h or requires same-day action) → High → Normal.<br>
+    — For each item: state what it is, what action is required, and when by.<br>
+    — Cross-reference: if an email relates to a calendar event, say so explicitly.<br>
+    — If a to-do item already captures an email's action, note it as "already logged in your to-do" — don't duplicate.<br>
+    — Flag any item that should be added to the calendar or to-do list and hasn't been yet.<br>
+    — If the intelligence section mentioned something directly relevant to a personal item, link them.</div>
+  </div>
+
+  <h3>What the output format should look like</h3>
+  <div class="note">Specify an explicit output structure in both prompts. Example: <code>## Intelligence briefing — [date]\n### AI & technology\n...\n### Also noted\n...\n---\n## Personal action center\n### Critical\n...\n### High priority\n...</code>. Consistent structure means your report reader (SvelteKit dashboard or whatever you build) can parse sections programmatically.</div>
+</div>
+
+<div id="page-schema" class="page">
+  <h3>Postgres schema</h3>
+  <p>Six tables. All managed with DrizzleORM. Designed to be append-only except for updates to active_topics and notes.</p>
+
+  <h3>raw_items</h3>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>uuid</td><td>Primary key</td></tr>
+    <tr><td>run_date</td><td>date</td><td>Which day's run produced this</td></tr>
+    <tr><td>source_type</td><td>text</td><td>newsletter | personal_email | sms | calendar | todo</td></tr>
+    <tr><td>source_name</td><td>text</td><td>Newsletter name or sender</td></tr>
+    <tr><td>raw_content</td><td>text</td><td>Stripped HTML — no images, footers removed</td></tr>
+    <tr><td>received_at</td><td>timestamptz</td><td>Original timestamp</td></tr>
+  </table>
+
+  <h3>extractions</h3>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>uuid</td><td></td></tr>
+    <tr><td>raw_item_id</td><td>uuid FK</td><td>→ raw_items</td></tr>
+    <tr><td>extracted_json</td><td>jsonb</td><td>Full Ollama output</td></tr>
+    <tr><td>relevance_score</td><td>int</td><td>1–5, from Ollama</td></tr>
+    <tr><td>novelty</td><td>text</td><td>new | continuation | repeat</td></tr>
+    <tr><td>unknown_context</td><td>boolean</td><td>Triggers question gate</td></tr>
+    <tr><td>included_in_report</td><td>boolean</td><td>Was it used in synthesis?</td></tr>
+  </table>
+
+  <h3>active_topics</h3>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>uuid</td><td></td></tr>
+    <tr><td>headline</td><td>text</td><td>Canonical story title</td></tr>
+    <tr><td>domain</td><td>text</td><td>AI / China / Finance etc.</td></tr>
+    <tr><td>running_summary</td><td>text</td><td>Updated after each report. 2–3 sentences max.</td></tr>
+    <tr><td>first_seen / last_updated</td><td>date</td><td></td></tr>
+    <tr><td>status</td><td>text</td><td>active | dormant | resolved</td></tr>
+    <tr><td>update_count</td><td>int</td><td>Increment on each new development</td></tr>
+  </table>
+
+  <h3>daily_reports</h3>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>uuid</td><td></td></tr>
+    <tr><td>report_date</td><td>date</td><td>Unique per day</td></tr>
+    <tr><td>full_report</td><td>text</td><td>Final markdown output</td></tr>
+    <tr><td>short_summary</td><td>text</td><td>~150 token summary for context retrieval</td></tr>
+    <tr><td>item_count</td><td>int</td><td>How many items were processed</td></tr>
+    <tr><td>sonnet_tokens_in / out</td><td>int</td><td>For monitoring</td></tr>
+  </table>
+
+  <h3>notes</h3>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>uuid</td><td></td></tr>
+    <tr><td>content</td><td>text</td><td>Free text. Written by the system or by you.</td></tr>
+    <tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+    <tr><td>expires_at</td><td>date or null</td><td>Null = permanent</td></tr>
+    <tr><td>scope</td><td>text</td><td>global | personal | intel | contact</td></tr>
+  </table>
+
+  <h3>contacts</h3>
+  <table class="schema-table">
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>uuid</td><td></td></tr>
+    <tr><td>identifier</td><td>text</td><td>Email address, phone number</td></tr>
+    <tr><td>name</td><td>text or null</td><td></td></tr>
+    <tr><td>relationship</td><td>text</td><td>From your answers to the question gate</td></tr>
+    <tr><td>priority</td><td>text</td><td>critical | high | normal | low</td></tr>
+    <tr><td>notes</td><td>text or null</td><td>Free context</td></tr>
+    <tr><td>first_seen</td><td>date</td><td></td></tr>
+  </table>
+</div>
+
+<div id="page-cost" class="page">
+  <h3>Token cost breakdown</h3>
+  <p>All figures are per daily run at Sonnet 4.6 pricing ($3/M input, $15/M output). Ollama costs are zero — running on your own server.</p>
+
+  <div class="metric-row">
+    <div class="metric"><div class="metric-label">Sonnet input/day</div><div class="metric-value">~18K</div><div class="metric-sub">tokens</div></div>
+    <div class="metric"><div class="metric-label">Sonnet output/day</div><div class="metric-value">~2.5K</div><div class="metric-sub">tokens</div></div>
+    <div class="metric"><div class="metric-label">Cost per day</div><div class="metric-value">$0.09</div><div class="metric-sub">both sections</div></div>
+    <div class="metric"><div class="metric-label">Cost per month</div><div class="metric-value">$2.70</div><div class="metric-sub">~$30/year</div></div>
+  </div>
+
+  <h3>Input token breakdown (per run)</h3>
+  <table class="schema-table">
+    <tr><th>Source</th><th>Raw tokens</th><th>After Ollama compression</th><th>Sent to Sonnet</th></tr>
+    <tr><td>32 newsletters</td><td>~38,400</td><td>~6,400 (JSON extractions)</td><td>~4,800 (relevance filtered)</td></tr>
+    <tr><td>~20 personal emails</td><td>~10,000</td><td>~2,000 (classified JSON)</td><td>~2,000</td></tr>
+    <tr><td>SMS batch</td><td>~300</td><td>~200</td><td>~200</td></tr>
+    <tr><td>Calendar (7 days)</td><td>~500</td><td>— (passed directly)</td><td>~500</td></tr>
+    <tr><td>To-do list</td><td>~400</td><td>— (passed directly)</td><td>~400</td></tr>
+    <tr><td>Active topics (14 days)</td><td>n/a</td><td>~3,000 (running summaries)</td><td>~3,000</td></tr>
+    <tr><td>Notes + contacts</td><td>n/a</td><td>~500</td><td>~500</td></tr>
+    <tr><td>System prompts ×2</td><td>n/a</td><td>~1,200</td><td>~1,200</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>~49,600</strong></td><td></td><td><strong>~12,600</strong></td></tr>
+  </table>
+
+  <div class="note">The Ollama layer eliminates <strong>~75% of tokens</strong> before Sonnet sees anything. Without it, you'd pay ~$0.36/day ($131/year). With it: ~$0.09/day ($33/year). The more important gain is quality: Sonnet synthesizing 12K tokens of dense structured signal produces a far better report than Sonnet drowning in 50K tokens of raw newsletter HTML.</div>
+
+  <h3>Scaling considerations</h3>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">If you add more sources later</div>
+      <div class="card-body">Cost scales almost entirely in the Ollama layer (free) until you have so many sources that the Sonnet payload grows. At 100 newsletters you'd still be under $0.20/day because Ollama's compression ratio improves with volume — more items means more get filtered as low-relevance.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Active topics growth over time</div>
+      <div class="card-body">The active_topics payload grows as more long-running stories accumulate. Prune stories with status "resolved" or last_updated > 30 days. In practice, at steady state you'll have 20–40 active topics, adding ~3–4K tokens to every run — acceptable.</div>
+    </div>
+  </div>
+
+  <h3>Haiku as a middle tier (optional)</h3>
+  <p>If you ever want to add a mid-step quality check between Ollama and Sonnet — for example, re-scoring relevance on Ollama extractions you're not confident about — Claude Haiku ($0.80/M input) is 4x cheaper than Sonnet for mechanical validation tasks. Not necessary at current scale, but worth knowing as an upgrade path.</p>
+  <button class="go-btn" onclick="sendPrompt('Help me write the Ollama extraction prompt in full detail, including the exact JSON schema and edge case handling')">Write the Ollama extraction prompt ↗</button>
+  <button class="go-btn" style="margin-left:8px" onclick="sendPrompt('Help me write the Bun pipeline orchestrator that runs all phases with parallelization and error handling')">Write the Bun pipeline code ↗</button>
+</div>
+
+<script>
+function show(page, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  btn.classList.add('active');
+}
+</script>

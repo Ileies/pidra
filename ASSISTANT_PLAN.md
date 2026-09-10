@@ -1,6 +1,10 @@
 # Assistant Plan - editable notes and an app-wide AI assistant
 
-Status: proposal, nothing implemented yet.
+Status: **implemented** (2026-09-10), phases A to F. What the code does now is described
+throughout in the present tense; the two things this document promised and does not have are
+token-level streaming and a purge for soft-deleted notes, both deliberately left out (§11, and
+`TODO.md`). Everything was verified against the live database and the real model, except the
+browser-side interactions, which are type-checked but not yet clicked through by hand.
 
 Two things, one architecture:
 

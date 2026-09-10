@@ -167,7 +167,9 @@ Input you will receive:
 - question_answers: context provided by user for unknown senders
 - calendar_next_7_days: upcoming events
 - active_todos: current to-do list
-- known_contacts: contact context
+- known_contacts: the email sender directory. Who a From address belongs to and how much it
+  matters. These are senders, not the user's social circle: personal relationships come from
+  long_term_context and standing_rules instead
 - notes_personal: standing personal instructions
 - standing_rules: the user's own persistent rules and habits, extracted from their notes
 - long_term_context: a durable profile of the user (identity and relationships, active projects
@@ -203,6 +205,9 @@ Output rules:
   ### Mentions (omit if empty)
   ...
 - Source refs: each item in personal_items has an "id" field. After each bullet point or paragraph, append the HTML comment <!--refs:ID--> (or <!--refs:ID1,ID2--> for combined items) immediately after the text, before the newline.
+- new_contacts: only sending addresses worth remembering for future triage, keyed by address.
+  Never add someone merely mentioned inside a message: the directory records who sends mail,
+  not who is talked about.
 - Append:
   <!--SYSTEM
   {

@@ -8,7 +8,7 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md`. Phases 0-6 are complete
 - ~~**[INFRA]** Set up Ollama on this machine + pull `hf.co/empero-ai/Qwen3.8-9B-GGUF:Q6_K`~~
 - ~~**[INFRA]** gkeepapi one-time auth~~
 - ~~**[FEATURE]** Context Builder: full first run - pre-seeds `entities`, `contacts`, `standing_context`~~ (2026-09-10: extraction moved off Ollama to `gpt-5.6-luna`; `entities`, `contacts` and `standing_context` all seeded)
-- **[DECISION]** `contacts` seeds only `importance != low`, which yielded 6 rows from 1432 emails - the `batch-contacts` heuristic (2+ high, or 3+ medium) is probably too strict for a first seed
+- ~~**[DECISION]** `contacts` seeds only `importance != low`, which yielded 6 rows from 1432 emails - the `batch-contacts` heuristic (2+ high, or 3+ medium) is probably too strict for a first seed~~ (2026-09-10: not a threshold bug. `contacts` is an email sender directory, not a social graph; 6 rows is correct and no messaging platform will be ingested to grow it. See `CONTEXT_AND_DECISIONS.md §8`)
 - **[DECISION]** Entity graph has ~2900 nodes with `mention_count = 0` from the seed, including dates and one-off nouns. Decide whether the Sunday pruning job should sweep never-mentioned seeds or whether they should never have been inserted
 - **[FEATURE]** Context Builder: set up monthly update run cadence (cron or manual)
 - **[INFRA]** Test daily pipeline with real newsletters for 3 days, tune extraction prompts

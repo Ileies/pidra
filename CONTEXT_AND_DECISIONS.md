@@ -13,7 +13,7 @@
 5. [Newsletter Selection Rationale (all 32)](#5-newsletter-selection-rationale-all-32)
 6. [Google Tasks - Categories & Integration Notes](#6-google-tasks--categories--integration-notes)
 7. [Google Keep - Categories & Integration Notes](#7-google-keep--categories--integration-notes)
-8. [Known Contacts (pre-seed for question gate)](#8-known-contacts-pre-seed-for-question-gate)
+8. [Email Sender Directory (`contacts`)](#8-email-sender-directory-contacts)
 9. [Key Decisions Made](#9-key-decisions-made)
 10. [Core Design Principles](#10-core-design-principles)
 11. [Content Processing Notes](#11-content-processing-notes)
@@ -212,9 +212,26 @@ User has ~1,000 notes across these categories. The Keep integration (Phase 7) sh
 
 ---
 
-## 8. Known Contacts (pre-seed for question gate)
+## 8. Email Sender Directory (`contacts`)
 
-Pre-seeding contacts eliminates question gate firings for known family and relationship contacts on day one.
+**Decision, 2026-09-10: `contacts` is an email sender directory, not a social graph.**
+
+The first Context Builder run seeded 6 rows from 1432 emails. That was initially read as the
+`batch-contacts` threshold being too strict. It is not a threshold problem. The user does not
+conduct relationships over email: the inbox is newsletters, `noreply` notifications and a
+handful of clients, while the actual social circle lives on Discord, WhatsApp, Instagram,
+WeChat, Line, KakaoTalk, VK, Zalo, Facebook, X, Telegram and LinkedIn. Six rows is the correct
+answer to the question this table asks, and loosening the heuristic would only admit automated
+senders, not people.
+
+So the table answers exactly one question: *mail arrived from this address, who is that and how
+much should triage care.* `phase3-context.ts` loads every row unfiltered, and
+`phase5-synthesis.ts` hands it to the Section 2 prompt as `known_contacts`.
+
+**No messaging platform will be ingested to fill it.** Closed deliberately, see `CLAUDE.md`
+under "What not to build". Personal relationship context is not lost by this: it lives in
+`standing_context` under `profile_family_and_partner` and reaches Section 2 through
+`long_term_context`, which is where the model is told to resolve senders from anyway.
 
 > **The contact list is not gone, it moved.** This repository is public and the list describes
 > third parties, including minors, who have not consented to being published. It now lives in
@@ -222,14 +239,14 @@ Pre-seeding contacts eliminates question gate firings for known family and relat
 > and `profile_language_handling`, and real addresses in the `contacts` table as the Context
 > Builder learns them from actual mail. Both reach the briefing at runtime.
 
-The shape of what belongs in `contacts`, one row per person:
+The shape of what belongs in `contacts`, one row per sending address:
 
 | Column | Purpose |
 |---|---|
 | `identifier` | Email address or phone number. Must be an address; the seeding step rejects anything else |
 | `name` | Display name, as decoded from the mail header |
-| `relationship` | Free text, e.g. "family", "partner", "client" - drives urgency weighting |
-| `priority` | `critical` / `high` / `normal` - the question gate never fires for a known contact |
+| `relationship` | Free text, e.g. "client", "bank", "university", "family" - what the sender is to the user, which drives urgency weighting. Not a social tie |
+| `priority` | `critical` / `high` / `normal` - the question gate never fires for a known sender |
 
 Design notes that shaped it, with no personal detail attached:
 

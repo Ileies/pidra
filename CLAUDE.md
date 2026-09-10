@@ -36,6 +36,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 - **`contacts` is an email sender directory, not a social graph** (owner's decision, 2026-09-10). It answers "mail arrived from this address, who is that and how much should triage care", nothing more. The user's actual social circle lives on a dozen messaging platforms and **none of them will be ingested**: no Discord, WhatsApp, Instagram, WeChat, Line, KakaoTalk, VK, Zalo, Facebook, X, Telegram or LinkedIn source, neither live nor via data export. A small `contacts` table is the expected steady state, not a seeding bug: the first Context Builder run produced 6 rows from 1432 emails and that is correct. Personal relationship context comes from `standing_context` (`profile_family_and_partner`), not from here. Full reasoning in `CONTEXT_AND_DECISIONS.md §8`.
 - **Credentials never reach any cloud API.** Enforced at the code level, at the fetch choke point rather than in a consumer, so no later call path can bypass it. Currently: `sources/keep.ts` drops every Keep note labelled `Credentials` (passwords, card and bank details, identity-document numbers) before any consumer sees it; the label list is `CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS`. Any new personal source needs its own equivalent filter.
 - **Diary and other intimate personal content is deliberately in scope** (owner's decision, 2026-09-10). The context document is meant to be thorough about who the user is, and this content is some of the richest signal available; it goes to the API like anything else, under `store: false`. This supersedes the earlier "diary content never reaches a cloud API" rule, which is now narrowed to credentials above.
+- **Harvested context is never overwritten, only adjusted and complemented** (owner's decision, 2026-09-10). The Context Builder's output document and the `standing_context` rows it wrote are read-only to everything downstream. Corrections live in `context_corrections`, an append-only layer that is injected alongside the harvest and outranks it in the daily prompts; the wrong text is kept on the correction as `supersedes_text` so the model can see what it is being told to disregard. Rows are never deleted and never edited except to flip `status` to `reverted`. `entities` and `contacts` are the one exception - a correction does merge into the row, because `phase3-context` and Section 2 read them directly - but only the named fields change, the pre-merge row is snapshotted into `previous_state`, and the row is marked `locked` so a re-seed cannot clobber it. Never add a code path that rewrites the context document or an existing standing rule in place. Full reasoning in `CONTEXT_REVISION_PLAN.md`.
 - **Prompt changes require human approval.** The weekly meta-run proposes diffs; nothing auto-applies. The `prompt_versions` table tracks active prompts. The `/prompts` dashboard page handles review and activation.
 - **Dashboard is the primary interface - never send emails for system events.** The user's goal is to not read email. Errors, alerts, and notifications go to the dashboard only (via `pipeline_runs`, `notes`, or the UI). The `send_email` skill and `nodemailer` exist only for user-initiated AI actions, not system monitoring.
 
@@ -58,6 +59,8 @@ See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 - `skill_executions` - audit log for all Claude Code bridge skill calls
 - `standing_context` - persistent rules/preferences injected into Section 2 prompt; seeded by Context Builder from Google Keep "Daily Life Rules" and other standing rules
 - `context_builder_runs` / `context_builder_indexed_items` - Context Builder run history and per-item index state; used for delta detection on re-runs
+- `context_corrections` - append-only correction layer over the harvested long-term context; injected into both synthesis prompts and authoritative over them
+- `chat_conversations` / `chat_messages` - the context revision chat's transcript, and the provenance trail for every correction it made
 - `notes` - user and system notes, scoped by `global | intel | personal | contact | search`
 - `feedback_events` - explicit +/- ratings and implicit behavioral signals per extraction
 - `push_subscriptions` - Web Push VAPID subscriptions for PWA notifications
@@ -75,6 +78,8 @@ See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 - `/skills` - skill execution log
 - `/prompts` - prompt version management (view, activate, delete)
 - `/questions` - pending question gate sessions
+- `/chat` - context revision chat; talks to the model through the skills bridge, shows every skill call it made
+- `/context-builder` - the harvested context document, standing rules, active corrections (with revert), and run controls
 
 ## Cron schedule (all `Europe/Berlin`)
 
@@ -95,7 +100,11 @@ Risk levels:
 - `high` - inserted as `pending` in `skill_executions`, requires manual confirmation
 - `critical` - always rejected; never auto-execute
 
-Current skills: `write_note`, `delete_note`, `run_web_search`, `add_todo_item`, `complete_todo_item`, `add_calendar_event` (all low), `create_file`, `send_email` (both medium).
+Current skills: `write_note`, `delete_note`, `run_web_search`, `add_todo_item`, `complete_todo_item`, `add_calendar_event`, `read_context` (all low), `create_file`, `send_email`, `revise_context`, `revert_context_revision` (all medium).
+
+All skill calls - from the REST bridge and from the chat alike - go through `executeSkill()` in `src/skills/execute.ts`, which owns the risk gating and the `skill_executions` audit log. Never call `skill.execute()` directly from a new caller.
+
+The `/chat` loop (`src/ai/chat.ts`) exposes the whole registry as tools automatically, so a new skill in `skills/` is usable from the chat with no change there.
 
 ## Concurrency
 

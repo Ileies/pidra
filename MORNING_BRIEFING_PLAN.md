@@ -205,7 +205,9 @@ Two separate Sonnet 4.6 calls (see §17 for full prompts).
 - **Call A** (Section 1): ~8–10K tokens in, ~1,200 tokens out, ~15–20s
 - **Call B** (Section 2): ~6–8K tokens in, ~800 tokens out, ~12–15s
 
-Both calls use the current prompt version from `prompt_versions` table.
+Both calls resolve their prompt at run time via `src/ai/active-prompts.ts`: the active
+`prompt_versions` row for the section if there is one, otherwise the constant in
+`src/ai/prompts.ts`. Phase 2 resolves its three extraction prompts the same way, once per run.
 
 ### Phase 6 - Output & Memory Writes (T+140s, async)
 - Merge Section 1 and Section 2 into final report (Markdown)

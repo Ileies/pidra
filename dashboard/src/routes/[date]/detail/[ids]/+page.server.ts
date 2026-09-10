@@ -2,6 +2,7 @@ import type { PageServerLoad, Actions } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { marked } from "marked";
 import { sql } from "$lib/db";
+import { parseJsonb } from "$lib/jsonb";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,7 +57,7 @@ export const load: PageServerLoad = async ({ params }) => {
       relevanceScore: row.relevance_score as number | null,
       effectiveRelevance: row.effective_relevance as number | null,
       rating: (ratingMap.get(row.id as string) ?? null) as string | null,
-      extracted: row.extracted_json as {
+      extracted: parseJsonb<{
         headline?: string;
         key_claim?: string;
         topic_tags?: string[];
@@ -65,7 +66,7 @@ export const load: PageServerLoad = async ({ params }) => {
         urgency?: string;
         action_required?: string | null;
         deadline?: string | null;
-      } | null,
+      } | null>(row.extracted_json, null),
     })),
   };
 };

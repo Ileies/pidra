@@ -1,5 +1,17 @@
 import type { PageServerLoad } from "./$types";
 import { sql } from "$lib/db";
+import { parseJsonb } from "$lib/jsonb";
+
+interface SkillExecution {
+  id: string;
+  run_date: string;
+  skill_name: string;
+  parameters: Record<string, unknown> | null;
+  status: string;
+  result: string | null;
+  triggered_by: string | null;
+  created_at: string;
+}
 
 export const load: PageServerLoad = async () => {
   const rows = await sql()`
@@ -10,15 +22,9 @@ export const load: PageServerLoad = async () => {
   `;
 
   return {
-    executions: (rows as unknown as {
-      id: string;
-      run_date: string;
-      skill_name: string;
-      parameters: Record<string, unknown> | null;
-      status: string;
-      result: string | null;
-      triggered_by: string | null;
-      created_at: string;
-    }[]),
+    executions: rows.map((row) => ({
+      ...row,
+      parameters: parseJsonb<Record<string, unknown> | null>(row.parameters, null),
+    })) as SkillExecution[],
   };
 };

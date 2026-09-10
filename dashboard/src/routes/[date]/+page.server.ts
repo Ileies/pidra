@@ -2,6 +2,7 @@ import type { PageServerLoad, Actions } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { marked } from "marked";
 import { sql } from "$lib/db";
+import { parseJsonb } from "$lib/jsonb";
 
 function extractRefsIds(markdown: string): string[] {
   const ids: string[] = [];
@@ -103,13 +104,13 @@ export const load: PageServerLoad = async ({ params }) => {
       ? {
           status: pipelineRun.status as "running" | "completed" | "failed",
           failedStep: pipelineRun.failed_step as string | null,
-          stepErrors: (pipelineRun.step_errors ?? []) as Array<{
+          stepErrors: parseJsonb<Array<{
             step: string;
             attempt: number;
             error: string;
             stack?: string;
             ts: string;
-          }>,
+          }>>(pipelineRun.step_errors, []),
           startedAt: pipelineRun.started_at as string | null,
           completedAt: pipelineRun.completed_at as string | null,
           durationMs: pipelineRun.duration_ms as number | null,

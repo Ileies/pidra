@@ -1,6 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "$lib/db";
+import { parseJsonb } from "$lib/jsonb";
 
 interface GateQuestion {
   id: string;
@@ -44,7 +45,7 @@ export const load: PageServerLoad = async () => {
     session: {
       runId: session.run_id,
       runDate: session.run_date,
-      questions: session.questions as GateQuestion[],
+      questions: parseJsonb<GateQuestion[]>(session.questions, []),
       minutesLeft,
       createdAt: session.created_at,
     },
@@ -65,7 +66,7 @@ export const actions: Actions = {
     if (!session) return fail(404, { error: "Session not found" });
     if (session.status !== "pending") return fail(409, { error: "Session already resolved" });
 
-    const questions = session.questions as GateQuestion[];
+    const questions = parseJsonb<GateQuestion[]>(session.questions, []);
     const answers: GateAnswer[] = questions
       .map((q) => ({ id: q.id, answer: (data.get(`answer_${q.id}`) as string | null)?.trim() ?? "" }))
       .filter((a) => a.answer.length > 0);

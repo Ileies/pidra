@@ -1,6 +1,14 @@
 import { synthesize } from "../ai/openai";
 import { SECTION1_SYSTEM_PROMPT, SECTION2_SYSTEM_PROMPT } from "../ai/prompts";
+import { formatForPrompt } from "../context/corrections";
 import type { ContextPayload } from "./phase3-context";
+
+// Null rather than an empty array, matching how every other optional block in the payload
+// signals "nothing here" - the prompts already say to proceed unchanged when a field is null.
+function corrections(ctx: ContextPayload) {
+  const active = ctx.longTermContext.corrections;
+  return active.length > 0 ? formatForPrompt(active) : null;
+}
 
 export interface SynthesisResult {
   section1: string;
@@ -40,6 +48,9 @@ function buildSection1Payload(ctx: ContextPayload): string {
     // Interests and technical profile from the Context Builder document: what the user cares
     // about, for judging which of today's items actually matter to them.
     long_term_context: ctx.longTermContext.intelSections || null,
+    // The user's own corrections to the profile above. Authoritative where they conflict with
+    // it - the harvested text is never rewritten, so the two are shown side by side.
+    context_corrections: corrections(ctx),
     web_search: {
       slot1_topic_deepdive: slot1 ? { query: slot1.query, topic_id: slot1.topicId, results: slot1.results } : null,
       slot2_dormant_entity: slot2 ? { query: slot2.query, entity: slot2.entityName, results: slot2.results } : null,
@@ -74,6 +85,7 @@ function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<strin
       ? ctx.longTermContext.standingRules.map((r) => r.value)
       : null,
     long_term_context: ctx.longTermContext.personalSections || null,
+    context_corrections: corrections(ctx),
     web_search_mentions: slot3 ? { target: slot3.target, query: slot3.query, results: slot3.results } : null,
   });
 }

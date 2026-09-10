@@ -1,6 +1,7 @@
 import { db, standingContext, contextBuilderRuns } from "../db";
 import { eq, desc } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
+import { listActiveCorrections, type ActiveCorrection } from "../context/corrections";
 
 export interface StandingRule {
   key: string;
@@ -10,6 +11,11 @@ export interface StandingRule {
 export interface LongTermContext {
   /** Every persistent rule from `standing_context`, seeded by the Context Builder from Keep. */
   standingRules: StandingRule[];
+  /**
+   * The user's corrections to the harvest. Injected alongside it rather than merged into it:
+   * the harvested text is never rewritten, so the prompts are told the correction wins.
+   */
+  corrections: ActiveCorrection[];
   /** Document sections for the intel half of the briefing (interests, technical profile). */
   intelSections: string;
   /** Document sections for the personal half (identity, commitments, standing context). */
@@ -44,6 +50,7 @@ export function pickSections(doc: string, spec: string): string {
 
 const EMPTY: LongTermContext = {
   standingRules: [],
+  corrections: [],
   intelSections: "",
   personalSections: "",
   generatedAt: null,
@@ -65,6 +72,8 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
       .from(standingContext)
   ).map((r) => ({ key: r.key, value: r.value }));
 
+  const corrections = await listActiveCorrections();
+
   const [run] = await db
     .select({ outputPath: contextBuilderRuns.outputPath, completedAt: contextBuilderRuns.completedAt })
     .from(contextBuilderRuns)
@@ -76,6 +85,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
     return {
       ...EMPTY,
       standingRules,
+      corrections,
       problem: run ? "latest completed Context Builder run recorded no output path" : "no completed Context Builder run",
     };
   }
@@ -88,6 +98,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
     const doc = parsed.fullContext ?? "";
     return {
       standingRules,
+      corrections,
       intelSections: pickSections(doc, INTEL_SECTIONS),
       personalSections: pickSections(doc, PERSONAL_SECTIONS),
       generatedAt: parsed.generatedAt ?? run.completedAt ?? null,
@@ -97,6 +108,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
     return {
       ...EMPTY,
       standingRules,
+      corrections,
       problem: `could not read ${run.outputPath}: ${err instanceof Error ? err.message : String(err)}`,
     };
   }

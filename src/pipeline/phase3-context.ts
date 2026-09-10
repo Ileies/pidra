@@ -1,5 +1,5 @@
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { isPersonalItemIncluded } from "./email-category";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
@@ -98,7 +98,8 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
       with: { rawItem: true },
     }),
     db.select().from(sourceQuality),
-    db.select().from(notes),
+    // Soft-deleted notes must not keep steering the briefing.
+    db.select().from(notes).where(isNull(notes.deletedAt)),
     db.select().from(contacts),
     db.select().from(entities).where(eq(entities.status, "active")),
     db.select({ rawContent: rawItems.rawContent })

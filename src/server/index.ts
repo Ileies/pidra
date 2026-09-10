@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
@@ -11,6 +11,10 @@ import { loadSkills, listSkills } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
 import { sendMessage, listConversations, getConversation } from "../ai/chat";
 import { listActiveCorrections, revertCorrection, CorrectionError } from "../context/corrections";
+import {
+  listNotes, createNote, updateNote, softDeleteNote, restoreNote, noteHistory, revertToRevision,
+  NoteError, type Actor, type NoteWrite,
+} from "../notes/store";
 
 const app = new Hono();
 
@@ -334,6 +338,89 @@ app.delete("/api/prompts/:id", async (c) => {
 
   await db.delete(promptVersions).where(eq(promptVersions.id, id));
   return c.json({ ok: true });
+});
+
+// --- Notes ---
+//
+// Writes go through `src/notes/store.ts` so the UI and the note skills share one code path and
+// one revision trail. The dashboard reads notes straight from Postgres, so the page still renders
+// when this bridge is down; only editing needs it.
+
+function noteError(c: Context, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  if (err instanceof NoteError) return c.json({ error: message }, message.includes("not found") ? 404 : 400);
+  throw err;
+}
+
+/** The dashboard is the only caller, and it is the user acting. */
+const USER: Actor = { by: "user" };
+
+app.get("/api/notes", async (c) => {
+  const include = c.req.query("include");
+  return c.json(await listNotes({
+    scope: c.req.query("scope") || undefined,
+    query: c.req.query("query") || undefined,
+    include: include === "deleted" || include === "all" ? include : "active",
+    sort: c.req.query("sort") as "newest" | "oldest" | "edited" | undefined,
+    limit: c.req.query("limit") ? Number(c.req.query("limit")) : undefined,
+  }));
+});
+
+app.post("/api/notes", async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { content?: string; scope?: string; expires_at?: string | null };
+  try {
+    return c.json(await createNote({ content: body.content ?? "", scope: body.scope, expiresAt: body.expires_at ?? null }, USER), 201);
+  } catch (err) {
+    return noteError(c, err);
+  }
+});
+
+app.patch("/api/notes/:id", async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { content?: string; scope?: string; expires_at?: string | null };
+  // `expires_at` is only touched when the key is actually present: absent means "leave it",
+  // null means "clear it".
+  const patch: NoteWrite = {};
+  if (body.content !== undefined) patch.content = body.content;
+  if (body.scope !== undefined) patch.scope = body.scope;
+  if ("expires_at" in body) patch.expiresAt = body.expires_at ?? null;
+
+  try {
+    return c.json(await updateNote(c.req.param("id"), patch, USER));
+  } catch (err) {
+    return noteError(c, err);
+  }
+});
+
+app.delete("/api/notes/:id", async (c) => {
+  try {
+    return c.json(await softDeleteNote(c.req.param("id"), USER));
+  } catch (err) {
+    return noteError(c, err);
+  }
+});
+
+app.post("/api/notes/:id/restore", async (c) => {
+  try {
+    return c.json(await restoreNote(c.req.param("id"), USER));
+  } catch (err) {
+    return noteError(c, err);
+  }
+});
+
+app.get("/api/notes/:id/history", async (c) => {
+  try {
+    return c.json(await noteHistory(c.req.param("id")));
+  } catch (err) {
+    return noteError(c, err);
+  }
+});
+
+app.post("/api/notes/revisions/:id/revert", async (c) => {
+  try {
+    return c.json(await revertToRevision(c.req.param("id"), USER));
+  } catch (err) {
+    return noteError(c, err);
+  }
 });
 
 // --- Context revision chat ---

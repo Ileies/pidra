@@ -154,6 +154,12 @@ export const contacts = pgTable("contacts", {
   locked: boolean("locked").default(false),
 });
 
+/**
+ * The mutable working layer: the user's standing instructions plus whatever Phase 6 writes from
+ * the `<!--SYSTEM-->` block. Unlike the harvested context, notes are edited in place - the
+ * pre-change state is appended to `noteRevisions` and deletes are soft, so every mutation stays
+ * reversible. `src/notes/store.ts` is the only writer. See ASSISTANT_PLAN.md.
+ */
 export const notes = pgTable("notes", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   content: text("content").notNull(),
@@ -161,6 +167,29 @@ export const notes = pgTable("notes", {
   createdAt: timestamptz("created_at").default(sql`now()`),
   expiresAt: dateStr("expires_at"),
   createdBy: text("created_by").default("system"), // system | user
+  updatedAt: timestamptz("updated_at"),
+  updatedBy: text("updated_by"), // user | chat | system - never rewrites createdBy
+  /** Soft delete. Every consumer must filter `deleted_at IS NULL`. */
+  deletedAt: timestamptz("deleted_at"),
+});
+
+/**
+ * Append-only history for `notes`, holding the state *before* each change - the same shape of
+ * safety net as `previous_state` on the correction path. One row per mutation is enough for both
+ * a per-revision revert and a full history panel.
+ */
+export const noteRevisions = pgTable("note_revisions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  noteId: uuid("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }),
+  operation: text("operation").notNull(), // update | delete | restore
+  previousContent: text("previous_content"),
+  previousScope: text("previous_scope"),
+  previousExpiresAt: dateStr("previous_expires_at"),
+  changedBy: text("changed_by").notNull(), // user | chat | system
+  // Declared lazily: both tables are defined further down this module.
+  skillExecutionId: uuid("skill_execution_id").references(() => skillExecutions.id, { onDelete: "set null" }),
+  conversationId: uuid("conversation_id").references(() => chatConversations.id, { onDelete: "set null" }),
+  createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
 export const promptVersions = pgTable("prompt_versions", {
@@ -298,9 +327,21 @@ export const contextCorrections = pgTable("context_corrections", {
 export const chatConversations = pgTable("chat_conversations", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title"),
+  /** The surface the conversation started on - for grouping and labelling in /chat. */
+  surface: text("surface"),
+  origin: text("origin"), // widget | page
   createdAt: timestamptz("created_at").default(sql`now()`),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
+
+/** What the assistant was looking at when a turn was taken. Snapshotted per message, because a
+ * conversation stays open while the user navigates between pages. */
+export interface PageContextSnapshot {
+  surface: string;
+  route: string;
+  digest?: string;
+  focus?: { kind: string; id: string; label?: string }[];
+}
 
 export interface ChatToolCall {
   call_id: string;
@@ -317,6 +358,8 @@ export const chatMessages = pgTable("chat_messages", {
   content: text("content").notNull().default(""),
   /** Skill calls the assistant made on this turn, with their results, for replay and display. */
   toolCalls: jsonb("tool_calls").$type<ChatToolCall[]>(),
+  /** The page the turn was taken on, as sent by the client and validated server-side. */
+  pageContext: jsonb("page_context").$type<PageContextSnapshot>(),
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 

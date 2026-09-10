@@ -1,5 +1,5 @@
 import { db, entities, entityRelations } from "../db";
-import { and, eq, lt, sql as drizzleSql, lte } from "drizzle-orm";
+import { and, eq, sql as drizzleSql } from "drizzle-orm";
 
 // Archive low-importance entities dormant for 60+ days.
 // Permanently delete archived entities absent for 180+ days with mention_count <= 2.
@@ -9,21 +9,27 @@ export async function pruneEntityGraph(): Promise<void> {
   const threshold60 = new Date(today.getTime() - 60 * 86400_000).toISOString().split("T")[0];
   const threshold180 = new Date(today.getTime() - 180 * 86400_000).toISOString().split("T")[0];
 
-  // Archive: dormant low-importance entities not seen in 60+ days
+  // Archive: dormant, not-important entities not seen in 60+ days.
+  //
+  // Two predicates here used to make this step a no-op. `importance = 'low'` is never written
+  // by anything in the codebase (the column only ever holds 'normal' or 'high'), so the intent
+  // - "do not archive an entity the user cares about" - is expressed as "not high" instead.
+  // And `last_mentioned < date` silently skips NULLs, which is exactly the population that
+  // most needs ageing out, so both thresholds are NULL-tolerant.
   const archived = await db
     .update(entities)
     .set({ status: "archived" })
     .where(
       and(
         eq(entities.status, "dormant"),
-        eq(entities.importance, "low"),
-        lt(entities.lastMentioned, threshold60),
+        drizzleSql`${entities.importance} IS DISTINCT FROM 'high'`,
+        drizzleSql`(${entities.lastMentioned} IS NULL OR ${entities.lastMentioned} < ${threshold60})`,
       )
     )
     .returning({ id: entities.id, name: entities.name });
 
   if (archived.length > 0) {
-    console.log(`[entity-pruning] Archived ${archived.length} low-importance dormant entities`);
+    console.log(`[entity-pruning] Archived ${archived.length} dormant entities`);
   }
 
   // Delete: archived entities absent 180+ days with very low mention count
@@ -33,8 +39,8 @@ export async function pruneEntityGraph(): Promise<void> {
     .where(
       and(
         eq(entities.status, "archived"),
-        lte(entities.mentionCount, 2),
-        lt(entities.lastMentioned, threshold180),
+        drizzleSql`COALESCE(${entities.mentionCount}, 0) <= 2`,
+        drizzleSql`(${entities.lastMentioned} IS NULL OR ${entities.lastMentioned} < ${threshold180})`,
       )
     );
 

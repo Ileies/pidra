@@ -70,6 +70,12 @@ Phases follow the roadmap in `MORNING_BRIEFING_PLAN.md`. Phases 0-6 are complete
 - **[INFRA]** `sent_replies` table (message_id, raw_item_id, reply_type, sent_at, body_hash) for audit and dedup
 - **[DECISION]** GitHub activity integration (webhook or polling for PR reviews, CI failures) - evaluate after system is self-hosted and stable
 
+**Dashboard redesign** (full plan in `DASHBOARD_PLAN.md`, decisions settled 2026-09-10):
+
+- **[FEATURE]** Phases A-E per `DASHBOARD_PLAN.md §7` - design foundation, app shell, report reading experience, missing pages, UX polish
+- **[FEATURE]** Phase 5 emits `daily_reports.report_json` alongside the markdown (`DASHBOARD_PLAN.md §4 C1`) - the one pipeline change the dashboard plan owns
+- **[DECISION]** Semantic search over the archive (pgvector + local embeddings, hybrid ranking) - parked, full reasoning in `DASHBOARD_PLAN.md §10`. Blocked on amending the "No vector stores" rule in `CLAUDE.md` and `CONTEXT_AND_DECISIONS.md` first. Evaluate after keyword search (D8) ships and the archive passes ~60 reports.
+
 ---
 
 ## Done

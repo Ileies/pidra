@@ -7,7 +7,10 @@ dist/
 .idea/
 dashboard/.svelte-kit/
 dashboard/build/
-context-builder/output/
+# Only the harvested documents, not the source next to them: the directory-wide pattern kept
+# builder.ts and db-writer.ts out of version control entirely.
+context-builder/output/*.json
+context-builder/output/*.md
 context-builder/.checkpoint.json
 context-builder/errors.json
 context-builder/.keep-token.json

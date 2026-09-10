@@ -14,6 +14,8 @@ export interface CheckpointState {
     dbSeed: { done: boolean };
   };
   processedIds: Record<string, string[]>; // source → item IDs processed this run
+  openaiTokensIn: number;
+  openaiTokensOut: number;
 }
 
 const CHECKPOINT_PATH = resolve(import.meta.dir, ".checkpoint.json");
@@ -51,5 +53,7 @@ export function makeInitialCheckpoint(runId: string, mode: "full" | "update" | "
       dbSeed: { done: false },
     },
     processedIds: {},
+    openaiTokensIn: 0,
+    openaiTokensOut: 0,
   };
 }

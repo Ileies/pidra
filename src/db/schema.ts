@@ -74,7 +74,9 @@ export const dailyReports = pgTable("daily_reports", {
 
 export const entities = pgTable("entities", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
+  // Unique: every entity write in the codebase is an upsert keyed on the name, and the
+  // `onConflictDoNothing()` calls in phase6-memory silently duplicated rows without it.
+  name: text("name").unique().notNull(),
   aliases: text("aliases").array(),
   type: text("type"), // person | org | tech | law | event | concept | place
   domain: text("domain"),
@@ -263,5 +265,6 @@ export const contextBuilderIndexedItems = pgTable("context_builder_indexed_items
   runId: uuid("run_id").references(() => contextBuilderRuns.id),
   source: text("source").notNull(), // email | keep | tasks | github
   itemId: text("item_id").notNull(), // message-id, note id, task id, repo name
+  data: jsonb("data"), // the extraction result for this item - lets a resumed run reuse it instead of re-extracting
   indexedAt: timestamptz("indexed_at").default(sql`now()`),
 }, (t) => [unique("cb_indexed_source_item").on(t.source, t.itemId)]);

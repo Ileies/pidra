@@ -1,19 +1,18 @@
 import { loadConfig } from "./config";
 import {
-  loadCheckpoint,
   saveCheckpoint,
   clearCheckpoint,
   makeInitialCheckpoint,
   type CheckpointState,
 } from "./checkpoint";
 import { loadErrors, logError, getErrors } from "./errors";
-import { startProgress, updateProgress, stopProgress, pauseProgress, resumeProgress } from "./progress";
+import { startProgress, updateProgress, stopProgress, pauseProgress, resumeProgress, getSonnetTokens } from "./progress";
 import { fetchEmailItems, type EmailItem } from "./sources/email";
 import { fetchTaskItems } from "./sources/tasks";
 import { fetchKeepNotes } from "./sources/keep";
 import { fetchGitHubRepos } from "./sources/github";
-import { extractEmails } from "./pipeline/extract-email";
-import { extractNotes } from "./pipeline/extract-note";
+import { extractEmails, type EmailExtraction } from "./pipeline/extract-email";
+import { extractNotes, type NoteExtraction } from "./pipeline/extract-note";
 import { batchContacts } from "./pipeline/batch-contacts";
 import {
   synthesizeContacts,
@@ -28,7 +27,7 @@ import { seedContacts, seedEntities, seedStandingContext } from "./output/db-wri
 import { writeOutputFiles } from "./output/builder";
 import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
-import { eq, count } from "drizzle-orm";
+import { eq, and, count, desc } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -36,20 +35,50 @@ const args = process.argv.slice(2);
 const forceFull = args.includes("--full");
 const forceUpdate = args.includes("--update");
 const dryRun = args.includes("--dry-run");
+// Re-seed the target tables from extractions already stored in context_builder_indexed_items,
+// with no fetching, no model calls and no synthesis. This is the cheap recovery path when a
+// build extracted everything successfully but tripped over a DB write at the very end.
+const seedOnly = args.includes("--seed-only");
+// Redo everything downstream of extraction - synthesis, output files and DB seeding - reusing
+// the stored extractions. Skips the mail/Keep fetch and every extraction call, so it costs a
+// few synthesis calls rather than a full rebuild. Tasks and GitHub are re-fetched (they are
+// never indexed) but need no model calls.
+const fromIndex = args.includes("--from-index");
 
-async function detectMode(): Promise<"full" | "update" | "resume"> {
-  const cp = await loadCheckpoint();
-  if (cp && cp.runId && !forceFull) {
-    console.log(`[run] Resuming interrupted run ${cp.runId}`);
-    return "resume";
-  }
+// Self-exit cleanly on runaway memory instead of waiting for the OS OOM-killer, which reaps
+// the whole cgroup (took the launching terminal down with it - see incident 2026-09-15).
+const MAX_RSS_MB = Number(process.env.CONTEXT_BUILDER_MAX_RSS_MB ?? 4096);
+let watchdogRunId: string | undefined;
+let watchdogState: CheckpointState | undefined;
+
+function startMemoryWatchdog(): Timer {
+  return setInterval(() => {
+    const rssMb = process.memoryUsage().rss / 1024 / 1024;
+    if (rssMb < MAX_RSS_MB) return;
+    console.error(`\n[watchdog] RSS ${rssMb.toFixed(0)}MB exceeded safety limit (${MAX_RSS_MB}MB) - aborting before the OS OOM-killer has to\n`);
+    void (async () => {
+      try {
+        if (watchdogState) await saveCheckpoint(watchdogState);
+        if (watchdogRunId) {
+          await db.update(contextBuilderRuns)
+            .set({ status: "failed", completedAt: new Date().toISOString() })
+            .where(eq(contextBuilderRuns.id, watchdogRunId));
+        }
+      } finally {
+        process.exit(1);
+      }
+    })();
+  }, 5000);
+}
+
+async function detectMode(): Promise<"full" | "update"> {
   if (forceFull) return "full";
 
   const [lastRun] = await db
     .select()
     .from(contextBuilderRuns)
     .where(eq(contextBuilderRuns.status, "completed"))
-    .orderBy(contextBuilderRuns.startedAt)
+    .orderBy(desc(contextBuilderRuns.startedAt))
     .limit(1);
 
   return (lastRun || forceUpdate) ? "update" : "full";
@@ -61,6 +90,76 @@ async function getSkipSet(source: string): Promise<Set<string>> {
     .from(contextBuilderIndexedItems)
     .where(eq(contextBuilderIndexedItems.source, source));
   return new Set(rows.map((r) => r.itemId));
+}
+
+// A run that died mid-way (crash, OOM-kill, watchdog trip) leaves its row status="running"
+// forever - find it so we can continue it instead of starting over from scratch.
+async function getResumableRun(): Promise<{ id: string; mode: "full" | "update" } | null> {
+  const [row] = await db
+    .select({ id: contextBuilderRuns.id, mode: contextBuilderRuns.mode })
+    .from(contextBuilderRuns)
+    .where(eq(contextBuilderRuns.status, "running"))
+    .orderBy(desc(contextBuilderRuns.startedAt))
+    .limit(1);
+  if (!row) return null;
+  return { id: row.id, mode: row.mode === "update" ? "update" : "full" };
+}
+
+// Items already extracted during the interrupted run are stored with their full result -
+// reuse them instead of re-running (potentially expensive) Ollama extraction on them again.
+async function getPriorResults<T>(dbRunId: string, source: string): Promise<{ skipIds: Set<string>; results: T[] }> {
+  const rows = await db
+    .select({ itemId: contextBuilderIndexedItems.itemId, data: contextBuilderIndexedItems.data })
+    .from(contextBuilderIndexedItems)
+    .where(and(eq(contextBuilderIndexedItems.runId, dbRunId), eq(contextBuilderIndexedItems.source, source)));
+
+  const skipIds = new Set<string>();
+  const results: T[] = [];
+  for (const r of rows) {
+    if (r.data) {
+      skipIds.add(r.itemId);
+      results.push(r.data as T);
+    }
+  }
+  return { skipIds, results };
+}
+
+/**
+ * Seeds each target table independently: these three are the whole point of the run, and a
+ * failure writing one must not silently skip the others (a transient error during the entity
+ * batch used to leave standing_context empty with the run still reported complete).
+ */
+async function runDbSeeding(
+  contactProfiles: ReturnType<typeof batchContacts>,
+  emailExtractions: EmailExtraction[],
+  noteExtractions: NoteExtraction[],
+): Promise<void> {
+  for (const [label, seed] of [
+    ["db-seed:contacts", () => seedContacts(contactProfiles)],
+    ["db-seed:entities", () => seedEntities(emailExtractions, noteExtractions)],
+    ["db-seed:standing-context", () => seedStandingContext(noteExtractions)],
+  ] as const) {
+    try {
+      await seed();
+    } catch (err) {
+      await logError(`phase:${label}`, err);
+    }
+  }
+}
+
+async function loadStoredExtractions(): Promise<{ emails: EmailExtraction[]; notes: NoteExtraction[] }> {
+  const rows = await db
+    .select({ source: contextBuilderIndexedItems.source, data: contextBuilderIndexedItems.data })
+    .from(contextBuilderIndexedItems);
+
+  const emails: EmailExtraction[] = [];
+  const notes: NoteExtraction[] = [];
+  for (const row of rows) {
+    if (!row.data) continue;
+    if (row.source === "email") emails.push(row.data as EmailExtraction);
+    else if (row.source === "keep") notes.push(row.data as NoteExtraction);
+  }
+  return { emails, notes };
 }
 
 async function getTotalIndexedCount(): Promise<number> {
@@ -91,27 +190,86 @@ function printInventory(info: {
 }
 
 async function main(): Promise<void> {
-  const config = loadConfig();
   await loadErrors();
 
-  const mode = await detectMode();
+  if (seedOnly) {
+    const { emails, notes } = await loadStoredExtractions();
+    console.log(`\n=== Context Builder - seed-only ===\n`);
+    console.log(`Re-seeding from ${emails.length} stored email and ${notes.length} stored note extractions.\n`);
+    // errors.json is a persistent log, so count only what this invocation added.
+    const errorsBefore = getErrors().length;
+    await runDbSeeding(batchContacts(emails), emails, notes);
+    const added = getErrors().length - errorsBefore;
+    console.log(added > 0 ? `Seeding finished with ${added} new error(s) - see errors.json` : "Seeding complete.");
+    return;
+  }
+
+  const memoryWatchdog = startMemoryWatchdog();
+  const config = loadConfig();
+
   const today = new Date().toISOString().split("T")[0];
   const runId = `cb-${today}-${Date.now()}`;
 
-  console.log(`\n=== Context Builder - ${mode} mode${dryRun ? " (dry run)" : ""} ===\n`);
+  // --full/--update explicitly ask for a fresh start - don't silently resume into them.
+  // Any stale "running" row left behind in that case is dead, so mark it failed for hygiene.
+  // A dry run must leave every bit of run state alone, so it never adopts a resumable run.
+  const resumable = forceFull || forceUpdate || dryRun || fromIndex ? null : await getResumableRun();
+  if (!resumable && (forceFull || forceUpdate) && !dryRun) {
+    const stale = await db.select({ id: contextBuilderRuns.id }).from(contextBuilderRuns).where(eq(contextBuilderRuns.status, "running"));
+    for (const s of stale) {
+      await db.update(contextBuilderRuns).set({ status: "failed", completedAt: new Date().toISOString() }).where(eq(contextBuilderRuns.id, s.id));
+    }
+  }
 
-  let dbRunId: string | undefined;
-  if (!dryRun) {
+  // --from-index rebuilds the document from scratch out of the stored extractions, so it wants
+  // full synthesis rather than a delta patch against the previous output.
+  const mode = fromIndex ? "full" : resumable ? resumable.mode : await detectMode();
+
+  console.log(`\n=== Context Builder - ${mode} mode${dryRun ? " (dry run)" : ""}${resumable ? " (resuming)" : ""} ===\n`);
+
+  let dbRunId: string | undefined = resumable?.id;
+  if (!dryRun && !dbRunId) {
     const [runRow] = await db
       .insert(contextBuilderRuns)
       .values({ mode, status: "running" })
       .returning({ id: contextBuilderRuns.id });
     dbRunId = runRow.id;
   }
+  watchdogRunId = dbRunId;
 
-  const state: CheckpointState = makeInitialCheckpoint(runId, mode === "resume" ? "update" : mode);
+  let priorEmailResults: EmailExtraction[] = [];
+  let priorNoteResults: NoteExtraction[] = [];
+  let resumeEmailSkip = new Set<string>();
+  let resumeKeepSkip = new Set<string>();
+
+  if (fromIndex) {
+    const stored = await loadStoredExtractions();
+    priorEmailResults = stored.emails;
+    priorNoteResults = stored.notes;
+    console.log(`[run] --from-index: reusing ${stored.emails.length} email and ${stored.notes.length} note extractions; no fetch, no extraction calls\n`);
+  } else if (resumable && dbRunId) {
+    const emailPrior = await getPriorResults<EmailExtraction>(dbRunId, "email");
+    const notePrior = await getPriorResults<NoteExtraction>(dbRunId, "keep");
+    priorEmailResults = emailPrior.results;
+    priorNoteResults = notePrior.results;
+    resumeEmailSkip = emailPrior.skipIds;
+    resumeKeepSkip = notePrior.skipIds;
+    console.log(`[run] Resuming ${dbRunId}: ${priorEmailResults.length} emails and ${priorNoteResults.length} notes already extracted, reusing them\n`);
+  }
+
+  const state: CheckpointState = makeInitialCheckpoint(runId, mode);
+  watchdogState = state;
   if (!dryRun) await saveCheckpoint(state);
   startProgress(state);
+
+  // Flush a live snapshot to disk regularly (not just at phase boundaries) so external
+  // consumers (e.g. the dashboard) can show near-real-time progress.
+  const checkpointFlush = dryRun ? null : setInterval(() => {
+    const tokens = getSonnetTokens();
+    state.openaiTokensIn = tokens.tokensIn;
+    state.openaiTokensOut = tokens.tokensOut;
+    void saveCheckpoint(state);
+  }, 2000);
 
   // === FETCH PHASE ===
 
@@ -121,13 +279,24 @@ async function main(): Promise<void> {
 
   try {
     emailSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("email");
-    for (const account of config.emailAccounts) {
+    for (const id of resumeEmailSkip) emailSkipSet.add(id);
+    for (const account of fromIndex ? [] : config.emailAccounts) {
       if (account.isNewsAccount) continue;
-      const { items, skipped } = await fetchEmailItems(account, config.emailYears, emailSkipSet);
+      const { items, skipped } = await fetchEmailItems(account, config.emailYears, emailSkipSet, {
+        onHeaderCount: (n) => {
+          state.phases.email.total += n;
+          updateProgress(state);
+        },
+        onItemDone: () => {
+          state.phases.email.processed += 1;
+          updateProgress(state);
+        },
+      });
       allEmailItems.push(...items);
       emailSkipped += skipped;
     }
-    state.phases.email.total = allEmailItems.length;
+    state.phases.email.total = allEmailItems.length + priorEmailResults.length;
+    state.phases.email.processed = priorEmailResults.length;
     state.phases.email.skipped = emailSkipped;
   } catch (err) {
     await logError("phase:email-fetch", err);
@@ -151,9 +320,11 @@ async function main(): Promise<void> {
 
   try {
     keepSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("keep");
-    keepNotes = await fetchKeepNotes();
+    for (const id of resumeKeepSkip) keepSkipSet.add(id);
+    keepNotes = fromIndex ? [] : await fetchKeepNotes();
     keepNewCount = keepNotes.filter((n) => !keepSkipSet.has(n.id)).length;
-    state.phases.keep.total = keepNewCount;
+    state.phases.keep.total = keepNewCount + priorNoteResults.length;
+    state.phases.keep.processed = priorNoteResults.length;
     state.phases.keep.skipped = keepSkipSet.size;
   } catch (err) {
     await logError("phase:keep-fetch", err);
@@ -199,12 +370,10 @@ async function main(): Promise<void> {
   }
 
   if (dryRun) {
-    if (dbRunId) {
-      await db.update(contextBuilderRuns)
-        .set({ status: "completed", completedAt: new Date().toISOString(), itemsIndexed: 0 })
-        .where(eq(contextBuilderRuns.id, dbRunId));
-    }
-    await clearCheckpoint();
+    // Deliberately no DB write and no clearCheckpoint() here: a dry run reports the inventory
+    // and exits without disturbing the run history or an interrupted run's resume state.
+    clearInterval(memoryWatchdog);
+    if (checkpointFlush) clearInterval(checkpointFlush);
     return;
   }
 
@@ -212,13 +381,14 @@ async function main(): Promise<void> {
 
   // === EXTRACTION PHASE ===
 
-  let emailExtractions: Awaited<ReturnType<typeof extractEmails>> = [];
+  let emailExtractions: EmailExtraction[] = [...priorEmailResults];
   try {
     if (allEmailItems.length > 0) {
-      emailExtractions = await extractEmails(allEmailItems, dbRunId!, config.ollamaModel, (done) => {
-        state.phases.email.processed = done;
+      const newExtractions = await extractEmails(allEmailItems, dbRunId!, today, (done) => {
+        state.phases.email.processed = priorEmailResults.length + done;
         updateProgress(state);
       });
+      emailExtractions.push(...newExtractions);
     }
   } catch (err) {
     await logError("phase:email-extract", err);
@@ -228,13 +398,14 @@ async function main(): Promise<void> {
     updateProgress(state);
   }
 
-  let noteExtractions: Awaited<ReturnType<typeof extractNotes>> = [];
+  let noteExtractions: NoteExtraction[] = [...priorNoteResults];
   try {
     if (keepNotes.length > 0) {
-      noteExtractions = await extractNotes(keepNotes, dbRunId!, config.ollamaModel, keepSkipSet, (done) => {
-        state.phases.keep.processed = done;
+      const newNotes = await extractNotes(keepNotes, dbRunId!, keepSkipSet, (done) => {
+        state.phases.keep.processed = priorNoteResults.length + done;
         updateProgress(state);
       });
+      noteExtractions.push(...newNotes);
     }
   } catch (err) {
     await logError("phase:keep-extract", err);
@@ -277,7 +448,7 @@ async function main(): Promise<void> {
         .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
         .from(contextBuilderRuns)
         .where(eq(contextBuilderRuns.status, "completed"))
-        .orderBy(contextBuilderRuns.startedAt)
+        .orderBy(desc(contextBuilderRuns.startedAt))
         .limit(1);
 
       let existingContext = "";
@@ -320,13 +491,7 @@ async function main(): Promise<void> {
   }
 
   // === DB SEEDING ===
-  try {
-    await seedContacts(contactProfiles);
-    await seedEntities(emailExtractions, noteExtractions);
-    await seedStandingContext(noteExtractions);
-  } catch (err) {
-    await logError("phase:db-seed", err);
-  }
+  await runDbSeeding(contactProfiles, emailExtractions, noteExtractions);
 
   state.phases.dbSeed.done = true;
   updateProgress(state);
@@ -343,6 +508,8 @@ async function main(): Promise<void> {
 
   await clearCheckpoint();
   stopProgress();
+  clearInterval(memoryWatchdog);
+  if (checkpointFlush) clearInterval(checkpointFlush);
 
   const errors = getErrors();
   console.log(`\nContext Builder complete!`);

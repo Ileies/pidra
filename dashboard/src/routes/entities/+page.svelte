@@ -1,6 +1,20 @@
 <script lang="ts">
+  import { setPageContext } from "$lib/assistant/state.svelte";
+  import { focusFrom } from "$lib/assistant/pageContext";
   import type { PageData } from "./$types";
   export let data: PageData;
+
+  // Entity rows are corrected through revise_context, not rewritten: the correction merges the
+  // named fields and keeps a snapshot. The focus list carries the names the model needs.
+  $: setPageContext({
+    surface: "entities",
+    route: "/entities",
+    digest: `Entity-Graph: ${data.entities.length} Entities sichtbar.`,
+    focus: focusFrom(data.entities, "entity", (entity) => ({
+      id: entity.id,
+      label: `${entity.name}${entity.type ? ` (${entity.type})` : ""}`,
+    })),
+  });
 
   const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
 

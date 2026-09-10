@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto, invalidateAll } from "$app/navigation";
   import NoteCard from "$lib/notes/NoteCard.svelte";
+  import { assistant, setPageContext } from "$lib/assistant/state.svelte";
+  import { focusFrom } from "$lib/assistant/pageContext";
   import {
     createNote, deleteNote, restoreNote, updateNote,
     NOTE_SCOPES,
@@ -11,6 +13,22 @@
   let { data }: { data: PageData } = $props();
 
   const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
+
+  // What the assistant sees of this page. The focus list gives it real ids for the rows on
+  // screen, so "die zweite Note von oben" resolves instead of being guessed.
+  $effect(() => {
+    setPageContext({
+      surface: "notes",
+      route: "/notes",
+      digest: [
+        `Notes-Verwaltung. Ansicht: ${data.view === "deleted" ? "Papierkorb" : data.view === "all" ? "alle" : "aktive"}.`,
+        `Scope-Filter: ${data.scopeFilter || "alle"}.`,
+        data.query ? `Suche: "${data.query}".` : "",
+        `${data.notes.length} von ${data.counts.active} aktiven Notes sichtbar, ${data.counts.deleted} im Papierkorb.`,
+      ].filter(Boolean).join(" "),
+      focus: focusFrom(data.notes, "note", (note) => ({ id: note.id, label: note.content })),
+    });
+  });
   const inputClass =
     "px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 placeholder-surface-600 focus:outline-none focus:border-surface-500";
 
@@ -354,6 +372,7 @@
         {#each data.notes as note (note.id)}
           <NoteCard
             {note}
+            highlighted={assistant.touchedIds.has(note.id)}
             selected={selected.has(note.id)}
             onToggleSelect={toggleSelect}
             onChanged={invalidateAll}

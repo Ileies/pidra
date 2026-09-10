@@ -1,9 +1,20 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { setPageContext } from "$lib/assistant/state.svelte";
   import type { PageData, ActionData } from "./$types";
 
   export let data: PageData;
   export let form: ActionData;
+
+  // Still the report surface: these are the items behind a briefing paragraph, so they are read
+  // material too. What the assistant can change from here are notes, todos and the context.
+  $: setPageContext({
+    surface: "report",
+    route: `/${data.date}/detail/${data.ids}`,
+    digest: `Detailansicht zum Briefing vom ${data.date}: ${data.items.length} Item(s) aus ${
+      [...new Set(data.items.map((item) => item.sourceName).filter(Boolean))].join(", ") || "unbekannter Quelle"
+    }.`,
+  });
 
   let loading = false;
 

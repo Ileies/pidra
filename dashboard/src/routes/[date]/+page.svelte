@@ -2,10 +2,25 @@
   import { enhance } from "$app/forms";
   import { onMount } from "svelte";
   import { env } from "$env/dynamic/public";
+  import { setPageContext } from "$lib/assistant/state.svelte";
   import type { PageData, ActionData } from "./$types";
 
   export let data: PageData;
   export let form: ActionData;
+
+  // The report surface: the assistant can read this briefing and act on notes, todos, the
+  // calendar or the long-term context, but never edit the report. Reports are final.
+  $: setPageContext({
+    surface: "report",
+    route: `/${data.date}`,
+    digest: [
+      `Tagesbriefing vom ${data.date}${data.date === data.today ? " (heute)" : ""}.`,
+      data.report
+        ? `${data.report.itemsIncluded ?? 0} von ${data.report.itemCount ?? 0} Items im Report, ${data.report.itemsFiltered ?? 0} gefiltert.`
+        : "Für diesen Tag gibt es noch keinen Report.",
+      data.pipelineRun ? `Letzter Lauf: ${data.pipelineRun.status}.` : "",
+    ].filter(Boolean).join(" "),
+  });
 
   function fmt(date: string) {
     return new Date(date + "T12:00:00").toLocaleDateString("de-DE", {

@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const db = sql();
 
   const conversations = await db`
-    SELECT id, title, updated_at
+    SELECT id, title, surface, updated_at
     FROM chat_conversations
     ORDER BY updated_at DESC
     LIMIT 30
@@ -57,6 +57,8 @@ export const load: PageServerLoad = async ({ url }) => {
     conversations: conversations.map((row) => ({
       id: row.id as string,
       title: row.title as string | null,
+      // Which page the conversation started on, for the badge in the list.
+      surface: row.surface as string | null,
       updated_at: iso(row.updated_at),
     })),
     activeId,

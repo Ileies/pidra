@@ -1,8 +1,21 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { setPageContext } from "$lib/assistant/state.svelte";
+  import { focusFrom } from "$lib/assistant/pageContext";
   import type { PageData } from "./$types";
 
   export let data: PageData;
+
+  // Sources are keyed by name, not by id, so that is what the focus list carries.
+  $: setPageContext({
+    surface: "sources",
+    route: "/sources",
+    digest: `Quellen-Dashboard: ${data.sources.length} Quellen, ${data.sources.filter((source) => !source.isActive).length} davon deaktiviert.`,
+    focus: focusFrom(data.sources, "source", (source) => ({
+      id: source.sourceName,
+      label: `${source.isActive ? "aktiv" : "deaktiviert"}, Score ${source.compositeScore30d?.toFixed(1) ?? "-"}`,
+    })),
+  });
 
   function scoreClass(score: number | null): string {
     if (score == null) return "text-surface-700";

@@ -1,10 +1,24 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { setPageContext } from "$lib/assistant/state.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
+
+  // The assistant may propose a version here, never activate one: prompt changes require human
+  // approval, and activation lives on this page.
+  $effect(() => {
+    setPageContext({
+      surface: "prompts",
+      route: "/prompts",
+      digest: `Prompt-Verwaltung: ${data.sections.length} Sections. ${data.sections
+        .map((section) => `${section.section}: ${section.versions.length} Version(en)`)
+        .join(", ")}.`,
+      focus: data.sections.map((section) => ({ kind: "section", id: section.section })),
+    });
+  });
 
   function fmtDate(s: string | null) {
     if (!s) return "-";

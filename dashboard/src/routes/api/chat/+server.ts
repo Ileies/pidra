@@ -15,7 +15,12 @@ export const POST: RequestHandler = async ({ request }) => {
     const res = await fetch(`${API}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, conversation_id: body.conversation_id ?? undefined }),
+      body: JSON.stringify({
+        message,
+        conversation_id: body.conversation_id ?? undefined,
+        context: body.context ?? undefined,
+        origin: body.origin ?? "page",
+      }),
     });
     return json(await res.json(), { status: res.status });
   } catch (err) {

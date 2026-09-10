@@ -1,10 +1,30 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { enhance } from "$app/forms";
+  import { setPageContext } from "$lib/assistant/state.svelte";
   import type { ContextBuilderStatus } from "$lib/server/contextBuilder";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  // The harvest is never overwritten here: the assistant records corrections that outrank it.
+  $effect(() => {
+    setPageContext({
+      surface: "context",
+      route: "/context-builder",
+      digest: [
+        "Harvested long-term context.",
+        `${data.counts.standing_context} Standing Rules, ${data.counts.entities} Entities, ${data.counts.contacts} Contacts,`,
+        `${data.corrections.length} aktive Korrekturen.`,
+        data.doc ? "Das Kontext-Dokument ist vorhanden." : "Es gibt noch kein Kontext-Dokument.",
+      ].join(" "),
+      focus: data.standing.slice(0, 30).map((rule) => ({
+        kind: "standing_context",
+        id: String(rule.key),
+        label: String(rule.value ?? "").slice(0, 80),
+      })),
+    });
+  });
 
   let status = $state<ContextBuilderStatus | null>(null);
   let starting = $state(false);

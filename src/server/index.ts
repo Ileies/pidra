@@ -4,6 +4,7 @@ import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
 import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, skillExecutions, rawItemExists, promptVersions } from "../db";
 import type { GateAnswer, GateQuestion } from "../db/schema";
+import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { loadSkills, listSkills } from "../skills/loader";
@@ -276,6 +277,13 @@ async function braveSearch(query: string): Promise<string> {
 app.get("/api/prompts", async (c) => {
   const rows = await db.select().from(promptVersions).orderBy(desc(promptVersions.createdAt));
   return c.json(rows);
+});
+
+// What the next run will actually use per section, DB override or code baseline. Without this
+// the page shows an empty table for a system that is very much running prompts.
+app.get("/api/prompts/effective", async (c) => {
+  const resolved = await resolveActivePrompts();
+  return c.json(PROMPT_SECTIONS.map((section) => resolved[section]));
 });
 
 app.post("/api/prompts", async (c) => {

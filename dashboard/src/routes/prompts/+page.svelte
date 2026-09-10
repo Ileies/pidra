@@ -2,8 +2,7 @@
   import { enhance } from "$app/forms";
   import type { PageData, ActionData } from "./$types";
 
-  export let data: PageData;
-  export let form: ActionData;
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
 
@@ -11,14 +10,6 @@
     if (!s) return "-";
     return new Date(s).toLocaleString("de-DE", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
-
-  const sectionOrder = ["section1", "section2", "extraction", "entity_extraction", "personal_classification"];
-
-  $: sections = Object.entries(data.sections).sort(([a], [b]) => {
-    const ai = sectionOrder.indexOf(a);
-    const bi = sectionOrder.indexOf(b);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  });
 </script>
 
 <svelte:head>
@@ -41,15 +32,41 @@
       <p class="text-error-400 text-sm mb-4">{form.error}</p>
     {/if}
 
-    {#if sections.length === 0}
-      <p class="text-surface-400 text-sm text-center py-16">No prompt versions in the database yet.</p>
+    <p class="text-xs text-surface-500 mb-6">
+      Jede Sektion läuft auf der aktiven Version aus der Datenbank. Gibt es keine, greift der
+      Prompt aus dem Code. Aktivieren wirkt ab dem nächsten Pipeline-Lauf, ohne Deploy.
+    </p>
+
+    {#if data.sections.length === 0}
+      <p class="text-surface-400 text-sm text-center py-16">Bridge nicht erreichbar.</p>
     {:else}
       <div class="flex flex-col gap-8">
-        {#each sections as [section, versions]}
+        {#each data.sections as group (group.section)}
           <div>
-            <h2 class="font-mono text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">{section}</h2>
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <h2 class="font-mono text-sm font-semibold text-surface-300 uppercase tracking-wider">{group.section}</h2>
+              {#if !group.effective}
+                <span class="badge text-xs border text-warning-400 bg-warning-950 border-warning-700">wird nicht gelesen</span>
+              {:else if group.effective.source === "db"}
+                <span class="badge text-xs border text-success-400 bg-success-950 border-success-700">läuft auf v{group.effective.version}</span>
+              {:else}
+                <span class="badge text-xs border text-surface-400 bg-surface-900 border-surface-700">läuft auf Code-Prompt</span>
+              {/if}
+            </div>
+
             <div class="flex flex-col gap-3">
-              {#each versions as prompt}
+              {#if group.effective?.source === "code"}
+                <div class="bg-surface-900 border border-surface-700 rounded-lg px-5 py-4">
+                  <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <span class="font-mono text-xs text-surface-400">Code</span>
+                    <span class="badge text-xs border text-surface-300 bg-surface-800 border-surface-600">in Benutzung</span>
+                    <span class="text-xs text-surface-500 italic">src/ai/prompts.ts - nur per Deploy änderbar</span>
+                  </div>
+                  <pre class="text-xs text-surface-300 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">{group.effective.text}</pre>
+                </div>
+              {/if}
+
+              {#each group.versions as prompt (prompt.id)}
                 <div class="bg-surface-900 border {prompt.active ? 'border-success-700' : 'border-surface-700'} rounded-lg px-5 py-4">
                   <div class="flex flex-wrap items-center gap-2 mb-3">
                     <span class="font-mono text-xs text-surface-400">v{prompt.version}</span>

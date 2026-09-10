@@ -1,9 +1,6 @@
 import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes, promptVersions } from "../db";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, avg } from "drizzle-orm";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-4o";
+import { openai, SYNTHESIS_MODEL as MODEL, withFlexRetry } from "../ai/openai";
 
 export interface WeeklyAnalytics {
   weekStart: string;
@@ -127,22 +124,25 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
     .map((p) => `=== ${p.section} (v${p.version}) ===\n${p.promptText.slice(0, 600)}${p.promptText.length > 600 ? "…" : ""}`)
     .join("\n\n");
 
-  const response = await openai.chat.completions.create({
-    model: MODEL,
-    store: false,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the active prompts. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
-      },
-      {
-        role: "user",
-        content: `${analyticsText}\n\n${promptSummary}`,
-      },
-    ],
-    max_tokens: 1000,
-  });
+  const response = await withFlexRetry(() =>
+    openai.chat.completions.create({
+      model: MODEL,
+      store: false,
+      service_tier: "flex",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the active prompts. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
+        },
+        {
+          role: "user",
+          content: `${analyticsText}\n\n${promptSummary}`,
+        },
+      ],
+      max_completion_tokens: 1000,
+    })
+  );
 
   return response.choices[0].message.content ?? null;
 }

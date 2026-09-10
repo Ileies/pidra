@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
+import { streamSSE } from "hono/streaming";
 import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
 import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, skillExecutions, rawItemExists, promptVersions } from "../db";
@@ -9,7 +10,8 @@ import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { loadSkills, listSkills } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
-import { sendMessage, listConversations, getConversation } from "../ai/chat";
+import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
+import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
 import { listActiveCorrections, revertCorrection, CorrectionError } from "../context/corrections";
 import {
   listNotes, createNote, updateNote, softDeleteNote, restoreNote, noteHistory, revertToRevision,
@@ -435,19 +437,75 @@ app.get("/api/chat/conversations/:id", async (c) => {
   return c.json(found);
 });
 
+interface ChatRequest {
+  message?: string;
+  conversation_id?: string;
+  /** The dashboard page the turn was sent from. Untrusted: `normaliseContext` caps and resolves it. */
+  context?: TurnContextInput;
+  origin?: string;
+}
+
+function chatRequestError(body: ChatRequest): string | null {
+  if (!body.message?.trim()) return "message is required";
+  if (body.conversation_id && !/^[0-9a-f-]{36}$/i.test(body.conversation_id)) return "Invalid conversation_id";
+  return null;
+}
+
 app.post("/api/chat", async (c) => {
-  const body = await c.req.json() as { message?: string; conversation_id?: string };
-  const message = body.message?.trim();
-  if (!message) return c.json({ error: "message is required" }, 400);
-  if (body.conversation_id && !/^[0-9a-f-]{36}$/i.test(body.conversation_id)) {
-    return c.json({ error: "Invalid conversation_id" }, 400);
-  }
+  const body = await c.req.json().catch(() => ({})) as ChatRequest;
+  const invalid = chatRequestError(body);
+  if (invalid) return c.json({ error: invalid }, 400);
 
   try {
-    return c.json(await sendMessage(message, body.conversation_id));
+    return c.json(await sendMessage(body.message!.trim(), body.conversation_id, body.context, body.origin ?? "page"));
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
+});
+
+// --- Floating assistant ---
+
+/** The surface registry, so the widget renders per-page hints from one source of truth. */
+app.get("/api/assistant/surfaces", (c) =>
+  c.json(Object.fromEntries(
+    SURFACES_LIST.map((surface) => [surface, {
+      label: SURFACES[surface].label,
+      hints: SURFACES[surface].hints,
+      notice: SURFACES[surface].notice ?? null,
+      skills: SURFACES[surface].skills,
+    }]),
+  )));
+
+/**
+ * The same turn loop as `/api/chat`, streamed as server-sent events. Tool calls reach the widget
+ * as they execute, which is what keeps a flex-tier turn from looking like a hung spinner.
+ */
+app.post("/api/assistant/chat", async (c) => {
+  const body = await c.req.json().catch(() => ({})) as ChatRequest;
+  const invalid = chatRequestError(body);
+  if (invalid) return c.json({ error: invalid }, 400);
+
+  return streamSSE(c, async (stream) => {
+    // A single model call on the flex tier can be quiet for minutes. The heartbeat keeps the
+    // connection from looking dead to anything between here and the browser; the client ignores
+    // frames with no known type.
+    const heartbeat = setInterval(() => {
+      stream.writeSSE({ event: "ping", data: "{}" }).catch(() => {});
+    }, 15_000);
+
+    try {
+      for await (const event of streamMessage(body.message!.trim(), body.conversation_id, body.context, body.origin ?? "widget")) {
+        await stream.writeSSE({ event: event.type, data: JSON.stringify(event) });
+      }
+    } catch (err) {
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({ type: "error", message: err instanceof Error ? err.message : String(err) }),
+      });
+    } finally {
+      clearInterval(heartbeat);
+    }
+  });
 });
 
 // --- Context corrections ---
@@ -469,5 +527,9 @@ loadSkills().catch(console.error);
 
 export default {
   port: Number(process.env.SKILLS_BRIDGE_PORT ?? 4000),
+  // Bun closes idle connections after 10 seconds by default, which cut the assistant's event
+  // stream in half: a flex-tier model call goes quiet for far longer than that between tool
+  // calls. 0 disables the timeout; the stream ends when the turn does.
+  idleTimeout: 0,
   fetch: app.fetch,
 };

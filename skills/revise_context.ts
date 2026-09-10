@@ -21,9 +21,8 @@ const skill: Skill = {
     supersedes: { type: "string", required: false, description: "The wrong text, quoted from the harvest. Required in practice for amend and retract - it is how the briefing knows what to disregard." },
     rationale: { type: "string", required: false, description: "Why this correction was made, from the conversation" },
     fields: { type: "string", required: false, description: 'JSON object of row fields to merge, for entity (type, domain, summary, importance, status) or contact (name, relationship, priority, contextNotes) targets. Example: {"relationship":"girlfriend"}' },
-    conversation_id: { type: "string", required: false, description: "Set automatically by the chat; omit" },
   },
-  execute: async (params) => {
+  execute: async (params, ctx) => {
     let fields: Record<string, unknown> | null = null;
     if (params.fields) {
       const raw = String(params.fields).trim();
@@ -48,8 +47,10 @@ const skill: Skill = {
       supersedesText: params.supersedes ? String(params.supersedes) : null,
       rationale: params.rationale ? String(params.rationale) : null,
       fields,
-      source: "chat",
-      conversationId: params.conversation_id ? String(params.conversation_id) : null,
+      source: ctx.triggeredBy,
+      // Provenance comes from the execution context now, so a correction always points back at
+      // the conversation that produced it without the chat having to inject a parameter.
+      conversationId: ctx.conversationId ?? null,
     });
 
     return `Correction ${result.id} recorded - ${result.applied}. It applies from the next briefing and is reversible with revert_context_revision. Valid operations: ${OPERATIONS.join(", ")}.`;

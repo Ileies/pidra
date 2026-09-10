@@ -6,7 +6,8 @@ import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGa
 import type { GateAnswer, GateQuestion } from "../db/schema";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
-import { loadSkills, getSkill, listSkills, type RiskLevel } from "../skills/loader";
+import { loadSkills, listSkills } from "../skills/loader";
+import { executeSkill } from "../skills/execute";
 
 const app = new Hono();
 
@@ -21,8 +22,6 @@ app.get("/skills", (c) => c.json(listSkills().map((s) => ({
   parameters: s.parameters,
 }))));
 
-const CRITICAL_DELAY_MS = 30_000;
-
 app.post("/skills/execute", async (c) => {
   const body = await c.req.json() as {
     skill: string;
@@ -32,44 +31,23 @@ app.post("/skills/execute", async (c) => {
     authorization_level?: "auto" | "confirm";
   };
 
-  const { skill: skillName, parameters = {}, triggered_by = "manual", run_id } = body;
-
+  const { skill: skillName, parameters = {}, triggered_by = "manual" } = body;
   if (!skillName) return c.json({ error: "skill is required" }, 400);
 
-  const skill = getSkill(skillName);
-  if (!skill) return c.json({ error: `Unknown skill: ${skillName}` }, 404);
+  // Risk gating and the audit log live in executeSkill, shared with the chat loop.
+  const outcome = await executeSkill(skillName, parameters, triggered_by);
 
-  const today = new Date().toISOString().split("T")[0];
-  const [execRow] = await db.insert(skillExecutions).values({
-    runDate: today,
-    skillName,
-    parameters,
-    status: "pending",
-    triggeredBy: triggered_by,
-  }).returning({ id: skillExecutions.id });
-
-  if (skill.risk_level === "critical") {
-    await db.update(skillExecutions).set({ status: "rejected" }).where(eq(skillExecutions.id, execRow.id));
-    return c.json({ status: "rejected", reason: "critical skills require manual review and cannot be auto-executed" }, 403);
-  }
-
-  if (skill.risk_level === "high") {
-    await db.update(skillExecutions).set({ status: "pending" }).where(eq(skillExecutions.id, execRow.id));
-    return c.json({ status: "pending_confirmation", message: "high-risk skill requires confirmation", execution_id: execRow.id }, 202);
-  }
-
-  if (skill.risk_level === "medium") {
-    console.log(`[Skills] Medium-risk skill executed: ${skillName} - triggered_by=${triggered_by}`);
-  }
-
-  try {
-    const result = await skill.execute(parameters);
-    await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, execRow.id));
-    return c.json({ status: "executed", result });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, execRow.id));
-    return c.json({ status: "failed", error: msg }, 500);
+  switch (outcome.status) {
+    case "unknown_skill":
+      return c.json({ error: outcome.message }, 404);
+    case "rejected":
+      return c.json({ status: "rejected", reason: outcome.message }, 403);
+    case "pending_confirmation":
+      return c.json({ status: "pending_confirmation", message: outcome.message, execution_id: outcome.executionId }, 202);
+    case "failed":
+      return c.json({ status: "failed", error: outcome.message }, 500);
+    default:
+      return c.json({ status: "executed", result: outcome.message });
   }
 });
 

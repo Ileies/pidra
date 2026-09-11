@@ -2,18 +2,20 @@
   import { setPageContext } from "$lib/assistant/state.svelte";
   import { focusFrom } from "$lib/assistant/pageContext";
   import type { PageData } from "./$types";
-  export let data: PageData;
+  let { data }: { data: PageData } = $props();
 
   // Entity rows are corrected through revise_context, not rewritten: the correction merges the
   // named fields and keeps a snapshot. The focus list carries the names the model needs.
-  $: setPageContext({
-    surface: "entities",
-    route: "/entities",
-    digest: `Entity-Graph: ${data.entities.length} Entities sichtbar.`,
-    focus: focusFrom(data.entities, "entity", (entity) => ({
-      id: entity.id,
-      label: `${entity.name}${entity.type ? ` (${entity.type})` : ""}`,
-    })),
+  $effect(() => {
+    setPageContext({
+      surface: "entities",
+      route: "/entities",
+      digest: `Entity-Graph: ${data.entities.length} Entities sichtbar.`,
+      focus: focusFrom(data.entities, "entity", (entity) => ({
+        id: entity.id,
+        label: `${entity.name}${entity.type ? ` (${entity.type})` : ""}`,
+      })),
+    });
   });
 
   const STATUS_CLASS: Record<string, string> = {
@@ -46,10 +48,10 @@
         name="q"
         value={data.search}
         placeholder="Suche…"
-        class="flex-1 min-w-48 px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-100 placeholder-surface-600 focus:outline-none focus:border-surface-500"
+        class="flex-1 min-w-48 px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-100 placeholder-surface-600 focus:border-surface-500"
       />
 
-      <select name="status" class="px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 focus:outline-none focus:border-surface-500">
+      <select name="status" class="px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 focus:border-surface-500">
         <option value="all" selected={data.statusFilter === "all"}>Alle Status</option>
         <option value="active" selected={data.statusFilter === "active"}>Aktiv</option>
         <option value="dormant" selected={data.statusFilter === "dormant"}>Dormant</option>
@@ -57,7 +59,7 @@
       </select>
 
       {#if data.types.length > 0}
-        <select name="type" class="px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 focus:outline-none focus:border-surface-500">
+        <select name="type" class="px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 focus:border-surface-500">
           <option value="" selected={data.typeFilter === ""}>Alle Typen</option>
           {#each data.types as t}
             <option value={t} selected={data.typeFilter === t}>{t}</option>

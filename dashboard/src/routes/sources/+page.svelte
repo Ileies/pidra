@@ -4,17 +4,19 @@
   import { focusFrom } from "$lib/assistant/pageContext";
   import type { PageData } from "./$types";
 
-  export let data: PageData;
+  let { data }: { data: PageData } = $props();
 
   // Sources are keyed by name, not by id, so that is what the focus list carries.
-  $: setPageContext({
-    surface: "sources",
-    route: "/sources",
-    digest: `Quellen-Dashboard: ${data.sources.length} Quellen, ${data.sources.filter((source) => !source.isActive).length} davon deaktiviert.`,
-    focus: focusFrom(data.sources, "source", (source) => ({
-      id: source.sourceName,
-      label: `${source.isActive ? "aktiv" : "deaktiviert"}, Score ${source.compositeScore30d?.toFixed(1) ?? "-"}`,
-    })),
+  $effect(() => {
+    setPageContext({
+      surface: "sources",
+      route: "/sources",
+      digest: `Quellen-Dashboard: ${data.sources.length} Quellen, ${data.sources.filter((source) => !source.isActive).length} davon deaktiviert.`,
+      focus: focusFrom(data.sources, "source", (source) => ({
+        id: source.sourceName,
+        label: `${source.isActive ? "aktiv" : "deaktiviert"}, Score ${source.compositeScore30d?.toFixed(1) ?? "-"}`,
+      })),
+    });
   });
 
   function scoreClass(score: number | null): string {
@@ -47,8 +49,8 @@
     return "→";
   }
 
-  let confirmDisable: string | null = null;
-  let disableReason = "";
+  let confirmDisable = $state<string | null>(null);
+  let disableReason = $state("");
 </script>
 
 <svelte:head>
@@ -132,7 +134,7 @@
                     </form>
                     <button
                       class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:text-surface-200 transition-colors"
-                      on:click={() => { confirmDisable = null; disableReason = ""; }}
+                      onclick={() => { confirmDisable = null; disableReason = ""; }}
                     >
                       Abbrechen
                     </button>
@@ -140,7 +142,7 @@
                 {:else}
                   <button
                     class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:border-error-500 hover:text-error-500 transition-colors"
-                    on:click={() => { confirmDisable = src.sourceName; disableReason = ""; }}
+                    onclick={() => { confirmDisable = src.sourceName; disableReason = ""; }}
                   >
                     Deaktivieren
                   </button>

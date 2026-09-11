@@ -2,10 +2,9 @@
   import { enhance } from "$app/forms";
   import type { PageData, ActionData } from "./$types";
 
-  export let data: PageData;
-  export let form: ActionData;
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  let submitting = false;
+  let submitting = $state(false);
 </script>
 
 <svelte:head>
@@ -64,7 +63,7 @@
                 name="answer_{q.id}"
                 rows="2"
                 placeholder="e.g. potential investor, met at ETH Zurich event"
-                class="w-full bg-surface-950 border border-surface-700 rounded px-3 py-2 text-sm text-surface-100 placeholder-surface-600 resize-y focus:outline-none focus:border-primary-600"
+                class="w-full bg-surface-950 border border-surface-700 rounded px-3 py-2 text-sm text-surface-100 placeholder-surface-600 resize-y focus:border-primary-600"
               ></textarea>
             </div>
           {/each}

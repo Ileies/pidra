@@ -4,6 +4,7 @@ import type { SynthesisResult } from "./phase5-synthesis";
 import { getSkill } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
 import { createNote } from "../notes/store";
+import { validateNewContacts } from "./contact-suggestions";
 
 const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
 
@@ -200,7 +201,11 @@ export async function runPhase6(
   // Parse and apply Section 2 SYSTEM block
   const s2System = parseSystemBlock(synthesis.section2);
   if (s2System) {
-    for (const contact of s2System.new_contacts ?? []) {
+    const { contacts: newContacts, skipped } = validateNewContacts(s2System.new_contacts);
+    if (skipped > 0) {
+      console.warn(`[Phase 6] Skipped ${skipped} invalid new_contacts suggestion(s); identifier is required`);
+    }
+    for (const contact of newContacts) {
       await db.insert(contacts).values({
         identifier: contact.identifier,
         name: contact.name,

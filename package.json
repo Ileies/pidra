@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "check": "tsc --noEmit && bun run scripts/check-skill-writes.ts",
+    "test": "bun test",
     "dev": "bun run src/index.ts",
     "run:pipeline": "bun run src/pipeline/run.ts",
     "cron": "bun run src/cron.ts",

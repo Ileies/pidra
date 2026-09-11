@@ -221,13 +221,14 @@ Output rules:
   ### Mentions (omit if empty)
   ...
 - Source refs: each item in personal_items has an "id" field. After each bullet point or paragraph, append the HTML comment <!--refs:ID--> (or <!--refs:ID1,ID2--> for combined items) immediately after the text, before the newline.
-- new_contacts: only sending addresses worth remembering for future triage, keyed by address.
-  Never add someone merely mentioned inside a message: the directory records who sends mail,
-  not who is talked about.
+- new_contacts: only sending addresses worth remembering for future triage. Every entry MUST
+  include \"identifier\", the exact sender email address (never a display name), plus optional
+  \"name\", \"relationship\", and \"priority\" (critical|high|normal|low). Never add someone
+  merely mentioned inside a message: the directory records who sends mail, not who is talked about.
 - Append:
   <!--SYSTEM
   {
-    "new_contacts": [],
+    "new_contacts": [{"identifier": "sender@example.com", "name": "Sender display name", "relationship": "service", "priority": "normal"}],
     "calendar_suggestions": [],
     "todo_suggestions": [],
     "notes_to_write": []

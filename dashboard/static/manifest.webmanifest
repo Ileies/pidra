@@ -1,17 +1,60 @@
 {
+  "id": "/",
   "name": "PIDRA",
   "short_name": "PIDRA",
-  "description": "Persönlicher täglicher Briefing-Bericht",
+  "description": "Personal daily briefing",
+  "lang": "en",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f1117",
-  "theme_color": "#0f1117",
+  "display_override": ["standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#111214",
+  "theme_color": "#111214",
   "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's report",
+      "short_name": "Report",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Notes",
+      "short_name": "Notes",
+      "url": "/notes",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "url": "/chat",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

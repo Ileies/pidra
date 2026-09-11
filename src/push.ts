@@ -12,10 +12,13 @@ export async function sendPushNotifications(date: string, summary: string | null
   const subs = await db.select().from(pushSubscriptions);
   if (subs.length === 0) return;
 
+  // `date` is carried separately from `url` so the service worker can offer the "Personal
+  // first" action and tag the notification per day, instead of stacking one per run (E5).
   const payload = JSON.stringify({
     title: `PIDRA - ${date}`,
-    body: summary?.slice(0, 120) ?? "Tagesreport bereit.",
+    body: summary?.slice(0, 120) ?? "Today's briefing is ready.",
     url: `/${date}`,
+    date,
   });
 
   const results = await Promise.allSettled(

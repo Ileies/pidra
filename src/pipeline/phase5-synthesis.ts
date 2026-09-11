@@ -17,11 +17,12 @@ export interface SynthesisResult {
   tokensOut: number;
 }
 
-function buildSection1Payload(ctx: ContextPayload): string {
+function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
   const slot1 = ctx.webSearchResults.find((r) => r.slot === 1);
   const slot2 = ctx.webSearchResults.find((r) => r.slot === 2);
 
   return JSON.stringify({
+    report_date: runDate,
     volume_signal: ctx.volumeSignal,
     high_relevance_count: ctx.highRelevanceCount,
     active_topics: ctx.activeTopics.map((t) => ({
@@ -58,10 +59,15 @@ function buildSection1Payload(ctx: ContextPayload): string {
   });
 }
 
-function buildSection2Payload(ctx: ContextPayload, questionAnswers: Record<string, string> = {}): string {
+function buildSection2Payload(
+  ctx: ContextPayload,
+  runDate: string,
+  questionAnswers: Record<string, string> = {},
+): string {
   const slot3 = ctx.webSearchResults.find((r) => r.slot === 3);
 
   return JSON.stringify({
+    report_date: runDate,
     personal_items: ctx.personalItems.map((i) => ({
       id: i.extraction.id,
       source_type: i.sourceType,
@@ -101,21 +107,22 @@ async function synthesizeSection(name: string, section: PromptSection, payload: 
   return result;
 }
 
-export function runSection1(ctx: ContextPayload) {
-  return synthesizeSection("Section 1", "section1", buildSection1Payload(ctx));
+export function runSection1(ctx: ContextPayload, runDate: string) {
+  return synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate));
 }
 
-export function runSection2(ctx: ContextPayload, questionAnswers: Record<string, string> = {}) {
-  return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, questionAnswers));
+export function runSection2(ctx: ContextPayload, runDate: string, questionAnswers: Record<string, string> = {}) {
+  return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, runDate, questionAnswers));
 }
 
 export async function runPhase5(
   ctx: ContextPayload,
   questionAnswers: Record<string, string> = {}
 ): Promise<SynthesisResult> {
+  const runDate = new Date().toISOString().split("T")[0];
   const [s1, s2] = await Promise.all([
-    runSection1(ctx),
-    runSection2(ctx, questionAnswers),
+    runSection1(ctx, runDate),
+    runSection2(ctx, runDate, questionAnswers),
   ]);
   return {
     section1: s1.text,

@@ -6,15 +6,19 @@ const INTELLIGENCE = "## Intelligence Briefing";
 const PERSONAL = "## Personal Action Center";
 
 function reorderReport(report: string): string | null {
-  const parts = report.split(DIVIDER);
+  const normalized = report.replace(
+    /^(## (?:Personal Action Center|Intelligence Briefing)) - Date not provided$/gm,
+    "$1",
+  );
+  const parts = normalized.split(DIVIDER);
   if (
-    parts.length !== 3 ||
-    !parts[1].startsWith(INTELLIGENCE) ||
-    !parts[2].startsWith(PERSONAL)
+    parts.length === 3 &&
+    parts[1].startsWith(INTELLIGENCE) &&
+    parts[2].startsWith(PERSONAL)
   ) {
-    return null;
+    return [parts[0], parts[2], parts[1]].join(DIVIDER);
   }
-  return [parts[0], parts[2], parts[1]].join(DIVIDER);
+  return normalized === report ? null : normalized;
 }
 
 const reports = await db
@@ -40,4 +44,4 @@ for (const report of reports) {
   reordered++;
 }
 
-console.log(`Reordered ${reordered} report(s); left ${unchanged} unchanged.`);
+console.log(`Updated ${reordered} report(s); left ${unchanged} unchanged.`);

@@ -43,10 +43,10 @@ export async function runPipeline(runDate?: string): Promise<string> {
     // Section 1 and question gate wait run in parallel.
     // Section 2 blocks until the gate resolves or times out.
     const [s1, questionAnswers] = await Promise.all([
-      withRetry("phase5-section1", () => runSection1(ctx)),
+      withRetry("phase5-section1", () => runSection1(ctx, date)),
       gate.waitForAnswers(),
     ]);
-    const s2 = await withRetry("phase5-section2", () => runSection2(ctx, questionAnswers));
+    const s2 = await withRetry("phase5-section2", () => runSection2(ctx, date, questionAnswers));
 
     const synthesis = {
       section1: s1.text,

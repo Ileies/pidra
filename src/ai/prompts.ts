@@ -134,8 +134,9 @@ Output rules:
 - HEAVY DAY: include only top 20 items by relevance. Add ## Also noted section with one-line entries for items 21+.
 - LIGHT DAY: go deeper. Include more context on ongoing stories. Accept effective_relevance >= 2.5.
 - Target length: 600–900 words regardless of volume.
+- report_date is the date of this briefing; use it when interpreting relative dates such as "today".
 - Use this structure:
-  ## Intelligence Briefing - {date}
+  ## Intelligence Briefing
   ### {Domain}
   ...
   ### Also noted
@@ -210,8 +211,9 @@ Output rules:
 - If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
 - If an item should be added to calendar or to-do but hasn't been, flag it explicitly
 - Target length: 300–500 words
+- report_date is the date of this briefing; use it when interpreting relative dates such as "today".
 - Use this structure:
-  ## Personal Action Center - {date}
+  ## Personal Action Center
   ### Critical
   ...
   ### High priority

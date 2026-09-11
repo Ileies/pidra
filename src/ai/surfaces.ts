@@ -127,8 +127,9 @@ available so you can check whether a standing instruction already exists before 
   sources: {
     label: "Quellen",
     skills: ["set_source_active", "read_context", "list_notes", "write_note"],
-    prompt: `The user is on /sources, the source trust dashboard. You can enable or disable a
-source with \`set_source_active\`; a disabled source stops being ingested from the next run.
+    prompt: `The user is on /sources, the source trust dashboard, or on /sources/<name>, the
+directory of everything one source has delivered and what extraction made of it. You can enable or
+disable a source with \`set_source_active\`; a disabled source stops being ingested from the next run.
 Trust scores themselves are computed by the weekly scoring job and are not editable. Use the exact
 source name as shown. A disable is a real change to what the system sees, so name the source back
 to the user when you make one.`,

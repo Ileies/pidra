@@ -78,7 +78,11 @@
         {#each data.sources as src}
           <tr class:opacity-50={!src.isActive}>
             <td class="px-3 py-2 border-b border-surface-800">
-              <span class="text-surface-200">{src.sourceName}</span>
+              <a
+                href="/sources/{encodeURIComponent(src.sourceName)}"
+                class="text-surface-200 no-underline hover:text-primary-400 hover:underline transition-colors"
+                title="Beiträge dieser Quelle ansehen"
+              >{src.sourceName}</a>
               {#if !src.isActive}
                 <span class="badge ml-2 bg-surface-800 text-surface-500">deaktiviert</span>
               {/if}

@@ -3,22 +3,9 @@ import { error, fail } from "@sveltejs/kit";
 import { marked } from "marked";
 import { sql } from "$lib/db";
 import { parseJsonb } from "$lib/jsonb";
+import { parseSender, tidyRawContent } from "$lib/mail";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * The sender is not a column. `src/ingest/imap.ts` stores mail as
- * "Subject: ...\nFrom: ...\n\n<body>", so it has to be read back out of that header block.
- *
- * Match only within the block before the first blank line: a quoted reply in the body very
- * often carries its own "From:" line, and an unanchored search would show the wrong person.
- * RSS, calendar and todo items have no header and correctly yield null.
- */
-function parseSender(rawContent: string | null): string | null {
-  if (!rawContent) return null;
-  const header = rawContent.split("\n\n", 1)[0];
-  return header.match(/^From:\s*(.+)$/m)?.[1]?.trim() || null;
-}
 
 function parseIds(raw: string): string[] {
   return raw.split(",").filter((id) => UUID_RE.test(id)).slice(0, 10);
@@ -67,7 +54,9 @@ export const load: PageServerLoad = async ({ params }) => {
       sourceName: row.source_name as string | null,
       sourceType: row.source_type as string,
       receivedAt: row.received_at as string | null,
-      rawContent: row.raw_content as string | null,
+      // Tidied here rather than in the template: the blank-line runs are no use to the browser
+      // either, and a long newsletter ships a lot smaller without them.
+      rawContent: tidyRawContent(row.raw_content as string | null),
       sender: parseSender(row.raw_content as string | null),
       receiver: row.account_id as string | null,
       novelty: row.novelty as string | null,

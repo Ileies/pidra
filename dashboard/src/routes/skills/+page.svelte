@@ -88,7 +88,7 @@
             type="text"
             placeholder="Search..."
             bind:value={searchQuery}
-            class="bg-surface-900 border border-surface-700 rounded text-surface-200 text-sm px-3 py-1.5 w-48 focus:outline-none focus:border-surface-500"
+            class="bg-surface-900 border border-surface-700 rounded text-surface-200 text-sm px-3 py-1.5 w-48 focus:border-surface-500"
           />
           <div class="flex items-center gap-1">
             {#each RISK_LEVELS as level}

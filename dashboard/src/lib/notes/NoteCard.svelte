@@ -143,7 +143,7 @@
   }
 
   const inputClass =
-    "px-2 py-1 rounded text-xs bg-surface-950 border border-surface-700 text-surface-200 focus:outline-none focus:border-surface-500";
+    "px-2 py-1 rounded text-xs bg-surface-950 border border-surface-700 text-surface-200 focus:border-surface-500";
 </script>
 
 <div
@@ -168,7 +168,7 @@
           onkeydown={onEditKeydown}
           onblur={onEditBlur}
           disabled={saving}
-          class="w-full px-3 py-2 rounded text-sm bg-surface-950 border border-primary-800 text-surface-100 focus:outline-none focus:border-primary-600 resize-none disabled:opacity-50"
+          class="w-full px-3 py-2 rounded text-sm bg-surface-950 border border-primary-800 text-surface-100 focus:border-primary-600 resize-none disabled:opacity-50"
         ></textarea>
         <div class="flex items-center gap-3 mt-2">
           <button

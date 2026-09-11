@@ -106,7 +106,7 @@
       rows="2"
       placeholder={assistant.conversationId ? "Nachricht…" : "Was soll geändert werden?"}
       disabled={assistant.streaming}
-      class="w-full px-3 py-2 rounded text-sm bg-surface-900 border border-surface-700 text-surface-100 placeholder-surface-600 focus:outline-none focus:border-surface-500 resize-none disabled:opacity-50"
+      class="w-full px-3 py-2 rounded text-sm bg-surface-900 border border-surface-700 text-surface-100 placeholder-surface-600 focus:border-surface-500 resize-none disabled:opacity-50"
     ></textarea>
     <div class="flex items-center gap-2">
       <button

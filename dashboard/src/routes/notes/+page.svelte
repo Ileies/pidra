@@ -28,7 +28,7 @@
     });
   });
   const inputClass =
-    "px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 placeholder-surface-600 focus:outline-none focus:border-surface-500";
+    "px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 placeholder-surface-600 focus:border-surface-500";
 
   // --- filters, kept in the URL so a view is shareable and survives a reload ---
 
@@ -278,7 +278,7 @@
               submitNew();
             }
           }}
-          class="w-full px-3 py-2 rounded text-sm bg-surface-950 border border-surface-700 text-surface-100 placeholder-surface-600 focus:outline-none focus:border-surface-500 resize-y"
+          class="w-full px-3 py-2 rounded text-sm bg-surface-950 border border-surface-700 text-surface-100 placeholder-surface-600 focus:border-surface-500 resize-y"
         ></textarea>
         <div class="flex items-center gap-3 flex-wrap">
           <select bind:value={newScope} aria-label="Scope" class={inputClass}>

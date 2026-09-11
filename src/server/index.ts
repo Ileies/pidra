@@ -550,6 +550,10 @@ loadSkills().catch(console.error);
 
 export default {
   port: Number(process.env.SKILLS_BRIDGE_PORT ?? 4000),
+  // Loopback only. Bun would otherwise bind 0.0.0.0, and the bridge executes skills - the
+  // firewall already blocks the port, but this is the rule stated in CLAUDE.md and it should
+  // not depend on a firewall rule staying correct. The dashboard reaches it server-side.
+  hostname: process.env.SKILLS_BRIDGE_HOST ?? "127.0.0.1",
   // Bun closes idle connections after 10 seconds by default, which cut the assistant's event
   // stream in half: a flex-tier model call goes quiet for far longer than that between tool
   // calls. 0 disables the timeout; the stream ends when the turn does.

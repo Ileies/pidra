@@ -1,30 +1,40 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
   import { setPageContext } from "$lib/assistant/state.svelte";
+  import Page from "$lib/components/Page.svelte";
+  import Badge from "$lib/components/Badge.svelte";
+  import ConfirmButton from "$lib/components/ConfirmButton.svelte";
+  import DataTable from "$lib/components/DataTable.svelte";
+  import StatCard from "$lib/components/StatCard.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
+  import type { Column } from "$lib/components/table";
+  import { fmtDate, fmtDateTime, fmtPct, fmtScore } from "$lib/format";
+  import { label as displayLabel, TREND_GLYPH } from "$lib/labels";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+
+  type Delivery = PageData["deliveries"][number];
+  type Item = Delivery["items"][number];
+  type DailyScore = PageData["dailyScores"][number];
 
   $effect(() => {
     setPageContext({
       surface: "sources",
       route: `/sources/${encodeURIComponent(data.sourceName)}`,
-      digest: `Quellen-Detail "${data.sourceName}": ${data.quality?.is_active === false ? "deaktiviert" : "aktiv"}, Score ${
+      digest: `Source detail "${data.sourceName}": ${data.quality?.is_active === false ? "disabled" : "active"}, score ${
         data.quality?.composite_score_30d?.toFixed(1) ?? "-"
-      }/10, ${data.stats.items} Beiträge aus ${data.stats.deliveries} Lieferungen, ${data.stats.emptyDeliveries} Lieferungen ohne Beitrag.`,
+      }/10, ${data.stats.items} items from ${data.stats.deliveries} deliveries, ${data.stats.emptyDeliveries} deliveries with no item.`,
       focus: [{ kind: "source", id: data.sourceName }],
     });
   });
 
   let query = $state("");
   let onlyEmpty = $state(false);
-  let confirmDisable = $state(false);
-  let disableReason = $state("");
 
   const isActive = $derived(data.quality?.is_active !== false);
 
   /** An extraction row without a headline carried no content: skipped, or an empty result. */
-  function isSkipped(item: PageData["deliveries"][number]["items"][number]): boolean {
+  function isSkipped(item: Item): boolean {
     return !item.headline && !item.keyClaim;
   }
 
@@ -45,293 +55,217 @@
     }),
   );
 
-  function scoreClass(score: number | null | undefined): string {
-    if (score == null) return "text-surface-700";
+  function scoreTone(score: number | null | undefined): string {
+    if (score == null) return "text-surface-400";
     if (score >= 7.5) return "text-success-500";
     if (score >= 5) return "text-warning-500";
     return "text-error-500";
   }
 
-  function relevanceClass(score: number | null): string {
-    if (score == null) return "text-surface-700";
+  function relevanceTone(score: number | null): string {
+    if (score == null) return "text-surface-400";
     if (score >= 4) return "text-success-500";
     if (score >= 3) return "text-warning-500";
-    return "text-surface-500";
+    return "text-surface-400";
   }
 
-  function fmtScore(score: number | null | undefined, digits = 1): string {
-    return score == null ? "-" : score.toFixed(digits);
-  }
-
-  function fmtPct(v: number | null | undefined): string {
-    return v == null ? "-" : Math.round(v * 100) + "%";
-  }
-
-  function fmtDate(s: string | null): string {
-    if (!s) return "-";
-    return new Date(s).toLocaleString("de-DE", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  function fmtDay(s: string | null): string {
-    if (!s) return "-";
-    return new Date(s).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
-  }
-
-  const TREND_LABEL: Record<string, string> = {
-    improving: "↑ steigend",
-    declining: "↓ fallend",
-    stable: "→ stabil",
-  };
-
-  const NOVELTY_LABEL: Record<string, string> = {
-    new: "Neu",
-    continuation: "Fortsetzung",
-    repeat: "Wiederholung",
-  };
-
-  const SKIP_LABEL: Record<string, string> = {
-    promotional: "Werbung oder Automail",
-  };
-
-  function itemLabel(item: PageData["deliveries"][number]["items"][number]): string {
+  function itemLabel(item: Item): string {
     if (item.headline) return item.headline;
     if (item.keyClaim) return item.keyClaim;
-    if (item.skipReason) return `Übersprungen: ${SKIP_LABEL[item.skipReason] ?? item.skipReason}`;
-    return "Übersprungen - kein Inhalt extrahiert";
+    if (item.skipReason) return `Skipped: ${displayLabel(item.skipReason)}`;
+    return "Skipped - nothing extracted";
   }
 
   const includeRate = $derived(data.stats.items > 0 ? data.stats.included / data.stats.items : null);
+
+  const stats = $derived([
+    ["Include rate", fmtPct(includeRate), `${data.stats.included} of ${data.stats.items} items`],
+    ["Avg relevance", fmtScore(data.stats.avgRelevance, 2), "From extraction, 1-5"],
+    ["Avg effective", fmtScore(data.stats.avgEffectiveRelevance, 2), "After trust and novelty"],
+    ["Skipped", String(data.stats.skipped), "Promotional or empty"],
+    ["No extraction", String(data.stats.emptyDeliveries), "Deliveries with no item at all"],
+    ["Ratings", `+${data.stats.plus} / −${data.stats.minus}`, "Given by you"],
+    ["Extraction errors", String(data.stats.aiFailed), "The AI call failed"],
+  ] as [string, string, string][]);
 </script>
 
-<svelte:head>
-  <title>PIDRA - {data.sourceName}</title>
-</svelte:head>
+{#snippet dayCell(day: DailyScore)}
+  <span class="text-surface-200 whitespace-nowrap">{fmtDate(day.runDate)}</span>
+{/snippet}
+{#snippet receivedCell(day: DailyScore)}<span class="tabular-nums">{day.itemsReceived}</span>{/snippet}
+{#snippet includedCell(day: DailyScore)}<span class="tabular-nums">{day.itemsIncluded}</span>{/snippet}
+{#snippet rateCell(day: DailyScore)}<span class="tabular-nums">{fmtPct(day.includeRate)}</span>{/snippet}
+{#snippet relevanceCell(day: DailyScore)}<span class="tabular-nums">{fmtScore(day.avgRelevance, 2)}</span>{/snippet}
+{#snippet dayScoreCell(day: DailyScore)}
+  <span class="tabular-nums {scoreTone(day.compositeScore)}">{fmtScore(day.compositeScore)}</span>
+{/snippet}
 
-<div class="flex flex-1 flex-col min-h-0">
-  <main class="max-w-5xl mx-auto px-6 py-6 pb-16 w-full flex flex-col gap-6">
-    <!-- Header: what the score is, and the one decision this page exists to support. -->
-    <section class="flex flex-wrap items-start justify-between gap-4">
-      <div class="flex flex-col gap-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <h1 class="text-lg font-semibold text-surface-50">{data.sourceName}</h1>
-          {#if !isActive}
-            <span class="badge bg-surface-800 text-surface-500">deaktiviert</span>
-          {/if}
-        </div>
-        <p class="text-xs text-surface-500">
-          {data.stats.deliveries} Lieferungen, {data.stats.items} Beiträge
-          {#if data.stats.firstSeen}
-            · seit {fmtDay(data.stats.firstSeen)}
-          {/if}
-          {#if data.stats.lastSeen}
-            · zuletzt {fmtDay(data.stats.lastSeen)}
-          {/if}
+<Page title={data.sourceName} size="app" class="flex flex-col gap-6">
+  <!-- Header: what the score is, and the one decision this page exists to support. -->
+  <section class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div class="flex flex-col gap-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="/sources" class="text-xs text-surface-400 hover:text-surface-200 no-underline">← Sources</a>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <h1 class="text-lg font-semibold text-surface-50 break-words">{data.sourceName}</h1>
+        {#if !isActive}<Badge tone="muted">Disabled</Badge>{/if}
+      </div>
+      <p class="text-xs text-surface-400">
+        {data.stats.deliveries} deliveries, {data.stats.items} items
+        {#if data.stats.firstSeen}· since {fmtDate(data.stats.firstSeen)}{/if}
+        {#if data.stats.lastSeen}· last {fmtDate(data.stats.lastSeen)}{/if}
+      </p>
+      {#if !isActive && data.quality?.disabled_reason}
+        <p class="text-xs text-surface-400">
+          Reason: <span class="text-surface-200">{data.quality.disabled_reason}</span>
+          {#if data.quality.disabled_at}({fmtDate(data.quality.disabled_at)}){/if}
         </p>
-        {#if !isActive && data.quality?.disabled_reason}
-          <p class="text-xs text-surface-500">
-            Grund: <span class="text-surface-200">{data.quality.disabled_reason}</span>
-            {#if data.quality.disabled_at}({fmtDay(data.quality.disabled_at)}){/if}
-          </p>
-        {/if}
+      {/if}
+    </div>
+
+    <div class="flex items-center gap-4 shrink-0">
+      <div class="text-right">
+        <div class="text-2xl font-semibold tabular-nums {scoreTone(data.quality?.composite_score_30d)}">
+          {fmtScore(data.quality?.composite_score_30d)}<span class="text-xs text-surface-400 ml-px">/10</span>
+        </div>
+        <div class="text-xs text-surface-400 whitespace-nowrap">
+          <span aria-hidden="true">{TREND_GLYPH[data.quality?.quality_trend ?? "stable"] ?? "→"}</span>
+          {displayLabel(data.quality?.quality_trend ?? "stable")}
+        </div>
       </div>
 
-      <div class="flex items-center gap-4">
-        <div class="text-right">
-          <div class="text-2xl font-semibold tabular-nums {scoreClass(data.quality?.composite_score_30d)}">
-            {fmtScore(data.quality?.composite_score_30d)}<span class="text-xs text-surface-700 ml-px">/10</span>
-          </div>
-          <div class="text-xs text-surface-500">{TREND_LABEL[data.quality?.quality_trend ?? "stable"] ?? "→"}</div>
-        </div>
+      {#if isActive}
+        <ConfirmButton label="Disable" confirmLabel="Disable" action="?/toggle" fields={{ isActive: "false" }} reasonName="reason" />
+      {:else}
+        <ConfirmButton label="Enable" action="?/toggle" fields={{ isActive: "true" }} tone="success" immediate />
+      {/if}
+    </div>
+  </section>
 
-        {#if isActive}
-          {#if confirmDisable}
-            <div class="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Grund (optional)"
-                bind:value={disableReason}
-                class="bg-surface-900 border border-surface-700 rounded text-surface-200 text-xs px-2 py-1 w-32"
-              />
-              <form method="POST" action="?/toggle" use:enhance={() => async ({ update }) => {
-                confirmDisable = false;
-                disableReason = "";
-                await update();
-              }}>
-                <input type="hidden" name="isActive" value="false" />
-                <input type="hidden" name="reason" value={disableReason} />
-                <button type="submit" class="px-2.5 py-1 rounded text-xs cursor-pointer bg-error-500 text-white border border-error-500 hover:opacity-80 transition-opacity">Bestätigen</button>
-              </form>
-              <button
-                class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:text-surface-200 transition-colors"
-                onclick={() => { confirmDisable = false; disableReason = ""; }}
-              >
-                Abbrechen
-              </button>
-            </div>
-          {:else}
-            <button
-              class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:border-error-500 hover:text-error-500 transition-colors"
-              onclick={() => { confirmDisable = true; disableReason = ""; }}
-            >
-              Deaktivieren
-            </button>
-          {/if}
-        {:else}
-          <form method="POST" action="?/toggle" use:enhance>
-            <input type="hidden" name="isActive" value="true" />
-            <button type="submit" class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-success-500 text-success-500 hover:bg-success-950 transition-colors">Aktivieren</button>
-          </form>
-        {/if}
-      </div>
-    </section>
+  <!-- The numbers behind the score, so it is checkable rather than just a verdict. -->
+  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    {#each stats as [statLabel, value, hint] (statLabel)}
+      <StatCard label={statLabel} {value} {hint} />
+    {/each}
+  </section>
 
-    <!-- The numbers behind the score, so it is checkable rather than just a verdict. -->
-    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-      {#each [
-        ["Aufnahmequote", fmtPct(includeRate), `${data.stats.included} von ${data.stats.items} Beiträgen`],
-        ["⌀ Relevanz", fmtScore(data.stats.avgRelevance, 2), "Extraktion, 1–5"],
-        ["⌀ effektiv", fmtScore(data.stats.avgEffectiveRelevance, 2), "nach Trust & Novelty"],
-        ["Übersprungen", String(data.stats.skipped), "Werbung oder ohne Inhalt"],
-        ["Ohne Extraktion", String(data.stats.emptyDeliveries), "Lieferungen ohne jeden Beitrag"],
-        ["Bewertungen", `+${data.stats.plus} / −${data.stats.minus}`, "von mir vergeben"],
-        ["Extraktionsfehler", String(data.stats.aiFailed), "AI-Call gescheitert"],
-      ] as [label, value, hint]}
-        <div class="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5">
-          <div class="text-xs text-surface-500">{label}</div>
-          <div class="text-base font-semibold text-surface-50 tabular-nums">{value}</div>
-          <div class="text-[11px] text-surface-600 leading-tight mt-0.5">{hint}</div>
-        </div>
-      {/each}
-    </section>
-
-    {#if data.dailyScores.length > 0}
-      <details class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3">
-        <summary class="text-xs text-surface-500 cursor-pointer select-none hover:text-surface-200">
-          Tageswerte der letzten 30 Tage ({data.dailyScores.length})
-        </summary>
-        <table class="w-full border-collapse text-xs mt-3">
-          <thead>
-            <tr>
-              <th class="text-left px-2 py-1 text-surface-500 font-normal border-b border-surface-700">Tag</th>
-              <th class="text-right px-2 py-1 text-surface-500 font-normal border-b border-surface-700">Erhalten</th>
-              <th class="text-right px-2 py-1 text-surface-500 font-normal border-b border-surface-700">Aufgenommen</th>
-              <th class="text-right px-2 py-1 text-surface-500 font-normal border-b border-surface-700">Quote</th>
-              <th class="text-right px-2 py-1 text-surface-500 font-normal border-b border-surface-700">⌀ Relevanz</th>
-              <th class="text-right px-2 py-1 text-surface-500 font-normal border-b border-surface-700">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.dailyScores as day (day.runDate)}
-              <tr>
-                <td class="px-2 py-1 border-b border-surface-800 text-surface-200">{fmtDay(day.runDate)}</td>
-                <td class="px-2 py-1 border-b border-surface-800 text-right tabular-nums">{day.itemsReceived}</td>
-                <td class="px-2 py-1 border-b border-surface-800 text-right tabular-nums">{day.itemsIncluded}</td>
-                <td class="px-2 py-1 border-b border-surface-800 text-right tabular-nums">{fmtPct(day.includeRate)}</td>
-                <td class="px-2 py-1 border-b border-surface-800 text-right tabular-nums">{fmtScore(day.avgRelevance, 2)}</td>
-                <td class="px-2 py-1 border-b border-surface-800 text-right tabular-nums {scoreClass(day.compositeScore)}">{fmtScore(day.compositeScore)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </details>
-    {/if}
-
-    <!-- The directory itself: every delivery and what extraction made of it. -->
-    <section class="flex flex-col gap-3">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="text-base font-semibold text-surface-50">Beiträge</h2>
-        <span class="text-xs text-surface-500">
-          {visible.length} von {data.deliveries.length} Lieferungen
-          {#if data.stats.deliveries > data.deliveries.length}
-            (neueste {data.deliveryLimit} von {data.stats.deliveries})
-          {/if}
-        </span>
-        <input
-          type="search"
-          placeholder="Filter: Titel, Headline, Tag…"
-          bind:value={query}
-          class="bg-surface-900 border border-surface-700 rounded text-surface-200 text-xs px-2 py-1 w-56 ml-auto"
+  {#if data.dailyScores.length > 0}
+    <details class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3">
+      <summary class="tap text-xs text-surface-400 cursor-pointer select-none hover:text-surface-200">
+        Daily values, last 30 days ({data.dailyScores.length})
+      </summary>
+      <div class="mt-3">
+        <DataTable
+          rows={data.dailyScores}
+          key={(day) => day.runDate}
+          mode="scroll"
+          caption="Daily source scores"
+          columns={[
+            { key: "day", header: "Day", cell: dayCell },
+            { key: "received", header: "Received", align: "right", cell: receivedCell },
+            { key: "included", header: "Included", align: "right", showAt: "sm", cell: includedCell },
+            { key: "rate", header: "Rate", align: "right", cell: rateCell },
+            { key: "relevance", header: "Avg relevance", align: "right", showAt: "md", cell: relevanceCell },
+            { key: "score", header: "Score", align: "right", cell: dayScoreCell },
+          ] as Column<DailyScore>[]}
         />
-        <label class="flex items-center gap-1.5 text-xs text-surface-500 cursor-pointer select-none">
-          <input type="checkbox" bind:checked={onlyEmpty} class="accent-primary-500" />
-          nur ohne Beitrag
-        </label>
       </div>
+    </details>
+  {/if}
 
-      {#each visible as delivery (delivery.rawItemId)}
-        <article class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3 flex flex-col gap-2">
-          <div class="flex flex-wrap items-baseline gap-2 text-xs">
-            <span class="text-surface-200 font-medium flex-1 min-w-0 break-words">{delivery.title ?? "(ohne Titel)"}</span>
-            <span class="text-surface-500 whitespace-nowrap">{fmtDate(delivery.receivedAt)}</span>
-          </div>
+  <!-- The directory itself: every delivery and what extraction made of it. -->
+  <section class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-3">
+      <h2 class="text-base font-semibold text-surface-50">Deliveries</h2>
+      <span class="text-xs text-surface-400">
+        {visible.length} of {data.deliveries.length}
+        {#if data.stats.deliveries > data.deliveries.length}
+          (newest {data.deliveryLimit} of {data.stats.deliveries})
+        {/if}
+      </span>
+      <input
+        type="search"
+        placeholder="Filter: title, headline, tag…"
+        aria-label="Filter deliveries"
+        bind:value={query}
+        class="input-base w-full sm:w-56 sm:ml-auto"
+      />
+      <label class="tap-check text-xs text-surface-400">
+        <input type="checkbox" bind:checked={onlyEmpty} class="accent-primary-500 h-4 w-4" />
+        Only deliveries with no item
+      </label>
+    </div>
 
-          {#if delivery.sender}
-            <p class="text-xs text-surface-600 break-all">Von: {delivery.sender}</p>
-          {/if}
+    {#each visible as delivery (delivery.rawItemId)}
+      <article class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3 flex flex-col gap-2">
+        <div class="flex flex-wrap items-baseline gap-2 text-xs">
+          <span class="text-surface-200 font-medium flex-1 min-w-0 break-words">{delivery.title ?? "(untitled)"}</span>
+          <span class="text-surface-400 whitespace-nowrap">{fmtDateTime(delivery.receivedAt)}</span>
+        </div>
 
-          {#if delivery.items.length === 0}
-            <p class="text-xs text-surface-600">
-              Keine Beiträge extrahiert - übersprungen (Werbung, Automail oder ohne Informationsgehalt).
-            </p>
-          {:else}
-            <ul class="flex flex-col divide-y divide-surface-800 border-t border-surface-800 -mx-1">
-              {#each delivery.items as item (item.id)}
-                {@const skipped = isSkipped(item)}
-                <li class="px-1 py-2 flex flex-col gap-1">
-                  <div class="flex items-start gap-2">
-                    <span class="text-sm font-semibold tabular-nums w-8 shrink-0 text-right {skipped ? 'text-surface-700' : relevanceClass(item.effectiveRelevance ?? item.relevanceScore)}">
-                      {skipped ? "-" : fmtScore(item.effectiveRelevance ?? item.relevanceScore, 1)}
-                    </span>
-                    <div class="flex-1 min-w-0 flex flex-col gap-1">
-                      <a
-                        href="/{item.runDate ?? delivery.runDate}/detail/{item.id}"
-                        class="text-sm leading-snug no-underline hover:text-primary-400 transition-colors {skipped ? 'text-surface-600 italic' : 'text-surface-200'}"
-                      >
-                        {itemLabel(item)}
-                      </a>
-                      <div class="flex flex-wrap items-center gap-1.5 text-xs">
-                        {#if item.includedInReport}
-                          <span class="badge bg-success-950 text-success-500">im Report</span>
-                        {:else if !skipped}
-                          <span class="badge bg-surface-800 text-surface-500">gefiltert</span>
-                        {/if}
-                        {#if item.novelty && item.novelty !== "new"}
-                          <span class="badge bg-warning-950 text-warning-500">{NOVELTY_LABEL[item.novelty] ?? item.novelty}</span>
-                        {/if}
-                        {#if item.rating === "explicit_plus"}
-                          <span class="badge bg-success-950 text-success-500">+</span>
-                        {:else if item.rating === "explicit_minus"}
-                          <span class="badge bg-error-950 text-error-500">−</span>
-                        {/if}
-                        {#if item.aiFailed}
-                          <span class="badge bg-error-950 text-error-500">Extraktion gescheitert</span>
-                        {/if}
-                        {#each item.topicTags as tag}
-                          <span class="badge bg-surface-950 border border-surface-700 text-surface-500">{tag}</span>
-                        {/each}
-                      </div>
+        {#if delivery.sender}
+          <p class="text-xs text-surface-400 break-all">From: {delivery.sender}</p>
+        {/if}
+
+        {#if delivery.items.length === 0}
+          <p class="text-xs text-surface-400">
+            Nothing extracted - skipped as promotional, automated, or without informational content.
+          </p>
+        {:else}
+          <ul class="flex flex-col divide-y divide-surface-800 border-t border-surface-800 -mx-1">
+            {#each delivery.items as item (item.id)}
+              {@const skipped = isSkipped(item)}
+              <li class="px-1 py-2 flex flex-col gap-1">
+                <div class="flex items-start gap-2">
+                  <span
+                    class="text-sm font-semibold tabular-nums w-8 shrink-0 text-right
+                      {skipped ? 'text-surface-400' : relevanceTone(item.effectiveRelevance ?? item.relevanceScore)}"
+                  >
+                    {skipped ? "-" : fmtScore(item.effectiveRelevance ?? item.relevanceScore, 1)}
+                  </span>
+                  <div class="flex-1 min-w-0 flex flex-col gap-1">
+                    <a
+                      href="/{item.runDate ?? delivery.runDate}/detail/{item.id}"
+                      class="text-sm leading-snug no-underline hover:text-primary-400 transition-colors
+                        {skipped ? 'text-surface-400 italic' : 'text-surface-200'}"
+                    >
+                      {itemLabel(item)}
+                    </a>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      {#if item.includedInReport}
+                        <Badge tone="success">In report</Badge>
+                      {:else if !skipped}
+                        <Badge tone="muted">Filtered out</Badge>
+                      {/if}
+                      {#if item.novelty && item.novelty !== "new"}
+                        <Badge tone="warning">{displayLabel(item.novelty)}</Badge>
+                      {/if}
+                      {#if item.rating === "explicit_plus"}
+                        <Badge tone="success">Rated +</Badge>
+                      {:else if item.rating === "explicit_minus"}
+                        <Badge tone="error">Rated −</Badge>
+                      {/if}
+                      {#if item.aiFailed}
+                        <Badge tone="error">Extraction failed</Badge>
+                      {/if}
+                      {#each item.topicTags as tag (tag)}
+                        <Badge tone="neutral">{tag}</Badge>
+                      {/each}
                     </div>
                   </div>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </article>
-      {/each}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </article>
+    {/each}
 
-      {#if data.deliveries.length === 0}
-        <p class="text-surface-700 text-center py-8 text-sm">
-          Von dieser Quelle ist noch nichts eingegangen.
-        </p>
-      {:else if visible.length === 0}
-        <p class="text-surface-700 text-center py-8 text-sm">Keine Lieferung passt zum Filter.</p>
-      {/if}
-    </section>
-  </main>
-</div>
+    {#if data.deliveries.length === 0}
+      <EmptyState title="Nothing has arrived from this source yet." compact />
+    {:else if visible.length === 0}
+      <EmptyState title="No delivery matches the filter." compact />
+    {/if}
+  </section>
+</Page>

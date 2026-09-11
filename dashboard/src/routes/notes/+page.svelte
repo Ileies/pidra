@@ -1,34 +1,33 @@
 <script lang="ts">
   import { goto, invalidateAll } from "$app/navigation";
   import NoteCard from "$lib/notes/NoteCard.svelte";
+  import Page from "$lib/components/Page.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
   import { assistant, setPageContext } from "$lib/assistant/state.svelte";
   import { focusFrom } from "$lib/assistant/pageContext";
-  import {
-    createNote, deleteNote, restoreNote, updateNote,
-    NOTE_SCOPES,
-  } from "$lib/notes/api";
+  import { toasts } from "$lib/toast.svelte";
+  import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "$lib/notes/api";
   import type { PageData } from "./$types";
   import type { NoteRow } from "./+page.server";
 
   let { data }: { data: PageData } = $props();
 
   // What the assistant sees of this page. The focus list gives it real ids for the rows on
-  // screen, so "die zweite Note von oben" resolves instead of being guessed.
+  // screen, so "the second note from the top" resolves instead of being guessed.
   $effect(() => {
     setPageContext({
       surface: "notes",
       route: "/notes",
       digest: [
-        `Notes-Verwaltung. Ansicht: ${data.view === "deleted" ? "Papierkorb" : data.view === "all" ? "alle" : "aktive"}.`,
-        `Scope-Filter: ${data.scopeFilter || "alle"}.`,
-        data.query ? `Suche: "${data.query}".` : "",
-        `${data.notes.length} von ${data.counts.active} aktiven Notes sichtbar, ${data.counts.deleted} im Papierkorb.`,
+        `Notes management. View: ${data.view === "deleted" ? "trash" : data.view === "all" ? "all" : "active"}.`,
+        `Scope filter: ${data.scopeFilter || "all"}.`,
+        data.query ? `Search: "${data.query}".` : "",
+        `${data.notes.length} of ${data.counts.active} active notes visible, ${data.counts.deleted} in the trash.`,
       ].filter(Boolean).join(" "),
       focus: focusFrom(data.notes, "note", (note) => ({ id: note.id, label: note.content })),
     });
   });
-  const inputClass =
-    "px-3 py-1.5 rounded text-sm bg-surface-900 border border-surface-700 text-surface-200 placeholder-surface-600 focus:border-surface-500";
 
   // --- filters, kept in the URL so a view is shareable and survives a reload ---
 
@@ -75,22 +74,21 @@
   let newScope = $state("global");
   let newExpires = $state("");
   let creating = $state(false);
-  let error = $state<string | null>(null);
 
   async function submitNew() {
     const content = newContent.trim();
     if (!content || creating) return;
 
     creating = true;
-    error = null;
     try {
       await createNote({ content, scope: newScope, expires_at: newExpires || null });
       newContent = "";
       newExpires = "";
       adding = false;
       await invalidateAll();
+      toasts.success("Note added.");
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
       creating = false;
     }
@@ -127,15 +125,14 @@
   async function bulkScope(scope: string) {
     if (!scope || busy) return;
     busy = true;
-    error = null;
     const ids = [...selected];
     try {
       for (const id of ids) await updateNote(id, { scope });
       selected = new Set();
       await invalidateAll();
-      showToast(`${ids.length} Notes auf "${scope}" gesetzt.`, null);
+      toasts.success(`${ids.length} notes set to "${scope}".`);
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
       busy = false;
     }
@@ -144,18 +141,17 @@
   async function bulkDelete() {
     if (busy) return;
     busy = true;
-    error = null;
     const ids = [...selected];
     try {
       for (const id of ids) await deleteNote(id);
       selected = new Set();
       await invalidateAll();
-      showToast(`${ids.length} Notes gelöscht.`, async () => {
+      toasts.success(`${ids.length} notes deleted.`, async () => {
         for (const id of ids) await restoreNote(id);
         await invalidateAll();
       });
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
       busy = false;
     }
@@ -164,227 +160,181 @@
   // --- single delete and restore, with undo ---
 
   async function handleDelete(note: NoteRow) {
-    error = null;
     try {
       await deleteNote(note.id);
       await invalidateAll();
-      showToast("Note gelöscht.", async () => {
+      toasts.success("Note deleted.", async () => {
         await restoreNote(note.id);
         await invalidateAll();
       });
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      toasts.error(err instanceof Error ? err.message : String(err));
     }
   }
 
   async function handleRestore(note: NoteRow) {
-    error = null;
     try {
       await restoreNote(note.id);
       await invalidateAll();
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
-    }
-  }
-
-  // --- toast: the undo affordance for the one destructive action here ---
-
-  let toast = $state<{ message: string; undo: (() => Promise<void>) | null } | null>(null);
-  let toastTimer: ReturnType<typeof setTimeout> | undefined;
-
-  function showToast(message: string, undo: (() => Promise<void>) | null) {
-    clearTimeout(toastTimer);
-    toast = { message, undo };
-    toastTimer = setTimeout(() => (toast = null), 8000);
-  }
-
-  async function runUndo() {
-    const action = toast?.undo;
-    toast = null;
-    clearTimeout(toastTimer);
-    if (!action) return;
-    try {
-      await action();
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      toasts.error(err instanceof Error ? err.message : String(err));
     }
   }
 </script>
 
-<svelte:head>
-  <title>PIDRA - Notes</title>
-</svelte:head>
+<Page title="Notes" size="read" class="flex flex-col gap-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <input
+      type="search"
+      value={search}
+      oninput={onSearchInput}
+      placeholder="Search notes…"
+      aria-label="Search notes"
+      class="input-base flex-1 min-w-40"
+    />
 
-<div class="flex flex-1 flex-col min-h-0">
-  <main class="flex-1 max-w-3xl w-full mx-auto px-8 py-6 pb-24">
-    <div class="flex flex-wrap items-center gap-2 mb-6">
-      <input
-        type="search"
-        value={search}
-        oninput={onSearchInput}
-        placeholder="Notes durchsuchen…"
-        class="{inputClass} flex-1 min-w-40"
-      />
-
-      <select
-        value={data.scopeFilter}
-        onchange={(event) => applyFilters({ scope: event.currentTarget.value })}
-        aria-label="Scope filtern"
-        class={inputClass}
-      >
-        <option value="">Alle Scopes</option>
-        {#each NOTE_SCOPES as scope}
-          <option value={scope}>{scope}</option>
-        {/each}
-      </select>
-
-      <select
-        value={data.sort}
-        onchange={(event) => applyFilters({ sort: event.currentTarget.value })}
-        aria-label="Sortierung"
-        class={inputClass}
-      >
-        <option value="newest">Neueste zuerst</option>
-        <option value="oldest">Älteste zuerst</option>
-        <option value="edited">Zuletzt bearbeitet</option>
-      </select>
-
-      <button
-        onclick={() => applyFilters({ view: data.view === "deleted" ? "active" : "deleted" })}
-        class="px-3 py-1.5 rounded text-sm border cursor-pointer transition-colors {data.view === 'deleted'
-          ? 'bg-surface-800 border-surface-500 text-surface-100'
-          : 'bg-surface-900 border-surface-700 text-surface-400 hover:bg-surface-800'}"
-      >
-        Papierkorb{data.counts.deleted > 0 ? ` (${data.counts.deleted})` : ""}
-      </button>
-
-      <button
-        onclick={() => (adding = !adding)}
-        class="px-3 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-300 hover:bg-primary-800 cursor-pointer transition-colors"
-      >
-        {adding ? "Abbrechen" : "+ Neue Note"}
-      </button>
-    </div>
-
-    {#if adding}
-      <div class="bg-surface-900 border border-surface-700 rounded-lg px-5 py-4 mb-6 flex flex-col gap-3">
-        <textarea
-          bind:value={newContent}
-          rows="3"
-          placeholder="Note content…"
-          onkeydown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              submitNew();
-            }
-          }}
-          class="w-full px-3 py-2 rounded text-sm bg-surface-950 border border-surface-700 text-surface-100 placeholder-surface-600 focus:border-surface-500 resize-y"
-        ></textarea>
-        <div class="flex items-center gap-3 flex-wrap">
-          <select bind:value={newScope} aria-label="Scope" class={inputClass}>
-            {#each NOTE_SCOPES as scope}
-              <option value={scope}>{scope}</option>
-            {/each}
-          </select>
-          <label class="text-xs text-surface-500 flex items-center gap-2">
-            läuft ab
-            <input type="date" bind:value={newExpires} class={inputClass} />
-          </label>
-          <button
-            onclick={submitNew}
-            disabled={creating || newContent.trim() === ""}
-            class="px-4 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-300 hover:bg-primary-800 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {creating ? "…" : "Hinzufügen"}
-          </button>
-        </div>
-      </div>
-    {/if}
-
-    {#if error}
-      <div class="rounded-lg border border-error-800 bg-surface-900 px-4 py-3 text-sm text-error-400 mb-4">{error}</div>
-    {/if}
-
-    {#if data.notes.length === 0}
-      <p class="text-surface-400 text-sm text-center py-16">
-        {data.view === "deleted" ? "Papierkorb ist leer." : "Keine Notes gefunden."}
-      </p>
-    {:else}
-      <div class="flex items-center gap-3 mb-3 text-xs text-surface-600">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onchange={toggleSelectAll}
-            class="accent-primary-600 cursor-pointer"
-          />
-          {data.notes.length} {data.notes.length === 1 ? "Eintrag" : "Einträge"}
-        </label>
-        {#if data.view === "deleted"}
-          <span class="text-surface-500">Papierkorb: gelöschte Notes beeinflussen kein Briefing mehr.</span>
-        {/if}
-      </div>
-
-      {#if selectedCount > 0}
-        <div class="flex items-center gap-3 flex-wrap bg-surface-800 border border-surface-600 rounded-lg px-4 py-2 mb-3 text-sm sticky top-14 z-10">
-          <span class="text-surface-200">{selectedCount} ausgewählt</span>
-          <select
-            value=""
-            onchange={(event) => {
-              const scope = event.currentTarget.value;
-              event.currentTarget.value = "";
-              bulkScope(scope);
-            }}
-            disabled={busy}
-            aria-label="Scope für Auswahl setzen"
-            class="px-2 py-1 rounded text-xs bg-surface-950 border border-surface-600 text-surface-200"
-          >
-            <option value="">Scope setzen…</option>
-            {#each NOTE_SCOPES as scope}
-              <option value={scope}>{scope}</option>
-            {/each}
-          </select>
-          <button
-            onclick={bulkDelete}
-            disabled={busy}
-            class="px-3 py-1 rounded text-xs bg-surface-900 border border-error-800 text-error-400 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
-          >Löschen</button>
-          <button
-            onclick={() => (selected = new Set())}
-            class="ml-auto px-3 py-1 rounded text-xs bg-surface-900 border border-surface-600 text-surface-300 hover:bg-surface-950 cursor-pointer"
-          >Auswahl aufheben</button>
-        </div>
-      {/if}
-
-      <div class="flex flex-col gap-3">
-        {#each data.notes as note (note.id)}
-          <NoteCard
-            {note}
-            highlighted={assistant.touchedIds.has(note.id)}
-            selected={selected.has(note.id)}
-            onToggleSelect={toggleSelect}
-            onChanged={invalidateAll}
-            onDelete={handleDelete}
-            onRestore={handleRestore}
-          />
-        {/each}
-      </div>
-    {/if}
-  </main>
-
-  {#if toast}
-    <div
-      role="status"
-      aria-live="polite"
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 rounded-lg bg-surface-800 border border-surface-600 px-4 py-2 text-sm text-surface-100 shadow-lg"
+    <select
+      value={data.scopeFilter}
+      onchange={(event) => applyFilters({ scope: event.currentTarget.value })}
+      aria-label="Filter by scope"
+      class="input-base"
     >
-      <span>{toast.message}</span>
-      {#if toast.undo}
+      <option value="">All scopes</option>
+      {#each NOTE_SCOPES as scope (scope)}
+        <option value={scope}>{scope}</option>
+      {/each}
+    </select>
+
+    <select
+      value={data.sort}
+      onchange={(event) => applyFilters({ sort: event.currentTarget.value })}
+      aria-label="Sort order"
+      class="input-base"
+    >
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="edited">Last edited</option>
+    </select>
+
+    <button
+      onclick={() => applyFilters({ view: data.view === "deleted" ? "active" : "deleted" })}
+      aria-pressed={data.view === "deleted"}
+      class="tap px-3 py-1.5 rounded text-sm border cursor-pointer transition-colors {data.view === 'deleted'
+        ? 'bg-surface-800 border-surface-500 text-surface-100'
+        : 'bg-surface-900 border-surface-700 text-surface-300 hover:bg-surface-800'}"
+    >
+      Trash{data.counts.deleted > 0 ? ` (${data.counts.deleted})` : ""}
+    </button>
+
+    <button
+      onclick={() => (adding = !adding)}
+      class="tap px-3 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
+    >
+      {adding ? "Cancel" : "+ New note"}
+    </button>
+  </div>
+
+  {#if adding}
+    <div class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3">
+      <textarea
+        bind:value={newContent}
+        rows="3"
+        placeholder="Note content…"
+        aria-label="New note content"
+        onkeydown={(event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            submitNew();
+          }
+        }}
+        class="input-base-flush w-full resize-y"
+      ></textarea>
+      <div class="flex items-center gap-3 flex-wrap">
+        <select bind:value={newScope} aria-label="Scope" class="input-base">
+          {#each NOTE_SCOPES as scope (scope)}
+            <option value={scope}>{scope}</option>
+          {/each}
+        </select>
+        <label class="text-xs text-surface-400 flex items-center gap-2">
+          Expires
+          <input type="date" bind:value={newExpires} class="input-base" />
+        </label>
         <button
-          onclick={runUndo}
-          class="px-2 py-0.5 rounded text-xs bg-surface-950 border border-primary-700 text-primary-300 hover:bg-surface-900 cursor-pointer"
-        >Rückgängig</button>
-      {/if}
+          onclick={submitNew}
+          disabled={creating || newContent.trim() === ""}
+          class="tap inline-flex items-center gap-2 px-4 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {#if creating}<Spinner label="Adding" />{/if}Add
+        </button>
+      </div>
     </div>
   {/if}
-</div>
+
+  {#if data.notes.length === 0}
+    <EmptyState
+      title={data.view === "deleted" ? "The trash is empty." : "No notes found."}
+      hint={data.view === "deleted"
+        ? undefined
+        : "Notes are standing instructions for the briefing: intel and global steer Section 1, personal and global steer Section 2."}
+    />
+  {:else}
+    <div class="flex items-center gap-3 text-xs text-surface-400">
+      <label class="tap-check">
+        <input type="checkbox" checked={allSelected} onchange={toggleSelectAll} class="accent-primary-600 cursor-pointer h-4 w-4" />
+        {data.notes.length} {data.notes.length === 1 ? "entry" : "entries"}
+      </label>
+      {#if data.view === "deleted"}
+        <span>Trash: deleted notes no longer influence a briefing.</span>
+      {/if}
+    </div>
+
+    {#if selectedCount > 0}
+      <!-- Anchored to the measured header height, not a hard-coded 56px (X6, M8). -->
+      <div
+        class="flex items-center gap-3 flex-wrap bg-surface-800 border border-surface-500 rounded-lg px-4 py-2 text-sm sticky z-20"
+        style="top: calc(var(--header-h) + 0.5rem)"
+      >
+        <span class="text-surface-100">{selectedCount} selected</span>
+        <select
+          value=""
+          onchange={(event) => {
+            const scope = event.currentTarget.value;
+            event.currentTarget.value = "";
+            bulkScope(scope);
+          }}
+          disabled={busy}
+          aria-label="Set scope for the selection"
+          class="input-base bg-surface-950"
+        >
+          <option value="">Set scope…</option>
+          {#each NOTE_SCOPES as scope (scope)}
+            <option value={scope}>{scope}</option>
+          {/each}
+        </select>
+        <button
+          onclick={bulkDelete}
+          disabled={busy}
+          class="tap px-3 py-1 rounded text-xs bg-surface-900 border border-error-700 text-error-400 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
+        >Delete</button>
+        <button
+          onclick={() => (selected = new Set())}
+          class="tap ml-auto px-3 py-1 rounded text-xs bg-surface-900 border border-surface-500 text-surface-200 hover:bg-surface-950 cursor-pointer"
+        >Clear selection</button>
+      </div>
+    {/if}
+
+    <div class="flex flex-col gap-3">
+      {#each data.notes as note (note.id)}
+        <NoteCard
+          {note}
+          highlighted={assistant.touchedIds.has(note.id)}
+          selected={selected.has(note.id)}
+          onToggleSelect={toggleSelect}
+          onChanged={invalidateAll}
+          onDelete={handleDelete}
+          onRestore={handleRestore}
+        />
+      {/each}
+    </div>
+  {/if}
+</Page>

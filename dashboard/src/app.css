@@ -33,6 +33,10 @@
    ========================================================================== */
 
 @theme {
+  /* One breakpoint below Tailwind's `sm`, for the handful of places where a label has to drop
+     on a 390px phone but should survive on a 430px one. */
+  --breakpoint-xs: 26rem;
+
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "Fira Code", monospace;
 

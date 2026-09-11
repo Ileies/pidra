@@ -1,9 +1,12 @@
 <script lang="ts">
   import {
     updateNote, noteHistory, revertRevision,
-    NOTE_SCOPES, SCOPE_CLASS, fmtDate,
+    NOTE_SCOPES, SCOPE_CLASS,
     type NoteRevisionRow,
   } from "$lib/notes/api";
+  import { fmtDateTime } from "$lib/format";
+  import { label as displayLabel } from "$lib/labels";
+  import Spinner from "$lib/components/Spinner.svelte";
   import type { NoteRow } from "../../routes/notes/+page.server";
 
   interface Props {
@@ -136,29 +139,36 @@
     }
   }
 
+  const OPERATION: Record<string, string> = {
+    delete: "deleted it",
+    restore: "restored it",
+    update: "changed it",
+  };
+
   function operationLabel(revision: NoteRevisionRow): string {
-    const who = revision.changedBy === "chat" ? "KI" : revision.changedBy === "user" ? "Du" : "System";
-    const what = revision.operation === "delete" ? "gelöscht" : revision.operation === "restore" ? "wiederhergestellt" : "geändert";
-    return `${who} · ${what} · ${fmtDate(revision.createdAt)}`;
+    return `${displayLabel(revision.changedBy)} ${OPERATION[revision.operation] ?? "changed it"} · ${fmtDateTime(revision.createdAt)}`;
   }
 
-  const inputClass =
-    "px-2 py-1 rounded text-xs bg-surface-950 border border-surface-700 text-surface-200 focus:border-surface-500";
+  function authorLabel(who: string | null): string {
+    return displayLabel(who, "The system");
+  }
 </script>
 
 <div
-  class="rounded-lg px-5 py-4 border transition-colors {deleted
+  class="rounded-lg px-4 sm:px-5 py-4 border transition-colors {deleted
     ? 'bg-surface-950 border-surface-800 opacity-70'
     : 'bg-surface-900 border-surface-700'} {highlighted ? 'ring-2 ring-primary-600' : ''}"
 >
-  <div class="flex items-start gap-3">
-    <input
-      type="checkbox"
-      checked={selected}
-      onchange={(event) => onToggleSelect(note.id, event.currentTarget.checked)}
-      aria-label="Note auswählen"
-      class="mt-1 accent-primary-600 cursor-pointer"
-    />
+  <div class="flex items-start gap-2">
+    <label class="tap-check shrink-0 pt-0.5">
+      <input
+        type="checkbox"
+        checked={selected}
+        onchange={(event) => onToggleSelect(note.id, event.currentTarget.checked)}
+        class="accent-primary-600 cursor-pointer h-4 w-4"
+      />
+      <span class="sr-only">Select this note</span>
+    </label>
 
     <div class="flex-1 min-w-0">
       {#if editing}
@@ -168,78 +178,77 @@
           onkeydown={onEditKeydown}
           onblur={onEditBlur}
           disabled={saving}
-          class="w-full px-3 py-2 rounded text-sm bg-surface-950 border border-primary-800 text-surface-100 focus:border-primary-600 resize-none disabled:opacity-50"
+          aria-label="Note content"
+          class="input-base-flush w-full border-primary-700 resize-none disabled:opacity-50"
         ></textarea>
-        <div class="flex items-center gap-3 mt-2">
+        <div class="flex flex-wrap items-center gap-3 mt-2">
           <button
             onclick={commit}
             disabled={saving}
-            class="px-3 py-1 rounded text-xs bg-primary-900 border border-primary-700 text-primary-300 hover:bg-primary-800 cursor-pointer disabled:opacity-40"
-          >{saving ? "…" : "Speichern"}</button>
+            class="tap inline-flex items-center gap-2 px-3 py-1 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-40"
+          >{#if saving}<Spinner label="Saving" />{/if}Save</button>
           <button
             onmousedown={() => (discarding = true)}
             onclick={cancel}
-            class="px-3 py-1 rounded text-xs bg-surface-800 border border-surface-600 text-surface-300 hover:bg-surface-700 cursor-pointer"
-          >Abbrechen</button>
-          <span class="text-xs text-surface-600">Strg+Enter speichert, Esc verwirft</span>
+            class="tap px-3 py-1 rounded text-xs bg-surface-800 border border-surface-500 text-surface-200 hover:bg-surface-700 cursor-pointer"
+          >Cancel</button>
+          <span class="text-xs text-surface-400">Ctrl+Enter saves, Esc discards</span>
         </div>
       {:else}
         <button
           onclick={startEdit}
           disabled={deleted}
-          title={deleted ? "Gelöschte Notes erst wiederherstellen" : "Zum Bearbeiten klicken"}
+          title={deleted ? "Restore the note before editing it" : "Click to edit"}
           class="w-full text-left bg-transparent border-none p-0 text-sm whitespace-pre-wrap break-words cursor-text hover:bg-surface-800/40 rounded transition-colors {deleted
-            ? 'text-surface-400 line-through cursor-not-allowed'
+            ? 'text-surface-300 line-through cursor-not-allowed'
             : 'text-surface-100'}"
         >{note.content}</button>
       {/if}
 
-      <div class="flex items-center gap-2 mt-2 flex-wrap">
+      <div class="flex items-center gap-2 mt-3 flex-wrap">
         <select
           value={note.scope}
           onchange={(event) => patch({ scope: event.currentTarget.value })}
           disabled={deleted}
           aria-label="Scope"
-          class="badge text-xs border cursor-pointer disabled:cursor-not-allowed {SCOPE_CLASS[note.scope] ?? 'text-surface-500 bg-surface-900 border-surface-700'}"
+          class="tap badge border cursor-pointer disabled:cursor-not-allowed {SCOPE_CLASS[note.scope] ?? 'text-surface-300 bg-surface-900 border-surface-700'}"
         >
-          {#each NOTE_SCOPES as scope}
+          {#each NOTE_SCOPES as scope (scope)}
             <option value={scope}>{scope}</option>
           {/each}
         </select>
 
-        <label class="text-xs text-surface-600 flex items-center gap-1">
-          läuft ab
+        <label class="text-xs text-surface-400 flex items-center gap-1.5">
+          Expires
           <input
             type="date"
             value={note.expires_at ?? ""}
             onchange={(event) => patch({ expires_at: event.currentTarget.value || null })}
             disabled={deleted}
-            class={inputClass}
+            class="input-base-flush"
           />
         </label>
-
-        <span class="text-xs text-surface-600 ml-auto">
-          {note.created_by === "user" ? "von dir" : note.created_by === "chat" ? "von der KI" : "vom System"}
-          · {fmtDate(note.created_at)}
-          {#if note.updated_by}
-            · bearbeitet {note.updated_by === "chat" ? "von der KI" : note.updated_by === "user" ? "von dir" : "vom System"}
-            {fmtDate(note.updated_at)}
-          {/if}
-        </span>
 
         {#if deleted}
           <button
             onclick={() => onRestore(note)}
-            class="px-2 py-0.5 rounded text-xs bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 cursor-pointer"
-          >Wiederherstellen</button>
+            class="tap ml-auto px-3 py-1 rounded text-xs bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
+          >Restore</button>
         {:else}
           <button
             onclick={() => onDelete(note)}
-            aria-label="Löschen"
-            class="text-surface-600 hover:text-error-400 transition-colors text-xs cursor-pointer bg-transparent border-none px-1 shrink-0"
+            aria-label="Delete this note"
+            class="tap ml-auto text-surface-400 hover:text-error-400 transition-colors text-sm cursor-pointer bg-transparent border-none px-2 shrink-0"
           >✕</button>
         {/if}
       </div>
+
+      <p class="text-xs text-surface-400 mt-2">
+        {authorLabel(note.created_by)} · {fmtDateTime(note.created_at)}
+        {#if note.updated_by}
+          · edited by {authorLabel(note.updated_by).toLowerCase()} {fmtDateTime(note.updated_at)}
+        {/if}
+      </p>
 
       {#if note.revision_count > 0}
         <details
@@ -247,29 +256,29 @@
           ontoggle={() => historyOpen && history.length === 0 && loadHistory()}
           class="mt-2"
         >
-          <summary class="text-xs text-surface-600 hover:text-surface-400 cursor-pointer">
-            {note.revision_count} {note.revision_count === 1 ? "Änderung" : "Änderungen"}
+          <summary class="tap text-xs text-surface-400 hover:text-surface-200 cursor-pointer">
+            {note.revision_count} {note.revision_count === 1 ? "change" : "changes"}
           </summary>
           {#if historyLoading}
-            <p class="text-xs text-surface-600 mt-2">Lade…</p>
+            <p class="text-xs text-surface-400 mt-2"><Spinner /> Loading…</p>
           {:else}
             <div class="flex flex-col gap-2 mt-2">
               {#each history as revision (revision.id)}
                 <div class="rounded border border-surface-800 bg-surface-950 px-3 py-2 text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class="text-surface-500">{operationLabel(revision)}</span>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-surface-400">{operationLabel(revision)}</span>
                     {#if revision.previousContent}
                       <button
                         onclick={() => revert(revision.id)}
-                        class="ml-auto px-2 py-0.5 rounded bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 cursor-pointer"
-                      >Diesen Stand wiederherstellen</button>
+                        class="tap ml-auto px-2.5 py-1 rounded bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
+                      >Restore this version</button>
                     {/if}
                   </div>
                   {#if revision.previousContent}
-                    <p class="text-surface-400 mt-1 whitespace-pre-wrap break-words">{revision.previousContent}</p>
+                    <p class="text-surface-300 mt-1 whitespace-pre-wrap break-words">{revision.previousContent}</p>
                   {/if}
                   {#if revision.previousScope && revision.previousScope !== note.scope}
-                    <p class="text-surface-600 mt-1">Scope war: {revision.previousScope}</p>
+                    <p class="text-surface-400 mt-1">Scope was: {revision.previousScope}</p>
                   {/if}
                 </div>
               {/each}

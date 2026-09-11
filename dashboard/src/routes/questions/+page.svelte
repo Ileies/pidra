@@ -1,5 +1,8 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import Page from "$lib/components/Page.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -7,79 +10,82 @@
   let submitting = $state(false);
 </script>
 
-<svelte:head>
-  <title>PIDRA - Questions</title>
-</svelte:head>
+<Page title="Questions" size="form" class="flex flex-col gap-6">
+  {#if form?.success}
+    <div class="rounded-lg border border-success-700 bg-success-950 px-5 py-4 text-success-200 text-sm">
+      {form.answeredCount} answer(s) submitted. Section 2 synthesis will proceed shortly.
+    </div>
+  {/if}
 
-<div class="flex flex-1 flex-col min-h-0">
-  <main class="flex-1 px-8 py-8 max-w-2xl mx-auto w-full">
-    {#if form?.success}
-      <div class="rounded-lg border border-success-700 bg-success-950 px-5 py-4 text-success-300 text-sm mb-6">
-        {form.answeredCount} answer(s) submitted. Section 2 synthesis will proceed shortly.
-      </div>
-    {/if}
+  {#if form?.error}
+    <div class="rounded-lg border border-error-700 bg-error-950 px-5 py-4 text-error-200 text-sm">
+      {form.error}
+    </div>
+  {/if}
 
-    {#if form?.error}
-      <div class="rounded-lg border border-error-700 bg-error-950 px-5 py-4 text-error-300 text-sm mb-6">
-        {form.error}
-      </div>
-    {/if}
+  {#if !data.session}
+    <EmptyState
+      title="No pending questions."
+      hint="The question gate opens during Phase 4 when a personal email arrives from a sender the system does not know."
+    />
+  {:else}
+    <div class="flex flex-wrap items-baseline gap-3">
+      <h1 class="text-surface-50 font-semibold text-lg">
+        {data.session.questions.length} question{data.session.questions.length === 1 ? "" : "s"} pending
+      </h1>
+      <span class="text-surface-400 text-xs">
+        {data.session.minutesLeft}m left · run {data.session.runId}
+      </span>
+    </div>
 
-    {#if !data.session}
-      <div class="text-surface-400 text-sm text-center py-16">
-        No pending questions - the gate is not active.
-      </div>
-    {:else}
-      <div class="mb-6 flex items-baseline gap-3">
-        <h1 class="text-surface-50 font-semibold text-lg">
-          {data.session.questions.length} question{data.session.questions.length === 1 ? "" : "s"} pending
-        </h1>
-        <span class="text-surface-500 text-xs">
-          {data.session.minutesLeft}m left · run {data.session.runId}
-        </span>
-      </div>
-
-      <form method="POST" action="?/answer" use:enhance={() => {
+    <form
+      method="POST"
+      action="?/answer"
+      use:enhance={() => {
         submitting = true;
         return async ({ update }) => {
           submitting = false;
           await update();
         };
-      }}>
-        <input type="hidden" name="run_id" value={data.session.runId} />
+      }}
+      class="flex flex-col gap-6"
+    >
+      <input type="hidden" name="run_id" value={data.session.runId} />
 
-        <div class="flex flex-col gap-6">
-          {#each data.session.questions as q, i}
-            <div class="rounded-lg border border-surface-700 bg-surface-900 p-5">
-              <div class="flex items-baseline gap-2 mb-1">
-                <span class="text-xs text-surface-500 uppercase tracking-wider">{q.item_type}</span>
-                <span class="text-surface-300 text-sm font-medium">{q.from}</span>
-                {#if q.subject}
-                  <span class="text-surface-500 text-xs truncate max-w-xs">- {q.subject}</span>
-                {/if}
-              </div>
-              <p class="text-surface-100 text-sm mb-4">{q.question}</p>
-              <textarea
-                name="answer_{q.id}"
-                rows="2"
-                placeholder="e.g. potential investor, met at ETH Zurich event"
-                class="w-full bg-surface-950 border border-surface-700 rounded px-3 py-2 text-sm text-surface-100 placeholder-surface-600 resize-y focus:border-primary-600"
-              ></textarea>
+      <div class="flex flex-col gap-4">
+        {#each data.session.questions as question (question.id)}
+          <div class="rounded-lg border border-surface-700 bg-surface-900 p-4 sm:p-5">
+            <div class="flex flex-wrap items-baseline gap-2 mb-1">
+              <span class="text-xs text-surface-400 uppercase tracking-wider">{question.item_type}</span>
+              <span class="text-surface-200 text-sm font-medium break-all">{question.from}</span>
+              {#if question.subject}
+                <span class="text-surface-400 text-xs truncate max-w-xs">- {question.subject}</span>
+              {/if}
             </div>
-          {/each}
-        </div>
+            <label class="block">
+              <span class="block text-surface-100 text-sm mb-3">{question.question}</span>
+              <textarea
+                name="answer_{question.id}"
+                rows="2"
+                placeholder="e.g. potential investor, met at a conference"
+                class="input-base-flush w-full resize-y"
+              ></textarea>
+            </label>
+          </div>
+        {/each}
+      </div>
 
-        <div class="mt-6 flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            class="px-4 py-2 rounded bg-primary-700 hover:bg-primary-600 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {submitting ? "Submitting…" : "Submit answers"}
-          </button>
-          <span class="text-surface-500 text-xs">Unanswered questions will be marked with ⚠ in Section 2.</span>
-        </div>
-      </form>
-    {/if}
-  </main>
-</div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={submitting}
+          class="tap inline-flex items-center gap-2 px-5 py-2 rounded bg-primary-700 hover:bg-primary-600 border border-primary-600 text-primary-50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+        >
+          {#if submitting}<Spinner label="Submitting" />{/if}
+          {submitting ? "Submitting…" : "Submit answers"}
+        </button>
+        <span class="text-surface-400 text-xs">Unanswered questions are marked with ⚠ in Section 2.</span>
+      </div>
+    </form>
+  {/if}
+</Page>

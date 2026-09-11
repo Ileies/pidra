@@ -4,7 +4,7 @@
   "homepage": "https://github.com/Ileies/pidra",
   "private": true,
   "scripts": {
-    "check": "tsc --noEmit && bun run scripts/check-skill-writes.ts",
+    "check": "tsc --noEmit && bun run scripts/check-skill-writes.ts && bun run scripts/check-route-surfaces.ts",
     "test": "bun test",
     "dev": "bun run src/index.ts",
     "run:pipeline": "bun run src/pipeline/run.ts",

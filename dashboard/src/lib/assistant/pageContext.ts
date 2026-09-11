@@ -10,6 +10,8 @@
  * and the visible-row ids.
  */
 
+import { surfaceForPath } from "$lib/routes";
+
 export type Surface = "notes" | "context" | "entities" | "report" | "sources" | "prompts" | "global";
 
 export interface FocusItem {
@@ -26,22 +28,15 @@ export interface PageContext {
   focus?: FocusItem[];
 }
 
-const ROUTE_SURFACES: [RegExp, Surface][] = [
-  [/^\/notes/, "notes"],
-  [/^\/(context-builder|chat)/, "context"],
-  [/^\/entities/, "entities"],
-  [/^\/sources/, "sources"],
-  [/^\/prompts/, "prompts"],
-  [/^\/(\d{4}-\d{2}-\d{2})(\/|$)/, "report"],
-  [/^\/$/, "report"],
-];
-
-/** Mirrors the server's fallback so the widget's header is right before the first turn. */
+/**
+ * Mirrors the server's fallback so the widget's header is right before the first turn.
+ *
+ * The route-to-surface table used to live here as a third copy of the same regex list. It is
+ * derived from the route registry now, so a new page cannot end up with a different surface on
+ * the client than the one the server resolves for it.
+ */
 export function surfaceForRoute(pathname: string): Surface {
-  for (const [pattern, surface] of ROUTE_SURFACES) {
-    if (pattern.test(pathname)) return surface;
-  }
-  return "global";
+  return surfaceForPath(pathname);
 }
 
 /** Trimmed to keep a turn's prompt small. The server caps these again. */

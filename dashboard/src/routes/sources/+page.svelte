@@ -1,7 +1,15 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
   import { setPageContext } from "$lib/assistant/state.svelte";
   import { focusFrom } from "$lib/assistant/pageContext";
+  import Page from "$lib/components/Page.svelte";
+  import Badge from "$lib/components/Badge.svelte";
+  import ConfirmButton from "$lib/components/ConfirmButton.svelte";
+  import DataTable from "$lib/components/DataTable.svelte";
+  import Sparkline from "$lib/components/Sparkline.svelte";
+  import type { Column } from "$lib/components/table";
+  import { fmtPct, fmtScore } from "$lib/format";
+  import { label as displayLabel, TREND_GLYPH } from "$lib/labels";
+  import type { SourceRow } from "./+page.server";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -11,158 +19,111 @@
     setPageContext({
       surface: "sources",
       route: "/sources",
-      digest: `Quellen-Dashboard: ${data.sources.length} Quellen, ${data.sources.filter((source) => !source.isActive).length} davon deaktiviert.`,
+      digest: `Source dashboard: ${data.sources.length} sources, ${data.sources.filter((source) => !source.isActive).length} disabled.`,
       focus: focusFrom(data.sources, "source", (source) => ({
         id: source.sourceName,
-        label: `${source.isActive ? "aktiv" : "deaktiviert"}, Score ${source.compositeScore30d?.toFixed(1) ?? "-"}`,
+        label: `${source.isActive ? "active" : "disabled"}, score ${source.compositeScore30d?.toFixed(1) ?? "-"}`,
       })),
     });
   });
 
-  function scoreClass(score: number | null): string {
-    if (score == null) return "text-surface-700";
+  function scoreTone(score: number | null): string {
+    if (score == null) return "text-surface-400";
     if (score >= 7.5) return "text-success-500";
     if (score >= 5) return "text-warning-500";
     return "text-error-500";
   }
 
-  function scoreColor(score: number | null): string {
-    if (score == null) return "var(--color-surface-700)";
-    if (score >= 7.5) return "var(--color-success-500)";
-    if (score >= 5) return "var(--color-warning-500)";
-    return "var(--color-error-500)";
+  function includeRate(source: SourceRow): number | null {
+    if (source.dailyScores.length === 0) return null;
+    return source.dailyScores.reduce((sum, day) => sum + (day.includeRate ?? 0), 0) / source.dailyScores.length;
   }
 
-  function fmtScore(score: number | null): string {
-    if (score == null) return "-";
-    return score.toFixed(1);
+  /** Oldest first, so the sparkline reads left to right like time does. */
+  function series(source: SourceRow) {
+    return source.dailyScores
+      .slice()
+      .reverse()
+      .map((day) => ({ at: day.runDate, value: day.compositeScore }));
   }
-
-  function fmtPct(v: number | null): string {
-    if (v == null) return "-";
-    return Math.round(v * 100) + "%";
-  }
-
-  function trendLabel(trend: string | null): string {
-    if (trend === "improving") return "↑";
-    if (trend === "declining") return "↓";
-    return "→";
-  }
-
-  let confirmDisable = $state<string | null>(null);
-  let disableReason = $state("");
 </script>
 
-<svelte:head>
-  <title>PIDRA - Quellen</title>
-</svelte:head>
+{#snippet nameCell(source: SourceRow)}
+  <span class="inline-flex items-center gap-2 flex-wrap">
+    <a
+      href="/sources/{encodeURIComponent(source.sourceName)}"
+      class="text-surface-100 no-underline hover:text-primary-400 hover:underline transition-colors"
+    >{source.sourceName}</a>
+    {#if !source.isActive}
+      <Badge tone="muted">Disabled</Badge>
+    {/if}
+  </span>
+{/snippet}
 
-<div class="flex flex-1 flex-col min-h-0">
-  <main class="max-w-5xl mx-auto px-6 py-6 pb-16 w-full">
-    <p class="text-xs text-surface-500 mb-6 leading-relaxed">
-      Score 0–10 (gewichteter Durchschnitt der letzten 30 Tage). Formel: Relevanz × 7 + Aufnahme­quote × 3.
-      Eine Quelle deaktivieren schließt sie ab dem nächsten Pipeline-Lauf aus der Extraktion aus.
-      Klick auf den Namen zeigt alle Beiträge der Quelle - also woraus der Score entstanden ist.
-    </p>
+{#snippet scoreCell(source: SourceRow)}
+  <span class="text-base font-semibold tabular-nums {scoreTone(source.compositeScore30d)}">
+    {fmtScore(source.compositeScore30d)}<span class="text-xs text-surface-400 ml-px">/10</span>
+  </span>
+{/snippet}
 
-    <table class="w-full border-collapse text-sm">
-      <thead>
-        <tr>
-          <th class="text-left px-3 py-2 text-surface-500 font-normal border-b border-surface-700 whitespace-nowrap">Newsletter</th>
-          <th class="text-right px-3 py-2 text-surface-500 font-normal border-b border-surface-700 whitespace-nowrap">Score 30d</th>
-          <th class="w-24 text-left px-3 py-2 text-surface-500 font-normal border-b border-surface-700">Verlauf</th>
-          <th class="text-right px-3 py-2 text-surface-500 font-normal border-b border-surface-700">Aufnahme­quote</th>
-          <th class="text-center px-3 py-2 text-surface-500 font-normal border-b border-surface-700">Trend</th>
-          <th class="w-48 px-3 py-2 border-b border-surface-700"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each data.sources as src}
-          <tr class:opacity-50={!src.isActive}>
-            <td class="px-3 py-2 border-b border-surface-800">
-              <a
-                href="/sources/{encodeURIComponent(src.sourceName)}"
-                class="text-surface-200 no-underline hover:text-primary-400 hover:underline transition-colors"
-                title="Beiträge dieser Quelle ansehen"
-              >{src.sourceName}</a>
-              {#if !src.isActive}
-                <span class="badge ml-2 bg-surface-800 text-surface-500">deaktiviert</span>
-              {/if}
-            </td>
-            <td class="px-3 py-2 border-b border-surface-800 text-right">
-              <span class="text-base font-semibold tabular-nums {scoreClass(src.compositeScore30d)}">
-                {fmtScore(src.compositeScore30d)}<span class="text-xs text-surface-700 ml-px">/10</span>
-              </span>
-            </td>
-            <td class="px-3 py-2 border-b border-surface-800">
-              {#if src.dailyScores.length > 0}
-                <svg class="w-20 h-6 block" viewBox="0 0 80 24" preserveAspectRatio="none">
-                  {#each src.dailyScores.slice().reverse() as day, i}
-                    {@const x = (i / Math.max(src.dailyScores.length - 1, 1)) * 78 + 1}
-                    {@const y = 23 - ((day.compositeScore ?? 0) / 10) * 22}
-                    <circle cx={x} cy={y} r="1.5" fill={scoreColor(day.compositeScore)} />
-                  {/each}
-                </svg>
-              {:else}
-                <span class="text-surface-700 text-xs">keine Daten</span>
-              {/if}
-            </td>
-            <td class="px-3 py-2 border-b border-surface-800 text-right">
-              {#if src.dailyScores.length > 0}
-                {@const avgRate = src.dailyScores.reduce((s, d) => s + (d.includeRate ?? 0), 0) / src.dailyScores.length}
-                {fmtPct(avgRate)}
-              {:else}
-                -
-              {/if}
-            </td>
-            <td class="px-3 py-2 border-b border-surface-800 text-center text-surface-500">{trendLabel(src.qualityTrend)}</td>
-            <td class="px-3 py-2 border-b border-surface-800">
-              {#if src.isActive}
-                {#if confirmDisable === src.sourceName}
-                  <div class="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Grund (optional)"
-                      bind:value={disableReason}
-                      class="bg-surface-900 border border-surface-700 rounded text-surface-200 text-xs px-2 py-1 w-32"
-                    />
-                    <form method="POST" action="?/toggle" use:enhance>
-                      <input type="hidden" name="sourceName" value={src.sourceName} />
-                      <input type="hidden" name="isActive" value="false" />
-                      <input type="hidden" name="reason" value={disableReason} />
-                      <button type="submit" class="px-2.5 py-1 rounded text-xs cursor-pointer bg-error-500 text-white border border-error-500 hover:opacity-80 transition-opacity">Bestätigen</button>
-                    </form>
-                    <button
-                      class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:text-surface-200 transition-colors"
-                      onclick={() => { confirmDisable = null; disableReason = ""; }}
-                    >
-                      Abbrechen
-                    </button>
-                  </div>
-                {:else}
-                  <button
-                    class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-surface-700 text-surface-500 hover:border-error-500 hover:text-error-500 transition-colors"
-                    onclick={() => { confirmDisable = src.sourceName; disableReason = ""; }}
-                  >
-                    Deaktivieren
-                  </button>
-                {/if}
-              {:else}
-                <form method="POST" action="?/toggle" use:enhance>
-                  <input type="hidden" name="sourceName" value={src.sourceName} />
-                  <input type="hidden" name="isActive" value="true" />
-                  <button type="submit" class="px-2.5 py-1 rounded text-xs cursor-pointer bg-transparent border border-success-500 text-success-500 hover:bg-success-950 transition-colors">Aktivieren</button>
-                </form>
-              {/if}
-            </td>
-          </tr>
-        {/each}
-        {#if data.sources.length === 0}
-          <tr>
-            <td colspan="6" class="text-surface-700 text-center py-8">Noch keine Quelldaten - läuft nach dem ersten Pipeline-Run.</td>
-          </tr>
-        {/if}
-      </tbody>
-    </table>
-  </main>
-</div>
+{#snippet historyCell(source: SourceRow)}
+  <Sparkline points={series(source)} label="Composite score, last 30 days" />
+{/snippet}
+
+{#snippet rateCell(source: SourceRow)}
+  <span class="tabular-nums">{fmtPct(includeRate(source))}</span>
+{/snippet}
+
+{#snippet trendCell(source: SourceRow)}
+  <!-- The glyph never travels alone: an arrow on its own is colour-and-shape only (P7). -->
+  <span class="whitespace-nowrap text-surface-300">
+    <span aria-hidden="true">{TREND_GLYPH[source.qualityTrend ?? "stable"] ?? "→"}</span>
+    {displayLabel(source.qualityTrend ?? "stable")}
+  </span>
+{/snippet}
+
+{#snippet actionCell(source: SourceRow)}
+  {#if source.isActive}
+    <ConfirmButton
+      label="Disable"
+      confirmLabel="Disable"
+      action="?/toggle"
+      fields={{ sourceName: source.sourceName, isActive: "false" }}
+      reasonName="reason"
+    />
+  {:else}
+    <ConfirmButton
+      label="Enable"
+      action="?/toggle"
+      fields={{ sourceName: source.sourceName, isActive: "true" }}
+      tone="success"
+      immediate
+    />
+  {/if}
+{/snippet}
+
+<Page title="Sources" size="app" class="flex flex-col gap-4">
+  <p class="text-xs text-surface-400 leading-relaxed max-w-prose">
+    Score 0-10, a weighted average over the last 30 days: relevance x 7 + include rate x 3.
+    Disabling a source excludes it from extraction from the next pipeline run on. The name links
+    to every delivery the source made, which is where the score comes from.
+  </p>
+
+  <DataTable
+    rows={data.sources}
+    key={(source) => source.sourceName}
+    dim={(source) => !source.isActive}
+    mode="cards"
+    caption="Source quality"
+    emptyTitle="No source data yet."
+    emptyHint="Sources appear here after the first pipeline run."
+    columns={[
+      { key: "name", header: "Newsletter", card: "title", cell: nameCell },
+      { key: "score", header: "Score 30d", align: "right", card: "row", cell: scoreCell },
+      { key: "history", header: "History", width: "w-40", showAt: "md", card: "row", cell: historyCell },
+      { key: "rate", header: "Include rate", align: "right", card: "row", cell: rateCell },
+      { key: "trend", header: "Trend", showAt: "sm", card: "row", cell: trendCell },
+      { key: "action", header: "", width: "w-56", align: "right", card: "actions", cell: actionCell },
+    ] as Column<SourceRow>[]}
+  />
+</Page>

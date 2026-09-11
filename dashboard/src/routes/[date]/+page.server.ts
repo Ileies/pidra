@@ -18,7 +18,7 @@ function injectDetailLinks(html: string, date: string, validIds: Set<string>): s
   return html.replace(/<!--refs:([\w,\-]+)-->/g, (_, ids) => {
     const filtered = ids.split(",").filter((id: string) => validIds.has(id));
     if (filtered.length === 0) return "";
-    return `<a href="/${date}/detail/${filtered.join(",")}" class="mehr-dazu">Mehr dazu</a>`;
+    return `<a href="/${date}/detail/${filtered.join(",")}" class="more-on-this">More on this</a>`;
   });
 }
 

@@ -76,21 +76,11 @@ export const revertRevision = (revisionId: string) =>
 
 export const NOTE_SCOPES = ["global", "intel", "personal", "contact", "search"] as const;
 
+/** Scope is the one place a note's colour carries meaning, and the word is always beside it. */
 export const SCOPE_CLASS: Record<string, string> = {
-  global: "text-primary-400 bg-primary-950 border-primary-700",
-  intel: "text-warning-400 bg-warning-950 border-warning-700",
-  personal: "text-success-400 bg-success-950 border-success-700",
-  contact: "text-surface-300 bg-surface-800 border-surface-600",
-  search: "text-surface-400 bg-surface-900 border-surface-700",
+  global: "text-primary-300 bg-primary-950 border-primary-800",
+  intel: "text-warning-400 bg-warning-950 border-warning-800",
+  personal: "text-success-400 bg-success-950 border-success-800",
+  contact: "text-surface-200 bg-surface-800 border-surface-600",
+  search: "text-surface-300 bg-surface-900 border-surface-700",
 };
-
-export function fmtDate(value: string | null): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("de-DE", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}

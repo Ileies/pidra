@@ -2,6 +2,12 @@
   import { onMount, onDestroy } from "svelte";
   import { enhance } from "$app/forms";
   import { setPageContext } from "$lib/assistant/state.svelte";
+  import Page from "$lib/components/Page.svelte";
+  import Badge from "$lib/components/Badge.svelte";
+  import StatCard from "$lib/components/StatCard.svelte";
+  import { fmtCost, fmtDateTime, fmtElapsed, fmtNum } from "$lib/format";
+  import { label as displayLabel } from "$lib/labels";
+  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
   import type { ContextBuilderStatus } from "$lib/server/contextBuilder";
   import type { ActionData, PageData } from "./$types";
 
@@ -14,9 +20,9 @@
       route: "/context-builder",
       digest: [
         "Harvested long-term context.",
-        `${data.counts.standing_context} Standing Rules, ${data.counts.entities} Entities, ${data.counts.contacts} Contacts,`,
-        `${data.corrections.length} aktive Korrekturen.`,
-        data.doc ? "Das Kontext-Dokument ist vorhanden." : "Es gibt noch kein Kontext-Dokument.",
+        `${data.counts.standing_context} standing rules, ${data.counts.entities} entities, ${data.counts.contacts} contacts,`,
+        `${data.corrections.length} active corrections.`,
+        data.doc ? "The context document exists." : "There is no context document yet.",
       ].join(" "),
       focus: data.standing.slice(0, 30).map((rule) => ({
         kind: "standing_context",
@@ -80,56 +86,26 @@
     if (pollTimer) clearInterval(pollTimer);
   });
 
-  function fmtNum(n: number | null | undefined): string {
-    if (n == null) return "-";
-    return n.toLocaleString("de-DE");
-  }
-
+  // The current run's window starts at the checkpoint's start, falling back to the DB run row.
   // Always with the date: errors.json spans every run ever made, and a time-only label made
   // failures from days-old abandoned runs read as the current run's.
-  function fmtTs(ts: string): string {
-    return new Date(ts).toLocaleString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  }
-
-  // The current run's window starts at the checkpoint's start, falling back to the DB run row.
   const runStartedAt = $derived(status?.checkpoint?.startedAt ?? status?.dbRun?.started_at ?? null);
   const currentErrors = $derived(
     runStartedAt
-      ? (status?.errors ?? []).filter((e) => new Date(e.ts) >= new Date(runStartedAt))
+      ? (status?.errors ?? []).filter((error) => new Date(error.ts) >= new Date(runStartedAt))
       : (status?.errors ?? []),
   );
   const olderErrors = $derived(
     runStartedAt
-      ? (status?.errors ?? []).filter((e) => new Date(e.ts) < new Date(runStartedAt))
+      ? (status?.errors ?? []).filter((error) => new Date(error.ts) < new Date(runStartedAt))
       : [],
   );
 
-  function fmtCost(tokensIn: number, tokensOut: number): string {
-    const cost = (tokensIn / 1_000_000) * 3.0 + (tokensOut / 1_000_000) * 15.0;
-    return `$${cost.toFixed(3)}`;
-  }
-
-  function fmtElapsed(startedAt: string | undefined): string {
-    if (!startedAt) return "-";
-    const secs = Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 1000));
-    if (secs < 60) return `${secs}s`;
-    if (secs < 3600) return `${Math.floor(secs / 60)}m ${secs % 60}s`;
-    return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
-  }
-
-  function statusBadgeClass(s: string | undefined): string {
-    if (s === "running") return "bg-primary-950 text-primary-400 border-primary-700";
-    if (s === "completed") return "bg-success-950 text-success-400 border-success-700";
-    if (s === "failed") return "bg-error-950 text-error-400 border-error-700";
-    return "bg-surface-800 text-surface-400 border-surface-700";
-  }
+  const STATUS_TONE = {
+    running: "primary",
+    completed: "success",
+    failed: "error",
+  } as const;
 
   const PHASES: { key: "email" | "tasks" | "keep" | "github"; label: string }[] = [
     { key: "email", label: "Email" },
@@ -139,343 +115,286 @@
   ];
 </script>
 
-<svelte:head>
-  <title>PIDRA - Context Builder</title>
-</svelte:head>
+{#snippet progress(name: string, done: boolean, detail: string, pct: number)}
+  <div>
+    <div class="flex items-center justify-between text-xs mb-1 gap-2">
+      <span class="text-surface-200">{name}</span>
+      <span class="text-surface-400 tabular-nums text-right">{detail}</span>
+    </div>
+    <div class="h-2 rounded-full bg-surface-800 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100" aria-label={name}>
+      <div class="h-full rounded-full transition-all duration-500 {done ? 'bg-success-500' : 'bg-primary-500'}" style="width: {pct}%"></div>
+    </div>
+  </div>
+{/snippet}
 
-<div class="flex flex-1 flex-col min-h-0">
-  <main class="max-w-4xl mx-auto px-6 py-6 pb-16 w-full flex flex-col gap-6">
-    <!-- What the builder actually produced. This is the point of the tool, so it comes before
-         the run machinery rather than after it. -->
-    {#if data.doc}
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
-        <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-          <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
-          <span class="text-surface-500 text-xs tabular-nums">
-            {fmtNum(data.doc.chars)} chars
-            {#if data.doc.generatedAt}· built {fmtTs(data.doc.generatedAt)}{/if}
-          </span>
-        </div>
-        <p class="text-surface-500 text-xs mb-4">
-          Synthesised from {fmtNum(data.counts.indexed_email)} emails and
-          {fmtNum(data.counts.indexed_keep)} Keep notes. Seeded
-          {fmtNum(data.counts.contacts)} contacts, {fmtNum(data.counts.entities)} entities and
-          {fmtNum(data.counts.standing_context)} standing rules.
-        </p>
-        <article class="report-body text-sm max-w-none">
-          {@html data.doc.fullContextHtml}
-        </article>
-      </section>
-
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-5 flex flex-col gap-3">
-        <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
-        {#each data.doc.sections as s}
-          {#if s.chars > 0}
-            <details class="border-b border-surface-800 pb-2 last:border-0">
-              <summary class="cursor-pointer text-surface-300 text-sm flex items-baseline justify-between gap-3">
-                <span>{s.title}</span>
-                <span class="text-surface-600 text-xs tabular-nums shrink-0">{fmtNum(s.chars)} chars</span>
-              </summary>
-              <article class="report-body text-sm max-w-none mt-3">{@html s.html}</article>
-            </details>
-          {/if}
-        {/each}
-        <p class="text-surface-600 text-xs">Source file: <code>{data.doc.path}</code></p>
-      </section>
-    {:else}
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
-        <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
-        <p class="text-surface-400 text-sm">
-          {#if data.docError}
-            The last completed run recorded an output file, but it could not be read:
-            <code class="text-warning-400">{data.docError}</code>
-          {:else if data.run}
-            The last completed run recorded no output file. Re-run to generate the document.
-          {:else}
-            No completed run yet. Start one below to build the context document.
-          {/if}
-        </p>
-      </section>
-    {/if}
-
-    <!-- The correction layer. The harvest above is never rewritten, so this is where the
-         current truth lives; reverting one puts the harvest back in charge of that fact. -->
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
+<Page title="Context Builder" size="read" class="flex flex-col gap-6">
+  <!-- What the builder actually produced. This is the point of the tool, so it comes before
+       the run machinery rather than after it. -->
+  {#if data.doc}
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
       <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-        <h2 class="text-surface-200 text-sm font-semibold">Korrekturen ({data.corrections.length})</h2>
-        <a href="/chat" class="text-primary-400 text-xs no-underline hover:text-primary-300">Im Chat korrigieren →</a>
+        <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
+        <span class="text-surface-400 text-xs tabular-nums">
+          {fmtNum(data.doc.chars)} chars
+          {#if data.doc.generatedAt}· built {fmtDateTime(data.doc.generatedAt)}{/if}
+        </span>
       </div>
-      <p class="text-surface-500 text-xs mb-3">
-        Werden zusätzlich zum Dokument in jedes Briefing injiziert und schlagen es dort, wo sie sich
-        widersprechen. Nichts oben wird dabei überschrieben.
+      <p class="text-surface-400 text-xs mb-4">
+        Synthesised from {fmtNum(data.counts.indexed_email)} emails and
+        {fmtNum(data.counts.indexed_keep)} Keep notes. Seeded
+        {fmtNum(data.counts.contacts)} contacts, {fmtNum(data.counts.entities)} entities and
+        {fmtNum(data.counts.standing_context)} standing rules.
       </p>
+      <article class="report-body text-sm max-w-none">
+        {@html data.doc.fullContextHtml}
+      </article>
+    </section>
 
-      {#if form?.error}
-        <p class="text-error-400 text-xs mb-3">{form.error}</p>
-      {:else if form?.message}
-        <p class="text-success-400 text-xs mb-3">{form.message}</p>
-      {/if}
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
+      <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
+      {#each data.doc.sections as section (section.title)}
+        {#if section.chars > 0}
+          <details class="border-b border-surface-800 pb-2 last:border-0">
+            <summary class="tap cursor-pointer text-surface-200 text-sm flex items-baseline justify-between gap-3">
+              <span>{section.title}</span>
+              <span class="text-surface-400 text-xs tabular-nums shrink-0">{fmtNum(section.chars)} chars</span>
+            </summary>
+            <article class="report-body text-sm max-w-none mt-3">{@html section.html}</article>
+          </details>
+        {/if}
+      {/each}
+      <p class="text-surface-400 text-xs break-all">Source file: <code>{data.doc.path}</code></p>
+    </section>
+  {:else}
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+      <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
+      <p class="text-surface-300 text-sm">
+        {#if data.docError}
+          The last completed run recorded an output file, but it could not be read:
+          <code class="text-warning-400">{data.docError}</code>
+        {:else if data.run}
+          The last completed run recorded no output file. Re-run to generate the document.
+        {:else}
+          No completed run yet. Start one below to build the context document.
+        {/if}
+      </p>
+    </section>
+  {/if}
 
-      {#if data.corrections.length === 0}
-        <p class="text-surface-500 text-sm">
-          Keine aktiven Korrekturen. Falsche Beziehungen oder Fakten im Dokument lassen sich im
-          <a href="/chat" class="text-primary-400 no-underline hover:text-primary-300">Context Chat</a> beheben.
-        </p>
-      {:else}
-        <ul class="flex flex-col gap-3 text-sm">
-          {#each data.corrections as correction}
-            <li class="border-b border-surface-800 pb-3 last:border-0">
-              <div class="flex items-start justify-between gap-3 flex-wrap">
-                <div class="min-w-0 flex-1">
-                  <div class="text-surface-500 text-xs">
-                    <code>{correction.target_kind}:{correction.target_key}</code> · {correction.operation} · {correction.source}
+  <!-- The correction layer. The harvest above is never rewritten, so this is where the current
+       truth lives; reverting one puts the harvest back in charge of that fact. -->
+  <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+      <h2 class="text-surface-200 text-sm font-semibold">Corrections ({data.corrections.length})</h2>
+      <a href="/chat" class="text-primary-400 text-xs no-underline hover:text-primary-300">Correct it in the chat →</a>
+    </div>
+    <p class="text-surface-400 text-xs mb-3">
+      Injected into every briefing alongside the document, and authoritative wherever the two
+      disagree. Nothing above is overwritten.
+    </p>
+
+    {#if form?.error}
+      <p class="text-error-400 text-xs mb-3">{form.error}</p>
+    {:else if form?.message}
+      <p class="text-success-400 text-xs mb-3">{form.message}</p>
+    {/if}
+
+    {#if data.corrections.length === 0}
+      <p class="text-surface-300 text-sm">
+        No active corrections. A wrong relationship or fact in the document can be fixed in the
+        <a href="/chat" class="text-primary-400 no-underline hover:text-primary-300">context chat</a>.
+      </p>
+    {:else}
+      <ul class="flex flex-col gap-3 text-sm">
+        {#each data.corrections as correction (correction.id)}
+          <li class="border-b border-surface-800 pb-3 last:border-0">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="text-surface-400 text-xs break-all">
+                  <code>{correction.target_kind}:{correction.target_key}</code> ·
+                  {displayLabel(correction.operation)} · {correction.source}
+                </div>
+                <div class="text-surface-100 mt-1 whitespace-pre-wrap break-words">{correction.statement}</div>
+                {#if correction.supersedes_text}
+                  <div class="text-surface-400 text-xs mt-1 line-through whitespace-pre-wrap break-words">
+                    {correction.supersedes_text}
                   </div>
-                  <div class="text-surface-100 mt-1 whitespace-pre-wrap break-words">{correction.statement}</div>
-                  {#if correction.supersedes_text}
-                    <div class="text-surface-600 text-xs mt-1 line-through whitespace-pre-wrap break-words">
-                      {correction.supersedes_text}
-                    </div>
-                  {/if}
-                  {#if correction.rationale}
-                    <div class="text-surface-500 text-xs mt-1 whitespace-pre-wrap break-words">{correction.rationale}</div>
-                  {/if}
-                  <div class="text-surface-600 text-xs mt-1">{fmtTs(correction.created_at)}</div>
-                </div>
-                <form method="POST" action="?/revertCorrection" use:enhance class="shrink-0">
-                  <input type="hidden" name="id" value={correction.id} />
-                  <button
-                    type="submit"
-                    class="nav-btn border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer"
-                  >
-                    Zurücknehmen
-                  </button>
-                </form>
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-
-    {#if data.standing.length > 0}
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
-        <h2 class="text-surface-200 text-sm font-semibold mb-1">
-          Standing rules ({data.standing.length})
-        </h2>
-        <p class="text-surface-500 text-xs mb-3">
-          Persistent rules extracted from your Keep notes, stored in <code>standing_context</code>.
-        </p>
-        <ul class="flex flex-col gap-2 text-sm">
-          {#each data.standing as rule}
-            <li class="border-b border-surface-800 pb-2 last:border-0">
-              <div class="text-surface-200 whitespace-pre-wrap break-words">{rule.value}</div>
-              <div class="text-surface-600 text-xs mt-1">
-                <code>{rule.key}</code> · {rule.source}
-              </div>
-            </li>
-          {/each}
-        </ul>
-      </section>
-    {/if}
-
-    <!-- Run status + controls -->
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
-      <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <div class="flex items-center gap-3">
-          <span class="badge border {statusBadgeClass(status?.dbRun?.status)} text-xs px-2.5 py-1 rounded">
-            {status?.dbRun?.status ?? (status ? "idle" : "loading…")}
-          </span>
-          {#if status?.dbRun}
-            <span class="text-surface-500 text-sm">{status.dbRun.mode} mode</span>
-          {/if}
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            class="nav-btn border-primary-700 text-primary-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={starting || status?.running}
-            onclick={() => start(null)}
-          >
-            {starting ? "Starting…" : "Start"}
-          </button>
-          <button
-            class="nav-btn border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={starting || status?.running}
-            onclick={() => start("full")}
-          >
-            Force Full
-          </button>
-          <button
-            class="nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={stopping || !status?.trackedByDashboard}
-            onclick={stop}
-          >
-            {stopping ? "Stopping…" : "Stop"}
-          </button>
-        </div>
-      </div>
-
-      {#if actionError}
-        <p class="text-error-400 text-xs mb-3">{actionError}</p>
-      {/if}
-
-      {#if status?.dbRun}
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-          <div>
-            <div class="text-surface-500 text-xs">Elapsed</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtElapsed(status.dbRun.started_at)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">Items indexed</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtNum(status.dbRun.items_indexed)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">Memory (RSS)</div>
-            <div class="text-surface-100 font-semibold tabular-nums">
-              {status.trackedByDashboard && status.rssMb != null ? `${fmtNum(status.rssMb)} MB` : "not tracked"}
-            </div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">OpenAI cost</div>
-            <div class="text-surface-100 font-semibold tabular-nums">
-              {status.checkpoint ? fmtCost(status.checkpoint.openaiTokensIn, status.checkpoint.openaiTokensOut) : "-"}
-            </div>
-          </div>
-        </div>
-      {:else if status}
-        <p class="text-surface-500 text-sm">No runs yet.</p>
-      {/if}
-    </section>
-
-    <!-- Phase progress -->
-    {#if status?.checkpoint}
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-5 flex flex-col gap-4">
-        <h2 class="text-surface-200 text-sm font-semibold">Steps</h2>
-
-        {#each PHASES as phase}
-          {@const p = status.checkpoint.phases[phase.key]}
-          {@const pct = p.total > 0 ? Math.min(100, Math.round((p.processed / p.total) * 100)) : (p.done ? 100 : 0)}
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1">
-              <span class="text-surface-300">{phase.label}</span>
-              <span class="text-surface-500 tabular-nums">
-                {#if p.done}
-                  done{p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}
-                {:else if p.total > 0}
-                  {fmtNum(p.processed)} / {fmtNum(p.total)}{p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}
-                {:else}
-                  waiting…
                 {/if}
-              </span>
-            </div>
-            <div class="h-2 rounded-full bg-surface-800 overflow-hidden">
-              <div
-                class="h-full rounded-full transition-all duration-500 {p.done ? 'bg-success-500' : 'bg-primary-500'}"
-                style="width: {pct}%"
-              ></div>
-            </div>
-          </div>
-        {/each}
-
-        <div>
-          <div class="flex items-center justify-between text-xs mb-1">
-            <span class="text-surface-300">Synthesis</span>
-            <span class="text-surface-500">{status.checkpoint.phases.synthesis.done ? "done" : "waiting…"}</span>
-          </div>
-          <div class="h-2 rounded-full bg-surface-800 overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all duration-500 {status.checkpoint.phases.synthesis.done ? 'bg-success-500' : 'bg-surface-700'}"
-              style="width: {status.checkpoint.phases.synthesis.done ? 100 : 0}%"
-            ></div>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between text-xs mb-1">
-            <span class="text-surface-300">DB Seed</span>
-            <span class="text-surface-500">{status.checkpoint.phases.dbSeed.done ? "done" : "waiting…"}</span>
-          </div>
-          <div class="h-2 rounded-full bg-surface-800 overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all duration-500 {status.checkpoint.phases.dbSeed.done ? 'bg-success-500' : 'bg-surface-700'}"
-              style="width: {status.checkpoint.phases.dbSeed.done ? 100 : 0}%"
-            ></div>
-          </div>
-        </div>
-      </section>
-    {/if}
-
-    <!-- Numbers -->
-    {#if status?.checkpoint}
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-5">
-        <h2 class="text-surface-200 text-sm font-semibold mb-3">Numbers</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-surface-500 text-xs">Tokens in</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtNum(status.checkpoint.openaiTokensIn)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">Tokens out</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtNum(status.checkpoint.openaiTokensOut)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">Emails extracted</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtNum(status.checkpoint.phases.email.processed)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">Notes extracted</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtNum(status.checkpoint.phases.keep.processed)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">GitHub repos</div>
-            <div class="text-surface-100 font-semibold tabular-nums">{fmtNum(status.checkpoint.phases.github.processed || status.checkpoint.phases.github.total)}</div>
-          </div>
-          <div>
-            <div class="text-surface-500 text-xs">Errors this run</div>
-            <div class="font-semibold tabular-nums {currentErrors.length > 0 ? 'text-warning-400' : 'text-surface-100'}">{fmtNum(currentErrors.length)}</div>
-          </div>
-        </div>
-      </section>
-    {/if}
-
-    <!-- Errors. errors.json is a persistent log across every run ever made, so it is split
-         here by the current run's start time: showing the whole file undated made errors from
-         abandoned runs days earlier look like the current run's output. -->
-    {#if currentErrors.length > 0}
-      <section class="bg-surface-900 border border-warning-800 rounded-lg p-5">
-        <h2 class="text-warning-400 text-sm font-semibold mb-3">Errors this run ({currentErrors.length})</h2>
-        <ul class="flex flex-col gap-2 text-xs">
-          {#each currentErrors as err}
-            <li class="border-b border-surface-800 pb-2">
-              <div class="flex items-center gap-2">
-                <span class="badge bg-surface-800 text-surface-400 px-1.5 py-0.5 rounded">{err.source}</span>
-                <span class="text-surface-600">{fmtTs(err.ts)}</span>
+                {#if correction.rationale}
+                  <div class="text-surface-400 text-xs mt-1 whitespace-pre-wrap break-words">{correction.rationale}</div>
+                {/if}
+                <div class="text-surface-400 text-xs mt-1">{fmtDateTime(correction.created_at)}</div>
               </div>
-              <div class="text-surface-400 mt-1 whitespace-pre-wrap break-words">{err.error}</div>
+              <form method="POST" action="?/revertCorrection" use:enhance class="shrink-0">
+                <input type="hidden" name="id" value={correction.id} />
+                <button type="submit" class="tap nav-btn nav-btn-muted cursor-pointer">Revert</button>
+              </form>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  {#if data.standing.length > 0}
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+      <h2 class="text-surface-200 text-sm font-semibold mb-1">Standing rules ({data.standing.length})</h2>
+      <p class="text-surface-400 text-xs mb-3">
+        Persistent rules extracted from your Keep notes, stored in <code>standing_context</code>.
+      </p>
+      <ul class="flex flex-col gap-2 text-sm">
+        {#each data.standing as rule (rule.key)}
+          <li class="border-b border-surface-800 pb-2 last:border-0">
+            <div class="text-surface-200 whitespace-pre-wrap break-words">{rule.value}</div>
+            <div class="text-surface-400 text-xs mt-1 break-all"><code>{rule.key}</code> · {rule.source}</div>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  <!-- Run status + controls -->
+  <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+      <div class="flex items-center gap-3">
+        <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
+          {displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
+        </Badge>
+        {#if status?.dbRun}
+          <span class="text-surface-400 text-sm">{displayLabel(status.dbRun.mode)} mode</span>
+        {/if}
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button
+          class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={starting || status?.running}
+          onclick={() => start(null)}
+        >
+          {starting ? "Starting…" : "Start"}
+        </button>
+        <button
+          class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={starting || status?.running}
+          onclick={() => start("full")}
+        >
+          Force full
+        </button>
+        <button
+          class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={stopping || !status?.trackedByDashboard}
+          onclick={stop}
+        >
+          {stopping ? "Stopping…" : "Stop"}
+        </button>
+      </div>
+    </div>
+
+    {#if actionError}
+      <p class="text-error-400 text-xs mb-3">{actionError}</p>
+    {/if}
+
+    {#if status?.dbRun}
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Elapsed" value={fmtElapsed(status.dbRun.started_at)} />
+        <StatCard label="Items indexed" value={fmtNum(status.dbRun.items_indexed)} />
+        <StatCard
+          label="Memory (RSS)"
+          value={status.trackedByDashboard && status.rssMb != null ? `${fmtNum(status.rssMb)} MB` : "not tracked"}
+        />
+        <!-- This figure used to be computed at Sonnet's $3/$15 per Mtok against gpt-5.6-luna
+             token counts, so it was simply wrong. It now comes from configured prices, and
+             says so when there are none rather than inventing a number. -->
+        <StatCard
+          label="OpenAI cost"
+          value={status.checkpoint ? fmtCost(costUsd(status.checkpoint.openaiTokensIn, status.checkpoint.openaiTokensOut)) : "-"}
+          hint={PRICING_CONFIGURED ? undefined : PRICING_HINT}
+        />
+      </div>
+    {:else if status}
+      <p class="text-surface-300 text-sm">No runs yet.</p>
+    {/if}
+  </section>
+
+  <!-- Phase progress -->
+  {#if status?.checkpoint}
+    {@const checkpoint = status.checkpoint}
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-4">
+      <h2 class="text-surface-200 text-sm font-semibold">Steps</h2>
+
+      {#each PHASES as phase (phase.key)}
+        {@const p = checkpoint.phases[phase.key]}
+        {@const pct = p.total > 0 ? Math.min(100, Math.round((p.processed / p.total) * 100)) : p.done ? 100 : 0}
+        {@render progress(
+          phase.label,
+          p.done,
+          p.done
+            ? `done${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
+            : p.total > 0
+              ? `${fmtNum(p.processed)} / ${fmtNum(p.total)}${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
+              : "waiting…",
+          pct,
+        )}
+      {/each}
+
+      {@render progress("Synthesis", checkpoint.phases.synthesis.done, checkpoint.phases.synthesis.done ? "done" : "waiting…", checkpoint.phases.synthesis.done ? 100 : 0)}
+      {@render progress("DB seed", checkpoint.phases.dbSeed.done, checkpoint.phases.dbSeed.done ? "done" : "waiting…", checkpoint.phases.dbSeed.done ? 100 : 0)}
+    </section>
+
+    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+      <h2 class="text-surface-200 text-sm font-semibold mb-3">Numbers</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <StatCard label="Tokens in" value={fmtNum(checkpoint.openaiTokensIn)} />
+        <StatCard label="Tokens out" value={fmtNum(checkpoint.openaiTokensOut)} />
+        <StatCard label="Emails extracted" value={fmtNum(checkpoint.phases.email.processed)} />
+        <StatCard label="Notes extracted" value={fmtNum(checkpoint.phases.keep.processed)} />
+        <StatCard label="GitHub repos" value={fmtNum(checkpoint.phases.github.processed || checkpoint.phases.github.total)} />
+        <StatCard
+          label="Errors this run"
+          value={fmtNum(currentErrors.length)}
+          tone={currentErrors.length > 0 ? "warning" : "default"}
+        />
+      </div>
+    </section>
+  {/if}
+
+  <!-- errors.json is a persistent log across every run ever made, so it is split here by the
+       current run's start time: showing the whole file undated made errors from runs abandoned
+       days earlier look like the current run's output. -->
+  {#if currentErrors.length > 0}
+    <section class="bg-surface-900 border border-warning-800 rounded-lg p-4 sm:p-5">
+      <h2 class="text-warning-400 text-sm font-semibold mb-3">Errors this run ({currentErrors.length})</h2>
+      <ul class="flex flex-col gap-2 text-xs">
+        {#each currentErrors as error (error.ts + error.source)}
+          <li class="border-b border-surface-800 pb-2 last:border-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <Badge tone="muted">{error.source}</Badge>
+              <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
+            </div>
+            <div class="text-surface-300 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if olderErrors.length > 0}
+    <section class="bg-surface-900 border border-surface-800 rounded-lg p-4 sm:p-5">
+      <details>
+        <summary class="tap text-surface-300 text-sm font-semibold cursor-pointer">
+          Older errors from previous runs ({olderErrors.length})
+        </summary>
+        <ul class="flex flex-col gap-2 text-xs mt-3">
+          {#each olderErrors as error (error.ts + error.source)}
+            <li class="border-b border-surface-800 pb-2 last:border-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <Badge tone="muted">{error.source}</Badge>
+                <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
+              </div>
+              <div class="text-surface-400 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
             </li>
           {/each}
         </ul>
-      </section>
-    {/if}
-
-    {#if olderErrors.length > 0}
-      <section class="bg-surface-900 border border-surface-800 rounded-lg p-5">
-        <details>
-          <summary class="text-surface-400 text-sm font-semibold cursor-pointer">
-            Older errors from previous runs ({olderErrors.length})
-          </summary>
-          <ul class="flex flex-col gap-2 text-xs mt-3">
-            {#each olderErrors as err}
-              <li class="border-b border-surface-800 pb-2">
-                <div class="flex items-center gap-2">
-                  <span class="badge bg-surface-800 text-surface-500 px-1.5 py-0.5 rounded">{err.source}</span>
-                  <span class="text-surface-600">{fmtTs(err.ts)}</span>
-                </div>
-                <div class="text-surface-500 mt-1 whitespace-pre-wrap break-words">{err.error}</div>
-              </li>
-            {/each}
-          </ul>
-        </details>
-      </section>
-    {/if}
-  </main>
-</div>
+      </details>
+    </section>
+  {/if}
+</Page>

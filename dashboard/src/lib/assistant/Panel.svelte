@@ -48,22 +48,22 @@
   >
     {#if assistant.messages.length === 0}
       <div class="text-sm text-surface-400 flex flex-col gap-2">
-        <p class="text-surface-200 font-semibold">{assistant.info?.label ?? "Assistent"}</p>
+        <p class="text-surface-200 font-semibold">{assistant.info?.label ?? "Assistant"}</p>
         {#if notice}
           <p class="text-warning-400 text-xs">{notice}</p>
         {/if}
         {#if hints.length > 0}
-          <p class="text-xs text-surface-500">Auf dieser Seite zum Beispiel:</p>
+          <p class="text-xs text-surface-400">On this page, for example:</p>
           <div class="flex flex-col gap-1">
-            {#each hints as hint}
+            {#each hints as hint (hint)}
               <button
                 onclick={() => assistant.setDraft(hint)}
-                class="text-left text-xs rounded border border-surface-800 bg-surface-950 px-3 py-2 text-surface-300 hover:bg-surface-900 hover:text-surface-100 cursor-pointer transition-colors"
+                class="tap text-left text-xs rounded border border-surface-800 bg-surface-950 px-3 py-2 text-surface-300 hover:bg-surface-900 hover:text-surface-100 cursor-pointer transition-colors"
               >{hint}</button>
             {/each}
           </div>
         {:else}
-          <p class="text-xs text-surface-500">Sag, was geändert werden soll.</p>
+          <p class="text-xs text-surface-400">Say what should change.</p>
         {/if}
       </div>
     {/if}
@@ -77,7 +77,7 @@
         {#if message.content}
           {message.content}
         {:else if message.role === "assistant" && assistant.streaming}
-          <span class="text-surface-500 text-xs">PIDRA arbeitet… (flex tier, das kann dauern)</span>
+          <span class="text-surface-400 text-xs">PIDRA is working… (flex tier, this can take a while)</span>
         {/if}
 
         {#if message.toolCalls.length > 0}
@@ -104,29 +104,30 @@
       oninput={(event) => assistant.setDraft(event.currentTarget.value)}
       onkeydown={onKeydown}
       rows="2"
-      placeholder={assistant.conversationId ? "Nachricht…" : "Was soll geändert werden?"}
+      placeholder={assistant.conversationId ? "Message…" : "What should change?"}
       disabled={assistant.streaming}
-      class="w-full px-3 py-2 rounded text-sm bg-surface-900 border border-surface-700 text-surface-100 placeholder-surface-600 focus:border-surface-500 resize-none disabled:opacity-50"
+      aria-label="Message"
+      class="input-base w-full resize-none disabled:opacity-50"
     ></textarea>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 pb-[var(--safe-b)] sm:pb-0">
       <button
         type="button"
         onclick={() => assistant.newConversation()}
         disabled={assistant.streaming || assistant.messages.length === 0}
-        class="px-2 py-1 rounded text-xs bg-surface-900 border border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-      >Neuer Chat</button>
+        class="tap px-3 py-1 rounded text-xs bg-surface-900 border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+      >New chat</button>
       {#if assistant.streaming}
         <button
           type="button"
           onclick={() => assistant.cancel()}
-          class="ml-auto px-3 py-1 rounded text-xs bg-surface-900 border border-surface-600 text-surface-300 hover:bg-surface-800 cursor-pointer"
-        >Stopp</button>
+          class="tap ml-auto px-4 py-1 rounded text-xs bg-surface-900 border border-surface-500 text-surface-200 hover:bg-surface-800 cursor-pointer"
+        >Stop</button>
       {:else}
         <button
           type="submit"
           disabled={assistant.draft.trim() === ""}
-          class="ml-auto px-3 py-1 rounded text-xs bg-primary-900 border border-primary-700 text-primary-300 hover:bg-primary-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-        >Senden</button>
+          class="tap ml-auto px-4 py-1 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        >Send</button>
       {/if}
     </div>
   </form>

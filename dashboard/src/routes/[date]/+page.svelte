@@ -1,6 +1,12 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { setPageContext } from "$lib/assistant/state.svelte";
+  import Page from "$lib/components/Page.svelte";
+  import StatBar from "$lib/components/StatBar.svelte";
+  import ErrorCard from "$lib/components/ErrorCard.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
+  import { fmtCost, fmtDate, fmtNum } from "$lib/format";
+  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -12,137 +18,128 @@
       surface: "report",
       route: `/${data.date}`,
       digest: [
-        `Tagesbriefing vom ${data.date}${data.date === data.today ? " (heute)" : ""}.`,
+        `Daily briefing for ${data.date}${data.date === data.today ? " (today)" : ""}.`,
         data.report
-          ? `${data.report.itemsIncluded ?? 0} von ${data.report.itemCount ?? 0} Items im Report, ${data.report.itemsFiltered ?? 0} gefiltert.`
-          : "Für diesen Tag gibt es noch keinen Report.",
-        data.pipelineRun ? `Letzter Lauf: ${data.pipelineRun.status}.` : "",
+          ? `${data.report.itemsIncluded ?? 0} of ${data.report.itemCount ?? 0} items in the report, ${data.report.itemsFiltered ?? 0} filtered out.`
+          : "There is no report for this day yet.",
+        data.pipelineRun ? `Last run: ${data.pipelineRun.status}.` : "",
       ].filter(Boolean).join(" "),
     });
   });
 
-  function fmtNum(n: number | null | undefined) {
-    if (n == null) return "-";
-    return n.toLocaleString("de-DE");
-  }
-
   let triggering = $state(false);
+
+  const cost = $derived(costUsd(data.report?.tokensIn, data.report?.tokensOut));
+
+  const stats = $derived(
+    data.report
+      ? [
+          { label: "ingested", value: fmtNum(data.report.itemCount) },
+          { label: "included", value: fmtNum(data.report.itemsIncluded) },
+          {
+            label: "tokens in",
+            value: fmtNum(data.report.tokensIn),
+            title: PRICING_CONFIGURED ? `Run cost: ${fmtCost(cost)}` : PRICING_HINT,
+          },
+          {
+            label: "tokens out",
+            value: fmtNum(data.report.tokensOut),
+            title: PRICING_CONFIGURED ? `Run cost: ${fmtCost(cost)}` : PRICING_HINT,
+          },
+          ...(data.report.aiCalls != null ? [{ label: "AI calls", value: fmtNum(data.report.aiCalls) }] : []),
+          ...(data.report.webSearchesRun ? [{ label: "web searches", value: fmtNum(data.report.webSearchesRun) }] : []),
+          ...(cost != null ? [{ label: "cost", value: fmtCost(cost) }] : []),
+        ]
+      : [],
+  );
 </script>
 
-<svelte:head>
-  <title>PIDRA - {data.date}</title>
-</svelte:head>
-
-<div class="flex flex-1 flex-col min-h-0">
+{#snippet statsBar()}
   {#if data.report}
-    <div class="flex items-center gap-2 px-8 py-2.5 bg-surface-900 border-b border-surface-700 text-xs flex-wrap">
-      <span class="flex items-baseline gap-1">
-        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.itemCount)}</span>
-        <span class="text-surface-500">ingested</span>
-      </span>
-      <span class="text-surface-700 select-none">·</span>
-      <span class="flex items-baseline gap-1">
-        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.itemsIncluded)}</span>
-        <span class="text-surface-500">included</span>
-      </span>
-      <span class="text-surface-700 select-none">·</span>
-      <span class="flex items-baseline gap-1">
-        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.tokensIn)}</span>
-        <span class="text-surface-500">tok in</span>
-      </span>
-      <span class="text-surface-700 select-none">·</span>
-      <span class="flex items-baseline gap-1">
-        <span class="font-semibold text-surface-50 tabular-nums">{fmtNum(data.report.tokensOut)}</span>
-        <span class="text-surface-500">tok out</span>
-      </span>
-      {#if data.report.aiCalls != null}
-        <span class="text-surface-700 select-none">·</span>
-        <span class="flex items-baseline gap-1">
-          <span class="font-semibold text-surface-50 tabular-nums">{data.report.aiCalls}</span>
-          <span class="text-surface-500">AI calls</span>
-        </span>
+    <StatBar {stats} />
+  {/if}
+{/snippet}
+
+<Page title={data.date} size="read" bleed={statsBar} class="flex flex-col gap-6">
+  <!-- The day steppers live here rather than in the navbar (M-1): they are only ever on this
+       route, and two large targets beside the date beat two 22px pills in a wrapped header. -->
+  <nav class="flex items-center justify-between gap-3" aria-label="Day">
+    {#if data.prevDate}
+      <a href="/{data.prevDate}" class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800">
+        <span aria-hidden="true">←</span>
+        <span class="hidden xs:inline">{data.prevDate}</span>
+        <span class="sr-only">Previous day, {data.prevDate}</span>
+      </a>
+    {:else}
+      <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">←</span>
+    {/if}
+
+    <div class="text-center min-w-0">
+      <h1 class="text-base font-semibold text-surface-50 tabular-nums">{fmtDate(data.date)}</h1>
+      {#if data.date === data.today}
+        <span class="text-xs text-primary-400">Today</span>
+      {:else}
+        <a href="/" class="text-xs text-surface-400 hover:text-surface-200">Back to today</a>
       {/if}
-      {#if data.report.webSearchesRun != null && data.report.webSearchesRun > 0}
-        <span class="text-surface-700 select-none">·</span>
-        <span class="flex items-baseline gap-1">
-          <span class="font-semibold text-surface-50 tabular-nums">{data.report.webSearchesRun}</span>
-          <span class="text-surface-500">web searches</span>
-        </span>
+    </div>
+
+    {#if data.nextDate}
+      <a href="/{data.nextDate}" class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800">
+        <span class="hidden xs:inline">{data.nextDate}</span>
+        <span aria-hidden="true">→</span>
+        <span class="sr-only">Next day, {data.nextDate}</span>
+      </a>
+    {:else}
+      <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">→</span>
+    {/if}
+  </nav>
+
+  {#if data.reportHtml}
+    <div class="report-body">
+      {@html data.reportHtml}
+    </div>
+  {:else}
+    <div class="flex flex-col items-center gap-5 pt-10 text-center text-surface-300">
+      {#if data.pipelineRun?.status === "running"}
+        <p class="text-primary-400 text-sm inline-flex items-center gap-2">
+          <Spinner label="Pipeline running" /> The pipeline is running.
+        </p>
+      {:else if data.pipelineRun?.status === "failed"}
+        <ErrorCard
+          step={data.pipelineRun.failedStep}
+          durationMs={data.pipelineRun.durationMs}
+          attempts={data.pipelineRun.stepErrors}
+        />
+      {:else}
+        <p>No report for {fmtDate(data.date)}.</p>
+      {/if}
+
+      {#if !triggering && !form?.triggered && data.pipelineRun?.status !== "running"}
+        <form
+          method="POST"
+          action="?/runPipeline"
+          use:enhance={() => {
+            triggering = true;
+            return async ({ update }) => {
+              await update();
+              triggering = false;
+            };
+          }}
+        >
+          <button
+            type="submit"
+            class="tap px-6 py-2.5 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {data.pipelineRun?.status === "failed" ? "Retry" : "Run pipeline now"}
+          </button>
+        </form>
+      {/if}
+      {#if form?.error}
+        <p class="text-error-400 text-sm">{form.error}</p>
+      {/if}
+      {#if form?.triggered}
+        <p class="text-success-400 text-sm">Pipeline started.</p>
       {/if}
     </div>
   {/if}
-
-  <main class="flex-1 max-w-4xl w-full mx-auto px-8 py-8 pb-16">
-    {#if data.reportHtml}
-      <div class="report-body">
-        {@html data.reportHtml}
-      </div>
-    {:else}
-      <div class="flex flex-col items-center gap-5 pt-20 text-center text-surface-500">
-        {#if data.pipelineRun?.status === "running"}
-          <p class="text-primary-400 text-sm">Pipeline läuft… Seite in einigen Minuten neu laden.</p>
-        {:else if data.pipelineRun?.status === "failed"}
-          <div class="w-full max-w-2xl border border-error-500/40 rounded-lg overflow-hidden text-left bg-error-950">
-            <div class="flex items-center gap-3 px-4 py-3 flex-wrap border-b border-error-500/25">
-              <span class="badge text-xs font-semibold uppercase tracking-wider text-error-500 bg-error-500/20 border border-error-500/40">Fehlgeschlagen</span>
-              <span class="text-sm text-surface-200">
-                Step: <strong class="text-surface-50 font-mono">{data.pipelineRun.failedStep ?? "unbekannt"}</strong>
-              </span>
-              {#if data.pipelineRun.durationMs != null}
-                <span class="text-xs text-surface-500 ml-auto">nach {Math.round(data.pipelineRun.durationMs / 1000)}s</span>
-              {/if}
-            </div>
-
-            {#each data.pipelineRun.stepErrors as attempt}
-              <div class="px-4 py-3 border-b border-surface-700/60 last:border-b-0">
-                <div class="flex items-center gap-2.5 mb-1">
-                  <span class="badge text-xs font-semibold text-surface-500 bg-surface-950 border border-surface-700 tabular-nums">Versuch {attempt.attempt}/3</span>
-                  <span class="text-xs text-surface-500 tabular-nums">
-                    {new Date(attempt.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                  <span class="text-xs text-surface-500 font-mono ml-auto">{attempt.step}</span>
-                </div>
-                <pre class="font-mono text-xs text-error-500 bg-error-950 rounded px-3 py-2 whitespace-pre-wrap break-words m-0">{attempt.error}</pre>
-                {#if attempt.stack}
-                  <details class="mt-1">
-                    <summary class="text-xs text-surface-500 cursor-pointer select-none hover:text-surface-200">Stack trace</summary>
-                    <pre class="font-mono text-xs text-surface-500 bg-surface-950 rounded px-3 py-2 mt-1 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">{attempt.stack}</pre>
-                  </details>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <p>Kein Report für {data.date}.</p>
-        {/if}
-
-        {#if !triggering && !form?.triggered && data.pipelineRun?.status !== "running"}
-          <form
-            method="POST"
-            action="?/runPipeline"
-            use:enhance={() => {
-              triggering = true;
-              return async ({ update }) => {
-                await update();
-                triggering = false;
-              };
-            }}
-          >
-            <button
-              type="submit"
-              class="px-6 py-2.5 bg-primary-900 border border-primary-400 text-primary-400 rounded-md text-sm cursor-pointer hover:bg-primary-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {data.pipelineRun?.status === "failed" ? "Erneut versuchen" : "Pipeline jetzt starten"}
-            </button>
-          </form>
-        {/if}
-        {#if form?.error}
-          <p class="text-error-500 text-sm">{form.error}</p>
-        {/if}
-        {#if form?.triggered}
-          <p class="text-success-500 text-sm">Pipeline gestartet. Seite in ~5 Min. neu laden.</p>
-        {/if}
-      </div>
-    {/if}
-  </main>
-</div>
+</Page>

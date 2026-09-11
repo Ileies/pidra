@@ -127,7 +127,7 @@ export async function runPhase6(
 ): Promise<string> {
   console.log("[Phase 6] Writing memory and report");
 
-  const rawReport = `# Morning Briefing - ${runDate}\n\n---\n\n${synthesis.section1}\n\n---\n\n${synthesis.section2}`;
+  const rawReport = `# Morning Briefing - ${runDate}\n\n---\n\n${synthesis.section2}\n\n---\n\n${synthesis.section1}`;
   const { report: fullReport, includedIds } = await resolveReportRefs(rawReport, runDate);
 
   // `included_in_report` is the ground truth for source trust: which items actually reached

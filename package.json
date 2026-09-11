@@ -8,6 +8,7 @@
     "test": "bun test",
     "dev": "bun run src/index.ts",
     "run:pipeline": "bun run src/pipeline/run.ts",
+    "reports:personal-first": "bun run scripts/reorder-existing-reports.ts",
     "cron": "bun run src/cron.ts",
     "server": "bun run src/server/index.ts",
     "dashboard": "cd dashboard && bun run dev",

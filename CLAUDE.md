@@ -4,7 +4,7 @@
 
 PIDRA consists of three tools that share one Postgres database:
 
-1. **Daily pipeline** (`src/` + `run.ts`) - morning briefing system. Ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. Two Ollama passes compress raw content into structured JSON; one Sonnet call synthesizes each section of the report. Compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
+1. **Daily pipeline** (`src/` + `run.ts`) - morning briefing system. Ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. Extraction compresses raw content into structured JSON; synthesis produces each section of the report - both stages currently run on `gpt-5.6-luna` (see Stack below). Compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
 
 2. **Dashboard** (`dashboard/`) - SvelteKit frontend for reading reports, rating items, viewing the entity graph, managing notes, reviewing skill executions, and approving prompt changes.
 
@@ -144,7 +144,7 @@ Never use real personal information in code, comments, or examples - no real ema
 
 ## What to build next
 
-See `TODO.md` for the current phase and open items. Phases 0–6 are complete. The Context Builder scaffolding is done. What remains before a first real run: Ollama setup, gkeepapi auth (`context-builder/scripts/keep-auth.py`).
+See `TODO.md` for the current phase and open items. Phases 0–6 are complete. The Context Builder is complete and has had one full run (2026-09-10), seeding `entities`, `contacts`, and `standing_context`. What remains: set up the monthly Context Builder update-run cadence, test the daily pipeline against real newsletters for a few days to tune extraction prompts, and begin the dashboard redesign (`DASHBOARD_PLAN.md`).
 
 ## What not to build (yet)
 

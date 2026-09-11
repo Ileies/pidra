@@ -16,8 +16,8 @@ Life logistics: emails requiring response, payment deadlines, upcoming calendar 
 |---|---|
 | Runtime | Bun |
 | Frontend | SvelteKit (dashboard + PWA) |
-| Local AI | Ollama - qwen2.5:14b |
-| Cloud AI | Claude Sonnet 4.6 |
+| AI (current) | OpenAI GPT-5.6 Luna - both extraction and synthesis |
+| AI (target) | Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis |
 | Database | Postgres + DrizzleORM |
 | Email | IMAP (Netcup) |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |
@@ -30,7 +30,7 @@ Life logistics: emails requiring response, payment deadlines, upcoming calendar 
 
 Three paradigms combined:
 
-- **Map-Reduce spine (B):** Every item independently extracted by Ollama → structured JSON → merged into a Sonnet synthesis payload
+- **Map-Reduce spine (B):** Every item independently extracted → structured JSON → merged into a synthesis payload
 - **Structured memory layer (C):** All continuity through explicit Postgres tables (active topics, entity graph, source quality, prompt versions) - no vector stores
 - **Topic-graph output (D):** Section 1 organized by domain, not source. Entity knowledge graph enriches synthesis with relationship context.
 
@@ -38,9 +38,9 @@ Plus a **compounding intelligence layer**: feedback loops, source trust scoring,
 
 ## Key Design Decisions
 
-- **Ollama is a compressor, not an analyst.** Converts text → structured JSON. Sonnet synthesizes - it only sees compressed output (~12K tokens), not raw email HTML (~50K tokens).
-- **No vector stores.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction wins.
-- **Diary content never reaches a cloud API.** Hard architectural rule, not a configurable option.
+- **Extraction is a compressor, not an analyst.** Converts text → structured JSON. Synthesis only sees compressed output (~12K tokens), not raw email HTML (~50K tokens). Both stages currently run on `gpt-5.6-luna`; which model fills each stage is not the rule, the two-stage split is.
+- **No vector stores yet.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction wins. A vector store is planned, but as its own far-future project, not an incremental pipeline addition.
+- **Credentials never reach any cloud API.** Diary and other intimate personal content is deliberately in scope for the Context Builder - it's some of the richest signal available. Only credentials (passwords, card/bank details, ID numbers) are filtered before any consumer sees them.
 - **No prompt changes without human approval.** System proposes weekly, user approves each change individually.
 
 ## Tools
@@ -63,7 +63,7 @@ All architecture decisions, prompts, schema, and build rationale are in the plan
 
 ## Build Status
 
-Pipeline and dashboard: implementation in progress. Context Builder: planned, not yet started. See [`TODO.md`](./TODO.md) for the phase-by-phase build plan.
+Phases 0-6 of the daily pipeline are complete. The dashboard's core routes (report view, sources, entities, notes, skills, prompts, questions, chat, context builder, plus a floating assistant) are functional; a visual redesign is planned but not started (`DASHBOARD_PLAN.md`). The Context Builder is complete and has had one full run, seeding `entities`, `contacts`, and `standing_context`. See [`TODO.md`](./TODO.md) for open items.
 
 ## Error Handling
 

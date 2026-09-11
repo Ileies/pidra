@@ -269,11 +269,15 @@ Design notes that shaped it, with no personal detail attached:
 ### Newsletter count: 32
 Cut from 50. Removed 18 sources due to: pure redundancy (same daily news cycle covered by a retained source), wrong format for LLM parsing (visual/eclectic/reference), or low signal-to-token ratio. Token cost was not a factor - ~$2–3/month at 50.
 
-### Ollama model: qwen2.5:14b
+### Ollama model: qwen2.5:14b (target, not what's running)
 Over llama3.1:8b: better multilingual (German emails, Chinese messages), stronger structured JSON extraction, better edge-case reasoning. Quantization: Q4_K_M (~8.5GB VRAM). Fallback to 8b if needed.
+
+**Current status (2026-09-10):** neither pipeline nor Context Builder actually calls Ollama for extraction. Both run `gpt-5.6-luna` via `src/ai/openai.ts` (`EXTRACTION_MODEL` / `SYNTHESIS_MODEL`). The Context Builder's local Ollama path was tried and removed - the 9B model truncated its own JSON mid-object and hit 90s timeouts, so runs never completed. This decision (which model, local vs. cloud) is explicitly not architecturally load-bearing: `CLAUDE.md` states "the two-stage split is the rule; which model fills each stage is not." Moving extraction back to Ollama remains the target, not a regression to fix.
 
 ### GPU: RTX 4090 (24GB VRAM)
 Over 4070 Ti Super: future-proofs for 32b models, faster at concurrency 4, server already runs multiple demanding workloads simultaneously.
+
+**Current status:** moot for now - with extraction running on `gpt-5.6-luna` instead of local Ollama, this hardware sizing has no live workload to size for. Revisit if/when the Ollama target above is actually pursued.
 
 ### Delivery: SvelteKit dashboard + PWA + push notification
 Push notification says only "Morning briefing ready - N items." No content in notification. Report read in SvelteKit dashboard (browser/desktop) or PWA (mobile).
@@ -285,9 +289,10 @@ Push notification says only "Morning briefing ready - N items." No content in no
 Abstracted behind internal interface. Evaluate Tavily or Exa after 30 days if quality insufficient.
 
 ### Passive context sources
-- **Keep notes:** Index via Ollama, query by entity match during Phase 3. Matched summaries only reach Sonnet.
-- **Chat history:** Nightly Ollama extraction for topic/project signals only. Raw content never reaches Sonnet.
-- **Diary:** Ollama-only. Abstract context block (valence, phase, concern tags) reaches Sonnet. Raw diary text never leaves local server. Hard rule, not preference.
+**Status: none of the three are built yet.** This is Phase 7 of the roadmap (`MORNING_BRIEFING_PLAN.md` §20), deliberately deferred until Phase 6 has run stably for 2+ weeks (`CLAUDE.md`, "What not to build (yet)"). The design below is the plan, not the current state - no `keep_notes`, `keep_index`, `chat_signals`, or `personal_context` table exists yet.
+- **Keep notes:** Index via local extraction, query by entity match during Phase 3. Matched summaries only reach synthesis.
+- **Chat history:** Nightly local extraction for topic/project signals only. Raw content never reaches the cloud API. Sequenced last of the three (decided 2026-09-10) - Keep and diary are denser signal for less privacy surface.
+- **Diary:** Local extraction only. Abstract context block (valence, phase, concern tags) reaches synthesis. Raw diary text never leaves the local server - narrower than it sounds, see §10 below: the *raw diary entries* are the thing that never leaves, not diary-derived content in general.
 
 ### Question gate timeout: 45 minutes
 Section 1 never waits. Section 2 blocks. After 45 min, Section 2 proceeds with unresolved items flagged.
@@ -299,15 +304,15 @@ Weekly meta-run generates diff. Never auto-applied. Each change approved/rejecte
 
 ## 10. Core Design Principles
 
-**Ollama is a compressor, not an analyst.** Converts text → structured JSON. Never judges importance, writes prose, or synthesizes across sources. Those responsibilities belong to Sonnet exclusively.
+**Extraction is a compressor, not an analyst.** Converts text → structured JSON. Never judges importance, writes prose, or synthesizes across sources. Those responsibilities belong to synthesis exclusively. The two-stage split is the architectural rule; which model fills each stage is not - both stages currently run on `gpt-5.6-luna` (see §9), with Ollama-for-extraction still the target, not yet realized.
 
-**Sonnet synthesizes, never processes.** Sees only compressed Ollama output (~12K tokens), not raw email HTML (~50K tokens). Quality is higher, cost is lower.
+**Synthesis synthesizes, never processes.** Sees only compressed extraction output (~12K tokens), not raw email HTML (~50K tokens). Quality is higher, cost is lower.
 
 **Vector stores rejected for the briefing path.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction beats probabilistic retrieval. Revised 2026-09-10: this stays true for the pipeline, but the blanket "never revisiting" does not - a vector store is planned for the far future, for search over the *archive* rather than for deciding what enters a report. Nothing in the current phases may add one.
 
 **No prompt changes without human approval.** System can propose (weekly meta-run). Cannot apply. The user's information diet is too important to delegate to an automated optimization loop.
 
-**Diary content never reaches a cloud API.** Enforced at the code level - the diary reader must have no path to any Sonnet API call. Not configurable.
+**Diary content: the rule narrowed on 2026-09-10, and the two build tracks land differently.** The original rule here was absolute: raw diary text never reaches any cloud API, full stop. The owner has since decided the opposite for the Context Builder specifically - diary and other intimate personal content is deliberately in scope there, because it is some of the richest signal available for a thorough context document, and it goes to the API like anything else under `store: false` (`CLAUDE.md`). Only credentials are still hard-filtered before any consumer sees them. The still-unbuilt Phase 7 diary track (§9 above, `MORNING_BRIEFING_PLAN.md` §20.3) was designed under the *old* absolute rule - local-only weekly extraction, abstract block only, raw text never leaves the server - and that design has not yet been explicitly revisited against the newer, more permissive decision. Whoever picks up Phase 7's diary track should resolve this before writing code, not assume the old design still holds by default.
 
 **The question gate fires before Section 2 synthesis.** Missing context is identified and resolved before writing, not after. A wrong report is worse than a slightly delayed one.
 
@@ -320,9 +325,9 @@ Weekly meta-run generates diff. Never auto-applied. Each change approved/rejecte
 ## 11. Content Processing Notes
 
 ### Two-tier newsletter processing
-Daily sources (TLDR AI, Money Stuff, Term Sheet, MIT Tech Review, The Diff, War on the Rocks, Sinocism, Noahpinion): short Ollama extraction, focus on claim + entity identification. High volume, short items.
+Daily sources (TLDR AI, Money Stuff, Term Sheet, MIT Tech Review, The Diff, War on the Rocks, Sinocism, Noahpinion): short extraction pass, focus on claim + entity identification. High volume, short items.
 
-Weekly/irregular sources (Astral Codex Ten, The Intrinsic Perspective, Not Boring, The Generalist, Works in Progress, SemiAnalysis): richer extraction prompt capturing central argument, not just claims. Low volume, long dense items. Add `source_format: "essay"` to Ollama output - Sonnet treats essay items with more depth in the report.
+Weekly/irregular sources (Astral Codex Ten, The Intrinsic Perspective, Not Boring, The Generalist, Works in Progress, SemiAnalysis): richer extraction prompt capturing central argument, not just claims. Low volume, long dense items. Add `source_format: "essay"` to the extraction output - synthesis treats essay items with more depth in the report.
 
 ### Ongoing stories
 The most common failure mode of digest briefings: re-explaining background every day. The `active_topics` table and the `UPDATE:` prefix in the Section 1 prompt solve this. A story running for a week = two sentences: what changed today, what it implies.
@@ -332,6 +337,6 @@ When an AI story connects to a China story, or a market development connects to 
 
 ---
 
-*Context document version: 2.0*
+*Context document version: 2.1 - synced to actual code state, 2026-09-11*
 *Companion to: MORNING_BRIEFING_PLAN.md*
-*Build with: Bun + SvelteKit + Postgres + DrizzleORM + Ollama (qwen2.5:14b) + Claude Sonnet 4.6*
+*Build with: Bun + SvelteKit + Postgres + DrizzleORM. AI (current): OpenAI `gpt-5.6-luna` for both extraction and synthesis. AI (target, not yet running): Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis.*

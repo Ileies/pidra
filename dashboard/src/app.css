@@ -262,6 +262,43 @@
   @apply border-surface-700 text-surface-400 opacity-40 cursor-default select-none;
 }
 
+/* M-3: the minimum touch target. iOS asks for 44x44pt, Material for 48dp; the app's
+   controls were 22-28px and its checkboxes 13px. Below `sm` every control this is on
+   is at least 44px; above it, the desktop size stands. */
+@utility tap {
+  @media (width < 40rem) {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+/* A padded wrapper for a checkbox, so the label and the box are one 44px target
+   instead of a 13px box next to some text. */
+@utility tap-check {
+  @apply inline-flex items-center gap-2 cursor-pointer select-none;
+  @media (width < 40rem) {
+    min-height: 2.75rem;
+    padding-block: 0.25rem;
+  }
+}
+
+/* M-4: mobile Safari zooms the viewport whenever a focused field computes below 16px,
+   and never zooms back out. Every field in the app was 12px or 14px. 16px below `sm`,
+   the dense 14px above it - the correct fix, rather than `maximum-scale=1`, which
+   would also disable accessibility zoom. */
+@utility input-base {
+  @apply rounded bg-surface-900 border text-surface-100 placeholder-surface-400
+         px-3 py-2 sm:py-1.5 text-base sm:text-sm transition-colors;
+  border-color: var(--app-border-control);
+  @media (width < 40rem) {
+    min-height: 2.75rem;
+  }
+}
+@utility input-base-flush {
+  /* Same, on a page background rather than a panel. */
+  @apply input-base bg-surface-950;
+}
+
 /* A4: badges read as low-contrast because of size and a same-hue border, not because
    of the colour pair. 12.5px at 500 weight, and the hue always sits next to a word. */
 @utility badge {

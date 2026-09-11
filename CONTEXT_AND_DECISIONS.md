@@ -188,7 +188,7 @@ Active task lists and item counts as of planning. Section 2 should reference the
 | **Uni** | 7 | University deadlines and tasks. Treat with same urgency as Work. |
 | **RizinOS** | 6 | Project-specific. Cross-reference with RizinOS-related news or GitHub events if tracked. |
 
-**Default list for system-created tasks:** Ask user to specify (likely "To-Do Now" or "Work"). See §12.
+**Default list for system-created tasks:** "To-Do Now" (decided 2026-09-10). System items come from email deadlines and are time-sensitive, so they belong in the list that is checked daily, not in a project backlog. Set in code as a list *title* and resolved to an id at call time by `resolveTaskList` (`src/ingest/google.ts`); `GOOGLE_TASKS_DEFAULT_LIST` overrides it without a deploy.
 
 ---
 

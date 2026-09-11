@@ -120,4 +120,9 @@ has a Revert button on `/context-builder`, and the harvest underneath is untouch
 - **No document rewriting.** Not now, not behind a flag. If the correction layer ever grows too
   large to inject, the fix is for the next Context Builder run to *consume* corrections as an
   input to synthesis - the layer becomes a source, and the harvest is still not edited in place.
+  Built on 2026-09-11, ahead of that pressure: `run.ts` passes the active corrections to
+  `synthesizeFullContext` and `synthesizePatch` as read-only input, so the document the next run
+  writes no longer carries text the user has already corrected. This is not rewriting: the
+  previous document stays on disk untouched, the run never writes, edits or deletes a correction,
+  and the layer keeps outranking whatever synthesis produces.
 - **No auto-detection of wrong facts.** Corrections come from the user, in conversation.

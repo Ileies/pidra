@@ -428,21 +428,39 @@ async function main(): Promise<void> {
   // === SYNTHESIS PHASE (always runs with whatever data is available) ===
 
   const contactProfiles = batchContacts(emailExtractions);
-  const notesByCategory = noteExtractions.reduce((map, n) => {
+
+  // The standalone Contacts/Keep sections - and the "new information" handed to synthesizePatch -
+  // must reflect the full current corpus in update mode, not just today's delta, or they collapse
+  // to whatever changed today (2026-09-11: "Personal Knowledge (Keep)" shrank from 641 to 71 lines
+  // off a single-note delta, and the Contacts Summary's low-importance breakdown vanished). Tasks
+  // and GitHub don't have this problem since they're always refetched in full; email and Keep need
+  // it explicitly because their fetch is delta-only via the skip-set. DB seeding below stays on
+  // the delta-only sets - seedContacts/seedEntities/seedStandingContext are upserts against
+  // already-seeded history, so re-processing everything already indexed would be wasted work, not
+  // a correctness fix.
+  let synthesisEmails = emailExtractions;
+  let synthesisNotes = noteExtractions;
+  if (mode === "update") {
+    const stored = await loadStoredExtractions();
+    synthesisEmails = stored.emails;
+    synthesisNotes = stored.notes;
+  }
+  const synthesisContactProfiles = mode === "update" ? batchContacts(synthesisEmails) : contactProfiles;
+  const notesByCategory = synthesisNotes.reduce((map, n) => {
     const arr = map.get(n.category) ?? [];
     arr.push(n);
     map.set(n.category, arr);
     return map;
-  }, new Map<string, typeof noteExtractions>());
+  }, new Map<string, typeof synthesisNotes>());
 
   let parts: Omit<SynthesisResult, "fullContext"> = { contacts: "", tasks: "", keep: "", github: "" };
   let fullContext = "";
 
   try {
     const [contactsSummary, tasksSummary, keepSummary, githubSummary] = await Promise.allSettled([
-      emailExtractions.length > 0 ? synthesizeContacts(contactProfiles) : Promise.resolve("No email data"),
+      synthesisEmails.length > 0 ? synthesizeContacts(synthesisContactProfiles) : Promise.resolve("No email data"),
       taskItems.length > 0 ? synthesizeTasks(taskItems) : Promise.resolve("No task data"),
-      noteExtractions.length > 0 ? synthesizeKeep(notesByCategory) : Promise.resolve("No Keep data"),
+      synthesisNotes.length > 0 ? synthesizeKeep(notesByCategory) : Promise.resolve("No Keep data"),
       githubRepos.length > 0 ? synthesizeGitHub(githubRepos) : Promise.resolve("No GitHub data"),
     ]);
 

@@ -457,7 +457,7 @@ After generating the context document, `db-writer.ts` seeds PIDRA's existing tab
 |---|---|---|
 | `contacts[]` | `contacts` | upsert on email |
 | `entity_seeds[]` | `entities` | upsert on name, set `mention_count = 0`, `importance` from context |
-| `personal_rules[]` | new `standing_context` table (see below) | replace all |
+| `personal_rules[]` | new `standing_context` table (see below) | upsert on `keep_rule_<note_id>` key (implemented safer than originally designed - see Testing checklist) |
 | `active_commitments[]` | `raw_items` with `source_type = 'todo'` | insert if not exists |
 
 ### New table: `standing_context`
@@ -623,7 +623,7 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 - [x] Generate and apply migration — script at `tmp-migrate-0007.ts`, run when pronix is reachable, then delete
 - [x] Implement `output/db-writer.ts`: upsert contacts into `contacts` table
 - [x] Implement entity seeding: upsert into `entities` with `mention_count = 0`
-- [x] Implement `standing_context` seeding (replace-all strategy)
+- [x] Implement `standing_context` seeding — implemented as an upsert keyed by `keep_rule_<note_id>`, not the replace-all strategy originally planned above
 - [x] Write completed run record to `context_builder_runs` (status, item counts, cost, output path)
 
 ### Phase 14 - Report output
@@ -639,14 +639,14 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 - [x] Partial output guarantee: each phase wrapped in try/catch, synthesis always runs with available data
 
 ### Testing
-- [ ] Test with `--dry-run` flag: counts only, no API calls, no Ollama
-- [ ] Test email extraction on 10 emails before full run
-- [ ] Test Keep extraction on 20 notes before full run
-- [ ] Test checkpoint resume: kill mid-run, verify it continues correctly
-- [ ] Test update mode: run full, add a known email to the account, run again → verify exactly 1 new item processed, rest skipped
-- [ ] Test proportionality: update run with 5 new emails → verify context document changes are minimal (not a full rewrite)
-- [ ] Test 30% rebuild warning: seed fake index with 10 items, present 4 new → verify warning fires and prompts for confirmation
-- [ ] Verify DB seeding does not break existing PIDRA tables
+- [x] Test with `--dry-run` flag: counts only, no API calls, no Ollama — verified 2026-09-11: real inventory (6 new emails, 1 new Keep note, 174 tasks, 40 repos), zero `context_builder_runs` writes, mode auto-detected as `update`.
+- [x] Test email extraction on 10 emails before full run — moot: the first full run (2026-09-10) already succeeded end-to-end on the real inbox, so there's no longer a "before full run" smoke test to do.
+- [x] Test Keep extraction on 20 notes before full run — moot, same reasoning.
+- [x] Test checkpoint resume: kill mid-run, verify it continues correctly — verified 2026-09-11: killed the run (`kill -9`) mid-synthesis with 6 emails + 1 Keep note already extracted and persisted to `context_builder_indexed_items`. Re-invoking with no flags found the `status='running'` row, reused all 7 prior extractions (no re-extraction cost), and completed the *same* run row (`ba7d39b5-...`) rather than creating a new one.
+- [x] Test update mode: run full, add a known email to the account, run again → verify exactly 1 new item processed, rest skipped — verified with real organic delta instead of a synthetic email: pre-run dry-run showed 6 new emails + 1 new Keep note against 1,464/405 indexed; the real update run processed exactly those 7 and a follow-up dry-run showed 0 new remaining (1,470/406 indexed).
+- [x] Test proportionality: update run with 5 new emails → verify context document changes are minimal (not a full rewrite) — **tested, and it failed.** Sections 1-5 (identity, projects, knowledge domains, standing context, technical profile) held up fine, but the "Personal Knowledge (Keep)" section collapsed from 641 lines to 71 (context-2026-09-10.md → context-2026-09-11.md) and the Contacts Summary lost its entire low-importance-contacts breakdown, despite a 7-item delta against ~1,869 existing items. Root cause and fix tracked as a `[BUG]` in `TODO.md`.
+- [ ] Test 30% rebuild warning: seed fake index with 10 items, present 4 new → verify warning fires and prompts for confirmation — not tested directly (would require fabricating a large fake index, deemed not worth the risk/cost). The non-firing path was verified instead: real delta was 0.4% of the index and the warning correctly did not fire. The warning logic itself (`run.ts`: `if (ratio > 0.3)`) was code-reviewed and is straightforward.
+- [x] Verify DB seeding does not break existing PIDRA tables — verified 2026-09-11: `contacts` (6→7), `entities` (86), `standing_context` (18), `daily_reports` (3) all sane after the run; `seedStandingContext` upserts keyed by `keep_rule_<id>` rather than the "replace all" the design doc above describes, so a small delta cannot wipe existing standing rules - safer than documented, not a bug.
 
 ### Documentation
 - [x] Add `context-builder/README.md` with quickstart, first-run instructions, and Keep auth setup

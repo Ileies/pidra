@@ -88,16 +88,31 @@
   onclick={() => assistant.toggle()}
   aria-label="Assistent öffnen"
   title="Assistent (Strg+K)"
-  class="fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full border border-primary-700 bg-primary-900 text-primary-200
-         shadow-lg hover:bg-primary-800 cursor-pointer transition-colors flex items-center justify-center"
+  class="group fixed bottom-5 right-5 z-50 h-14 w-14 p-0 border-none bg-transparent
+         cursor-pointer flex items-center justify-center
+         drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] transition-transform duration-150
+         hover:scale-110 hover:drop-shadow-[0_6px_16px_rgba(0,0,0,0.55)]
+         active:scale-95
+         focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-400 focus-visible:outline-offset-4 rounded-full"
 >
-  {#if assistant.streaming}
-    <span class="h-3 w-3 rounded-full bg-primary-300 animate-pulse"></span>
-  {:else}
-    <span class="text-lg leading-none">✳</span>
-  {/if}
+  <svg viewBox="0 0 24 24" class="h-full w-full overflow-visible">
+    <path
+      d="M12 3C6.48 3 2 6.94 2 11.8c0 2.66 1.37 5.04 3.51 6.66-.12.99-.5 2.4-1.51 3.69a.5.5 0 0 0 .49.8c2.06-.42 3.66-1.24 4.7-1.87.9.24 1.85.37 2.81.37 5.52 0 10-3.94 10-8.65C22 6.94 17.52 3 12 3Z"
+      class="fill-primary-900 stroke-primary-500 transition-colors group-hover:fill-primary-800 group-hover:stroke-primary-400"
+      stroke-width="1"
+    />
+    {#if assistant.streaming}
+      <circle cx="7.8" cy="11.4" r="1.3" class="fill-primary-300 animate-bounce" style="animation-delay: 0ms" />
+      <circle cx="12" cy="11.4" r="1.3" class="fill-primary-300 animate-bounce" style="animation-delay: 150ms" />
+      <circle cx="16.2" cy="11.4" r="1.3" class="fill-primary-300 animate-bounce" style="animation-delay: 300ms" />
+    {:else}
+      <circle cx="7.8" cy="11.4" r="1.3" class="fill-primary-300" />
+      <circle cx="12" cy="11.4" r="1.3" class="fill-primary-300" />
+      <circle cx="16.2" cy="11.4" r="1.3" class="fill-primary-300" />
+    {/if}
+  </svg>
   {#if assistant.unseen}
-    <span class="absolute top-0 right-0 h-3 w-3 rounded-full bg-warning-500 border border-surface-950"></span>
+    <span class="absolute top-0.5 right-1.5 h-3 w-3 rounded-full bg-warning-500 border-2 border-surface-950"></span>
   {/if}
 </button>
 {/if}

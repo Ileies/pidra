@@ -38,6 +38,54 @@ export async function getTasksClient() {
   return google.tasks({ version: "v1", auth: createAuthClient() });
 }
 
+/**
+ * The list that system-created tasks land in when the caller names none. "To-Do Now" is the
+ * list the owner actually checks daily (decided 2026-09-10); system items come from email
+ * deadlines and are time-sensitive, so the project backlog is the wrong place for them.
+ *
+ * Configured as a list *title*, not an id: list ids are opaque per-account strings, so
+ * hardcoding one would be meaningless in any other account, and the only portable id the API
+ * offers is `@default`, which is whatever list happens to be first.
+ */
+function defaultTaskListTitle(): string {
+  return process.env.GOOGLE_TASKS_DEFAULT_LIST?.trim() || "To-Do Now";
+}
+
+// Titles are stable enough to cache for the life of the process, and only hits are cached, so
+// a list created after startup is still found on the next lookup.
+const taskListIds = new Map<string, string>();
+
+async function taskListIdByTitle(title: string): Promise<string | null> {
+  const key = title.toLowerCase();
+  const cached = taskListIds.get(key);
+  if (cached) return cached;
+
+  const tasks = await getTasksClient();
+  for (const list of (await tasks.tasklists.list({ maxResults: 50 })).data.items ?? []) {
+    if (list.id && list.title) taskListIds.set(list.title.toLowerCase(), list.id);
+  }
+  return taskListIds.get(key) ?? null;
+}
+
+/**
+ * Turn whatever a caller supplied into a tasklist id. Accepts a title as readily as an id,
+ * because the assistant knows the lists by name and never by id. An unknown value is passed
+ * through unchanged so a real id still works, and a missing default falls back to `@default`
+ * rather than failing the write.
+ */
+export async function resolveTaskList(requested?: string | null): Promise<string> {
+  const wanted = requested?.trim();
+  if (wanted === "@default") return wanted;
+  if (wanted) return (await taskListIdByTitle(wanted)) ?? wanted;
+
+  const title = defaultTaskListTitle();
+  const id = await taskListIdByTitle(title);
+  if (id) return id;
+
+  console.warn(`[Ingest/Google] no tasklist named "${title}", falling back to @default`);
+  return "@default";
+}
+
 export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   const auth = createAuthClient();
   const calendar = google.calendar({ version: "v3", auth });

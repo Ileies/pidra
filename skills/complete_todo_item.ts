@@ -1,5 +1,5 @@
 import type { Skill } from "../src/skills/loader";
-import { getTasksClient } from "../src/ingest/google";
+import { getTasksClient, resolveTaskList } from "../src/ingest/google";
 
 const skill: Skill = {
   name: "complete_todo_item",
@@ -7,11 +7,15 @@ const skill: Skill = {
   risk_level: "low",
   parameters: {
     task_id: { type: "string", required: true, description: "Google Tasks task ID" },
-    list_id: { type: "string", required: false, description: "Google Tasks list ID (default: @default)" },
+    list_id: {
+      type: "string",
+      required: false,
+      description: "Google Tasks list, by name or by ID. Defaults to the list configured in GOOGLE_TASKS_DEFAULT_LIST (\"To-Do Now\")",
+    },
   },
   execute: async (params) => {
     const tasks = await getTasksClient();
-    const listId = String(params.list_id ?? "@default");
+    const listId = await resolveTaskList(params.list_id ? String(params.list_id) : null);
     const taskId = String(params.task_id ?? "").trim();
     if (!taskId) throw new Error("task_id is required");
 

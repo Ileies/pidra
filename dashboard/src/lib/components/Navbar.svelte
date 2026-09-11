@@ -1,181 +1,117 @@
 <script lang="ts">
-  // The one navbar. It is mounted once by the root layout and survives every client-side
-  // navigation, so clicking a link swaps only the page below it - the header itself is never torn
-  // down and rebuilt. Anything route-dependent is derived from `page`, never passed in as a prop:
-  // a prop would mean each page gets to decide what the navbar looks like, which is the problem
-  // this component exists to remove.
-  import { onMount } from "svelte";
+  /**
+   * The one navbar. Mounted once by the root layout and never torn down, so clicking a link
+   * swaps only the page below it. Anything route-dependent derives from `page`, never from a
+   * prop: a prop would let each page decide what the header looks like, which is the problem
+   * this component exists to remove.
+   *
+   * Two forms (M-1):
+   *
+   * - **`sm` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
+   *   a single ungrouped row was the cause of the mobile header, and it was not much of a
+   *   desktop layout either.
+   * - **Below `sm`:** the app icon, the page title, and one overflow button - roughly 52px,
+   *   against the 150-200px the wrapped row used to take. Everything else lives in the bottom
+   *   tab bar and its More sheet.
+   *
+   * The day steppers are gone from here. They were only ever on one route, they were the two
+   * controls that pushed the row over, and they belong next to the date they step.
+   */
   import { page } from "$app/state";
-  import { env } from "$env/dynamic/public";
+  import { ROUTES, NAV_GROUPS, routeFor, type NavGroup, type RouteDef } from "$lib/routes";
+  import NotifyButton from "$lib/components/NotifyButton.svelte";
 
-  const LINKS = [
-    { href: "/sources", label: "Quellen" },
-    { href: "/entities", label: "Entities" },
-    { href: "/notes", label: "Notes" },
-    { href: "/skills", label: "Skills" },
-    { href: "/prompts", label: "Prompts" },
-    { href: "/context-builder", label: "Context Builder" },
-    { href: "/chat", label: "Chat" },
-  ];
+  interface Props {
+    /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
+    onOpenMore: () => void;
+  }
 
-  const SUBTITLES: Record<string, string> = {
-    "/[date]/detail/[ids]": "Quellen-Detail",
-    "/sources": "Quellenbewertung",
-    "/sources/[name]": "Quellen-Beiträge",
-    "/entities": "Entity Graph",
-    "/notes": "Notes",
-    "/skills": "Skills",
-    "/prompts": "Prompt Versions",
-    "/questions": "Question Gate",
-    "/context-builder": "Context Builder",
-    "/chat": "Assistent",
-  };
+  let { onOpenMore }: Props = $props();
 
   const routeId = $derived(page.route.id ?? "");
-  const path = $derived(page.url.pathname);
-  // Two routes name the thing on screen better than a static label does: the report is its date,
-  // the source detail is the source.
+  const current = $derived(routeFor(routeId));
+  const hasPendingQuestions = $derived(!!page.data.hasPendingQuestions);
+
+  /**
+   * Two routes name the thing on screen better than a static label does: the report is its
+   * date, the source detail is the source.
+   */
   const subtitle = $derived(
     routeId === "/[date]"
       ? (page.params.date ?? "")
-      : routeId === "/sources/[name]" && page.params.name
-        ? decodeURIComponent(page.params.name)
-        : (SUBTITLES[routeId] ?? ""),
+      : routeId === "/[date]/detail/[ids]"
+        ? `${page.params.date} · Detail`
+        : routeId === "/sources/[name]" && page.params.name
+          ? decodeURIComponent(page.params.name)
+          : (current?.label ?? ""),
   );
 
-  // "Heute" owns every /YYYY-MM-DD route, including the item detail pages below it.
-  const onReport = $derived(routeId === "/[date]" || routeId === "/[date]/detail/[ids]");
-  const hasPendingQuestions = $derived(!!page.data.hasPendingQuestions);
+  const GROUPS: NavGroup[] = NAV_GROUPS;
+  const byGroup = $derived(
+    GROUPS.map((group) => ROUTES.filter((route) => route.group === group)).filter((list) => list.length > 0),
+  );
 
-  // Day stepping belongs to the navbar, not to the report page: it is the navbar's behaviour on a
-  // report route. The report's load function is what knows which days exist.
-  const prevDate = $derived(routeId === "/[date]" ? (page.data.prevDate as string | null) : null);
-  const nextDate = $derived(routeId === "/[date]" ? (page.data.nextDate as string | null) : null);
-
-  function isActive(href: string): boolean {
-    return path === href || path.startsWith(`${href}/`);
-  }
-
-  // "checking" and "busy" render an inert button of the same width as the real one, so resolving
-  // the push subscription never resizes the button row after paint.
-  type NotifState = "checking" | "unsupported" | "denied" | "unsubscribed" | "subscribed" | "busy";
-  let notifState = $state<NotifState>("checking");
-
-  onMount(async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) { notifState = "unsupported"; return; }
-    if (Notification.permission === "denied") { notifState = "denied"; return; }
-    const sw = await navigator.serviceWorker.ready;
-    const sub = await sw.pushManager.getSubscription();
-    notifState = sub ? "subscribed" : "unsubscribed";
-  });
-
-  function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
-    const padding = "=".repeat((4 - (b64.length % 4)) % 4);
-    const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const raw = atob(base64);
-    const arr = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-    return arr;
-  }
-
-  async function toggleNotifications() {
-    notifState = "busy";
-    try {
-      const sw = await navigator.serviceWorker.ready;
-      const existing = await sw.pushManager.getSubscription();
-
-      if (existing) {
-        await fetch("/api/push/subscribe", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: existing.endpoint }),
-        });
-        await existing.unsubscribe();
-        notifState = "unsubscribed";
-        return;
-      }
-
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") { notifState = "denied"; return; }
-
-      const sub = await sw.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(env.PUBLIC_VAPID_KEY),
-      });
-
-      await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub.toJSON()),
-      });
-
-      notifState = "subscribed";
-    } catch (e) {
-      console.error("[push]", e);
-      notifState = "unsubscribed";
-    }
+  function isCurrentEntry(entry: RouteDef): boolean {
+    return current?.href === entry.href;
   }
 </script>
 
 <header
-  class="flex items-center justify-between gap-4 px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10"
+  data-app-header
+  class="sticky top-0 z-30 bg-surface-900 border-b border-surface-700
+         pt-[var(--safe-t)] pl-[var(--safe-l)] pr-[var(--safe-r)]"
 >
-  <div class="flex items-center gap-4 shrink-0">
-    <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
+  <div class="flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2">
+    <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity shrink-0">
       <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
       <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
+      <span class="sr-only">- home</span>
     </a>
+
     {#if subtitle}
-      <span class="text-surface-500 text-sm">{subtitle}</span>
+      <span class="text-surface-400 text-sm truncate min-w-0">{subtitle}</span>
     {/if}
+
+    <!-- Desktop: the whole registry, grouped. -->
+    <nav aria-label="Main" class="hidden sm:flex items-center justify-end gap-2 flex-wrap ml-auto">
+      {#each byGroup as group, index (group[0].href)}
+        {#if index > 0}
+          <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
+        {/if}
+        {#each group as entry (entry.href)}
+          {@const pending = entry.href === "/questions" && hasPendingQuestions}
+          <a
+            href={entry.href}
+            aria-current={isCurrentEntry(entry) ? "page" : undefined}
+            class="nav-btn {isCurrentEntry(entry)
+              ? 'nav-btn-active'
+              : pending
+                ? 'border-warning-700 text-warning-400 hover:bg-surface-800'
+                : entry.secondary
+                  ? 'nav-btn-muted'
+                  : 'nav-btn-idle'}"
+          >
+            {#if pending}<span aria-hidden="true">⚠</span>{/if}{entry.label}
+          </a>
+        {/each}
+      {/each}
+      <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
+      <NotifyButton />
+    </nav>
+
+    <!-- Mobile: one control. Everything else is in the tab bar. -->
+    <button
+      type="button"
+      onclick={onOpenMore}
+      aria-label="Open menu"
+      class="tap sm:hidden ml-auto flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 px-3 text-surface-200 cursor-pointer relative"
+    >
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+      {#if hasPendingQuestions}
+        <span class="absolute top-1 right-1 h-2 w-2 rounded-full bg-warning-500" aria-hidden="true"></span>
+      {/if}
+    </button>
   </div>
-
-  <nav class="flex items-center justify-end gap-2 flex-wrap">
-    {#if routeId === "/[date]/detail/[ids]"}
-      <a href="/{page.params.date}" class="nav-btn nav-btn-idle">← {page.params.date}</a>
-    {/if}
-
-    {#if routeId === "/sources/[name]"}
-      <a href="/sources" class="nav-btn nav-btn-idle">← Quellen</a>
-    {/if}
-
-    {#if routeId === "/[date]"}
-      {#if prevDate}
-        <a href="/{prevDate}" class="nav-btn nav-btn-idle">← {prevDate}</a>
-      {:else}
-        <span class="nav-btn nav-btn-disabled">←</span>
-      {/if}
-      {#if nextDate}
-        <a href="/{nextDate}" class="nav-btn nav-btn-idle">{nextDate} →</a>
-      {:else}
-        <span class="nav-btn nav-btn-disabled">→</span>
-      {/if}
-    {/if}
-
-    <a href="/" class="nav-btn {onReport ? 'nav-btn-active' : 'nav-btn-idle'}">Heute</a>
-
-    {#each LINKS as link (link.href)}
-      <a href={link.href} class="nav-btn {isActive(link.href) ? 'nav-btn-active' : 'nav-btn-idle'}">
-        {link.label}
-      </a>
-    {/each}
-
-    {#if hasPendingQuestions}
-      <a href="/questions" class="nav-btn border-warning-700 text-warning-400 hover:bg-surface-800 animate-pulse">
-        ⚠ Questions
-      </a>
-    {:else}
-      <a href="/questions" class="nav-btn {isActive('/questions') ? 'nav-btn-active' : 'nav-btn-muted'}">
-        Questions
-      </a>
-    {/if}
-
-    {#if notifState === "unsubscribed"}
-      <button onclick={toggleNotifications} class="nav-btn nav-btn-muted cursor-pointer">Notify</button>
-    {:else if notifState === "subscribed"}
-      <button onclick={toggleNotifications} class="nav-btn border-success-700 text-success-400 hover:bg-surface-800 cursor-pointer">Notify ✓</button>
-    {:else if notifState === "checking" || notifState === "busy"}
-      <span class="nav-btn nav-btn-muted opacity-50 select-none">Notify</span>
-    {/if}
-  </nav>
 </header>

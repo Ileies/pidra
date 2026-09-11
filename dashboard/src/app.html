@@ -1,11 +1,16 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/icons/icon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0f1117" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) non-zero, which the header,
+         the bottom tab bar and the toast all depend on. No maximum-scale: suppressing zoom to
+         work around iOS Safari's focus-zoom would also disable accessibility zoom, and the
+         16px input floor is the correct fix. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Matches the real body background. #0f1117 left a visible seam at the status bar. -->
+    <meta name="theme-color" content="#111214" />
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover" data-theme="cerberus">

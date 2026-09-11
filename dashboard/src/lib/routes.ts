@@ -40,6 +40,12 @@ export interface RouteDef {
   children?: string[];
   /** Present on the four mobile tab destinations, in bar order. */
   tab?: number;
+  /**
+   * The letter that follows `g` to jump here (E1). Declared rather than derived from the label:
+   * first-letter-wins left Rules, Runs, Chat, Context and Skills with no key at all, because
+   * Report, Contacts and Sources got there first.
+   */
+  key?: string;
   /** Kept out of the desktop nav row: reachable, but not one of the ten things always on screen. */
   secondary?: boolean;
 }
@@ -71,6 +77,7 @@ export const ROUTES: RouteDef[] = [
     href: "/",
     id: "/[date]",
     label: "Report",
+    key: "r",
     surface: "report",
     group: "report",
     icon: ICON.report,
@@ -81,6 +88,7 @@ export const ROUTES: RouteDef[] = [
     href: "/sources",
     id: "/sources",
     label: "Sources",
+    key: "s",
     surface: "sources",
     group: "intel",
     icon: ICON.sources,
@@ -90,6 +98,7 @@ export const ROUTES: RouteDef[] = [
     href: "/feedback",
     id: "/feedback",
     label: "Feedback",
+    key: "f",
     surface: "sources",
     group: "intel",
     icon: ICON.feedback,
@@ -99,6 +108,7 @@ export const ROUTES: RouteDef[] = [
     href: "/entities",
     id: "/entities",
     label: "Entities",
+    key: "e",
     surface: "entities",
     group: "intel",
     icon: ICON.entities,
@@ -108,6 +118,7 @@ export const ROUTES: RouteDef[] = [
     href: "/topics",
     id: "/topics",
     label: "Topics",
+    key: "t",
     // `global` on purpose, not by omission: active_topics belongs to the pipeline and no skill
     // may write it, so there is nothing structural here for the assistant to change.
     surface: "global",
@@ -118,6 +129,7 @@ export const ROUTES: RouteDef[] = [
     href: "/contacts",
     id: "/contacts",
     label: "Contacts",
+    key: "o",
     surface: "context",
     group: "intel",
     icon: ICON.contacts,
@@ -126,6 +138,7 @@ export const ROUTES: RouteDef[] = [
     href: "/notes",
     id: "/notes",
     label: "Notes",
+    key: "n",
     surface: "notes",
     group: "memory",
     icon: ICON.notes,
@@ -135,6 +148,7 @@ export const ROUTES: RouteDef[] = [
     href: "/rules",
     id: "/rules",
     label: "Rules",
+    key: "l",
     surface: "context",
     group: "memory",
     icon: ICON.rules,
@@ -143,6 +157,7 @@ export const ROUTES: RouteDef[] = [
     href: "/context-builder",
     id: "/context-builder",
     label: "Context",
+    key: "x",
     surface: "context",
     group: "memory",
     icon: ICON.context,
@@ -151,6 +166,7 @@ export const ROUTES: RouteDef[] = [
     href: "/skills",
     id: "/skills",
     label: "Skills",
+    key: "k",
     surface: "global",
     group: "system",
     icon: ICON.skills,
@@ -159,6 +175,7 @@ export const ROUTES: RouteDef[] = [
     href: "/prompts",
     id: "/prompts",
     label: "Prompts",
+    key: "p",
     surface: "prompts",
     group: "system",
     icon: ICON.prompts,
@@ -167,6 +184,7 @@ export const ROUTES: RouteDef[] = [
     href: "/runs",
     id: "/runs",
     label: "Runs",
+    key: "u",
     surface: "global",
     group: "system",
     icon: ICON.runs,
@@ -175,6 +193,7 @@ export const ROUTES: RouteDef[] = [
     href: "/questions",
     id: "/questions",
     label: "Questions",
+    key: "q",
     surface: "global",
     group: "system",
     icon: ICON.questions,
@@ -184,6 +203,7 @@ export const ROUTES: RouteDef[] = [
     href: "/chat",
     id: "/chat",
     label: "Chat",
+    key: "c",
     surface: "context",
     group: "chat",
     icon: ICON.chat,

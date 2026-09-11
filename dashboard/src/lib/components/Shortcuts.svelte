@@ -23,12 +23,11 @@
   let goPending = $state(false);
   let goTimer: ReturnType<typeof setTimeout> | undefined;
 
-  /** First letter wins, in registry order, so the mapping is derived rather than a second list. */
+  /** Declared on the registry entry, so this is still one list rather than two. */
   const GO_KEYS = $derived.by(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { href: string; label: string }>();
     for (const route of ROUTES) {
-      const key = route.label[0]?.toLowerCase();
-      if (key && !map.has(key)) map.set(key, route.href);
+      if (route.key) map.set(route.key, { href: route.href, label: route.label });
     }
     return map;
   });
@@ -70,10 +69,10 @@
     if (goPending) {
       goPending = false;
       clearTimeout(goTimer);
-      const href = GO_KEYS.get(event.key.toLowerCase());
-      if (href) {
+      const target = GO_KEYS.get(event.key.toLowerCase());
+      if (target) {
         event.preventDefault();
-        goto(href);
+        goto(target.href);
       }
       return;
     }
@@ -94,7 +93,6 @@
     ["/", "Search and jump"],
     ["Ctrl / Cmd + J", "Open or close the assistant"],
     ["j / k", "Previous or next report day"],
-    ["g then a letter", "Go to a page by its first letter"],
     ["?", "This list"],
     ["Esc", "Close, or cancel a running turn"],
   ];
@@ -104,7 +102,7 @@
 
 {#if goPending}
   <div class="fixed bottom-4 left-4 z-50 rounded border border-surface-600 bg-surface-800 px-3 py-1.5 text-xs text-surface-200 shadow-lg">
-    g … press a page's first letter
+    g … press a page's key, or <span class="font-mono">?</span> for the list
   </div>
 {/if}
 
@@ -120,6 +118,19 @@
           <dd class="text-surface-400">{what}</dd>
         {/each}
       </dl>
+
+      <h3 class="mt-4 mb-2 text-xs font-semibold text-surface-200">
+        <span class="font-mono">g</span> then…
+      </h3>
+      <ul class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {#each [...GO_KEYS] as [key, target] (key)}
+          <li class="flex items-baseline gap-2">
+            <span class="font-mono text-surface-200">{key}</span>
+            <span class="text-surface-400">{target.label}</span>
+          </li>
+        {/each}
+      </ul>
+
       <p class="mt-4 text-xs text-surface-400">
         Search took Ctrl+K, so the assistant is on Ctrl+J.
       </p>

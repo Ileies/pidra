@@ -57,9 +57,12 @@
 
 <div class="flex flex-col min-h-screen">
   <header class="sticky top-0 z-10 bg-surface-900 border-b border-surface-700">
-    <div class="max-w-5xl mx-auto px-6 flex items-center justify-between py-3">
+    <div class="max-w-5xl mx-auto px-6 flex items-center justify-between py-2">
       <div class="flex items-center gap-4">
-        <a href="/" class="font-bold tracking-widest text-surface-50 text-lg no-underline hover:underline">PIDRA</a>
+        <a href="/" class="flex items-center gap-1.5 font-bold tracking-widest text-surface-50 text-lg no-underline hover:opacity-90 transition-opacity">
+          <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
+          PIDRA
+        </a>
         <span class="text-surface-500 text-sm">Quellenbewertung</span>
       </div>
       <nav>

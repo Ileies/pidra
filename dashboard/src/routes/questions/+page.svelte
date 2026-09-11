@@ -14,9 +14,12 @@
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
-  <header class="flex items-center justify-between px-8 py-3 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <div class="flex items-baseline gap-4">
-      <span class="font-bold tracking-widest text-surface-50">PIDRA</span>
+  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
+    <div class="flex items-center gap-4">
+      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
+        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
+        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
+      </a>
       <span class="text-surface-500 text-sm">Question Gate</span>
     </div>
     <nav class="flex items-center gap-2">

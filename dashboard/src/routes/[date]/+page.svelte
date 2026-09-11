@@ -22,14 +22,6 @@
     ].filter(Boolean).join(" "),
   });
 
-  function fmt(date: string) {
-    return new Date(date + "T12:00:00").toLocaleDateString("de-DE", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }
 
   function fmtNum(n: number | null | undefined) {
     if (n == null) return "-";
@@ -105,10 +97,12 @@
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
-  <header class="flex items-center justify-between px-8 py-3 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <div class="flex items-baseline gap-4">
-      <span class="font-bold tracking-widest text-surface-50">PIDRA</span>
-      <span class="text-surface-500 text-sm">{fmt(data.date)}</span>
+  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
+    <div class="flex items-center gap-4">
+      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
+        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
+        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
+      </a>
     </div>
     <nav class="flex items-center gap-2">
       {#if data.prevDate}
@@ -225,25 +219,26 @@
           <p>Kein Report für {data.date}.</p>
         {/if}
 
-        <form
-          method="POST"
-          action="?/runPipeline"
-          use:enhance={() => {
-            triggering = true;
-            return async ({ update }) => {
-              await update();
-              triggering = false;
-            };
-          }}
-        >
-          <button
-            type="submit"
-            class="px-6 py-2.5 bg-primary-900 border border-primary-400 text-primary-400 rounded-md text-sm cursor-pointer hover:bg-primary-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={triggering}
+        {#if !triggering && !form?.triggered && data.pipelineRun?.status !== "running"}
+          <form
+            method="POST"
+            action="?/runPipeline"
+            use:enhance={() => {
+              triggering = true;
+              return async ({ update }) => {
+                await update();
+                triggering = false;
+              };
+            }}
           >
-            {triggering ? "Wird gestartet…" : data.pipelineRun?.status === "failed" ? "Erneut versuchen" : "Pipeline jetzt starten"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              class="px-6 py-2.5 bg-primary-900 border border-primary-400 text-primary-400 rounded-md text-sm cursor-pointer hover:bg-primary-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {data.pipelineRun?.status === "failed" ? "Erneut versuchen" : "Pipeline jetzt starten"}
+            </button>
+          </form>
+        {/if}
         {#if form?.error}
           <p class="text-error-500 text-sm">{form.error}</p>
         {/if}

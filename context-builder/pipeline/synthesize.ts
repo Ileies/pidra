@@ -3,7 +3,33 @@ import type { NoteExtraction } from "./extract-note";
 import type { TaskItem } from "../sources/tasks";
 import type { GitHubRepo } from "../sources/github";
 import { synthesize as aiSynthesize } from "../../src/ai/openai";
+import type { formatForPrompt } from "../../src/context/corrections";
 import { addSonnetTokens } from "../progress";
+
+/** Active corrections in the shape the daily prompts already use: `{about, operation, correct, incorrect}`. */
+export type PromptCorrections = ReturnType<typeof formatForPrompt>;
+
+/**
+ * What every synthesis prompt is told about the correction layer.
+ *
+ * A build re-derives the document from the same mail and notes that produced the mistake in the
+ * first place, and an update run additionally hands the previous document to the model verbatim,
+ * wrong text included. Without this block both would quietly reinstate something the user has
+ * already corrected. The corrections are input only: the run never writes, edits or deletes one,
+ * and the layer stays authoritative over the document it produces.
+ */
+const CORRECTIONS_RULES = `context_corrections are corrections the user made to an earlier version of this document,
+stated by them directly. They outrank every other input here, without exception:
+- "correct" is fact. Write the document as if it had always said that.
+- "incorrect", where present, is the wrong text quoted from the earlier document. Do not carry
+  it forward and do not mention that it was ever believed. Drop it.
+- operation is amend (the old statement is wrong), complement (it is merely incomplete) or
+  retract (it states something false that should simply be gone).
+- No source summary can outweigh a correction. Where one implies otherwise, the correction wins
+  and the conflicting detail is left out.
+- They are read-only background. Never list them, never mention that corrections exist, and
+  never add a section about them: the document reads as one coherent profile.
+- If the list is empty, proceed exactly as you would without it.`;
 
 // `max_output_tokens` on the Responses API covers reasoning tokens too, so every cap here sits
 // well above the prose budget stated in the corresponding prompt.
@@ -108,7 +134,10 @@ export interface SynthesisResult {
   fullContext: string;
 }
 
-export async function synthesizeFullContext(parts: Omit<SynthesisResult, "fullContext">): Promise<string> {
+export async function synthesizeFullContext(
+  parts: Omit<SynthesisResult, "fullContext">,
+  corrections: PromptCorrections = [],
+): Promise<string> {
   return call(
     `You are building a long-term personal context document for a morning briefing AI system.
 Given structured summaries from multiple data sources, produce a coherent context document.
@@ -126,21 +155,34 @@ it is assembled once. Carry through concrete detail from the source summaries: n
 relationships, project names, goals and deadlines, habits, preferences, opinions, personal
 history and background. Do not compress detail away for the sake of brevity, and do not add
 anything the source summaries do not support.
-This document will be injected into daily briefings to personalize them.`,
-    JSON.stringify(parts),
+This document will be injected into daily briefings to personalize them.
+
+${CORRECTIONS_RULES}`,
+    JSON.stringify({ ...parts, context_corrections: corrections }),
     { maxOutputTokens: 24000, effort: "medium" },
   );
 }
 
-export async function synthesizePatch(existingContext: string, deltaSummaries: Partial<Omit<SynthesisResult, "fullContext">>, counts: { existing: number; delta: number }): Promise<string> {
+export async function synthesizePatch(
+  existingContext: string,
+  deltaSummaries: Partial<Omit<SynthesisResult, "fullContext">>,
+  counts: { existing: number; delta: number },
+  corrections: PromptCorrections = [],
+): Promise<string> {
   return call(
     `Update this existing personal context document with new information from the delta summaries.
 
 The existing context reflects ${counts.existing} previously indexed items.
 The delta contains ${counts.delta} new items. Merge proportionally - do not alter conclusions
 drawn from the existing context unless directly contradicted by the delta.
-Add new contacts and entities if present. Do not shrink the document.`,
-    JSON.stringify({ existing_context: existingContext, delta: deltaSummaries }),
+Add new contacts and entities if present. Do not shrink the document.
+
+${CORRECTIONS_RULES}
+
+The existing_context below was written before these corrections were made, so it still contains
+the text they correct. Where a correction and the existing context disagree, the existing
+context is the one that is wrong.`,
+    JSON.stringify({ existing_context: existingContext, delta: deltaSummaries, context_corrections: corrections }),
     { maxOutputTokens: 24000, effort: "medium" },
   );
 }

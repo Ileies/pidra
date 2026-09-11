@@ -23,6 +23,7 @@ import {
   synthesizePatch,
   type SynthesisResult,
 } from "./pipeline/synthesize";
+import { listActiveCorrections, formatForPrompt } from "../src/context/corrections";
 import { seedContacts, seedEntities, seedStandingContext } from "./output/db-writer";
 import { writeOutputFiles } from "./output/builder";
 import { db } from "../src/db";
@@ -443,6 +444,15 @@ async function main(): Promise<void> {
       github: githubSummary.status === "fulfilled" ? githubSummary.value : "",
     };
 
+    // Read-only input to synthesis. A build re-derives the document from the same sources that
+    // produced a corrected mistake, and an update run hands the previous document over verbatim,
+    // so without these the run reinstates what the user has already corrected. Nothing here
+    // writes, edits or deletes a correction: the layer stays authoritative over what comes out.
+    const corrections = formatForPrompt(await listActiveCorrections());
+    if (corrections.length > 0) {
+      console.log(`[Synthesis] ${corrections.length} active correction(s) injected`);
+    }
+
     if (mode === "update") {
       const [lastRun] = await db
         .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
@@ -463,10 +473,10 @@ async function main(): Promise<void> {
       const deltaCount = emailExtractions.length + noteExtractions.length + githubRepos.length;
 
       fullContext = existingContext
-        ? await synthesizePatch(existingContext, parts, { existing: existingCount, delta: deltaCount })
-        : await synthesizeFullContext(parts);
+        ? await synthesizePatch(existingContext, parts, { existing: existingCount, delta: deltaCount }, corrections)
+        : await synthesizeFullContext(parts, corrections);
     } else {
-      fullContext = await synthesizeFullContext(parts);
+      fullContext = await synthesizeFullContext(parts, corrections);
     }
   } catch (err) {
     await logError("phase:synthesis", err);

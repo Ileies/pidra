@@ -3,26 +3,24 @@
   import Page from "$lib/components/Page.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
+  import { toasts } from "$lib/toast.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let submitting = $state(false);
+
+  // Section 2 blocks on these answers, so the result is worth stating - as a toast, which
+  // survives the reload that follows, rather than as a banner above a form that is now gone.
+  $effect(() => {
+    if (form?.error) toasts.error(form.error);
+    else if (form?.success) {
+      toasts.success(`${form.answeredCount} answer(s) submitted. Section 2 synthesis will proceed shortly.`);
+    }
+  });
 </script>
 
 <Page title="Questions" size="form" class="flex flex-col gap-6">
-  {#if form?.success}
-    <div class="rounded-lg border border-success-700 bg-success-950 px-5 py-4 text-success-200 text-sm">
-      {form.answeredCount} answer(s) submitted. Section 2 synthesis will proceed shortly.
-    </div>
-  {/if}
-
-  {#if form?.error}
-    <div class="rounded-lg border border-error-700 bg-error-950 px-5 py-4 text-error-200 text-sm">
-      {form.error}
-    </div>
-  {/if}
-
   {#if !data.session}
     <EmptyState
       title="No pending questions."

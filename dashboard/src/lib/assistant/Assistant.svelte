@@ -94,7 +94,7 @@
            hover:scale-110 hover:drop-shadow-[0_6px_16px_rgba(0,0,0,0.55)]
            active:scale-95 rounded-full"
   >
-    <svg viewBox="0 0 24 24" class="h-full w-full overflow-visible">
+    <svg viewBox="0 0 24 24" class="h-full w-full overflow-visible" aria-hidden="true">
       <path
         d="M12 3C6.48 3 2 6.94 2 11.8c0 2.66 1.37 5.04 3.51 6.66-.12.99-.5 2.4-1.51 3.69a.5.5 0 0 0 .49.8c2.06-.42 3.66-1.24 4.7-1.87.9.24 1.85.37 2.81.37 5.52 0 10-3.94 10-8.65C22 6.94 17.52 3 12 3Z"
         class="fill-primary-900 stroke-primary-500 transition-colors group-hover:fill-primary-800 group-hover:stroke-primary-400"

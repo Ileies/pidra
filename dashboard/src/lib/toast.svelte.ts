@@ -72,3 +72,21 @@ class ToastStore {
 }
 
 export const toasts = new ToastStore();
+
+/**
+ * Show a form action's result as a toast (E3).
+ *
+ * Call inside an `$effect`; it fires once per result object, because `form` only changes
+ * identity when an action returns. Six pages each rendered their own coloured banner for this,
+ * in four different shapes, and a banner at the top of a long page is not where the reader is
+ * looking after pressing a button halfway down it.
+ *
+ * Field-level validation stays inline, next to the field it is about.
+ */
+export function toastFormResult(
+  form: { error?: string; message?: string; success?: boolean } | null | undefined,
+): void {
+  if (!form) return;
+  if (form.error) toasts.error(form.error);
+  else if (form.message) toasts.success(form.message);
+}

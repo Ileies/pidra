@@ -6,9 +6,12 @@
   import Diff from "$lib/components/Diff.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import { fmtDateTime } from "$lib/format";
+  import { toastFormResult } from "$lib/toast.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   /** Diff by default, full text behind a toggle: the diff is what the decision needs (D6). */
   let showFullText = $state<Record<string, boolean>>({});
@@ -28,10 +31,6 @@
 </script>
 
 <Page title="Prompts" size="read" class="flex flex-col gap-6">
-  {#if form?.error}
-    <p class="text-error-400 text-sm">{form.error}</p>
-  {/if}
-
   <p class="text-xs text-surface-400 max-w-prose">
     Every section runs on the active version from the database. Where there is none, the prompt
     from the code baseline runs instead. Activating a version takes effect on the next pipeline

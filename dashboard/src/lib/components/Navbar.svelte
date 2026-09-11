@@ -107,7 +107,7 @@
       aria-label="Open menu"
       class="tap sm:hidden ml-auto flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 px-3 text-surface-200 cursor-pointer relative"
     >
-      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
         <path d="M4 7h16M4 12h16M4 17h16" />
       </svg>
       {#if Object.values(badges).some((count) => count > 0)}

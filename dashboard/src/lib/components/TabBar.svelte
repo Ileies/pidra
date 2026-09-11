@@ -70,7 +70,7 @@
             ? 'border-primary-800 bg-primary-950 text-primary-300'
             : 'border-surface-700 bg-surface-950 text-surface-200 hover:bg-surface-800'}"
       >
-        <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d={entry.icon} />
         </svg>
         <span class="flex-1">{entry.label}</span>
@@ -96,7 +96,7 @@
       class="flex h-14 flex-col items-center justify-center gap-0.5 no-underline text-xs transition-colors
         {current?.href === tab.href ? 'text-primary-300' : 'text-surface-400'}"
     >
-      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d={tab.icon} />
       </svg>
       {tab.label}
@@ -110,7 +110,7 @@
     class="relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs cursor-pointer bg-transparent border-none
       {open ? 'text-primary-300' : 'text-surface-400'}"
   >
-    <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+    <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
       <path d={MORE_ICON} />
     </svg>
     More

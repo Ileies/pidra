@@ -8,10 +8,13 @@
   import { fmtCost, fmtDateTime, fmtElapsed, fmtNum } from "$lib/format";
   import { label as displayLabel } from "$lib/labels";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
+  import { toastFormResult, toasts } from "$lib/toast.svelte";
   import type { ContextBuilderStatus } from "$lib/server/contextBuilder";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   // The harvest is never overwritten here: the assistant records corrections that outrank it.
   $effect(() => {
@@ -35,7 +38,6 @@
   let status = $state<ContextBuilderStatus | null>(null);
   let starting = $state(false);
   let stopping = $state(false);
-  let actionError = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setInterval> | undefined;
 
   async function refresh() {
@@ -49,7 +51,6 @@
 
   async function start(mode: "full" | "update" | null) {
     starting = true;
-    actionError = null;
     try {
       const res = await fetch("/api/context-builder/start", {
         method: "POST",
@@ -57,7 +58,8 @@
         body: JSON.stringify({ mode }),
       });
       const body = await res.json();
-      if (!body.ok) actionError = body.error ?? "Failed to start.";
+      if (body.ok) toasts.success(`Context Builder started${mode ? ` in ${mode} mode` : ""}.`);
+      else toasts.error(body.error ?? "Failed to start.");
       await refresh();
     } finally {
       starting = false;
@@ -66,11 +68,11 @@
 
   async function stop() {
     stopping = true;
-    actionError = null;
     try {
       const res = await fetch("/api/context-builder/stop", { method: "POST" });
       const body = await res.json();
-      if (!body.ok) actionError = body.error ?? "Failed to stop.";
+      if (body.ok) toasts.show("Context Builder stopped.");
+      else toasts.error(body.error ?? "Failed to stop.");
       await refresh();
     } finally {
       stopping = false;
@@ -193,12 +195,6 @@
       disagree. Nothing above is overwritten.
     </p>
 
-    {#if form?.error}
-      <p class="text-error-400 text-xs mb-3">{form.error}</p>
-    {:else if form?.message}
-      <p class="text-success-400 text-xs mb-3">{form.message}</p>
-    {/if}
-
     {#if data.corrections.length === 0}
       <p class="text-surface-300 text-sm">
         No active corrections. A wrong relationship or fact in the document can be fixed in the
@@ -288,10 +284,6 @@
         </button>
       </div>
     </div>
-
-    {#if actionError}
-      <p class="text-error-400 text-xs mb-3">{actionError}</p>
-    {/if}
 
     {#if status?.dbRun}
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">

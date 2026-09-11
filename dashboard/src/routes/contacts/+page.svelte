@@ -7,9 +7,12 @@
   import EmptyState from "$lib/components/EmptyState.svelte";
   import { fmtDate, fmtNum } from "$lib/format";
   import { label as displayLabel } from "$lib/labels";
+  import { toastFormResult } from "$lib/toast.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   $effect(() => {
     setPageContext({
@@ -48,12 +51,6 @@
       sender again.
     </p>
   </div>
-
-  {#if form?.error}
-    <p class="rounded-lg border border-error-700 bg-error-950 px-4 py-3 text-sm text-error-200">{form.error}</p>
-  {:else if form?.message}
-    <p class="rounded-lg border border-success-700 bg-success-950 px-4 py-3 text-sm text-success-200">{form.message}</p>
-  {/if}
 
   {#if data.contacts.length === 0}
     <EmptyState

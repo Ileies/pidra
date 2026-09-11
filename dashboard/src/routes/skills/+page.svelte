@@ -13,10 +13,13 @@
   import EmptyState from "$lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "$lib/format";
   import { label as displayLabel } from "$lib/labels";
+  import { toastFormResult } from "$lib/toast.svelte";
   import type { SkillInfo } from "./+page.server";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   const RISK_OPTIONS = ["low", "medium", "high", "critical"] as const;
   const RISK_LEVELS = ["all", ...RISK_OPTIONS] as const;
@@ -72,12 +75,6 @@
 </script>
 
 <Page title="Skills" size="app" class="flex flex-col gap-8">
-  {#if form?.error}
-    <p class="rounded-lg border border-error-700 bg-error-950 px-4 py-3 text-sm text-error-200">{form.error}</p>
-  {:else if form?.message}
-    <p class="rounded-lg border border-success-700 bg-success-950 px-4 py-3 text-sm text-success-200">{form.message}</p>
-  {/if}
-
   <!-- The approval queue (D4). A high-risk call is inserted as `pending` and waits for the
        owner; until now nothing on this page could complete that decision, so the documented
        workflow had no UI. It leads the page because it is the one thing here that blocks. -->
@@ -187,6 +184,7 @@
                   viewBox="0 0 20 20"
                   fill="currentColor"
                   class="w-3 h-3 shrink-0 text-surface-400 transition-transform {open ? 'rotate-90' : ''}"
+                  aria-hidden="true"
                 ><path d="M7 5l6 5-6 5V5z" /></svg>
                 <span class="font-mono text-surface-100 text-sm break-all">{skill.name}</span>
                 <!-- The risk level was a 6px coloured dot with a title=. On a touch device that
@@ -300,6 +298,7 @@
                 viewBox="0 0 20 20"
                 fill="currentColor"
                 class="w-3 h-3 shrink-0 text-surface-400 transition-transform {open ? 'rotate-90' : ''}"
+                aria-hidden="true"
               ><path d="M7 5l6 5-6 5V5z" /></svg>
               <span class="font-mono text-surface-100 text-sm break-all">{exec.skill_name}</span>
               <Badge tone={STATUS_TONE[exec.status as keyof typeof STATUS_TONE] ?? "muted"}>

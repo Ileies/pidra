@@ -13,9 +13,12 @@
   import { URGENCY_META, type NavTarget } from "$lib/report/types";
   import { fmtCost, fmtDate, fmtNum } from "$lib/format";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
+  import { toastFormResult } from "$lib/toast.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   // The report surface: the assistant can read this briefing and act on notes, todos, the
   // calendar or the long-term context, but never edit the report. Reports are final.
@@ -238,9 +241,6 @@
             {data.pipelineRun?.status === "failed" ? "Retry" : "Run pipeline now"}
           </button>
         </form>
-      {/if}
-      {#if form?.error}
-        <p class="text-error-400 text-sm">{form.error}</p>
       {/if}
     </div>
   {/if}

@@ -5,9 +5,12 @@
   import Spinner from "$lib/components/Spinner.svelte";
   import ExtractionCard from "$lib/report/ExtractionCard.svelte";
   import RateButtons from "$lib/report/RateButtons.svelte";
+  import { toastFormResult } from "$lib/toast.svelte";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   /**
    * The deep link behind a report entry. Since C5 the report expands these cards in place, so
@@ -81,10 +84,6 @@
         {loading ? "Analysing…" : "Summarise and go deeper"}
       </button>
     </form>
-
-    {#if form?.error}
-      <p class="text-error-400 text-sm">{form.error}</p>
-    {/if}
 
     {#if form?.deepDiveHtml}
       <div class="report-body mt-2 bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-6 py-5">

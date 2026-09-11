@@ -161,9 +161,6 @@ export async function ingestGoogleTasks(runDate: string): Promise<number> {
     for (const task of tasksResponse.data.items ?? []) {
       if (!task.id || task.status === "completed") continue;
 
-      const messageId = `todo:${runDate}:${task.id}`;
-      if (await rawItemExists(messageId)) continue;
-
       const content: TodoItem = {
         id: task.id,
         title: task.title ?? "(no title)",
@@ -173,19 +170,35 @@ export async function ingestGoogleTasks(runDate: string): Promise<number> {
         status: task.status ?? "needsAction",
       };
 
-      await db.insert(rawItems).values({
-        runDate,
-        sourceType: "todo",
-        sourceName: "Google Tasks",
-        messageId,
-        rawContent: JSON.stringify(content),
-        receivedAt: task.updated ?? null,
-      });
+      // One row per task, refreshed to today's run date, rather than one row per task per day.
+      // The old key carried `runDate`, so every open task cost a new row every morning - 171 a
+      // day, roughly 62k a year, and nothing ever reads a past day's snapshot. This is a
+      // snapshot of what is open right now, and `run_date` is what keeps it honest: a task that
+      // was completed or deleted simply stops being refreshed, so Phase 3's `run_date = today`
+      // query drops it the next morning without anything having to notice it went away.
+      await db
+        .insert(rawItems)
+        .values({
+          runDate,
+          sourceType: "todo",
+          sourceName: "Google Tasks",
+          messageId: `todo:${task.id}`,
+          rawContent: JSON.stringify(content),
+          receivedAt: task.updated ?? null,
+        })
+        .onConflictDoUpdate({
+          target: rawItems.messageId,
+          set: {
+            runDate,
+            rawContent: JSON.stringify(content),
+            receivedAt: task.updated ?? null,
+          },
+        });
 
       stored++;
     }
   }
 
-  console.log(`[Ingest/Google] ${stored} tasks`);
+  console.log(`[Ingest/Google] ${stored} open tasks in today's snapshot`);
   return stored;
 }

@@ -105,6 +105,9 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "calendar"))),
+    // Todos are one row per task, not one per task per day: Phase 1 refreshes `run_date` on
+    // every task that is still open. So this reads the current snapshot, and a task that was
+    // completed or deleted falls out on its own by not being refreshed.
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "todo"))),

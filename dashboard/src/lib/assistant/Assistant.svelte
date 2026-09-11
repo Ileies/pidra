@@ -81,21 +81,22 @@
   </div>
 {/if}
 
-{#if !hidden}
+<!-- Only while closed: the panel occupies this corner, and the button sat on top of it. Closing
+     happens in the panel header, with Esc, or with Strg+K. -->
+{#if !hidden && !assistant.open}
 <button
   onclick={() => assistant.toggle()}
-  aria-label={assistant.open ? "Assistent schließen" : "Assistent öffnen"}
+  aria-label="Assistent öffnen"
   title="Assistent (Strg+K)"
   class="fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full border border-primary-700 bg-primary-900 text-primary-200
-         shadow-lg hover:bg-primary-800 cursor-pointer transition-colors flex items-center justify-center
-         {assistant.open ? 'sm:flex hidden' : 'flex'}"
+         shadow-lg hover:bg-primary-800 cursor-pointer transition-colors flex items-center justify-center"
 >
   {#if assistant.streaming}
     <span class="h-3 w-3 rounded-full bg-primary-300 animate-pulse"></span>
   {:else}
     <span class="text-lg leading-none">✳</span>
   {/if}
-  {#if assistant.unseen && !assistant.open}
+  {#if assistant.unseen}
     <span class="absolute top-0 right-0 h-3 w-3 rounded-full bg-warning-500 border border-surface-950"></span>
   {/if}
 </button>

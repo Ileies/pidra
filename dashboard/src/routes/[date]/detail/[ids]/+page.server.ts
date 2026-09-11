@@ -1,15 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { error, fail } from "@sveltejs/kit";
-import { marked } from "marked";
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
-import { parseSender, tidyRawContent } from "$lib/mail";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function parseIds(raw: string): string[] {
-  return raw.split(",").filter((id) => UUID_RE.test(id)).slice(0, 10);
-}
+import { renderMarkdown } from "$lib/markdown";
+import { loadExtractions, parseIds, rateExtraction, UUID_RE } from "$lib/server/extractions";
 
 export const load: PageServerLoad = async ({ params }) => {
   const { date, ids } = params;
@@ -18,63 +10,10 @@ export const load: PageServerLoad = async ({ params }) => {
   const idList = parseIds(ids);
   if (idList.length === 0) error(400, "No valid item IDs");
 
-  const db = sql();
-  const items = await db`
-    SELECT
-      e.id,
-      e.extracted_json,
-      e.relevance_score,
-      e.effective_relevance,
-      e.novelty,
-      r.source_type,
-      r.source_name,
-      r.account_id,
-      r.raw_content,
-      r.received_at
-    FROM extractions e
-    JOIN raw_items r ON r.id = e.raw_item_id
-    WHERE e.id::text = ANY(${idList})
-    ORDER BY e.effective_relevance DESC NULLS LAST
-  `;
-
+  const items = await loadExtractions(idList);
   if (items.length === 0) error(404, "Items not found");
 
-  const ratedRows = await db`
-    SELECT extraction_id, event_type FROM feedback_events
-    WHERE extraction_id::text = ANY(${idList})
-    AND event_type IN ('explicit_plus', 'explicit_minus')
-  `;
-  const ratingMap = new Map((ratedRows as unknown as { extraction_id: string; event_type: string }[]).map((r) => [r.extraction_id, r.event_type]));
-
-  return {
-    date,
-    ids,
-    items: items.map((row) => ({
-      id: row.id as string,
-      sourceName: row.source_name as string | null,
-      sourceType: row.source_type as string,
-      receivedAt: row.received_at as string | null,
-      // Tidied here rather than in the template: the blank-line runs are no use to the browser
-      // either, and a long newsletter ships a lot smaller without them.
-      rawContent: tidyRawContent(row.raw_content as string | null),
-      sender: parseSender(row.raw_content as string | null),
-      receiver: row.account_id as string | null,
-      novelty: row.novelty as string | null,
-      relevanceScore: row.relevance_score as number | null,
-      effectiveRelevance: row.effective_relevance as number | null,
-      rating: (ratingMap.get(row.id as string) ?? null) as string | null,
-      extracted: parseJsonb<{
-        headline?: string;
-        key_claim?: string;
-        topic_tags?: string[];
-        entities?: string[];
-        type?: string;
-        urgency?: string;
-        action_required?: string | null;
-        deadline?: string | null;
-      } | null>(row.extracted_json, null),
-    })),
-  };
+  return { date, ids, items };
 };
 
 export const actions: Actions = {
@@ -83,24 +22,16 @@ export const actions: Actions = {
     const extractionId = (data.get("extraction_id") as string | null)?.trim();
     const signal = data.get("signal") as string | null;
 
-    if (!extractionId || !UUID_RE.test(extractionId)) return fail(400, { error: "Invalid extraction_id" });
+    if (!extractionId || !UUID_RE.test(extractionId)) return fail(400, { error: "Invalid extraction id" });
     if (signal !== "1" && signal !== "-1") return fail(400, { error: "Invalid signal" });
 
-    const db = sql();
-    const eventType = signal === "1" ? "explicit_plus" : "explicit_minus";
-    const signalValue = parseInt(signal, 10);
-
-    // Remove any prior rating for this extraction, then insert fresh
-    await db`DELETE FROM feedback_events WHERE extraction_id = ${extractionId} AND event_type IN ('explicit_plus', 'explicit_minus')`;
-    await db`INSERT INTO feedback_events (extraction_id, event_type, signal_value) VALUES (${extractionId}, ${eventType}, ${signalValue})`;
-
-    return { rated: extractionId, eventType };
+    return { rated: extractionId, eventType: await rateExtraction(extractionId, signal) };
   },
 
-  zusammenfassen: async ({ params }) => {
+  deepen: async ({ params }) => {
     const { date, ids } = params;
     const idList = parseIds(ids);
-    if (idList.length === 0) return fail(400, { error: "Keine gültigen IDs" });
+    if (idList.length === 0) return fail(400, { error: "No valid item IDs" });
 
     try {
       const res = await fetch("http://localhost:4000/api/deepen", {
@@ -108,11 +39,11 @@ export const actions: Actions = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: idList, date }),
       });
-      if (!res.ok) return fail(502, { error: "Deepen-Aufruf fehlgeschlagen" });
+      if (!res.ok) return fail(502, { error: "The deep-dive call failed." });
       const { text } = (await res.json()) as { text: string };
-      return { deepDiveHtml: marked(text) as string };
+      return { deepDiveHtml: renderMarkdown(text) };
     } catch {
-      return fail(503, { error: "Skills bridge nicht erreichbar (localhost:4000)" });
+      return fail(503, { error: "The skills bridge is not reachable (localhost:4000)." });
     }
   },
 };

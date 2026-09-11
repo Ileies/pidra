@@ -1,7 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { readFile } from "node:fs/promises";
-import { marked } from "marked";
+import { renderMarkdown } from "$lib/markdown";
 import { env } from "$env/dynamic/private";
 import { sql } from "$lib/db";
 
@@ -38,14 +38,14 @@ export const load: PageServerLoad = async () => {
       const section = (key: string, title: string) => ({
         key,
         title,
-        html: marked(raw[key] ?? "") as string,
+        html: renderMarkdown(raw[key]),
         chars: (raw[key] ?? "").length,
       });
       doc = {
         generatedAt: raw.generatedAt ?? null,
         date: raw.date ?? null,
         path: run.output_path as string,
-        fullContextHtml: marked(raw.fullContext ?? "") as string,
+        fullContextHtml: renderMarkdown(raw.fullContext),
         chars: (raw.fullContext ?? "").length,
         sections: [
           section("keep", "Personal knowledge (Keep notes)"),

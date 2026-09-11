@@ -30,7 +30,8 @@
 
   const routeId = $derived(page.route.id ?? "");
   const current = $derived(routeFor(routeId));
-  const hasPendingQuestions = $derived(!!page.data.hasPendingQuestions);
+  /** Keyed by href, so the navbar renders a badge without knowing what it counts. */
+  const badges = $derived((page.data.navBadges ?? {}) as Record<string, number>);
 
   /**
    * Two routes name the thing on screen better than a static label does: the report is its
@@ -79,19 +80,19 @@
           <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
         {/if}
         {#each group as entry (entry.href)}
-          {@const pending = entry.href === "/questions" && hasPendingQuestions}
+          {@const badge = badges[entry.href] ?? 0}
           <a
             href={entry.href}
             aria-current={isCurrentEntry(entry) ? "page" : undefined}
             class="nav-btn {isCurrentEntry(entry)
               ? 'nav-btn-active'
-              : pending
+              : badge > 0
                 ? 'border-warning-700 text-warning-400 hover:bg-surface-800'
                 : entry.secondary
                   ? 'nav-btn-muted'
                   : 'nav-btn-idle'}"
           >
-            {#if pending}<span aria-hidden="true">⚠</span>{/if}{entry.label}
+            {entry.label}{#if badge > 0}<span class="ml-1 tabular-nums">({badge})</span><span class="sr-only"> waiting for you</span>{/if}
           </a>
         {/each}
       {/each}
@@ -109,7 +110,7 @@
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <path d="M4 7h16M4 12h16M4 17h16" />
       </svg>
-      {#if hasPendingQuestions}
+      {#if Object.values(badges).some((count) => count > 0)}
         <span class="absolute top-1 right-1 h-2 w-2 rounded-full bg-warning-500" aria-hidden="true"></span>
       {/if}
     </button>

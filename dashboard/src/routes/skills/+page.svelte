@@ -14,9 +14,9 @@
   import { fmtDateTimeShort } from "$lib/format";
   import { label as displayLabel } from "$lib/labels";
   import type { SkillInfo } from "./+page.server";
-  import type { PageData } from "./$types";
+  import type { PageData, ActionData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   const RISK_OPTIONS = ["low", "medium", "high", "critical"] as const;
   const RISK_LEVELS = ["all", ...RISK_OPTIONS] as const;
@@ -72,6 +72,70 @@
 </script>
 
 <Page title="Skills" size="app" class="flex flex-col gap-8">
+  {#if form?.error}
+    <p class="rounded-lg border border-error-700 bg-error-950 px-4 py-3 text-sm text-error-200">{form.error}</p>
+  {:else if form?.message}
+    <p class="rounded-lg border border-success-700 bg-success-950 px-4 py-3 text-sm text-success-200">{form.message}</p>
+  {/if}
+
+  <!-- The approval queue (D4). A high-risk call is inserted as `pending` and waits for the
+       owner; until now nothing on this page could complete that decision, so the documented
+       workflow had no UI. It leads the page because it is the one thing here that blocks. -->
+  {#if data.pending.length > 0}
+    <section class="flex flex-col gap-3">
+      <h2 class="text-lg font-semibold text-warning-400">
+        Waiting for you ({data.pending.length})
+      </h2>
+      <p class="text-xs text-surface-400 max-w-prose">
+        High-risk calls do not run on their own. Confirming runs the skill now, with the
+        parameters below; everything is re-checked at that point, so a skill disabled or raised to
+        critical since it was queued will be refused rather than run.
+      </p>
+
+      <ul class="flex flex-col gap-2">
+        {#each data.pending as execution (execution.id)}
+          <li class="rounded-lg border border-warning-800 bg-warning-950/40 px-4 py-3 flex flex-col gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-mono text-sm text-surface-100 break-all">{execution.skill_name}</span>
+              <Badge tone="warning">Pending</Badge>
+              <span class="text-xs text-surface-400">{execution.triggered_by ?? "-"}</span>
+              <span class="text-xs text-surface-400 ml-auto whitespace-nowrap">{fmtDateTimeShort(execution.created_at)}</span>
+            </div>
+
+            {#if execution.parameters && Object.keys(execution.parameters).length > 0}
+              <pre class="text-xs text-surface-200 bg-surface-950 border border-surface-800 rounded px-3 py-2 overflow-x-auto">{JSON.stringify(execution.parameters, null, 2)}</pre>
+            {/if}
+
+            <form method="POST" action="?/resolve" use:enhance class="flex flex-col sm:flex-row sm:items-center gap-2">
+              <input type="hidden" name="id" value={execution.id} />
+              <input
+                type="text"
+                name="reason"
+                placeholder="Reason (optional, recorded on a rejection)"
+                aria-label="Rejection reason"
+                class="input-base flex-1"
+              />
+              <div class="flex gap-2">
+                <button
+                  type="submit"
+                  name="decision"
+                  value="confirm"
+                  class="tap flex-1 px-4 py-1.5 rounded text-xs bg-success-800 border border-success-600 text-success-100 hover:bg-success-700 cursor-pointer transition-colors"
+                >Confirm and run</button>
+                <button
+                  type="submit"
+                  name="decision"
+                  value="reject"
+                  class="tap flex-1 px-4 py-1.5 rounded text-xs bg-surface-900 border border-error-700 text-error-400 hover:bg-surface-950 cursor-pointer transition-colors"
+                >Reject</button>
+              </div>
+            </form>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
   <section class="flex flex-col gap-3">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <h1 class="text-xl font-bold text-surface-50">

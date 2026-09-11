@@ -9,7 +9,7 @@ import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { loadSkills } from "../skills/loader";
-import { executeSkill } from "../skills/execute";
+import { executeSkill, resolvePendingSkill } from "../skills/execute";
 import { listEffectiveSkills, patchSkill, resetSkill, SkillOverrideError } from "../skills/overrides";
 import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
 import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
@@ -87,6 +87,29 @@ app.get("/api/skills/executions", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
   const rows = await db.select().from(skillExecutions).orderBy(desc(skillExecutions.createdAt)).limit(limit);
   return c.json(rows);
+});
+
+// The other half of the high-risk queue. `executeSkill` parks a high-risk call as `pending` and
+// says it is queued on /skills; this is what /skills calls to finish the decision. See D4.
+app.post("/api/skills/executions/:id/:decision", async (c) => {
+  const decision = c.req.param("decision");
+  if (decision !== "confirm" && decision !== "reject") {
+    return c.json({ error: "decision must be confirm or reject" }, 400);
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as { reason?: string };
+  const outcome = await resolvePendingSkill(c.req.param("id"), decision, body.reason);
+
+  switch (outcome.status) {
+    case "unknown_skill":
+      return c.json({ error: outcome.message }, 404);
+    case "rejected":
+      return c.json({ status: "rejected", reason: outcome.message });
+    case "failed":
+      return c.json({ status: "failed", error: outcome.message }, 500);
+    default:
+      return c.json({ status: "executed", result: outcome.message });
+  }
 });
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));

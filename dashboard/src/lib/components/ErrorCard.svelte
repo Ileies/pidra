@@ -9,14 +9,7 @@
   import type { Snippet } from "svelte";
   import Badge from "$lib/components/Badge.svelte";
   import { fmtDuration, fmtTime } from "$lib/format";
-
-  export interface StepAttempt {
-    step: string;
-    attempt: number;
-    error: string;
-    stack?: string;
-    ts: string;
-  }
+  import type { StepAttempt } from "$lib/pipeline";
 
   interface Props {
     /** The step that failed, as recorded by the pipeline. */

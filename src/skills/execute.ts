@@ -106,3 +106,71 @@ export async function executeSkill(
     return { status: "failed", message: msg, executionId: execRow.id };
   }
 }
+
+/**
+ * Runs or rejects a queued high-risk call (DASHBOARD_PLAN D4).
+ *
+ * `executeSkill` leaves a `high` skill as a `pending` row and tells the caller it is queued. That
+ * is the documented approval workflow, and until now nothing could complete it: the queue had no
+ * confirm and no reject, so a queued call sat there forever.
+ *
+ * Everything is re-checked at confirmation time rather than trusted from when the call was made:
+ * the skill may have been disabled, or raised to `critical`, in between. A confirmation is an
+ * approval of *this* call, not a standing permission.
+ */
+export async function resolvePendingSkill(
+  executionId: string,
+  decision: "confirm" | "reject",
+  reason?: string,
+): Promise<ExecutionOutcome> {
+  const [row] = await db.select().from(skillExecutions).where(eq(skillExecutions.id, executionId));
+  if (!row) return { status: "unknown_skill", message: `No such skill execution: ${executionId}` };
+  if (row.status !== "pending") {
+    return { status: "rejected", message: `Execution ${executionId} is already ${row.status}`, executionId };
+  }
+
+  if (decision === "reject") {
+    const message = reason?.trim() || "Rejected by the owner";
+    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, executionId));
+    return { status: "rejected", message, executionId };
+  }
+
+  const skillName = row.skillName ?? "";
+  const skill = getSkill(skillName);
+  if (!skill) {
+    const message = `Unknown skill: ${skillName}`;
+    await db.update(skillExecutions).set({ status: "failed", result: message }).where(eq(skillExecutions.id, executionId));
+    return { status: "unknown_skill", message, executionId };
+  }
+
+  const effective = await getEffectiveSkill(skillName);
+  if (effective && !effective.enabled) {
+    const message = `${skillName} has been disabled since this call was queued`;
+    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, executionId));
+    return { status: "rejected", message, executionId };
+  }
+
+  if ((effective?.risk_level ?? skill.risk_level) === "critical") {
+    const message = `${skillName} is now critical and cannot be run, even with confirmation`;
+    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, executionId));
+    return { status: "rejected", message, executionId };
+  }
+
+  const ctx: SkillContext = {
+    executionId,
+    triggeredBy: row.triggeredBy ?? "manual",
+    conversationId: null,
+    // The owner pressed Confirm, so the write is theirs however the call was originally proposed.
+    actor: "user",
+  };
+
+  try {
+    const result = await skill.execute((row.parameters ?? {}) as Record<string, unknown>, ctx);
+    await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, executionId));
+    return { status: "executed", message: result, executionId };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await db.update(skillExecutions).set({ status: "failed", result: message }).where(eq(skillExecutions.id, executionId));
+    return { status: "failed", message, executionId };
+  }
+}

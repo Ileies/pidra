@@ -69,8 +69,9 @@ changes. One note per call. If the user's wording could mean two different notes
   context: {
     label: "Context",
     skills: ["read_context", "revise_context", "revert_context_revision", "write_note", "list_notes", "run_web_search"],
-    prompt: `The user is on the harvested long-term context: the Context Builder's document and the
-standing rules it wrote. This layer is never overwritten. \`revise_context\` records a correction
+    prompt: `The user is on the harvested long-term context: the Context Builder's document, the
+standing rules it wrote (also editable directly on /rules), or the context chat. This layer is
+never overwritten. \`revise_context\` records a correction
 that outranks the harvest in every future briefing, and the wrong text is deliberately kept on the
 correction so the model can see what it is being told to disregard.
 
@@ -180,7 +181,7 @@ do it there.`,
  */
 const ROUTE_SURFACES: [RegExp, Surface][] = [
   [/^\/notes/, "notes"],
-  [/^\/(context-builder|chat)/, "context"],
+  [/^\/(context-builder|chat|rules)/, "context"],
   [/^\/entities/, "entities"],
   [/^\/sources/, "sources"],
   [/^\/prompts/, "prompts"],

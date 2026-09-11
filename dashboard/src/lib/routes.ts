@@ -95,6 +95,16 @@ export const ROUTES: RouteDef[] = [
     children: ["/entities/[id]"],
   },
   {
+    href: "/topics",
+    id: "/topics",
+    label: "Topics",
+    // `global` on purpose, not by omission: active_topics belongs to the pipeline and no skill
+    // may write it, so there is nothing structural here for the assistant to change.
+    surface: "global",
+    group: "intel",
+    icon: ICON.topics,
+  },
+  {
     href: "/notes",
     id: "/notes",
     label: "Notes",
@@ -102,6 +112,14 @@ export const ROUTES: RouteDef[] = [
     group: "memory",
     icon: ICON.notes,
     tab: 1,
+  },
+  {
+    href: "/rules",
+    id: "/rules",
+    label: "Rules",
+    surface: "context",
+    group: "memory",
+    icon: ICON.rules,
   },
   {
     href: "/context-builder",
@@ -126,6 +144,14 @@ export const ROUTES: RouteDef[] = [
     surface: "prompts",
     group: "system",
     icon: ICON.prompts,
+  },
+  {
+    href: "/runs",
+    id: "/runs",
+    label: "Runs",
+    surface: "global",
+    group: "system",
+    icon: ICON.runs,
   },
   {
     href: "/questions",

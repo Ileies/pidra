@@ -22,7 +22,8 @@
   let { open, onOpenChange }: Props = $props();
 
   const current = $derived(routeFor(page.route.id));
-  const hasPendingQuestions = $derived(!!page.data.hasPendingQuestions);
+  const badges = $derived((page.data.navBadges ?? {}) as Record<string, number>);
+  const anyPending = $derived(Object.values(badges).some((count) => count > 0));
 
   /** Everything the tab bar does not already reach. */
   const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined));
@@ -60,7 +61,7 @@
     <div class="mx-auto mb-1 h-1 w-10 rounded-full bg-surface-600" aria-hidden="true"></div>
 
     {#each sheetRoutes as entry (entry.href)}
-      {@const pending = entry.href === "/questions" && hasPendingQuestions}
+      {@const badge = badges[entry.href] ?? 0}
       <a
         href={entry.href}
         aria-current={current?.href === entry.href ? "page" : undefined}
@@ -73,8 +74,8 @@
           <path d={entry.icon} />
         </svg>
         <span class="flex-1">{entry.label}</span>
-        {#if pending}
-          <span class="badge border border-warning-800 bg-warning-950 text-warning-400">Pending</span>
+        {#if badge > 0}
+          <span class="badge border border-warning-800 bg-warning-950 text-warning-400">{badge} pending</span>
         {/if}
       </a>
     {/each}
@@ -113,7 +114,7 @@
       <path d={MORE_ICON} />
     </svg>
     More
-    {#if hasPendingQuestions}
+    {#if anyPending}
       <span class="absolute top-2 right-1/4 h-2 w-2 rounded-full bg-warning-500" aria-hidden="true"></span>
     {/if}
   </button>

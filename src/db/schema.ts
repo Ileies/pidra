@@ -152,6 +152,9 @@ export const contacts = pgTable("contacts", {
   updatedAt: timestamptz("updated_at").default(sql`now()`),
   // Set by a `revise_context` correction; `seedContacts` skips locked rows on re-seed.
   locked: boolean("locked").default(false),
+  // Seeded once from the Context Builder's corpus count, then owned by the live pipeline going
+  // forward - the same split as `entities.mention_count`. `seedContacts` only sets it on insert.
+  emailCount: integer("email_count").default(0),
 });
 
 /**

@@ -34,6 +34,7 @@ export async function seedContacts(contactProfiles: ContactProfile[]): Promise<v
         name: stripControlChars(profile.name),
         priority: profile.importance,
         firstSeen: profile.lastSeen,
+        emailCount: profile.emailCount,
       })))
       .onConflictDoUpdate({
         target: contacts.identifier,
@@ -41,6 +42,8 @@ export async function seedContacts(contactProfiles: ContactProfile[]): Promise<v
           name: drizzleSql`excluded.name`,
           priority: drizzleSql`excluded.priority`,
           updatedAt: drizzleSql`now()`,
+          // emailCount deliberately absent: it seeds once on insert, then the live pipeline owns
+          // the running count, same split as entities.mention_count. A re-seed must not clobber it.
         },
         // A row the user corrected through `revise_context` is left exactly as it is: a re-seed
         // must never undo a correction. See CONTEXT_REVISION_PLAN.md.

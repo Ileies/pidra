@@ -181,7 +181,7 @@ do it there.`,
  */
 const ROUTE_SURFACES: [RegExp, Surface][] = [
   [/^\/notes/, "notes"],
-  [/^\/(context-builder|chat|rules)/, "context"],
+  [/^\/(context-builder|chat|rules|contacts)/, "context"],
   [/^\/entities/, "entities"],
   [/^\/sources/, "sources"],
   [/^\/prompts/, "prompts"],

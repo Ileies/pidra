@@ -105,6 +105,14 @@ export const ROUTES: RouteDef[] = [
     icon: ICON.topics,
   },
   {
+    href: "/contacts",
+    id: "/contacts",
+    label: "Contacts",
+    surface: "context",
+    group: "intel",
+    icon: ICON.contacts,
+  },
+  {
     href: "/notes",
     id: "/notes",
     label: "Notes",

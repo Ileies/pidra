@@ -3,11 +3,15 @@
   import { setPageContext } from "$lib/assistant/state.svelte";
   import Page from "$lib/components/Page.svelte";
   import Badge from "$lib/components/Badge.svelte";
+  import Diff from "$lib/components/Diff.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import { fmtDateTime } from "$lib/format";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  /** Diff by default, full text behind a toggle: the diff is what the decision needs (D6). */
+  let showFullText = $state<Record<string, boolean>>({});
 
   // The assistant may propose a version here, never activate one: prompt changes require human
   // approval, and activation lives on this page.
@@ -64,6 +68,7 @@
             {/if}
 
             {#each group.versions as prompt (prompt.id)}
+              {@const full = !!showFullText[prompt.id]}
               <article class="bg-surface-900 border {prompt.active ? 'border-success-700' : 'border-surface-700'} rounded-lg px-4 sm:px-5 py-4">
                 <div class="flex flex-wrap items-center gap-2 mb-3">
                   <span class="font-mono text-xs text-surface-300">v{prompt.version}</span>
@@ -81,7 +86,28 @@
                   {/if}
                 </div>
 
-                <pre class="text-xs text-surface-200 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto mb-3">{prompt.promptText}</pre>
+                <!-- Against whatever is actually running for this section: the active version if
+                     there is one, the code baseline otherwise. Approving used to be blind. -->
+                {#if !prompt.active && group.effective && group.effective.text !== prompt.promptText && !full}
+                  <div class="mb-3">
+                    <Diff
+                      before={group.effective.text}
+                      after={prompt.promptText}
+                      beforeLabel={group.effective.source === "db" ? `Active v${group.effective.version}` : "Code baseline"}
+                      afterLabel="v{prompt.version}"
+                    />
+                  </div>
+                {:else}
+                  <pre class="text-xs text-surface-200 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto mb-3">{prompt.promptText}</pre>
+                {/if}
+
+                {#if !prompt.active && group.effective && group.effective.text !== prompt.promptText}
+                  <button
+                    type="button"
+                    onclick={() => (showFullText[prompt.id] = !full)}
+                    class="tap mb-3 px-3 py-1 rounded text-xs border border-surface-700 text-surface-300 hover:bg-surface-800 cursor-pointer"
+                  >{full ? "Show the diff" : "Show the full text"}</button>
+                {/if}
 
                 {#if !prompt.active}
                   <div class="flex flex-wrap gap-2">

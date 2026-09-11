@@ -13,6 +13,8 @@
   "dependencies": {
     "@skeletonlabs/skeleton": "^4.15.2",
     "@skeletonlabs/skeleton-svelte": "^4.15.2",
+    "@types/diff": "^8.0.0",
+    "diff": "^9.0.0",
     "isomorphic-dompurify": "^4.2.0",
     "marked": "^15.0.7",
     "postgres": "^3.4.5"

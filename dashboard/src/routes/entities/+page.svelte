@@ -41,7 +41,9 @@
 </script>
 
 {#snippet nameCell(entity: Entity)}
-  <div class="font-medium text-surface-100">{entity.name}</div>
+  <a href="/entities/{entity.id}" class="font-medium text-surface-100 no-underline hover:text-primary-400 hover:underline">
+    {entity.name}
+  </a>
   {#if entity.aliases && entity.aliases.length > 0}
     <div class="text-xs text-surface-400 mt-0.5">{entity.aliases.slice(0, 3).join(", ")}</div>
   {/if}

@@ -1,6 +1,7 @@
 import { db, dailyReports, activeTopics, entities, entityRelations, contacts, extractions, rawItems, sourceDailyScores, sourceQuality, skillExecutions } from "../db";
 import { eq, gte, and, inArray, sql as drizzleSql } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
+import { parseReport } from "./report-json";
 import { getSkill } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
 import { createNote } from "../notes/store";
@@ -144,10 +145,20 @@ export async function runPhase6(
   const refsUsable = includedIds.length > 0;
   const reportItemsIncluded = refsUsable ? includedIds.length : itemsIncluded;
 
+  // The structured form of the report, parsed from the markdown the model just produced. No
+  // second AI call: the shape is fixed by the synthesis prompts, so this is a heading walk.
+  // A parse failure means the prompt and the parser have drifted; the column stays null and the
+  // dashboard renders the markdown as before rather than showing an empty page. See C1.
+  const reportJson = parseReport(fullReport, runDate);
+  if (!reportJson) {
+    console.warn("[Phase 6] Report did not parse into report_json - the dashboard will fall back to markdown");
+  }
+
   // Write daily report
   await db.insert(dailyReports).values({
     reportDate: runDate,
     fullReport,
+    reportJson,
     shortSummary: synthesis.section1.split("\n").slice(0, 5).join(" ").slice(0, 500),
     itemCount,
     itemsIncluded: reportItemsIncluded,
@@ -159,7 +170,13 @@ export async function runPhase6(
     webSearchesRun,
   }).onConflictDoUpdate({
     target: dailyReports.reportDate,
-    set: { fullReport, shortSummary: synthesis.section1.slice(0, 500), tokensIn: synthesis.tokensIn, tokensOut: synthesis.tokensOut },
+    set: {
+      fullReport,
+      reportJson,
+      shortSummary: synthesis.section1.slice(0, 500),
+      tokensIn: synthesis.tokensIn,
+      tokensOut: synthesis.tokensOut,
+    },
   });
 
   // Parse and apply Section 1 SYSTEM block

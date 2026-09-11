@@ -62,6 +62,12 @@ export const dailyReports = pgTable("daily_reports", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   reportDate: dateStr("report_date").unique().notNull(),
   fullReport: text("full_report"),
+  // The structured form of `fullReport`, parsed deterministically by pipeline/report-json.ts.
+  // Nullable on purpose: a parse that cannot find both section headings writes null and the
+  // dashboard falls back to rendering the markdown. `fullReport` stays the source of truth -
+  // it is what the model actually produced, and the archive must stay readable if this parser
+  // is ever wrong. See DASHBOARD_PLAN C1.
+  reportJson: jsonb("report_json").$type<import("../pipeline/report-json").ReportJson | null>(),
   shortSummary: text("short_summary"),
   itemCount: integer("item_count"),
   itemsIncluded: integer("items_included"),

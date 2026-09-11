@@ -153,7 +153,7 @@ Output rules:
 
 export const DEEPEN_PROMPT = `${BRIEFING_STYLE}
 
-You are writing a deep-dive on a specific briefing entry. The user clicked "Mehr dazu" - they already read the morning summary and want to go further.
+You are writing a deep-dive on a specific briefing entry. The user expanded "More on this" - they already read the morning summary and want to go further.
 
 Input:
 - items: the extracted source content that the briefing entry was based on

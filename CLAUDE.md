@@ -75,17 +75,29 @@ See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 
 ## Dashboard routes
 
-- `/[date]` - daily report, pipeline trigger, stats bar
+**Every page is declared once, in `dashboard/src/lib/routes.ts`.** The navbar, the mobile tab bar and the assistant's client-side surface fallback all render from that registry, and `scripts/check-route-surfaces.ts` (part of the root `bun run check`) fails the build when a registry entry's surface disagrees with what `src/ai/surfaces.ts` resolves. Adding a page means adding one entry there and, if it needs more than the `global` surface, one line in `ROUTE_SURFACES`.
+
+- `/[date]` - daily report. Section 2 leads at every width; entries carry inline +/- rating and expand their sources in place. Stats bar, day steppers, archive picker, live run status
+- `/[date]/detail/[ids]` - the extractions behind one entry; the shareable deep link and the no-JS fallback for the inline expansion
 - `/sources` - source quality dashboard (trust scores, include rates, enable/disable)
+- `/sources/[name]` - every delivery from one source and what extraction made of it
+- `/feedback` - the item-level rating log behind the per-source totals
 - `/entities` - entity graph explorer (filterable table)
+- `/entities/[id]` - one entity: relations as an adjacency list, appearances as a timeline
+- `/topics` - `active_topics`, with resolve and archive. Curation only: no skill may write this table
+- `/contacts` - the sender directory. Edits go through `recordCorrection`, so they behave exactly as the assistant's do
 - `/notes` - notes management: click-to-edit content, inline scope and expiry, search, sort, trash with restore, per-revision history with revert, bulk actions, undo on delete. System notes are editable too; provenance stays visible via `created_by` / `updated_by`
-- `/skills` - skill execution log
-- `/prompts` - prompt version management (view, activate, delete)
+- `/rules` - `standing_context` CRUD, with a preview of the block as the Section 2 prompt receives it
+- `/context-builder` - the harvested context document, standing rules, active corrections (with revert), and run controls
+- `/skills` - the pending high-risk approval queue, the registry editor, and the execution log
+- `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
+- `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log
 - `/questions` - pending question gate sessions
 - `/chat` - the assistant full screen: the same `Panel` component the floating widget uses, plus the conversation list and the active corrections. Shares one live conversation with the widget
-- `/context-builder` - the harvested context document, standing rules, active corrections (with revert), and run controls
 
-The **floating assistant** is mounted once in `+layout.svelte`, so it is reachable from every page and a turn survives navigation. Each page declares what it is showing with `setPageContext()` (`$lib/assistant/state.svelte`); the `focus` list hands the model real ids for the rows on screen. Turns stream over SSE (`POST /api/assistant/chat`), tool calls appear as they execute, and a turn that wrote something triggers `invalidateAll()` plus a highlight on the changed rows. It is hidden on `/chat`, which is the same thing full screen.
+The **floating assistant** is mounted once in `+layout.svelte`, so it is reachable from every page and a turn survives navigation. Each page declares what it is showing with `setPageContext()` (`$lib/assistant/state.svelte`); the `focus` list hands the model real ids for the rows on screen. Turns stream over SSE (`POST /api/assistant/chat`), tool calls appear as they execute, and a turn that wrote something triggers `invalidateAll()` plus a highlight on the changed rows. It is hidden on `/chat`, which is the same thing full screen, and below `sm`, where the bottom bar's Chat tab replaces it.
+
+**Dashboard conventions.** Pages are wrapped in `<Page size="read|app|form">`, which owns the container width and the responsive padding - there are three widths and one padding rule. Dates and numbers go through `$lib/format.ts`, DB enum values through `$lib/labels.ts`, cost through `$lib/pricing.ts`. Every `{@html}` goes through `renderMarkdown()` in `$lib/markdown.ts`; nothing else may call `marked`. UI language is English throughout (`DASHBOARD_PLAN.md` decision 1) and the palette is dark-only, with `dashboard/scripts/contrast.ts` enforcing the contrast floor on every check.
 
 ## Cron schedule (all `Europe/Berlin`)
 
@@ -144,7 +156,7 @@ Never use real personal information in code, comments, or examples - no real ema
 
 ## What to build next
 
-See `TODO.md` for the current phase and open items. Phases 0–6 are complete. The Context Builder is complete and has had one full run (2026-09-10), seeding `entities`, `contacts`, and `standing_context`. What remains: set up the monthly Context Builder update-run cadence, test the daily pipeline against real newsletters for a few days to tune extraction prompts, and begin the dashboard redesign (`DASHBOARD_PLAN.md`).
+See `TODO.md` for the current phase and open items. Phases 0–6 are complete. The Context Builder is complete and has had one full run (2026-09-10), seeding `entities`, `contacts`, and `standing_context`. The dashboard redesign in `DASHBOARD_PLAN.md` was executed in full on 2026-09-12 except M-9, the real-hardware pass, which decision 6 makes a gate: nothing in the redesign has been opened on a phone. What remains: redeploy pronix and do that pass, set up the monthly Context Builder update-run cadence, and test the daily pipeline against real newsletters for a few days to tune extraction prompts.
 
 ## What not to build (yet)
 

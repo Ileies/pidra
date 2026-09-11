@@ -8,8 +8,9 @@ import type { GateAnswer, GateQuestion } from "../db/schema";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
-import { loadSkills, listSkills } from "../skills/loader";
+import { loadSkills } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
+import { listEffectiveSkills, patchSkill, resetSkill, SkillOverrideError } from "../skills/overrides";
 import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
 import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
 import { listActiveCorrections, revertCorrection, CorrectionError } from "../context/corrections";
@@ -24,12 +25,34 @@ app.use("/api/*", cors({ origin: ["http://localhost:5173", "http://localhost:417
 
 // --- Skills Bridge ---
 
-app.get("/skills", (c) => c.json(listSkills().map((s) => ({
-  name: s.name,
-  description: s.description,
-  risk_level: s.risk_level,
-  parameters: s.parameters,
-}))));
+app.get("/skills", async (c) => c.json(await listEffectiveSkills()));
+
+app.patch("/skills/:name", async (c) => {
+  const name = c.req.param("name");
+  const body = await c.req.json().catch(() => ({})) as {
+    enabled?: boolean;
+    risk_level?: "low" | "medium" | "high" | "critical";
+    description?: string;
+    parameter_descriptions?: Record<string, string>;
+  };
+
+  try {
+    return c.json(await patchSkill(name, body));
+  } catch (err) {
+    if (err instanceof SkillOverrideError) return c.json({ error: err.message }, 400);
+    throw err;
+  }
+});
+
+app.delete("/skills/:name/override", async (c) => {
+  const name = c.req.param("name");
+  try {
+    return c.json(await resetSkill(name));
+  } catch (err) {
+    if (err instanceof SkillOverrideError) return c.json({ error: err.message }, 404);
+    throw err;
+  }
+});
 
 app.post("/skills/execute", async (c) => {
   const body = await c.req.json() as {

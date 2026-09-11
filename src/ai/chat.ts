@@ -1,8 +1,8 @@
 import { desc, eq, sql as drizzleSql } from "drizzle-orm";
 import { db, chatConversations, chatMessages, type ChatToolCall, type PageContextSnapshot } from "../db";
 import { converse, type FunctionTool, type ResponseInput } from "./openai";
-import { listSkills, type Skill } from "../skills/loader";
 import { executeSkill } from "../skills/execute";
+import { listEffectiveSkills, type EffectiveSkill } from "../skills/overrides";
 import { recentCorrections } from "../context/lookup";
 import { SURFACES, resolveSurface, type Surface } from "./surfaces";
 
@@ -10,9 +10,9 @@ import { SURFACES, resolveSurface, type Surface } from "./surfaces";
  * The assistant's turn loop: a tool-calling conversation over the skill registry, scoped to the
  * dashboard page it was opened on.
  *
- * Tools come from `listSkills()` filtered by the page's surface, so a skill added to `skills/` is
- * usable with no change here, and a skill that does not belong on the current page is never even
- * offered. Every call goes through `executeSkill`, which re-checks the surface server-side and
+ * Tools come from `listEffectiveSkills()` filtered by the page's surface, so a skill added to
+ * `skills/` is usable with no change here, and a skill that does not belong on the current page -
+ * or that has been disabled from /skills - is never even offered. Every call goes through `executeSkill`, which re-checks the surface server-side and
  * owns the risk gating and the audit log - the model can invent a tool name, and the surface
  * arrives from a client.
  *
@@ -46,7 +46,7 @@ How to work:
 - Answer in plain prose. The panel renders your text verbatim rather than as HTML, so markdown
   syntax would show up as literal asterisks.`;
 
-function toJsonSchema(skill: Skill): Record<string, unknown> {
+function toJsonSchema(skill: EffectiveSkill): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
 
@@ -59,11 +59,16 @@ function toJsonSchema(skill: Skill): Record<string, unknown> {
   return { type: "object", properties, required, additionalProperties: false };
 }
 
-/** Only this surface's skills, so the model cannot announce an edit it is not allowed to make. */
-function skillTools(surface: Surface): FunctionTool[] {
+/**
+ * Only this surface's skills, so the model cannot announce an edit it is not allowed to make.
+ * Goes through the override layer so a skill disabled from /skills is never offered, and an
+ * edited description/risk level reaches the model exactly as an operator set it.
+ */
+async function skillTools(surface: Surface): Promise<FunctionTool[]> {
   const allowed = new Set(SURFACES[surface].skills);
-  return listSkills()
-    .filter((skill) => allowed.has(skill.name))
+  const skills = await listEffectiveSkills();
+  return skills
+    .filter((skill) => allowed.has(skill.name) && skill.enabled)
     .map((skill) => ({
       type: "function" as const,
       name: skill.name,
@@ -263,7 +268,7 @@ export async function* streamMessage(
   });
 
   const input: ResponseInput = [...history, { role: "user", content: text }];
-  const tools = skillTools(ctx.surface);
+  const tools = await skillTools(ctx.surface);
   const toolCalls: ChatToolCall[] = [];
   const touched = new Set<string>();
   let reply = "";

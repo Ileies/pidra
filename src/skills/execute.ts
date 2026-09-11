@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, skillExecutions } from "../db";
 import { getSkill, type SkillContext } from "./loader";
+import { getEffectiveSkill } from "./overrides";
 import { isSkillAllowed, SURFACES, type Surface } from "../ai/surfaces";
 
 export type ExecutionStatus = "executed" | "failed" | "rejected" | "pending_confirmation" | "unknown_skill";
@@ -39,11 +40,22 @@ export async function executeSkill(
   const skill = getSkill(skillName);
   if (!skill) return { status: "unknown_skill", message: `Unknown skill: ${skillName}` };
 
+  const effective = await getEffectiveSkill(skillName);
+  const riskLevel = effective?.risk_level ?? skill.risk_level;
+
   const runDate = options.runDate ?? new Date().toISOString().split("T")[0];
   const [execRow] = await db
     .insert(skillExecutions)
     .values({ runDate, skillName, parameters, status: "pending", triggeredBy })
     .returning({ id: skillExecutions.id });
+
+  // Disabled from /skills. Checked before anything else - a skill an operator turned off must
+  // not run just because it's otherwise low-risk and surface-allowed.
+  if (effective && !effective.enabled) {
+    const message = `${skillName} is disabled`;
+    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, execRow.id));
+    return { status: "rejected", message, executionId: execRow.id };
+  }
 
   // The surface policy is checked before the risk level: a skill that does not belong on the page
   // must not run even if it is harmless elsewhere. The rejection is logged rather than swallowed,
@@ -54,7 +66,8 @@ export async function executeSkill(
     return { status: "rejected", message, executionId: execRow.id };
   }
 
-  if (skill.risk_level === "critical") {
+  // Risk level: the dashboard override (if any) always wins over the code-defined default.
+  if (riskLevel === "critical") {
     await db.update(skillExecutions).set({ status: "rejected" }).where(eq(skillExecutions.id, execRow.id));
     return {
       status: "rejected",
@@ -63,7 +76,7 @@ export async function executeSkill(
     };
   }
 
-  if (skill.risk_level === "high") {
+  if (riskLevel === "high") {
     return {
       status: "pending_confirmation",
       message: "high-risk skill requires confirmation before it runs; it is queued on /skills",
@@ -71,7 +84,7 @@ export async function executeSkill(
     };
   }
 
-  if (skill.risk_level === "medium") {
+  if (riskLevel === "medium") {
     console.log(`[Skills] Medium-risk skill executed: ${skillName} - triggered_by=${triggeredBy}`);
   }
 

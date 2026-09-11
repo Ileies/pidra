@@ -214,6 +214,22 @@ export const feedbackEvents = pgTable("feedback_events", {
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
+/**
+ * Dashboard-editable override layer over the code-defined skill registry, the same pattern as
+ * `promptVersions` over the prompt baseline: the TypeScript module in `/skills/` stays the source
+ * of truth, this table only adjusts what's shown/allowed on top of it. No row means "use the
+ * code defaults" - `enabled` on insert already defaults to true, so a missing row and a present-
+ * but-untouched row behave identically.
+ */
+export const skillOverrides = pgTable("skill_overrides", {
+  skillName: text("skill_name").primaryKey(),
+  enabled: boolean("enabled").notNull().default(true),
+  riskLevelOverride: text("risk_level_override"), // low | medium | high | critical | null (use code default)
+  descriptionOverride: text("description_override"),
+  parameterDescriptionOverrides: jsonb("parameter_description_overrides").$type<Record<string, string>>(),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+});
+
 export const skillExecutions = pgTable("skill_executions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   runDate: dateStr("run_date"),

@@ -281,18 +281,27 @@ async function main(): Promise<void> {
   try {
     emailSkipSet = mode === "full" ? new Set<string>() : await getSkipSet("email");
     for (const id of resumeEmailSkip) emailSkipSet.add(id);
-    for (const account of fromIndex ? [] : config.emailAccounts) {
-      if (account.isNewsAccount) continue;
-      const { items, skipped } = await fetchEmailItems(account, config.emailYears, emailSkipSet, {
-        onHeaderCount: (n) => {
-          state.phases.email.total += n;
-          updateProgress(state);
-        },
-        onItemDone: () => {
-          state.phases.email.processed += 1;
-          updateProgress(state);
-        },
-      });
+    // Each account is an independent IMAP connection with no shared state beyond emailSkipSet
+    // (read-only during fetch), so they fetch concurrently instead of one at a time - the mail
+    // fetch had become the whole runtime. fetchEmailItems already retries and logs its own errors
+    // internally, so a single account's failure never aborts the others.
+    const results = await Promise.all(
+      (fromIndex ? [] : config.emailAccounts)
+        .filter((account) => !account.isNewsAccount)
+        .map((account) =>
+          fetchEmailItems(account, config.emailYears, emailSkipSet, {
+            onHeaderCount: (n) => {
+              state.phases.email.total += n;
+              updateProgress(state);
+            },
+            onItemDone: () => {
+              state.phases.email.processed += 1;
+              updateProgress(state);
+            },
+          }),
+        ),
+    );
+    for (const { items, skipped } of results) {
       allEmailItems.push(...items);
       emailSkipped += skipped;
     }

@@ -183,7 +183,9 @@ const ROUTE_SURFACES: [RegExp, Surface][] = [
   [/^\/notes/, "notes"],
   [/^\/(context-builder|chat|rules|contacts)/, "context"],
   [/^\/entities/, "entities"],
-  [/^\/sources/, "sources"],
+  // /feedback is the item-level view behind the per-source rating totals, so it is the same
+  // surface: what the assistant can usefully do there is enable or disable a source.
+  [/^\/(sources|feedback)/, "sources"],
   [/^\/prompts/, "prompts"],
   // The report routes, including the bare date and the item detail view.
   [/^\/(\d{4}-\d{2}-\d{2})(\/|$)/, "report"],

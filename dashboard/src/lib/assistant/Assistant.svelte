@@ -26,14 +26,9 @@
     assistant.setRoute(page.url.pathname);
   });
 
+  // Opening and closing is Ctrl+J, owned by `Shortcuts.svelte` along with every other global
+  // binding: search took Ctrl+K (D8, E1). Esc stays here, because what it cancels is local.
   function onWindowKeydown(event: KeyboardEvent) {
-    const cmdK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
-    if (cmdK) {
-      event.preventDefault();
-      assistant.toggle();
-      return;
-    }
-
     if (event.key === "Escape" && assistant.open) {
       // Esc cancels a running turn first, and only closes the panel when nothing is in flight.
       if (assistant.streaming) assistant.cancel();
@@ -86,12 +81,12 @@
 {/if}
 
 <!-- Only while closed: the panel occupies this corner, and the button sat on top of it. Closing
-     happens in the panel header, with Esc, or with Ctrl+K. -->
+     happens in the panel header, with Esc, or with Ctrl+J. -->
 {#if !hidden && !assistant.open}
   <button
     onclick={() => assistant.toggle()}
     aria-label="Open assistant"
-    title="Assistant (Ctrl+K)"
+    title="Assistant (Ctrl+J)"
     class="group fixed z-50 hidden sm:flex h-14 w-14 p-0 border-none bg-transparent
            bottom-[calc(1.25rem+var(--safe-b))] right-5
            cursor-pointer items-center justify-center

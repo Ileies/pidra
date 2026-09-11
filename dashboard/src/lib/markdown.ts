@@ -31,6 +31,18 @@ const ALLOWED_ATTR = ["href", "title", "class", "colspan", "rowspan", "align", "
 /** http(s) and mailto only: no `javascript:`, no `data:`, no protocol-relative surprises. */
 const ALLOWED_URI_REGEXP = /^(?:https?:|mailto:|[#/])/i;
 
+/**
+ * A `ts_headline` snippet, made safe to render.
+ *
+ * `ts_headline` inserts its start and stop tags into the source text without escaping what is
+ * already there, so a report containing raw HTML comes back out of Postgres with that HTML
+ * intact. Only the highlight survives.
+ */
+export function sanitizeSnippet(snippet: string | null | undefined): string {
+  if (!snippet) return "";
+  return DOMPurify.sanitize(snippet, { ALLOWED_TAGS: ["mark"], ALLOWED_ATTR: [] });
+}
+
 export interface RenderOptions {
   /** Renders inline: no wrapping `<p>`. For a headline or a single-line fragment. */
   inline?: boolean;

@@ -314,6 +314,17 @@
   padding-inline: 0.5rem;
 }
 
+/* The top progress bar's sweep (E2). Reduced motion freezes it, which still leaves a
+   visible bar - a stationary marker is still a marker. */
+@keyframes loadbar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 /* ==========================================================================
    Report markdown (targets sanitised {@html} content)
    ========================================================================== */

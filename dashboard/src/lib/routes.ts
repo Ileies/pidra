@@ -58,6 +58,7 @@ const ICON = {
   questions: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4M12 17h.01",
   chat: "M21 11.5a8.4 8.4 0 0 1-9 8.3 9 9 0 0 1-2.8-.4L3 21l1.6-4.8A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.3 8.4 8.4 0 0 1 8.4 8.3z",
   context: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5",
+  feedback: "M7 10l-3 3v-9h16v9H10l-3 3v-3M8.5 8.5h7",
   more: "M5 12h.01M12 12h.01M19 12h.01",
 } as const;
 
@@ -84,6 +85,15 @@ export const ROUTES: RouteDef[] = [
     group: "intel",
     icon: ICON.sources,
     children: ["/sources/[name]"],
+  },
+  {
+    href: "/feedback",
+    id: "/feedback",
+    label: "Feedback",
+    surface: "sources",
+    group: "intel",
+    icon: ICON.feedback,
+    secondary: true,
   },
   {
     href: "/entities",

@@ -162,52 +162,58 @@ export async function ingestGoogleTasks(runDate: string): Promise<number> {
   for (const list of lists) {
     if (!list.id) continue;
 
-    const tasksResponse = await tasks.tasks.list({
-      tasklist: list.id,
-      showCompleted: false,
-      showHidden: false,
-      maxResults: 100,
-    });
+    let pageToken: string | undefined;
+    do {
+      const tasksResponse = await tasks.tasks.list({
+        tasklist: list.id,
+        showCompleted: false,
+        showHidden: false,
+        maxResults: 100,
+        pageToken,
+      });
 
-    for (const task of tasksResponse.data.items ?? []) {
-      if (!task.id || task.status === "completed") continue;
+      for (const task of tasksResponse.data.items ?? []) {
+        if (!task.id || task.status === "completed") continue;
 
-      const content: TodoItem = {
-        id: task.id,
-        title: task.title ?? "(no title)",
-        notes: task.notes ?? null,
-        due: task.due ? task.due.split("T")[0] : null,
-        list_name: list.title ?? "Tasks",
-        status: task.status ?? "needsAction",
-      };
+        const content: TodoItem = {
+          id: task.id,
+          title: task.title ?? "(no title)",
+          notes: task.notes ?? null,
+          due: task.due ? task.due.split("T")[0] : null,
+          list_name: list.title ?? "Tasks",
+          status: task.status ?? "needsAction",
+        };
 
-      // One row per task, refreshed to today's run date, rather than one row per task per day.
-      // The old key carried `runDate`, so every open task cost a new row every morning - 171 a
-      // day, roughly 62k a year, and nothing ever reads a past day's snapshot. This is a
-      // snapshot of what is open right now, and `run_date` is what keeps it honest: a task that
-      // was completed or deleted simply stops being refreshed, so Phase 3's `run_date = today`
-      // query drops it the next morning without anything having to notice it went away.
-      await db
-        .insert(rawItems)
-        .values({
-          runDate,
-          sourceType: "todo",
-          sourceName: "Google Tasks",
-          messageId: `todo:${task.id}`,
-          rawContent: JSON.stringify(content),
-          receivedAt: task.updated ?? null,
-        })
-        .onConflictDoUpdate({
-          target: rawItems.messageId,
-          set: {
+        // One row per task, refreshed to today's run date, rather than one row per task per day.
+        // The old key carried `runDate`, so every open task cost a new row every morning - 171 a
+        // day, roughly 62k a year, and nothing ever reads a past day's snapshot. This is a
+        // snapshot of what is open right now, and `run_date` is what keeps it honest: a task that
+        // was completed or deleted simply stops being refreshed, so Phase 3's `run_date = today`
+        // query drops it the next morning without anything having to notice it went away.
+        await db
+          .insert(rawItems)
+          .values({
             runDate,
+            sourceType: "todo",
+            sourceName: "Google Tasks",
+            messageId: `todo:${task.id}`,
             rawContent: JSON.stringify(content),
             receivedAt: task.updated ?? null,
-          },
-        });
+          })
+          .onConflictDoUpdate({
+            target: rawItems.messageId,
+            set: {
+              runDate,
+              rawContent: JSON.stringify(content),
+              receivedAt: task.updated ?? null,
+            },
+          });
 
-      stored++;
-    }
+        stored++;
+      }
+
+      pageToken = tasksResponse.data.nextPageToken ?? undefined;
+    } while (pageToken);
   }
 
   console.log(`[Ingest/Google] ${stored} open tasks in today's snapshot`);

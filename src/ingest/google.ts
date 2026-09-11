@@ -108,9 +108,6 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   for (const event of events) {
     if (!event.id) continue;
 
-    const messageId = `calendar:${runDate}:${event.id}`;
-    if (await rawItemExists(messageId)) continue;
-
     const isAllDay = !event.start?.dateTime;
     const content: CalendarEvent = {
       id: event.id,
@@ -123,14 +120,28 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
       is_all_day: isAllDay,
     };
 
-    await db.insert(rawItems).values({
-      runDate,
-      sourceType: "calendar",
-      sourceName: "Google Calendar",
-      messageId,
-      rawContent: JSON.stringify(content),
-      receivedAt: event.created ?? null,
-    });
+    // Snapshot, not an append log, same shape as ingestGoogleTasks: the key carries no runDate,
+    // so an event still in the 7-day window is refreshed in place instead of costing a fresh row
+    // every morning. An event that drops out of the window (past, rescheduled, deleted) simply
+    // stops being refreshed and falls out of Phase 3's `run_date = today` read on its own.
+    await db
+      .insert(rawItems)
+      .values({
+        runDate,
+        sourceType: "calendar",
+        sourceName: "Google Calendar",
+        messageId: `calendar:${event.id}`,
+        rawContent: JSON.stringify(content),
+        receivedAt: event.created ?? null,
+      })
+      .onConflictDoUpdate({
+        target: rawItems.messageId,
+        set: {
+          runDate,
+          rawContent: JSON.stringify(content),
+          receivedAt: event.created ?? null,
+        },
+      });
 
     stored++;
   }

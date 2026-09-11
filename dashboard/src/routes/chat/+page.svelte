@@ -77,7 +77,7 @@
         class="{navBtn} border-primary-700 text-primary-400 hover:bg-surface-800 cursor-pointer text-left"
         onclick={() => assistant.newConversation()}
       >
-        + Neues Gespräch
+        + Neuer Chat
       </button>
       {#each data.conversations as conversation}
         <a

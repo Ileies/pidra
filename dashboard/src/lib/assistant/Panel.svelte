@@ -114,8 +114,7 @@
         onclick={() => assistant.newConversation()}
         disabled={assistant.streaming || assistant.messages.length === 0}
         class="px-2 py-1 rounded text-xs bg-surface-900 border border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-      >Neues Gespräch</button>
-      <span class="text-xs text-surface-600">Enter sendet, Shift+Enter neue Zeile</span>
+      >Neuer Chat</button>
       {#if assistant.streaming}
         <button
           type="button"

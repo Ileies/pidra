@@ -16,8 +16,6 @@
     })),
   });
 
-  const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
-
   const STATUS_CLASS: Record<string, string> = {
     active: "text-success-400 bg-success-950 border-success-700",
     dormant: "text-surface-500 bg-surface-900 border-surface-700",
@@ -40,20 +38,7 @@
   <title>PIDRA - Entities</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
-  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <div class="flex items-center gap-4">
-      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
-        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
-      </a>
-      <span class="text-surface-500 text-sm">Entity Graph</span>
-    </div>
-    <nav class="flex items-center gap-2">
-      <a href="/" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← Heute</a>
-    </nav>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   <main class="flex-1 max-w-5xl w-full mx-auto px-8 py-6 pb-16">
     <form method="GET" class="flex flex-wrap gap-3 mb-6">
       <input

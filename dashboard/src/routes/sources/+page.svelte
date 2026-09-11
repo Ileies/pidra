@@ -55,26 +55,12 @@
   <title>PIDRA - Quellen</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
-  <header class="sticky top-0 z-10 bg-surface-900 border-b border-surface-700">
-    <div class="max-w-5xl mx-auto px-6 flex items-center justify-between py-2">
-      <div class="flex items-center gap-4">
-        <a href="/" class="flex items-center gap-1.5 font-bold tracking-widest text-surface-50 text-lg no-underline hover:opacity-90 transition-opacity">
-          <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-          PIDRA
-        </a>
-        <span class="text-surface-500 text-sm">Quellenbewertung</span>
-      </div>
-      <nav>
-        <a href="/" class="px-3 py-1 rounded border border-surface-700 text-surface-200 no-underline text-xs hover:bg-surface-800 transition-colors">← Heute</a>
-      </nav>
-    </div>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   <main class="max-w-5xl mx-auto px-6 py-6 pb-16 w-full">
     <p class="text-xs text-surface-500 mb-6 leading-relaxed">
       Score 0–10 (gewichteter Durchschnitt der letzten 30 Tage). Formel: Relevanz × 7 + Aufnahme­quote × 3.
       Eine Quelle deaktivieren schließt sie ab dem nächsten Pipeline-Lauf aus der Extraktion aus.
+      Klick auf den Namen zeigt alle Beiträge der Quelle - also woraus der Score entstanden ist.
     </p>
 
     <table class="w-full border-collapse text-sm">

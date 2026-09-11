@@ -3,23 +3,28 @@
   import { setPageContext } from "$lib/assistant/state.svelte";
   import type { PageData, ActionData } from "./$types";
 
-  export let data: PageData;
-  export let form: ActionData;
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   // Still the report surface: these are the items behind a briefing paragraph, so they are read
   // material too. What the assistant can change from here are notes, todos and the context.
-  $: setPageContext({
-    surface: "report",
-    route: `/${data.date}/detail/${data.ids}`,
-    digest: `Detailansicht zum Briefing vom ${data.date}: ${data.items.length} Item(s) aus ${
-      [...new Set(data.items.map((item) => item.sourceName).filter(Boolean))].join(", ") || "unbekannter Quelle"
-    }.`,
+  $effect(() => {
+    setPageContext({
+      surface: "report",
+      route: `/${data.date}/detail/${data.ids}`,
+      digest: `Detailansicht zum Briefing vom ${data.date}: ${data.items.length} Item(s) aus ${
+        [...new Set(data.items.map((item) => item.sourceName).filter(Boolean))].join(", ") || "unbekannter Quelle"
+      }.`,
+    });
   });
 
-  let loading = false;
+  let loading = $state(false);
 
-  // Track optimistic rating state per item (synced from server on load)
-  let ratings: Record<string, string | null> = Object.fromEntries(data.items.map((i) => [i.id, i.rating ?? null]));
+  // Track optimistic rating state per item. Re-synced whenever the load function returns fresh
+  // rows, so the server value wins once a rating round-trip has completed.
+  let ratings = $state<Record<string, string | null>>({});
+  $effect(() => {
+    ratings = Object.fromEntries(data.items.map((i) => [i.id, i.rating ?? null]));
+  });
 
   function fmtDate(s: string | null) {
     if (!s) return "-";
@@ -56,12 +61,7 @@
   <title>PIDRA - Detail {data.date}</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
-  <header class="flex items-center gap-4 px-8 py-3 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <a href="/{data.date}" class="text-sm text-primary-400 no-underline hover:underline">← {data.date}</a>
-    <span class="text-sm text-surface-500">Quellen-Detail</span>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   <main class="max-w-4xl w-full mx-auto px-8 py-8 pb-16 flex flex-col gap-8">
     <div class="flex flex-col gap-5">
       {#each data.items as item}

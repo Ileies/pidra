@@ -1,142 +1,39 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { onMount } from "svelte";
-  import { env } from "$env/dynamic/public";
   import { setPageContext } from "$lib/assistant/state.svelte";
   import type { PageData, ActionData } from "./$types";
 
-  export let data: PageData;
-  export let form: ActionData;
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   // The report surface: the assistant can read this briefing and act on notes, todos, the
   // calendar or the long-term context, but never edit the report. Reports are final.
-  $: setPageContext({
-    surface: "report",
-    route: `/${data.date}`,
-    digest: [
-      `Tagesbriefing vom ${data.date}${data.date === data.today ? " (heute)" : ""}.`,
-      data.report
-        ? `${data.report.itemsIncluded ?? 0} von ${data.report.itemCount ?? 0} Items im Report, ${data.report.itemsFiltered ?? 0} gefiltert.`
-        : "Für diesen Tag gibt es noch keinen Report.",
-      data.pipelineRun ? `Letzter Lauf: ${data.pipelineRun.status}.` : "",
-    ].filter(Boolean).join(" "),
+  $effect(() => {
+    setPageContext({
+      surface: "report",
+      route: `/${data.date}`,
+      digest: [
+        `Tagesbriefing vom ${data.date}${data.date === data.today ? " (heute)" : ""}.`,
+        data.report
+          ? `${data.report.itemsIncluded ?? 0} von ${data.report.itemCount ?? 0} Items im Report, ${data.report.itemsFiltered ?? 0} gefiltert.`
+          : "Für diesen Tag gibt es noch keinen Report.",
+        data.pipelineRun ? `Letzter Lauf: ${data.pipelineRun.status}.` : "",
+      ].filter(Boolean).join(" "),
+    });
   });
-
 
   function fmtNum(n: number | null | undefined) {
     if (n == null) return "-";
     return n.toLocaleString("de-DE");
   }
 
-  const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
-
-  let triggering = false;
-
-  type NotifState = "unsupported" | "denied" | "unsubscribed" | "subscribed" | "busy";
-  let notifState: NotifState = "unsupported";
-
-  onMount(async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    if (Notification.permission === "denied") { notifState = "denied"; return; }
-    notifState = "unsubscribed";
-    const sw = await navigator.serviceWorker.ready;
-    const sub = await sw.pushManager.getSubscription();
-    if (sub) notifState = "subscribed";
-  });
-
-  function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
-    const padding = "=".repeat((4 - (b64.length % 4)) % 4);
-    const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const raw = atob(base64);
-    const arr = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-    return arr;
-  }
-
-  async function toggleNotifications() {
-    notifState = "busy";
-    try {
-      const sw = await navigator.serviceWorker.ready;
-      const existing = await sw.pushManager.getSubscription();
-
-      if (existing) {
-        await fetch("/api/push/subscribe", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: existing.endpoint }),
-        });
-        await existing.unsubscribe();
-        notifState = "unsubscribed";
-        return;
-      }
-
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") { notifState = "denied"; return; }
-
-      const sub = await sw.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(env.PUBLIC_VAPID_KEY),
-      });
-
-      await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub.toJSON()),
-      });
-
-      notifState = "subscribed";
-    } catch (e) {
-      console.error("[push]", e);
-      notifState = "unsubscribed";
-    }
-  }
+  let triggering = $state(false);
 </script>
 
 <svelte:head>
   <title>PIDRA - {data.date}</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
-  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <div class="flex items-center gap-4">
-      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
-        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
-      </a>
-    </div>
-    <nav class="flex items-center gap-2">
-      {#if data.prevDate}
-        <a href="/{data.prevDate}" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← {data.prevDate}</a>
-      {:else}
-        <span class="{navBtn} border-surface-700 text-surface-200 opacity-30 cursor-default select-none">←</span>
-      {/if}
-      <a href="/{data.today}" class="{navBtn} border-primary-900 text-primary-400 hover:bg-surface-800">Heute</a>
-      {#if data.nextDate}
-        <a href="/{data.nextDate}" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">{data.nextDate} →</a>
-      {:else}
-        <span class="{navBtn} border-surface-700 text-surface-200 opacity-30 cursor-default select-none">→</span>
-      {/if}
-      <a href="/sources" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Quellen</a>
-      <a href="/entities" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Entities</a>
-      <a href="/notes" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Notes</a>
-      <a href="/skills" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Skills</a>
-      <a href="/context-builder" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Context Builder</a>
-      <a href="/chat" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Chat</a>
-      {#if data.hasPendingQuestions}
-        <a href="/questions" class="{navBtn} border-warning-700 text-warning-400 hover:bg-surface-800 animate-pulse">⚠ Questions</a>
-      {:else}
-        <a href="/questions" class="{navBtn} border-surface-700 text-surface-500 hover:bg-surface-800">Questions</a>
-      {/if}
-      {#if notifState === "unsubscribed"}
-        <button on:click={toggleNotifications} class="{navBtn} border-surface-700 text-surface-500 hover:bg-surface-800 cursor-pointer bg-transparent">Notify</button>
-      {:else if notifState === "subscribed"}
-        <button on:click={toggleNotifications} class="{navBtn} border-success-700 text-success-400 hover:bg-surface-800 cursor-pointer bg-transparent">Notify ✓</button>
-      {:else if notifState === "busy"}
-        <span class="{navBtn} border-surface-700 text-surface-600 opacity-50 select-none">…</span>
-      {/if}
-    </nav>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   {#if data.report}
     <div class="flex items-center gap-2 px-8 py-2.5 bg-surface-900 border-b border-surface-700 text-xs flex-wrap">
       <span class="flex items-baseline gap-1">

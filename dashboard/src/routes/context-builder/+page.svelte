@@ -137,29 +137,13 @@
     { key: "keep", label: "Keep" },
     { key: "github", label: "GitHub" },
   ];
-
-  const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
 </script>
 
 <svelte:head>
   <title>PIDRA - Context Builder</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
-  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <div class="flex items-center gap-4">
-      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
-        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
-      </a>
-      <span class="text-surface-500 text-sm">Context Builder</span>
-    </div>
-    <nav class="flex items-center gap-2">
-      <a href="/chat" class="{navBtn} border-primary-700 text-primary-400 hover:bg-surface-800">Kontext korrigieren</a>
-      <a href="/" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← Heute</a>
-    </nav>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   <main class="max-w-4xl mx-auto px-6 py-6 pb-16 w-full flex flex-col gap-6">
     <!-- What the builder actually produced. This is the point of the tool, so it comes before
          the run machinery rather than after it. -->
@@ -261,7 +245,7 @@
                   <input type="hidden" name="id" value={correction.id} />
                   <button
                     type="submit"
-                    class="{navBtn} border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer"
+                    class="nav-btn border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer"
                   >
                     Zurücknehmen
                   </button>
@@ -307,21 +291,21 @@
         </div>
         <div class="flex items-center gap-2">
           <button
-            class="{navBtn} border-primary-700 text-primary-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="nav-btn border-primary-700 text-primary-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             disabled={starting || status?.running}
             onclick={() => start(null)}
           >
             {starting ? "Starting…" : "Start"}
           </button>
           <button
-            class="{navBtn} border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="nav-btn border-surface-700 text-surface-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             disabled={starting || status?.running}
             onclick={() => start("full")}
           >
             Force Full
           </button>
           <button
-            class="{navBtn} border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             disabled={stopping || !status?.trackedByDashboard}
             onclick={stop}
           >

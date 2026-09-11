@@ -4,6 +4,24 @@
 
 @source "../node_modules/@skeletonlabs/skeleton-svelte";
 
+/* Shared toolbar button styling. Navbar.svelte and every page-level toolbar build on the same
+   base, so a button looks and behaves identically wherever it sits. */
+@utility nav-btn {
+  @apply px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline;
+}
+@utility nav-btn-idle {
+  @apply border-surface-700 text-surface-200 hover:bg-surface-800;
+}
+@utility nav-btn-active {
+  @apply border-primary-900 text-primary-400;
+}
+@utility nav-btn-muted {
+  @apply border-surface-700 text-surface-500 hover:bg-surface-800;
+}
+@utility nav-btn-disabled {
+  @apply border-surface-700 text-surface-200 opacity-30 cursor-default select-none;
+}
+
 /* Force dark mode so light-dark() adaptive vars always resolve to dark values */
 :root {
   color-scheme: dark;

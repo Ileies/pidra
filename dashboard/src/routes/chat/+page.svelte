@@ -33,8 +33,6 @@
     });
   });
 
-  const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
-
   function fmtTs(value: string): string {
     return new Date(value).toLocaleString("de-DE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   }
@@ -54,27 +52,12 @@
   <title>PIDRA - Assistent</title>
 </svelte:head>
 
-<div class="flex flex-col h-screen">
-  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700">
-    <div class="flex items-center gap-4">
-      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
-        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
-      </a>
-      <span class="text-surface-500 text-sm">Assistent</span>
-    </div>
-    <nav class="flex items-center gap-2">
-      <a href="/context-builder" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Context Builder</a>
-      <a href="/notes" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">Notes</a>
-      <a href="/" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← Heute</a>
-    </nav>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   <main class="flex-1 min-h-0 w-full max-w-6xl mx-auto px-6 py-6 grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)_16rem]">
     <!-- Conversations -->
     <aside class="flex flex-col gap-2 order-2 lg:order-1 min-h-0 overflow-y-auto">
       <button
-        class="{navBtn} border-primary-700 text-primary-400 hover:bg-surface-800 cursor-pointer text-left"
+        class="nav-btn border-primary-700 text-primary-400 hover:bg-surface-800 cursor-pointer text-left"
         onclick={() => assistant.newConversation()}
       >
         + Neuer Chat

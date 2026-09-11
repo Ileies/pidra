@@ -5,7 +5,6 @@
   export let data: PageData;
   export let form: ActionData;
 
-  const navBtn = "px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline";
   let submitting = false;
 </script>
 
@@ -13,20 +12,7 @@
   <title>PIDRA - Questions</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
-  <header class="flex items-center justify-between px-8 py-2 bg-surface-900 border-b border-surface-700 sticky top-0 z-10">
-    <div class="flex items-center gap-4">
-      <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity">
-        <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-        <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
-      </a>
-      <span class="text-surface-500 text-sm">Question Gate</span>
-    </div>
-    <nav class="flex items-center gap-2">
-      <a href="/" class="{navBtn} border-surface-700 text-surface-200 hover:bg-surface-800">← Heute</a>
-    </nav>
-  </header>
-
+<div class="flex flex-1 flex-col min-h-0">
   <main class="flex-1 px-8 py-8 max-w-2xl mx-auto w-full">
     {#if form?.success}
       <div class="rounded-lg border border-success-700 bg-success-950 px-5 py-4 text-success-300 text-sm mb-6">

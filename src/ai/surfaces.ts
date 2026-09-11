@@ -34,7 +34,12 @@ export interface SurfaceDef {
   skills: string[];
   /** Appended to the base system prompt: what this page is and how to change it. */
   prompt: string;
-  /** Example sentences for the empty state, in the dashboard's language. */
+  /**
+   * Example sentences for the empty state, in the dashboard's language - English throughout
+   * (DASHBOARD_PLAN decision 1). These are chrome as much as model input: the widget shows them
+   * before the first message, and the language the user is prompted in is the language they
+   * answer in.
+   */
   hints: string[];
   /** A standing caveat worth showing in the header, e.g. that reports cannot be edited. */
   notice?: string;
@@ -55,14 +60,14 @@ Always \`list_notes\` first - never guess an id. Deleting is reversible (\`resto
 every edit keeps its previous version, so you can act without asking for confirmation on small
 changes. One note per call. If the user's wording could mean two different notes, ask which.`,
     hints: [
-      "Fasse die drei Notes zu Newslettern in einer zusammen.",
-      "Ändere die Note über Kalender-Termine auf scope personal.",
-      "Lösche die Note, die nur noch von letzter Woche gilt.",
+      "Merge the three notes about newsletters into one.",
+      "Change the note about calendar events to scope personal.",
+      "Delete the note that only applied to last week.",
     ],
   },
 
   context: {
-    label: "Kontext",
+    label: "Context",
     skills: ["read_context", "revise_context", "revert_context_revision", "write_note", "list_notes", "run_web_search"],
     prompt: `The user is on the harvested long-term context: the Context Builder's document and the
 standing rules it wrote. This layer is never overwritten. \`revise_context\` records a correction
@@ -73,9 +78,9 @@ Look before you write: \`read_context\` to find the exact wrong wording and a re
 (query 'outline' lists the document's headings). One fact per \`revise_context\` call. Quote the
 wrong text in \`supersedes\` verbatim. Corrections are reversible with \`revert_context_revision\`.`,
     hints: [
-      "Der Kontext sagt X über meinen Job - das ist veraltet.",
-      "Ergänze, dass ich seit 2026 nicht mehr in Zürich wohne.",
-      "Was steht im Kontext über meine Familie?",
+      "The context says X about my job - that is out of date.",
+      "Add that I no longer live in that city.",
+      "What does the context say about my family?",
     ],
   },
 
@@ -88,9 +93,9 @@ target_kind 'entity' records the correction and merges only the named fields int
 a snapshot and locking it against a re-seed. Mergeable fields: type, domain, summary, importance,
 status. Find the exact entity name with \`read_context\` before correcting it.`,
     hints: [
-      "Diese Entity ist eine Organisation, keine Person.",
-      "Setz die Importance von X auf high.",
-      "Was weiß das System über diese Entity?",
+      "This entity is an organisation, not a person.",
+      "Set the importance of X to high.",
+      "What does the system know about this entity?",
     ],
   },
 
@@ -117,15 +122,15 @@ You can write a *new* note from here, but editing or deleting an existing one is
 this page - point the user at /notes for that instead of offering to do it. \`list_notes\` is
 available so you can check whether a standing instruction already exists before writing another.`,
     hints: [
-      "Schreib den Termin aus dem Briefing in meine Todos.",
-      "Solche Newsletter-Items interessieren mich nicht - merk dir das.",
-      "Der Absatz über mich stimmt nicht: ich arbeite nicht mehr dort.",
+      "Put the appointment from the briefing on my to-do list.",
+      "Newsletter items like this one do not interest me - remember that.",
+      "The paragraph about me is wrong: I do not work there any more.",
     ],
-    notice: "Reports sind final - Änderungen wirken auf kommende Briefings.",
+    notice: "Reports are final - changes take effect on future briefings.",
   },
 
   sources: {
-    label: "Quellen",
+    label: "Sources",
     skills: ["set_source_active", "read_context", "list_notes", "write_note"],
     prompt: `The user is on /sources, the source trust dashboard, or on /sources/<name>, the
 directory of everything one source has delivered and what extraction made of it. You can enable or
@@ -134,9 +139,9 @@ Trust scores themselves are computed by the weekly scoring job and are not edita
 source name as shown. A disable is a real change to what the system sees, so name the source back
 to the user when you make one.`,
     hints: [
-      "Deaktiviere diese Quelle, sie liefert nur Werbung.",
-      "Aktiviere die Quelle wieder.",
-      "Merk dir, warum ich die Quelle abgeschaltet habe.",
+      "Disable this source, it only delivers advertising.",
+      "Enable the source again.",
+      "Remember why I switched this source off.",
     ],
   },
 
@@ -148,22 +153,22 @@ approval: \`propose_prompt_version\` always inserts an **inactive** version, and
 activate it on this page. Never claim a prompt is live. When proposing, pass the full prompt text,
 not a diff, and summarise what you changed in change_summary.`,
     hints: [
-      "Schlag eine Version des Section-1-Prompts vor, die kürzer zusammenfasst.",
-      "Formuliere den Extraction-Prompt so, dass Werbung härter gefiltert wird.",
+      "Propose a version of the Section 1 prompt that summarises more tightly.",
+      "Rewrite the extraction prompt so it filters advertising harder.",
     ],
   },
 
   global: {
-    label: "Assistent",
+    label: "Assistant",
     skills: ["read_context", "list_notes", "write_note", "add_todo_item", "run_web_search"],
     prompt: `The user is on a page with no specific editing capabilities. You can look things up
 and write a note or a todo. If they ask for something that belongs to another page - correcting the
 long-term context, editing notes in bulk, disabling a source - say which page that is and offer to
 do it there.`,
     hints: [
-      "Merk dir das als Note.",
-      "Setz das auf meine Todo-Liste.",
-      "Was weiß das System darüber?",
+      "Remember that as a note.",
+      "Put that on my to-do list.",
+      "What does the system know about this?",
     ],
   },
 };

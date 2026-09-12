@@ -23,6 +23,24 @@ const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3333";
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
+const ENV_PATH = new URL("../.env", import.meta.url).pathname;
+
+/**
+ * Replaces `key`'s line in .env, or appends it if the key is absent. Rewrites the file rather than
+ * appending blindly, because a duplicate key is ambiguous: Bun's loader keeps the last occurrence
+ * and a human reading the file usually reads the first.
+ */
+async function upsertEnv(key: string, value: string): Promise<void> {
+  const file = Bun.file(ENV_PATH);
+  const before = (await file.exists()) ? await file.text() : "";
+  const line = `${key}=${value}`;
+  const pattern = new RegExp(`^${key}=.*$`, "m");
+  const after = pattern.test(before)
+    ? before.replace(pattern, line)
+    : `${before}${before.endsWith("\n") || before === "" ? "" : "\n"}${line}\n`;
+  await Bun.write(ENV_PATH, after);
+}
+
 // Read *and* write. The pipeline only reads, but `add_calendar_event`, `add_todo_item` and
 // `complete_todo_item` all call insert/patch, and with the readonly scopes this script used to
 // request they could never have succeeded - the grant simply did not cover them. Calendar is
@@ -64,14 +82,28 @@ const server = Bun.serve({
     try {
       const { tokens } = await oauth2Client.getToken(code);
 
+      if (!tokens.refresh_token) {
+        // Google only returns a refresh token when the grant is actually re-consented. Without
+        // `prompt: "consent"` above an already-authorised account silently yields an access token
+        // and nothing else, which used to write an empty value over a working one.
+        throw new Error("Google returned no refresh_token - re-run and approve the consent screen.");
+      }
+
+      // Written straight into .env rather than printed. A refresh token that reaches a terminal
+      // ends up in scrollback, in shell history if it is copied around, and in the transcript of
+      // any agent watching that terminal - at which point it has to be rotated before it is even
+      // used. The file is gitignored and is the only place this value belongs.
+      await upsertEnv("GOOGLE_REFRESH_TOKEN", tokens.refresh_token);
+
       console.log("\n=== SUCCESS ===");
-      console.log("Add this to your .env:\n");
-      console.log(`GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`);
+      console.log(`GOOGLE_REFRESH_TOKEN written to ${ENV_PATH} (${tokens.refresh_token.length} chars).`);
+      console.log("The value was not printed. Revoke the previous token at");
+      console.log("https://myaccount.google.com/permissions\n");
 
       setTimeout(() => { server.stop(); process.exit(0); }, 300);
 
       return new Response(
-        "<html><body><h2>Done! Check your terminal for the refresh token.</h2></body></html>",
+        "<html><body><h2>Done! The refresh token was written to .env.</h2></body></html>",
         { headers: { "Content-Type": "text/html" } }
       );
     } catch (err) {

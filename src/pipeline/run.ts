@@ -35,7 +35,7 @@ export async function runPipeline(runDate?: string): Promise<string> {
   };
 
   try {
-    await withRetry("phase1", () => runPhase1(date));
+    const ingest = await withRetry("phase1", () => runPhase1(date));
     await withRetry("phase2", () => runPhase2(date));
     const ctx = await withRetry("phase3", () => runPhase3(date));
     const gate = await withRetry("phase4", () => runPhase4(date));
@@ -67,9 +67,22 @@ export async function runPipeline(runDate?: string): Promise<string> {
     );
 
     const durationMs = Date.now() - start;
+    // A run that produced a briefing without one of its sources is a success, but not a clean one.
+    // The failures ride along in `step_errors` so `/runs` can show them; the status stays
+    // "completed" because a report was written and the dashboard should not cry wolf about it.
     await db
       .update(pipelineRuns)
-      .set({ status: "completed", completedAt: new Date().toISOString(), durationMs })
+      .set({
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        durationMs,
+        stepErrors: ingest.failures.map((f) => ({
+          step: "phase1",
+          attempt: 1,
+          error: `${f.source}: ${f.error}`,
+          ts: new Date().toISOString(),
+        })),
+      })
       .where(eq(pipelineRuns.id, run.id));
 
     const notificationSummary = synthesis.section1

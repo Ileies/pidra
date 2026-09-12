@@ -83,11 +83,17 @@ function render(): void {
   const elapsed = Math.round((Date.now() - startTime) / 1000);
   const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m${elapsed % 60}s`;
 
-  // Rough running cost only. Set these to the active model's real per-million rates - the
-  // defaults are the Sonnet figures the original design assumed, not the current model's.
-  const rateIn = Number(process.env.AI_COST_PER_MTOK_IN ?? 3.0);
-  const rateOut = Number(process.env.AI_COST_PER_MTOK_OUT ?? 15.0);
-  const costEst = ((sonnetTokensIn / 1_000_000) * rateIn + (sonnetTokensOut / 1_000_000) * rateOut).toFixed(3);
+  // Rough running cost only, and it reads the same two variables the dashboard does, so there is
+  // one price in the system rather than two that drift. `AI_COST_PER_MTOK_*` still wins if set,
+  // for anyone who wants the CLI readout on different rates. There is deliberately no numeric
+  // fallback: the old $3/$15 defaults were Sonnet's, silently applied to Luna token counts, and a
+  // dash is better than a figure that looks authoritative and is wrong.
+  const rateIn = Number(process.env.AI_COST_PER_MTOK_IN ?? process.env.PUBLIC_MODEL_PRICE_IN_PER_MTOK);
+  const rateOut = Number(process.env.AI_COST_PER_MTOK_OUT ?? process.env.PUBLIC_MODEL_PRICE_OUT_PER_MTOK);
+  const priced = Number.isFinite(rateIn) && Number.isFinite(rateOut);
+  const costEst = priced
+    ? ((sonnetTokensIn / 1_000_000) * rateIn + (sonnetTokensOut / 1_000_000) * rateOut).toFixed(3)
+    : null;
 
   process.stdout.write("\x1B[2J\x1B[H"); // clear screen, move to top
   process.stdout.write(`\x1B[1mContext Builder\x1B[0m - ${currentState.mode} mode - ${elapsedStr} elapsed\n\n`);
@@ -126,6 +132,7 @@ function render(): void {
   const seedColor = p.dbSeed.done ? "\x1B[32m" : "\x1B[90m";
   process.stdout.write(`  ${seedColor}DB Seed     \x1B[0m ${p.dbSeed.done ? "done" : "…"}\n`);
 
-  process.stdout.write(`\n  OpenAI: ${sonnetTokensIn.toLocaleString()} in / ${sonnetTokensOut.toLocaleString()} out (~$${costEst})\n`);
+  const costStr = costEst === null ? "cost unset" : `~$${costEst}`;
+  process.stdout.write(`\n  OpenAI: ${sonnetTokensIn.toLocaleString()} in / ${sonnetTokensOut.toLocaleString()} out (${costStr})\n`);
   process.stdout.write("\x1B[?25h"); // show cursor momentarily for render
 }

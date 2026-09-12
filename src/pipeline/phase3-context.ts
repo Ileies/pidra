@@ -177,8 +177,15 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
 
   const longTermContext = await loadLongTermContext();
   if (longTermContext.problem) {
-    // Not fatal: the briefing is simply less personalised without it.
-    console.warn(`[Phase 3] long-term context unavailable - ${longTermContext.problem}`);
+    // `problem` is also set when a fallback candidate succeeded, so the two cases read differently:
+    // "unavailable" would be a lie about a run that did load 43k characters from an older harvest.
+    // Neither is fatal - the briefing is simply less personalised without it.
+    const loaded = longTermContext.intelSections || longTermContext.personalSections;
+    console.warn(
+      loaded
+        ? `[Phase 3] long-term context loaded from an older harvest - ${longTermContext.problem}`
+        : `[Phase 3] long-term context unavailable - ${longTermContext.problem}`,
+    );
   }
 
   console.log(

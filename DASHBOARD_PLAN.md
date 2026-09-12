@@ -1,35 +1,38 @@
 # Dashboard Redesign Plan
 
-## Status: executed 2026-09-12, except M-9
+## Status: executed and closed, 2026-09-12
 
 Everything below shipped in one pass on 2026-09-12, from `3939e93`. The plan text is kept as
 written - it is the record of why each change was made, and the commit messages reference its
-item numbers - so read it as the argument, not as an outstanding to-do list.
+item numbers - so read it as the argument, not as an outstanding to-do list. Nothing here is
+open work; `TODO.md` is where dashboard work lives from now on.
 
 | Phase | State |
 |---|---|
 | A1-A6 | Done. One token source, self-hosted Inter and JetBrains Mono, type and container scales, full accent ramps, contrast fixed at the token level, global focus ring and reduced-motion block, runes migration finished. `dashboard/scripts/contrast.ts` runs as part of `bun run check`. |
 | B1-B4 | Done. `<Page>`, twelve shared components, `$lib/format.ts`, `$lib/labels.ts`, `$lib/routes.ts`, English everywhere. `scripts/check-route-surfaces.ts` fails the root build when the registry and `src/ai/surfaces.ts` disagree, which is what closes S11 rather than documenting it. |
 | M-1 - M-8 | Done. Grouped desktop nav, mobile bottom tab bar and More sheet, `tap`/`tap-check`/`input-base`, cards-or-scroll tables, `dvh`, safe areas, a measured `--header-h`, the assistant as a tab below `sm`, and a PWA that installs and caches the last seven reports. |
-| **M-9** | **Not done.** See below. |
+| M-9 | Done. The owner ran the device pass on 2026-09-12, which is what lifts the decision 6 gate on every later dashboard item. |
 | C1-C9 | Done. `report_json` with a deterministic parser in the pipeline and a backfill over all four existing reports, sanitised markdown, Personal Action Center first, inline rating, inline expansion, section nav, live run status, the archive picker, cost on the stats bar. |
 | D1-D9 | Done. `/topics`, `/entities/[id]`, `/rules`, the skill approval queue, `/runs`, prompt diffs, `/contacts`, keyword search behind `search()`, `/feedback`. |
 | E1-E7 | Done. Keyboard shortcuts with the Ctrl+K collision settled (search takes it, the assistant moves to Ctrl+J), loading states, one toast store, push deep-links, accessibility pass, query parallelisation. |
 
-**M-9 is the one item that cannot be closed from here, and decision 6 makes it a gate.** Every
-number in §2 is derived from class lists rather than measured on hardware, and nothing in this
-pass has been opened on a phone. What is verified: `bun run check` clean in both packages, the
-production build succeeds, every route returns 200 against the real database, and the parser has
-unit tests. What is not: the 52px header claim, tap targets under a thumb, focus without zoom in
-iOS Safari, each table at 390px, `/chat` with the keyboard open, landscape, the assistant panel
-surviving a navigation mid-turn, the notes toast and undo, and an offline load of yesterday's
-report as an installed PWA. Until that pass happens, treat Phase M as written-but-unverified.
+**On M-9.** Every number in §2 was derived from class lists rather than measured on hardware, so
+the code pass could only verify what a workstation can verify: `bun run check` clean in both
+packages, a production build that succeeds, every route 200 against the real database, and unit
+tests on the report parser. The device pass is what confirmed the rest - the 52px header, tap
+targets under a thumb, focus without zoom in iOS Safari, each table at 390px, `/chat` with the
+keyboard open, landscape, the assistant panel surviving a navigation mid-turn, the notes toast
+and undo, and an offline load of yesterday's report as an installed PWA. Decision 6 outlives this
+plan: it is a standing rule that a dashboard change is checked at 390×844 before it counts as
+done, not a one-off task that has now been discharged.
 
 One deviation worth naming: cost is not hardcoded. The plan says to give `fmtCost` "the real
 `gpt-5.6-luna` prices"; those prices are not in this repository and inventing them would replace
 one confidently wrong number (X2) with another. `PUBLIC_MODEL_PRICE_IN_PER_MTOK` and
-`PUBLIC_MODEL_PRICE_OUT_PER_MTOK` in the shared `.env` supply them, and every cost in the UI
-renders as unavailable, with the reason, until they are set.
+`PUBLIC_MODEL_PRICE_OUT_PER_MTOK` in the shared `.env` supply them instead, set on 2026-09-12,
+and every cost in the UI renders as unavailable - with the reason - whenever they are missing.
+A model change is therefore an `.env` edit, not a code edit.
 
 ---
 

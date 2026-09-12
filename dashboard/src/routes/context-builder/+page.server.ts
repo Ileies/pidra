@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { readFile } from "node:fs/promises";
+import { readContextDocument } from "$lib/server/contextBuilder";
 import { renderMarkdown } from "$lib/markdown";
 import { env } from "$env/dynamic/private";
 import { sql } from "$lib/db";
@@ -34,7 +34,8 @@ export const load: PageServerLoad = async () => {
 
   if (run?.output_path) {
     try {
-      const raw = JSON.parse(await readFile(run.output_path as string, "utf-8")) as Record<string, string>;
+      const file = await readContextDocument(run.output_path as string);
+      const raw = JSON.parse(file.content) as Record<string, string>;
       const section = (key: string, title: string) => ({
         key,
         title,
@@ -44,7 +45,7 @@ export const load: PageServerLoad = async () => {
       doc = {
         generatedAt: raw.generatedAt ?? null,
         date: raw.date ?? null,
-        path: run.output_path as string,
+        path: file.path,
         fullContextHtml: renderMarkdown(raw.fullContext),
         chars: (raw.fullContext ?? "").length,
         sections: [

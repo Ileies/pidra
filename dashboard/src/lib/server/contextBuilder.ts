@@ -1,5 +1,6 @@
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
+import { env } from "$env/dynamic/private";
 import { sql } from "$lib/db";
 
 // Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.
@@ -7,6 +8,7 @@ const PROJECT_ROOT = resolve(process.cwd(), "..");
 const CHECKPOINT_PATH = resolve(PROJECT_ROOT, "context-builder/.checkpoint.json");
 const ERRORS_PATH = resolve(PROJECT_ROOT, "context-builder/errors.json");
 const LOG_PATH = resolve(PROJECT_ROOT, "context-builder/.dashboard-run.log");
+const OUTPUT_DIR = resolve(PROJECT_ROOT, env.CONTEXT_BUILDER_OUTPUT_DIR ?? "context-builder/output");
 
 export interface PhaseProgress {
   total: number;
@@ -65,6 +67,33 @@ async function readJsonFile<T>(path: string): Promise<T | null> {
     return JSON.parse(raw) as T;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Reads a harvest document given the path recorded on its run row, and reports which file it
+ * actually opened.
+ *
+ * `context_builder_runs.output_path` is an absolute path written by whichever machine ran the
+ * Context Builder. Every existing row was written by the workstation, so on the server the path
+ * does not resolve and a plain `readFile` fails - this page showed "document unavailable" while
+ * the file sat in the output directory one level up from it. The pipeline already treats the
+ * stored path as a hint (`readDocument` in `src/pipeline/long-term-context.ts`), but its fallback
+ * resolves against the process cwd, and the dashboard's cwd is `dashboard/`. Hence the same rule
+ * anchored on PROJECT_ROOT instead.
+ *
+ * The resolved path comes back with the content because the page displays it, and displaying a
+ * path that does not exist on this machine is how the mismatch stayed invisible in the first place.
+ */
+export async function readContextDocument(
+  outputPath: string,
+): Promise<{ content: string; path: string }> {
+  try {
+    return { content: await readFile(outputPath, "utf-8"), path: outputPath };
+  } catch (err) {
+    const local = resolve(OUTPUT_DIR, basename(outputPath));
+    if (local === outputPath) throw err;
+    return { content: await readFile(local, "utf-8"), path: local };
   }
 }
 

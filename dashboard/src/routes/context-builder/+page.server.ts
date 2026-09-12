@@ -7,59 +7,122 @@ import { sql } from "$lib/db";
 
 const API = env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
+/** How far back to look for a run that produced an actual harvest, before giving up. */
+const CANDIDATE_RUNS = 6;
+
+/**
+ * Whether a run's output is the context document or something that only describes a change to it.
+ *
+ * Both a full build and an update run are supposed to write the whole document, structured as
+ * top-level `# 1.` ... `# 5.` sections - an update run merges the delta into the previous document
+ * and emits the merged result (`synthesizePatch`, and `DOCUMENT_STRUCTURE` next to it). The
+ * 2026-09-11 run predates that prompt and answered with a delta instead: one "# Updated Personal
+ * Context" title over "## 1." topic headings.
+ *
+ * Same test the pipeline applies in `pickSections`, for the same reason: the shape of the document
+ * is what says whether it is usable, not the `mode` column or the run's status.
+ */
+function isDocument(fullContext: string): boolean {
+  return /^#\s*\d+\./m.test(fullContext);
+}
+
+interface Doc {
+  generatedAt: string | null;
+  date: string | null;
+  path: string;
+  fullContextHtml: string;
+  chars: number;
+  sections: { key: string; title: string; html: string; chars: number }[];
+}
+
 /**
  * The synthesised context document lives on disk, not in Postgres, and its path is recorded on
- * the run row. So the page reads the newest completed run's `output_path` rather than a table.
+ * the run row.
+ *
+ * The newest completed run is *not* always the right row to read. A run whose output is a delta
+ * rather than a document is not a newer version of the context - it is a fraction of it, and not
+ * what the daily pipeline is synthesising on either, since `loadLongTermContext` skips it by the
+ * same test. Rendering it here as "the context" showed a page of change notes in place of the
+ * profile.
+ *
+ * So the newest run that produced an actual document wins, and anything newer that was skipped is
+ * reported rather than quietly passed over: an older document on screen with no explanation is the
+ * other half of the same bug.
  */
 export const load: PageServerLoad = async () => {
   const db = sql();
 
-  const [run] = await db`
+  const runs = await db`
     SELECT id, mode, started_at, completed_at, items_indexed, output_path
     FROM context_builder_runs
     WHERE status = 'completed'
     ORDER BY started_at DESC
-    LIMIT 1
+    LIMIT ${CANDIDATE_RUNS}
   `;
 
-  let doc: {
-    generatedAt: string | null;
-    date: string | null;
-    path: string;
-    fullContextHtml: string;
-    chars: number;
-    sections: { key: string; title: string; html: string; chars: number }[];
-  } | null = null;
+  let run: (typeof runs)[number] | null = null;
+  let doc: Doc | null = null;
   let docError: string | null = null;
+  const skipped: { startedAt: string; mode: string; reason: string }[] = [];
 
-  if (run?.output_path) {
-    try {
-      const file = await readContextDocument(run.output_path as string);
-      const raw = JSON.parse(file.content) as Record<string, string>;
-      const section = (key: string, title: string) => ({
-        key,
-        title,
-        html: renderMarkdown(raw[key]),
-        chars: (raw[key] ?? "").length,
+  for (const candidate of runs) {
+    const note = (reason: string) =>
+      skipped.push({
+        startedAt: candidate.started_at as string,
+        mode: candidate.mode as string,
+        reason,
       });
-      doc = {
-        generatedAt: raw.generatedAt ?? null,
-        date: raw.date ?? null,
-        path: file.path,
-        fullContextHtml: renderMarkdown(raw.fullContext),
-        chars: (raw.fullContext ?? "").length,
-        sections: [
-          section("keep", "Personal knowledge (Keep notes)"),
-          section("contacts", "Contact directory (email)"),
-          section("github", "Technical profile (GitHub)"),
-          section("tasks", "Active commitments (Tasks)"),
-        ],
-      };
+
+    if (!candidate.output_path) {
+      note("recorded no output file");
+      continue;
+    }
+
+    let raw: Record<string, string>;
+    let path: string;
+    try {
+      const file = await readContextDocument(candidate.output_path as string);
+      raw = JSON.parse(file.content) as Record<string, string>;
+      path = file.path;
     } catch (err) {
       // A missing or unreadable file is worth surfacing: the run says it wrote one.
-      docError = err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : String(err);
+      docError ??= message;
+      note(message);
+      continue;
     }
+
+    const fullContext = raw.fullContext ?? "";
+
+    if (!isDocument(fullContext)) {
+      note("produced a list of changes instead of the full document, so it cannot replace it");
+      continue;
+    }
+
+    const section = (key: string, title: string) => ({
+      key,
+      title,
+      html: renderMarkdown(raw[key]),
+      chars: (raw[key] ?? "").length,
+    });
+    run = candidate;
+    doc = {
+      generatedAt: raw.generatedAt ?? null,
+      date: raw.date ?? null,
+      path,
+      fullContextHtml: renderMarkdown(fullContext),
+      chars: fullContext.length,
+      sections: [
+        section("keep", "Personal knowledge (Keep notes)"),
+        section("contacts", "Contact directory (email)"),
+        section("github", "Technical profile (GitHub)"),
+        section("tasks", "Active commitments (Tasks)"),
+      ],
+    };
+    break;
   }
+
+  run ??= (runs[0] as (typeof runs)[number] | undefined) ?? null;
 
   const standing = await db`
     SELECT key, value, source, updated_at FROM standing_context ORDER BY updated_at DESC, key
@@ -86,7 +149,7 @@ export const load: PageServerLoad = async () => {
     ORDER BY created_at DESC
   `;
 
-  return { run: run ?? null, doc, docError, standing, counts, corrections };
+  return { run: run ?? null, doc, docError, skipped, standing, counts, corrections };
 };
 
 export const actions: Actions = {

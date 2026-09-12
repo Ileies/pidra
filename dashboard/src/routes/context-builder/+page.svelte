@@ -130,6 +130,29 @@
 {/snippet}
 
 <Page title="Context Builder" size="read" class="flex flex-col gap-6">
+  <!-- A newer run exists but is not what is on screen. Shown above the document, not below it:
+       the point is that the reader knows before reading which version they are looking at. -->
+  {#if data.skipped.length > 0}
+    <section class="bg-warning-950 border border-warning-900 rounded-lg p-4 sm:p-5">
+      <h2 class="text-warning-400 text-sm font-semibold mb-2">
+        {data.skipped.length === 1 ? "A newer run is not shown" : `${data.skipped.length} newer runs are not shown`}
+      </h2>
+      <ul class="text-surface-200 text-sm flex flex-col gap-1">
+        {#each data.skipped as run (run.startedAt)}
+          <li>
+            <span class="tabular-nums">{fmtDateTime(run.startedAt)}</span>
+            <span class="text-surface-400">({run.mode})</span> {run.reason}
+          </li>
+        {/each}
+      </ul>
+      <p class="text-surface-300 text-sm mt-2">
+        {data.doc
+          ? "The document below is the newest complete one. Start an update run to fold the newer material into it."
+          : "No complete document could be read at all, so the daily briefing is running without one."}
+      </p>
+    </section>
+  {/if}
+
   <!-- What the builder actually produced. This is the point of the tool, so it comes before
        the run machinery rather than after it. -->
   {#if data.doc}

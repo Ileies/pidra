@@ -6,11 +6,22 @@ let sonnetTokensIn = 0;
 let sonnetTokensOut = 0;
 let startTime = Date.now();
 
+/**
+ * The live display is a full-screen redraw: clear-screen, cursor moves, colours, twice a second.
+ * Under the systemd timer there is no terminal to draw on, and every one of those frames would
+ * land in the journal as a line of escape sequences - hours of a run's worth of them, burying the
+ * phase errors the journal exists to show. So the same state renders as one compact line on a
+ * slow clock, and only when something actually changed.
+ */
+const INTERACTIVE = process.stdout.isTTY === true;
+const TICK_MS = INTERACTIVE ? 500 : 30_000;
+let lastLine = "";
+
 export function startProgress(state: CheckpointState): void {
   currentState = state;
   startTime = Date.now();
-  process.stdout.write("\x1B[?25l"); // hide cursor
-  intervalId = setInterval(render, 500);
+  if (INTERACTIVE) process.stdout.write("\x1B[?25l"); // hide cursor
+  intervalId = setInterval(render, TICK_MS);
   render();
 }
 
@@ -23,13 +34,13 @@ export function pauseProgress(): void {
     clearInterval(intervalId);
     intervalId = null;
   }
-  process.stdout.write("\x1B[?25h\n"); // show cursor + newline
+  if (INTERACTIVE) process.stdout.write("\x1B[?25h\n"); // show cursor + newline
 }
 
 export function resumeProgress(state: CheckpointState): void {
   currentState = state;
-  process.stdout.write("\x1B[?25l");
-  intervalId = setInterval(render, 500);
+  if (INTERACTIVE) process.stdout.write("\x1B[?25l");
+  intervalId = setInterval(render, TICK_MS);
   render();
 }
 
@@ -48,7 +59,7 @@ export function stopProgress(): void {
     intervalId = null;
   }
   render();
-  process.stdout.write("\x1B[?25h\n"); // show cursor
+  if (INTERACTIVE) process.stdout.write("\x1B[?25h\n"); // show cursor
 }
 
 // Per-phase clocks. Measuring a phase's rate against total run time made the extraction ETA
@@ -77,28 +88,62 @@ function etaStr(phase: string, total: number, processed: number): string {
   return ` ETA ${Math.floor(remaining / 3600)}h${Math.floor((remaining % 3600) / 60)}m`;
 }
 
-function render(): void {
-  if (!currentState) return;
-
-  const elapsed = Math.round((Date.now() - startTime) / 1000);
-  const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m${elapsed % 60}s`;
-
-  // Rough running cost only, and it reads the same two variables the dashboard does, so there is
-  // one price in the system rather than two that drift. `AI_COST_PER_MTOK_*` still wins if set,
-  // for anyone who wants the CLI readout on different rates. There is deliberately no numeric
-  // fallback: the old $3/$15 defaults were Sonnet's, silently applied to Luna token counts, and a
-  // dash is better than a figure that looks authoritative and is wrong.
+/** Rough running cost, on the same two rates the dashboard uses. `null` when no rate is set. */
+function costEstimate(): string | null {
+  // `AI_COST_PER_MTOK_*` still wins if set, for anyone who wants the CLI readout on different
+  // rates. There is deliberately no numeric fallback: the old $3/$15 defaults were Sonnet's,
+  // silently applied to Luna token counts, and a dash is better than an authoritative wrong figure.
   const rateIn = Number(process.env.AI_COST_PER_MTOK_IN ?? process.env.PUBLIC_MODEL_PRICE_IN_PER_MTOK);
   const rateOut = Number(process.env.AI_COST_PER_MTOK_OUT ?? process.env.PUBLIC_MODEL_PRICE_OUT_PER_MTOK);
-  const priced = Number.isFinite(rateIn) && Number.isFinite(rateOut);
-  const costEst = priced
-    ? ((sonnetTokensIn / 1_000_000) * rateIn + (sonnetTokensOut / 1_000_000) * rateOut).toFixed(3)
-    : null;
+  if (!Number.isFinite(rateIn) || !Number.isFinite(rateOut)) return null;
+  return ((sonnetTokensIn / 1_000_000) * rateIn + (sonnetTokensOut / 1_000_000) * rateOut).toFixed(3);
+}
+
+function elapsedStr(): string {
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
+  return elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m${elapsed % 60}s`;
+}
+
+function render(): void {
+  if (!currentState) return;
+  if (INTERACTIVE) renderScreen();
+  else renderLine();
+}
+
+/**
+ * One line per state change, timestamped by the journal itself. Deliberately not a progress bar:
+ * `journalctl -u pidra-context-builder` should read as a handful of phase transitions, not as a
+ * transcript of every tick.
+ */
+function renderLine(): void {
+  const p = currentState!.phases;
+  const phase = (name: string, ph: { done: boolean; total: number; processed: number }) =>
+    `${name} ${ph.done ? `${ph.total} done` : ph.total > 0 ? `${ph.processed}/${ph.total}` : "-"}`;
+
+  const cost = costEstimate();
+  const line =
+    `[progress] ${[
+      phase("email", p.email),
+      phase("tasks", p.tasks),
+      phase("keep", p.keep),
+      phase("github", p.github),
+      `synthesis ${p.synthesis.done ? "done" : "-"}`,
+      `db-seed ${p.dbSeed.done ? "done" : "-"}`,
+    ].join("  ")}  |  ${sonnetTokensIn} in / ${sonnetTokensOut} out` +
+    (cost === null ? "" : ` (~$${cost})`);
+
+  if (line === lastLine) return;
+  lastLine = line;
+  process.stdout.write(`${line}  [${elapsedStr()}]\n`);
+}
+
+function renderScreen(): void {
+  const costEst = costEstimate();
 
   process.stdout.write("\x1B[2J\x1B[H"); // clear screen, move to top
-  process.stdout.write(`\x1B[1mContext Builder\x1B[0m - ${currentState.mode} mode - ${elapsedStr} elapsed\n\n`);
+  process.stdout.write(`\x1B[1mContext Builder\x1B[0m - ${currentState!.mode} mode - ${elapsedStr()} elapsed\n\n`);
 
-  const p = currentState.phases;
+  const p = currentState!.phases;
 
   const phaseRow = (
     name: string,

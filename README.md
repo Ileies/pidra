@@ -74,14 +74,13 @@ All architecture decisions, prompts, schema, and build rationale are in the plan
 - [`MORNING_BRIEFING_PLAN.md`](./MORNING_BRIEFING_PLAN.md) - Complete build plan: architecture, pipeline, DB schema, prompts, delivery, cost analysis, full roadmap
 - [`CONTEXT_AND_DECISIONS.md`](./CONTEXT_AND_DECISIONS.md) - Builder profile, intelligence priorities, newsletter selection rationale, key decisions made, design principles
 - [`CONTEXT_BUILDER_PLAN.md`](./CONTEXT_BUILDER_PLAN.md) - Context Builder architecture, run modes (full/update/resume), pipeline phases, cost analysis, testing checklist
-- [`DASHBOARD_PLAN.md`](./DASHBOARD_PLAN.md) - The dashboard redesign: the mobile audit, the phase breakdown A through E, the settled decisions, and the far-future semantic search design
 - [`CONTEXT_REVISION_PLAN.md`](./CONTEXT_REVISION_PLAN.md) - How corrections to the harvested context work: the append-only layer, and why the harvest itself is never rewritten
 
 ## Build Status
 
 Phases 0-6 of the daily pipeline are complete and the whole chain runs unattended: as of 2026-09-12 a run ingests all 16 sources, synthesises both sections and delivers the push notification without intervention.
 
-The dashboard redesign in `DASHBOARD_PLAN.md` is executed and closed, M-9 included, so the app has been through a real device pass on iOS and Android. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline.
+The dashboard redesign is finished, device pass on iOS and Android included; its plan document was deleted once it shipped, and the conventions that outlived it are in `CLAUDE.md`. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline.
 
 See [`TODO.md`](./TODO.md) for open items.
 

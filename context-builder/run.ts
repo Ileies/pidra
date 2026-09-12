@@ -29,22 +29,29 @@ import { writeOutputFiles } from "./output/builder";
 import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
 import { eq, and, count, desc } from "drizzle-orm";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { pickSections, readDocument } from "../src/pipeline/long-term-context";
 
-const args = process.argv.slice(2);
-const forceFull = args.includes("--full");
-const forceUpdate = args.includes("--update");
-const dryRun = args.includes("--dry-run");
-// Re-seed the target tables from extractions already stored in context_builder_indexed_items,
-// with no fetching, no model calls and no synthesis. This is the cheap recovery path when a
-// build extracted everything successfully but tripped over a DB write at the very end.
-const seedOnly = args.includes("--seed-only");
-// Redo everything downstream of extraction - synthesis, output files and DB seeding - reusing
-// the stored extractions. Skips the mail/Keep fetch and every extraction call, so it costs a
-// few synthesis calls rather than a full rebuild. Tasks and GitHub are re-fetched (they are
-// never indexed) but need no model calls.
-const fromIndex = args.includes("--from-index");
+export interface ContextBuilderOptions {
+  /** Rebuild from every source, ignoring the index and any previous document. */
+  forceFull?: boolean;
+  /** Take the update path even with no completed run on record. */
+  forceUpdate?: boolean;
+  /** Report the source inventory and exit, touching no run state. */
+  dryRun?: boolean;
+  /**
+   * Re-seed the target tables from extractions already stored in context_builder_indexed_items,
+   * with no fetching, no model calls and no synthesis. The cheap recovery path when a build
+   * extracted everything successfully but tripped over a DB write at the very end.
+   */
+  seedOnly?: boolean;
+  /**
+   * Redo everything downstream of extraction - synthesis, output files and DB seeding - reusing
+   * the stored extractions. Skips the mail/Keep fetch and every extraction call, so it costs a
+   * few synthesis calls rather than a full rebuild. Tasks and GitHub are re-fetched (they are
+   * never indexed) but need no model calls.
+   */
+  fromIndex?: boolean;
+}
 
 // Self-exit cleanly on runaway memory instead of waiting for the OS OOM-killer, which reaps
 // the whole cgroup (took the launching terminal down with it - see incident 2026-09-15).
@@ -72,7 +79,7 @@ function startMemoryWatchdog(): Timer {
   }, 5000);
 }
 
-async function detectMode(): Promise<"full" | "update"> {
+async function detectMode(forceFull: boolean, forceUpdate: boolean): Promise<"full" | "update"> {
   if (forceFull) return "full";
 
   const [lastRun] = await db
@@ -163,6 +170,55 @@ async function loadStoredExtractions(): Promise<{ emails: EmailExtraction[]; not
   return { emails, notes };
 }
 
+/**
+ * The five numbered sections the daily pipeline routes the document by. `pickSections` splits on
+ * `# N.` headings, so a document that answers with anything else reaches synthesis as an empty
+ * string - which is exactly what the 2026-09-11 update run produced, and what made every briefing
+ * after it run with `context doc 0 chars` while the run was recorded as completed.
+ */
+const REQUIRED_SECTIONS = ["1", "2", "3", "4", "5"];
+
+function missingSections(doc: string): string[] {
+  return REQUIRED_SECTIONS.filter((n) => !pickSections(doc, n));
+}
+
+/** How far back to look for a previous document worth patching before rebuilding from scratch. */
+const PREVIOUS_RUN_CANDIDATES = 5;
+
+/**
+ * The document this run updates, and the item count it was built from.
+ *
+ * Not simply the newest completed run. That row may be an earlier update whose output missed the
+ * heading contract, and patching a broken document forward only entrenches it: the run would be
+ * recorded as completed, the pipeline would still find nothing, and each month would compound it.
+ * So walk back until a run yields a document that parses, which is the same choice the daily
+ * pipeline makes. Nothing usable in the window means a full rebuild, which is expensive but right.
+ */
+async function loadPreviousDocument(): Promise<{ context: string; itemsIndexed: number }> {
+  const runs = await db
+    .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
+    .from(contextBuilderRuns)
+    .where(eq(contextBuilderRuns.status, "completed"))
+    .orderBy(desc(contextBuilderRuns.startedAt))
+    .limit(PREVIOUS_RUN_CANDIDATES);
+
+  for (const run of runs) {
+    if (!run.outputPath) continue;
+    try {
+      // readDocument, not readFile: output_path holds whichever machine's absolute path ran the
+      // build, so a workstation harvest is unopenable from the server and vice versa.
+      const parsed = JSON.parse(await readDocument(run.outputPath)) as { fullContext?: string };
+      const doc = parsed.fullContext ?? "";
+      const missing = missingSections(doc);
+      if (missing.length === 0) return { context: doc, itemsIndexed: run.itemsIndexed ?? 0 };
+      console.warn(`[Synthesis] ${run.outputPath} is missing section(s) ${missing.join(", ")} - looking further back`);
+    } catch (err) {
+      console.warn(`[Synthesis] ${run.outputPath} unreadable (${err instanceof Error ? err.message : String(err)}) - looking further back`);
+    }
+  }
+  return { context: "", itemsIndexed: 0 };
+}
+
 async function getTotalIndexedCount(): Promise<number> {
   const [row] = await db.select({ n: count() }).from(contextBuilderIndexedItems);
   return Number(row?.n ?? 0);
@@ -190,7 +246,9 @@ function printInventory(info: {
   console.log("========================\n");
 }
 
-async function main(): Promise<void> {
+export async function runContextBuilder(options: ContextBuilderOptions = {}): Promise<void> {
+  const { forceFull = false, forceUpdate = false, dryRun = false, seedOnly = false, fromIndex = false } = options;
+
   await loadErrors();
 
   if (seedOnly) {
@@ -224,7 +282,7 @@ async function main(): Promise<void> {
 
   // --from-index rebuilds the document from scratch out of the stored extractions, so it wants
   // full synthesis rather than a delta patch against the previous output.
-  const mode = fromIndex ? "full" : resumable ? resumable.mode : await detectMode();
+  const mode = fromIndex ? "full" : resumable ? resumable.mode : await detectMode(forceFull, forceUpdate);
 
   console.log(`\n=== Context Builder - ${mode} mode${dryRun ? " (dry run)" : ""}${resumable ? " (resuming)" : ""} ===\n`);
 
@@ -456,12 +514,25 @@ async function main(): Promise<void> {
   let parts: Omit<SynthesisResult, "fullContext"> = { contacts: "", tasks: "", keep: "", github: "" };
   let fullContext = "";
 
+  // Which sources actually produced something this run. Kept as flags rather than re-derived from
+  // the prose below, because the patch path has to tell "this source says nothing new" apart from
+  // "this source was not fetched" - and on the server the latter is routine: GitHub needs a token
+  // in .env and Keep needs the gkeepapi venv, and either being absent yields zero items, not an
+  // error. Handing the resulting "No GitHub data" placeholder to synthesizePatch as a delta tells
+  // the model the user's repos are gone, with nothing but "do not shrink the document" in the way.
+  const fetched = {
+    contacts: synthesisEmails.length > 0,
+    tasks: taskItems.length > 0,
+    keep: synthesisNotes.length > 0,
+    github: githubRepos.length > 0,
+  };
+
   try {
     const [contactsSummary, tasksSummary, keepSummary, githubSummary] = await Promise.allSettled([
-      synthesisEmails.length > 0 ? synthesizeContacts(synthesisContactProfiles) : Promise.resolve("No email data"),
-      taskItems.length > 0 ? synthesizeTasks(taskItems) : Promise.resolve("No task data"),
-      synthesisNotes.length > 0 ? synthesizeKeep(notesByCategory) : Promise.resolve("No Keep data"),
-      githubRepos.length > 0 ? synthesizeGitHub(githubRepos) : Promise.resolve("No GitHub data"),
+      fetched.contacts ? synthesizeContacts(synthesisContactProfiles) : Promise.resolve("No email data"),
+      fetched.tasks ? synthesizeTasks(taskItems) : Promise.resolve("No task data"),
+      fetched.keep ? synthesizeKeep(notesByCategory) : Promise.resolve("No Keep data"),
+      fetched.github ? synthesizeGitHub(githubRepos) : Promise.resolve("No GitHub data"),
     ]);
 
     parts = {
@@ -480,33 +551,54 @@ async function main(): Promise<void> {
       console.log(`[Synthesis] ${corrections.length} active correction(s) injected`);
     }
 
-    if (mode === "update") {
-      const [lastRun] = await db
-        .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
-        .from(contextBuilderRuns)
-        .where(eq(contextBuilderRuns.status, "completed"))
-        .orderBy(desc(contextBuilderRuns.startedAt))
-        .limit(1);
+    const previous = mode === "update" ? await loadPreviousDocument() : { context: "", itemsIndexed: 0 };
 
-      let existingContext = "";
-      if (lastRun?.outputPath) {
-        try {
-          const prevJson = JSON.parse(await readFile(lastRun.outputPath, "utf-8")) as { fullContext?: string };
-          existingContext = prevJson.fullContext ?? "";
-        } catch {}
+    if (previous.context) {
+      const delta = Object.fromEntries(
+        (Object.keys(fetched) as (keyof typeof fetched)[])
+          .filter((k) => fetched[k] && parts[k])
+          .map((k) => [k, parts[k]]),
+      );
+      fullContext = await synthesizePatch(
+        previous.context,
+        delta,
+        {
+          existing: previous.itemsIndexed,
+          delta: emailExtractions.length + noteExtractions.length + githubRepos.length,
+        },
+        corrections,
+      );
+
+      // The patch replaces the document outright, so a reply that ignored the heading contract is
+      // not a cosmetic problem: it is the whole long-term context gone. Rebuilding from the source
+      // summaries costs one more synthesis call and always produces the five-section structure.
+      const missing = missingSections(fullContext);
+      if (missing.length > 0) {
+        await logError(
+          "phase:synthesis",
+          `patched document is missing section(s) ${missing.join(", ")} - rebuilding it in full instead`,
+        );
+        fullContext = await synthesizeFullContext(parts, corrections);
       }
-
-      const existingCount = lastRun?.itemsIndexed ?? 0;
-      const deltaCount = emailExtractions.length + noteExtractions.length + githubRepos.length;
-
-      fullContext = existingContext
-        ? await synthesizePatch(existingContext, parts, { existing: existingCount, delta: deltaCount }, corrections)
-        : await synthesizeFullContext(parts, corrections);
     } else {
+      if (mode === "update") {
+        console.warn("[Synthesis] no previous document worth patching - synthesising this one in full");
+      }
       fullContext = await synthesizeFullContext(parts, corrections);
+    }
+
+    // A full build has the same contract to meet, and there is no second fallback left after it.
+    const stillMissing = missingSections(fullContext);
+    if (stillMissing.length > 0) {
+      throw new Error(`synthesised document is missing section(s) ${stillMissing.join(", ")}`);
     }
   } catch (err) {
     await logError("phase:synthesis", err);
+    // Whatever is in fullContext at this point did not pass, so it must not be handed on as though
+    // it had. The output file still gets written - it holds the four source summaries and is worth
+    // having - but the run records no output path, which keeps the last good harvest the newest
+    // document the pipeline can find instead of quietly displacing it with an unreadable one.
+    fullContext = "";
   }
 
   state.phases.synthesis.done = true;
@@ -539,7 +631,15 @@ async function main(): Promise<void> {
   if (dbRunId) {
     await db
       .update(contextBuilderRuns)
-      .set({ status: "completed", completedAt: new Date().toISOString(), itemsIndexed: totalIndexed, outputPath: jsonPath || null })
+      .set({
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        itemsIndexed: totalIndexed,
+        // No path unless the document in that file is one the pipeline can actually read. The
+        // column is how every downstream reader finds the harvest, so pointing it at a failed
+        // synthesis is worse than pointing it nowhere.
+        outputPath: fullContext && jsonPath ? jsonPath : null,
+      })
       .where(eq(contextBuilderRuns.id, dbRunId));
   }
 
@@ -555,7 +655,19 @@ async function main(): Promise<void> {
   if (errors.length > 0) console.log(`  Errors logged : ${errors.length} (see context-builder/errors.json)`);
 }
 
-main().catch(async (err) => {
-  console.error("\nContext Builder failed:", err);
-  process.exit(1);
-});
+// Guarded, because src/job.ts imports runContextBuilder to run the monthly update under systemd.
+// Without this the import alone would start a full harvest, from whatever argv the job happened
+// to be invoked with.
+if (import.meta.main) {
+  const args = process.argv.slice(2);
+  runContextBuilder({
+    forceFull: args.includes("--full"),
+    forceUpdate: args.includes("--update"),
+    dryRun: args.includes("--dry-run"),
+    seedOnly: args.includes("--seed-only"),
+    fromIndex: args.includes("--from-index"),
+  }).catch((err) => {
+    console.error("\nContext Builder failed:", err);
+    process.exit(1);
+  });
+}

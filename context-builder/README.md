@@ -1,6 +1,8 @@
 # Context Builder
 
-One-shot tool that scans all personal data sources (email, Google Keep, Google Tasks, GitHub), compresses each item into structured JSON, and synthesizes a long-term context document. Seeds PIDRA's `entities`, `contacts`, and `standing_context` tables.
+Scans all personal data sources (email, Google Keep, Google Tasks, GitHub), compresses each item into structured JSON, and synthesizes a long-term context document. Seeds PIDRA's `entities`, `contacts`, and `standing_context` tables.
+
+Runs by hand for a full harvest, and on its own in update mode on the 1st of each month at 03:00 as the `context-builder` systemd job (`hosts/pronix/pidra.nix`). Running on the server is not incidental: `context_builder_runs.output_path` is an absolute path, so a harvest written anywhere else is one the daily pipeline cannot open.
 
 Both stages call `gpt-5.6-luna` through `src/ai/openai.ts` on the `flex` service tier with `store: false`. Extraction uses strict JSON schemas, so the model cannot return malformed or drifting fields. The local Ollama path was removed: the 9B model truncated its own JSON mid-object and hit 90 s timeouts often enough that runs never completed.
 
@@ -25,6 +27,8 @@ python3 -m venv context-builder/.venv
 context-builder/.venv/bin/pip install gkeepapi -q
 context-builder/.venv/bin/python3 context-builder/scripts/keep-auth.py
 ```
+
+**The server needs this venv too**, or the monthly run fetches zero notes - `fetchKeepNotes` logs the failure and returns an empty list rather than throwing, so it degrades silently. The venv lives at `/var/www/pidra/context-builder/.venv` and is gitignored, so a `git pull` never touches it. The auth step is not repeated there: `GKEEPAPI_MASTER_TOKEN` is copied into the server's `.env` and the interpreter comes from `pkgs.python3`, declared in `pidra.nix` so a garbage collection cannot strip the venv's symlink target.
 
 **Important: app passwords do not work.** Google's Android auth endpoint (`gpsoauth`) returns `BadAuthentication` for all accounts as of 2025, even with a valid app password and 2FA enabled. The only working path is a browser cookie exchange:
 
@@ -79,7 +83,9 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:15432/pidra bun run context-builder
 
 - `context-builder/output/context-YYYY-MM-DD.json` - structured data
 - `context-builder/output/context-YYYY-MM-DD.md` - human-readable snapshot
-- DB: `contacts`, `entities`, `standing_context` tables seeded
+- DB: `contacts`, `entities`, `standing_context` tables seeded, and the JSON file's path on `context_builder_runs.output_path`
+
+**`fullContext` must carry all five `# 1.` to `# 5.` headings.** They are an interface: `pickSections` in `src/pipeline/long-term-context.ts` splits on them to route each section to one of the two daily synthesis calls, so a document in any other shape reaches the briefing as an empty string. Both prompts share one `DOCUMENT_STRUCTURE` constant, and `run.ts` checks the result rather than trusting it - a patch that comes back missing sections is rebuilt in full, and one that still fails leaves `output_path` null so the last good harvest stays the newest document the pipeline can find. An update run also patches the newest run whose file actually parses, not simply the newest row, so a bad document is never carried forward.
 
 ## Modes
 
@@ -102,12 +108,14 @@ The three seed targets (`contacts`, `entities`, `standing_context`) are written 
 
 ## Estimated runtime
 
-Now IMAP-bound, not model-bound: bodies are fetched one message at a time per account, at roughly
+IMAP-bound, not model-bound: bodies are fetched one message at a time per account, at roughly
 2-3 s each, while extraction runs `CONTEXT_BUILDER_EXTRACT_CONCURRENCY` (default 8) calls in
-parallel at ~0.6 s per item amortised.
+parallel at ~0.6 s per item amortised. Accounts are fetched concurrently - each is a separate
+connection and they do not contend.
 
 - Full run, ~1800 mail headers + ~400 Keep notes: ~1 hour, almost all of it the mail fetch
 - Update run with 50 new emails: 2-5 minutes
+- Measured 2026-09-12 on the server, 3 new emails: 393 s and $0.05, nearly all of it synthesis
 
-The obvious next speedup is fetching the accounts concurrently instead of sequentially in
-`run.ts` - each account is a separate IMAP connection, so they do not contend.
+Under the systemd timer there is no terminal, so the live full-screen readout is replaced by one
+compact `[progress]` line per state change in the journal: `journalctl -u pidra-context-builder`.

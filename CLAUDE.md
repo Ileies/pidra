@@ -4,11 +4,13 @@
 
 PIDRA consists of three tools that share one Postgres database:
 
-1. **Daily pipeline** (`src/` + `run.ts`) - morning briefing system. Ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. Extraction compresses raw content into structured JSON; synthesis produces each section of the report - both stages currently run on `gpt-5.6-luna` (see Stack below). Compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
+1. **Daily pipeline** (`src/`, entered through `src/job.ts`) - morning briefing system. Ingests 32 newsletters, personal emails, SMS, Google Calendar, and Google Tasks via RSS, IMAP, and APIs. Extraction compresses raw content into structured JSON; synthesis produces each section of the report - both stages currently run on `gpt-5.6-luna` (see Stack below). Compounds over time through an entity knowledge graph, source trust scoring, and weekly self-improvement runs.
 
 2. **Dashboard** (`dashboard/`) - SvelteKit frontend for reading reports, rating items, viewing the entity graph, managing notes, reviewing skill executions, and approving prompt changes.
 
-3. **Context Builder** (`context-builder/`) - standalone one-shot tool that performs a comprehensive scan of all personal data sources (all email accounts, Google Keep, Google Tasks, GitHub) and builds a structured long-term context document. Seeds the `entities`, `contacts`, and `standing_context` tables before the first pipeline run - so the system is calibrated from day one instead of learning from scratch. Re-runnable in update mode (delta only, proportional merge). Full plan in `CONTEXT_BUILDER_PLAN.md`.
+3. **Context Builder** (`context-builder/`) - performs a comprehensive scan of all personal data sources (all email accounts, Google Keep, Google Tasks, GitHub) and builds a structured long-term context document. Seeds the `entities`, `contacts`, and `standing_context` tables before the first pipeline run - so the system is calibrated from day one instead of learning from scratch. Re-runs monthly in update mode (delta only, proportional merge), as the `context-builder` job. Full plan in `CONTEXT_BUILDER_PLAN.md`.
+
+   **The output document's `# 1.` to `# 5.` headings are an interface, not formatting.** `pickSections` (`src/pipeline/long-term-context.ts`) splits on them to route each section to one of the two daily synthesis calls, so a document that answers in any other shape reaches synthesis as an empty string. Both synthesis prompts share one `DOCUMENT_STRUCTURE` constant stating the contract, and `run.ts` verifies the result before recording it: a patch that comes back malformed is rebuilt in full, and one that still fails leaves `output_path` null so the last good harvest stays the newest document the pipeline can find. Never write a prompt or a consumer that assumes a different shape on either side.
 
 Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions and rationale are in `CONTEXT_AND_DECISIONS.md`. Read both before implementing anything non-trivial. Read `CONTEXT_BUILDER_PLAN.md` before touching anything in `context-builder/`.
 
@@ -54,7 +56,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 
 - `raw_items` - all ingested content before processing
-- `extractions` - Ollama output per item, with effective relevance scores
+- `extractions` - the extraction stage's structured output per item, with effective relevance scores
 - `active_topics` - running story summaries, continuity across days
 - `entities` / `entity_relations` - knowledge graph nodes and edges
 - `source_quality` / `source_daily_scores` - per-source trust scores and 30-day rolling history
@@ -131,15 +133,15 @@ The `/chat` loop (`src/ai/chat.ts`) exposes the whole registry as tools automati
 
 ## Concurrency
 
-Phase 2 (Ollama extraction): semaphore capped at 4 concurrent calls. Never raise this without testing GPU memory pressure.
+Phase 2 (extraction): `CONCURRENCY = 4` workers in `phase2-extract.ts`. It is an API concurrency limit, not a GPU one - extraction has run on `gpt-5.6-luna` since the local Ollama path was removed, so raising it trades rate-limit risk against wall-clock, not VRAM.
 
 Phase 3 (context assembly + web search): runs in parallel with Phase 2.
 
 Section 1 synthesis never waits for the question gate. Section 2 blocks for up to 45 minutes.
 
-## Sonnet output parsing
+## Synthesis output parsing
 
-Both Sonnet calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses this block to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate Sonnet call for Phase 6 logic.
+Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses this block to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic.
 
 ## Error handling model
 
@@ -159,7 +161,11 @@ Never use real personal information in code, comments, or examples - no real ema
 
 ## What to build next
 
-See `TODO.md` for the current phase and open items. Phases 0–6 are complete. The Context Builder is complete and has had one full run (2026-09-10), seeding `entities`, `contacts`, and `standing_context`. The dashboard redesign in `DASHBOARD_PLAN.md` was executed in full on 2026-09-12 except M-9, the real-hardware pass, which decision 6 makes a gate: nothing in the redesign has been opened on a phone. What remains: redeploy pronix and do that pass, set up the monthly Context Builder update-run cadence, and test the daily pipeline against real newsletters for a few days to tune extraction prompts.
+`TODO.md` holds the open items and nothing else - closed entries are removed rather than struck through, so anything still listed there is still work. Keep it that way.
+
+Phases 0-6 are complete, and since 2026-09-12 the chain runs unattended end to end: all 16 ingest sources healthy, both sections synthesised, the push notification delivered. The Context Builder has had one full harvest plus update runs and now re-harvests monthly on pronix. The dashboard redesign in `DASHBOARD_PLAN.md` was executed on 2026-09-12 except M-9, the real-hardware pass, which decision 6 makes a gate on every later dashboard item: nothing in the redesign has been opened on a phone.
+
+The two things that most want doing: **M-9**, because everything else in the dashboard is gated behind it, and **running the pipeline against real newsletters for a few days** to tune the extraction prompts, which have never been judged on more than a single day's material.
 
 ## What not to build (yet)
 

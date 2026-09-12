@@ -1,7 +1,10 @@
 email-accounts.json
 node_modules/
 dist/
-.env
+# `.env` alone did not cover `.env.bak.<ts>`, which a credential rotation leaves behind on the
+# server and which git then reports as untracked, one `git add -A` away from being published.
+.env*
+!.env.example
 *.local
 .DS_Store
 .idea/

@@ -97,8 +97,10 @@ const server = Bun.serve({
 
       console.log("\n=== SUCCESS ===");
       console.log(`GOOGLE_REFRESH_TOKEN written to ${ENV_PATH} (${tokens.refresh_token.length} chars).`);
-      console.log("The value was not printed. Revoke the previous token at");
-      console.log("https://myaccount.google.com/permissions\n");
+      // Deliberately not "now go revoke the old one": removing the app at
+      // myaccount.google.com/permissions revokes the whole grant for this client, which would kill
+      // the token this run just minted. Revoking belongs *before* the flow, not after.
+      console.log("The value was not printed.\n");
 
       setTimeout(() => { server.stop(); process.exit(0); }, 300);
 

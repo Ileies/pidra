@@ -67,6 +67,12 @@ PIDRA is three tools sharing one Postgres database:
 | `meta-run` | Sunday 23:30 |
 | `context-builder` | 1st of the month, 03:00 |
 
+## Deploying
+
+`bun run deploy` sends the committed tree to pronix: pull, sync the gitignored config and harvest files, install, build the dashboard, restart the two long-lived units, then verify that the pages actually render rather than that systemd calls them active. `--dry-run` shows the whole plan without touching anything.
+
+It refuses an uncommitted tree, commits not on origin, a branch behind origin, a dirty checkout on the server, or a failing `bun run check`. It does not carry `.env` (same keys, different values per machine) and it does not carry the systemd units, which live in the NixOS flake and need a `nixos-rebuild` on pronix.
+
 ## Planning Documents
 
 All architecture decisions, prompts, schema, and build rationale are in the planning docs - read these before touching any implementation:

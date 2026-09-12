@@ -187,11 +187,17 @@ for (const service of SERVICES) {
 
 // The dashboard answering is the only check that covers the build rather than the unit: a broken
 // page still leaves systemd reporting `active`.
+//
+// Redirects are followed rather than accepted as success. `/` is a 307 to today's report, so a
+// bare status check passes without a single page having rendered - which is most of what there is
+// to get wrong in a build. `/context-builder` is requested too: it is the one route that reads a
+// file off disk, so it fails when the harvest did not come across.
 const port = (await remote(`systemctl show pidra-dashboard -p Environment --value | tr ' ' '\\n' | grep '^PORT=' | cut -d= -f2`)) || "3009";
-const code = await remote(`curl -fsS -o /dev/null -w '%{http_code}' --max-time 20 http://localhost:${port}/ || true`);
-if (!DRY) {
+for (const path of ["/", "/context-builder"]) {
+  const code = await remote(`curl -fsSL -o /dev/null -w '%{http_code}' --max-time 30 http://localhost:${port}${path} || true`);
+  if (DRY) continue;
   const ok = code === "200";
-  console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} dashboard on :${port} answered ${code || "nothing"}`);
+  console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${path} on :${port} answered ${code || "nothing"}`);
   if (!ok) failed = true;
 }
 

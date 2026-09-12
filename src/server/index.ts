@@ -90,7 +90,7 @@ app.get("/api/skills/executions", async (c) => {
 });
 
 // The other half of the high-risk queue. `executeSkill` parks a high-risk call as `pending` and
-// says it is queued on /skills; this is what /skills calls to finish the decision. See D4.
+// says it is queued on /skills; this is what /skills calls to finish the decision.
 app.post("/api/skills/executions/:id/:decision", async (c) => {
   const decision = c.req.param("decision");
   if (decision !== "confirm" && decision !== "reject") {

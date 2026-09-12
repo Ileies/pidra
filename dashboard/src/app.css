@@ -180,7 +180,8 @@
   --app-emphasis: var(--color-primary-200);
 
   /* Set by the root layout from the real header height, so sticky elements never
-     hard-code a desktop number. See M-6. */
+     hard-code a desktop number: the mobile header is a different height from the
+     desktop one, and a `top-14` guess leaves the element underneath it. */
   --header-h: 3.5rem;
 
   /* Safe areas. `viewport-fit=cover` in app.html is what makes these non-zero on a

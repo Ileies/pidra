@@ -108,7 +108,7 @@ export async function executeSkill(
 }
 
 /**
- * Runs or rejects a queued high-risk call (DASHBOARD_PLAN D4).
+ * Runs or rejects a queued high-risk call.
  *
  * `executeSkill` leaves a `high` skill as a `pending` row and tells the caller it is queued. That
  * is the documented approval workflow, and until now nothing could complete it: the queue had no

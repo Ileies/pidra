@@ -5,7 +5,7 @@
  * option sets, plus `fmtDay`, `fmtTs` twice, `fmtNum` twice, `fmtScore` twice, `fmtPct` twice,
  * `fmtCost` and `fmtElapsed`. A date rendered differently depending on which page you were on.
  *
- * Locale is `en-GB` throughout (decision 1): day-month-year and a 24-hour clock, which is the
+ * Locale is `en-GB` throughout, matching the English UI: day-month-year and a 24-hour clock, which is the
  * order the German output already used, without German month names. `sv-SE` survives in `isoDay`
  * only, where it is a trick for getting a local ISO date and not a locale choice.
  */

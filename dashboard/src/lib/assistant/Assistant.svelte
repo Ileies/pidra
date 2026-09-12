@@ -7,7 +7,7 @@
    * The floating assistant: one button, bottom right, on every page from `sm` up. Mounted once
    * in the root layout, so a turn keeps streaming while the user navigates.
    *
-   * Below `sm` there is no launcher (M-7, decision 7). The panel already took the whole screen
+   * Below `sm` there is no launcher. The panel already took the whole screen
    * there, so the button bought nothing and collided with the bottom bar, the toast and the iOS
    * home indicator; the bottom bar's Chat tab is the mobile entry point instead.
    *

@@ -1,5 +1,5 @@
 /**
- * The report's structured form (DASHBOARD_PLAN C1, decision 4).
+ * The report's structured form.
  *
  * The dashboard used to render the briefing as one flat `{@html marked(full_report)}` blob and
  * guess at its shape from CSS. Its structure is not a guess: it is pinned by the synthesis
@@ -31,7 +31,7 @@ export interface ReportEntry {
 export interface ReportJson {
   version: typeof REPORT_JSON_VERSION;
   date: string;
-  /** Section 2, which the dashboard renders first (decision 3). */
+  /** Section 2, which the dashboard renders first at every width: it is the actionable half. */
   personal: { urgency: Urgency; entries: ReportEntry[] }[];
   /** Section 1. */
   intel: { domain: string; entries: ReportEntry[] }[];

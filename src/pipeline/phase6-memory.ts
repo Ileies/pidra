@@ -148,7 +148,7 @@ export async function runPhase6(
   // The structured form of the report, parsed from the markdown the model just produced. No
   // second AI call: the shape is fixed by the synthesis prompts, so this is a heading walk.
   // A parse failure means the prompt and the parser have drifted; the column stays null and the
-  // dashboard renders the markdown as before rather than showing an empty page. See C1.
+  // dashboard renders the markdown as before rather than showing an empty page.
   const reportJson = parseReport(fullReport, runDate);
   if (!reportJson) {
     console.warn("[Phase 6] Report did not parse into report_json - the dashboard will fall back to markdown");

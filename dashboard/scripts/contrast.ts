@@ -1,8 +1,8 @@
 /**
  * WCAG 2.1 contrast checker for the dashboard palette.
  *
- * The app is dark-only (DASHBOARD_PLAN decision 2), so there is no second theme to fall back to
- * and every contrast failure is permanent. Run this after any palette edit:
+ * The app is dark-only by decision (CLAUDE.md, dashboard conventions), so there is no second
+ * theme to fall back to and every contrast failure is permanent. Run this after any palette edit:
  *
  *   bun run scripts/contrast.ts
  *

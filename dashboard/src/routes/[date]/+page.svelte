@@ -146,7 +146,7 @@
       <SectionNav sections={sectionTargets} domains={domainTargets} />
     {/if}
 
-    <!-- Section 2 leads, at every width (decision 3). It is the actionable half; the briefing
+    <!-- Section 2 leads, at every width. It is the actionable half; the briefing
          is the half you read when you have time. -->
     {#if personalEntries > 0}
       <section id="personal" tabindex="-1" class="flex flex-col gap-5 scroll-mt-[calc(var(--header-h)+3.5rem)]">

@@ -66,7 +66,7 @@ export const dailyReports = pgTable("daily_reports", {
   // Nullable on purpose: a parse that cannot find both section headings writes null and the
   // dashboard falls back to rendering the markdown. `fullReport` stays the source of truth -
   // it is what the model actually produced, and the archive must stay readable if this parser
-  // is ever wrong. See DASHBOARD_PLAN C1.
+  // is ever wrong.
   reportJson: jsonb("report_json").$type<import("../pipeline/report-json").ReportJson | null>(),
   shortSummary: text("short_summary"),
   itemCount: integer("item_count"),

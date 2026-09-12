@@ -13,7 +13,7 @@
  * The registry is parsed rather than imported: it is a SvelteKit module in a separate package
  * with `$lib` aliases, and this script has no business booting Vite to read a list of strings.
  *
- * Wired into `bun run check`. See DASHBOARD_PLAN.md S11 / B3.
+ * Wired into `bun run check`.
  */
 
 import { readFileSync } from "fs";

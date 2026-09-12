@@ -36,7 +36,7 @@ export interface SurfaceDef {
   prompt: string;
   /**
    * Example sentences for the empty state, in the dashboard's language - English throughout
-   * (DASHBOARD_PLAN decision 1). These are chrome as much as model input: the widget shows them
+   * (CLAUDE.md, dashboard conventions). These are chrome as much as model input: the widget shows them
    * before the first message, and the language the user is prompted in is the language they
    * answer in.
    */

@@ -30,6 +30,9 @@ export interface LongTermContext {
 // written by synthesizeFullContext with headings "# 1. Identity & Relationships" ... "# 5.".
 // Splitting it means each call carries only what it can actually act on, rather than the whole
 // ~11k-token document twice a day. Override with a comma-separated list of section numbers.
+/** How far back to look for a document that parses, before giving up and running without one. */
+const CANDIDATE_RUNS = 5;
+
 const INTEL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_INTEL ?? "3,5";
 const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2,4";
 
@@ -104,42 +107,63 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
 
   const corrections = await listActiveCorrections();
 
-  const [run] = await db
+  // Newest first, but not *only* the newest. An update run writes a patch document - one
+  // "# Updated Personal Context" title over "## 1." topic headings that change from run to run -
+  // whereas a full run writes the "# 1." to "# 5." structure `pickSections` is built to read. The
+  // patch is a legitimate artefact, it is simply not a replacement for the document, and taking
+  // the latest row blindly meant the 2026-09-11 update silently displaced the 2026-09-10 harvest
+  // and the briefing synthesised on nothing. So a candidate has to actually yield sections to win.
+  const runs = await db
     .select({ outputPath: contextBuilderRuns.outputPath, completedAt: contextBuilderRuns.completedAt })
     .from(contextBuilderRuns)
     .where(eq(contextBuilderRuns.status, "completed"))
     .orderBy(desc(contextBuilderRuns.startedAt))
-    .limit(1);
+    .limit(CANDIDATE_RUNS);
 
-  if (!run?.outputPath) {
-    return {
-      ...EMPTY,
-      standingRules,
-      corrections,
-      problem: run ? "latest completed Context Builder run recorded no output path" : "no completed Context Builder run",
-    };
+  if (runs.length === 0) {
+    return { ...EMPTY, standingRules, corrections, problem: "no completed Context Builder run" };
   }
 
-  try {
-    const parsed = JSON.parse(await readDocument(run.outputPath)) as {
-      fullContext?: string;
-      generatedAt?: string;
-    };
-    const doc = parsed.fullContext ?? "";
-    return {
-      standingRules,
-      corrections,
-      intelSections: pickSections(doc, INTEL_SECTIONS),
-      personalSections: pickSections(doc, PERSONAL_SECTIONS),
-      generatedAt: parsed.generatedAt ?? run.completedAt ?? null,
-      problem: doc ? null : "context document contained no fullContext",
-    };
-  } catch (err) {
-    return {
-      ...EMPTY,
-      standingRules,
-      corrections,
-      problem: `could not read ${run.outputPath}: ${err instanceof Error ? err.message : String(err)}`,
-    };
+  const problems: string[] = [];
+
+  for (const run of runs) {
+    if (!run.outputPath) {
+      problems.push("a completed run recorded no output path");
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(await readDocument(run.outputPath)) as {
+        fullContext?: string;
+        generatedAt?: string;
+      };
+      const doc = parsed.fullContext ?? "";
+      const intelSections = pickSections(doc, INTEL_SECTIONS);
+      const personalSections = pickSections(doc, PERSONAL_SECTIONS);
+
+      if (!intelSections && !personalSections) {
+        problems.push(`${basename(run.outputPath)} yielded no usable sections`);
+        continue;
+      }
+
+      return {
+        standingRules,
+        corrections,
+        intelSections,
+        personalSections,
+        generatedAt: parsed.generatedAt ?? run.completedAt ?? null,
+        // A fallback still worked, but the newest harvest did not, and that is worth seeing.
+        problem: problems.length > 0 ? `fell back past ${problems.length} run(s): ${problems.join("; ")}` : null,
+      };
+    } catch (err) {
+      problems.push(`${basename(run.outputPath)}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
+
+  return {
+    ...EMPTY,
+    standingRules,
+    corrections,
+    problem: `no usable context document in the last ${runs.length} run(s): ${problems.join("; ")}`,
+  };
 }

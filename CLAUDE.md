@@ -107,6 +107,9 @@ The **floating assistant** is mounted once in `+layout.svelte`, so it is reachab
 - Weekly review conversation: Sunday 20:00
 - Weekly meta-run (analytics + prompt diff): Sunday 23:30
 - Entity graph pruning: Sunday 02:00
+- Context Builder update run: 1st of the month, 03:00
+
+Every one of these is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.nix` in the nixos flake, and runs `bun run src/job.ts <job>`. Adding a scheduled job means one entry in `JOBS` (`src/job.ts`) and one in `jobs` (`pidra.nix`), plus a line here.
 
 ## Skills
 

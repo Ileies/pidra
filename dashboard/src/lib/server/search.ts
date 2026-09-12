@@ -1,10 +1,10 @@
 /**
- * Search across the archive (D8, decision 5).
+ * Search across the archive.
  *
  * Keyword only, against Postgres `tsvector` with GIN indexes and `ts_headline` for snippets.
- * Semantic search is parked deliberately, with its own reasoning, in DASHBOARD_PLAN §12 - and
- * `CLAUDE.md` currently forbids a vector store outright, so unparking it is a documentation
- * decision before it is a technical one.
+ * Semantic search is parked deliberately, not rejected: it is planned as its own project, with
+ * its preconditions and intended shape in `TODO.md` under Later. It waits on the archive being
+ * deep enough to generalise over, not on a decision.
  *
  * This function is the seam that keeps that a later addition rather than a rewrite: one
  * `search()` returning `{ id, kind, title, snippet, score, href }[]`, with the ranking strategy

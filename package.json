@@ -10,6 +10,7 @@
     "run:pipeline": "bun run src/pipeline/run.ts",
     "reports:personal-first": "bun run scripts/reorder-existing-reports.ts",
     "job": "bun run src/job.ts",
+    "deploy": "bun run scripts/deploy.ts",
     "server": "bun run src/server/index.ts",
     "dashboard": "cd dashboard && bun run dev",
     "db:generate": "drizzle-kit generate",

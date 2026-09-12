@@ -99,7 +99,11 @@ export async function runPipeline(runDate?: string): Promise<string> {
     // once: not on 2026-09-10, not on 2026-09-12. There is no `[push]` line in any journal entry
     // for a completed run, while the awaited failure path logged "Sent 3/4" the first morning it
     // existed. A few seconds of latency at the very end of a 79 s run costs nothing.
-    await sendPushNotifications(date, notificationSummary).catch(console.error);
+    await sendPushNotifications(
+      date,
+      notificationSummary,
+      ingest.failures.map((f) => f.source),
+    ).catch(console.error);
 
     console.log(`\n=== Pipeline complete in ${Math.round(durationMs / 1000)}s ===\n`);
     return report;

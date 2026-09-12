@@ -54,13 +54,38 @@ async function deliver(payload: string): Promise<void> {
   console.log(`[push] Sent ${sent}/${subs.length} push notifications.`);
 }
 
-export async function sendPushNotifications(date: string, summary: string | null): Promise<void> {
+/**
+ * `failedSources` are the ingest sources that dropped out of an otherwise successful run, named as
+ * `phase1` recorded them (`calendar`, `tasks`, `imap:<user>`).
+ *
+ * They belong on the success notification rather than on a second push. A run that loses Calendar
+ * still writes a briefing, so `sendFailureNotification` never fires and the morning looks entirely
+ * normal - which is how an expired Google token stayed invisible for four runs on 2026-09-12. The
+ * degradation has to travel on the notification that does get sent, because it is the only one the
+ * owner sees. Two pushes on one morning would be worse: the second is the one that gets swiped.
+ */
+export async function sendPushNotifications(
+  date: string,
+  summary: string | null,
+  failedSources: string[] = [],
+): Promise<void> {
+  const body = summary?.slice(0, 120) ?? "Today's briefing is ready.";
+  // Named rather than counted while the list is short: "calendar, tasks missing" is something the
+  // owner can act on from the lock screen, where "2 sources missing" means opening the dashboard
+  // to find out which. Past three it stops fitting, so it degrades to the count.
+  const degraded =
+    failedSources.length === 0
+      ? null
+      : failedSources.length <= 3
+        ? `${failedSources.join(", ")} missing`
+        : `${failedSources.length} sources missing`;
+
   // `date` is carried separately from `url` so the service worker can offer the "Personal
   // first" action and tag the notification per day, instead of stacking one per run (E5).
   await deliver(
     JSON.stringify({
-      title: `PIDRA - ${date}`,
-      body: summary?.slice(0, 120) ?? "Today's briefing is ready.",
+      title: degraded ? `PIDRA - ${date} (${degraded})` : `PIDRA - ${date}`,
+      body,
       url: `/${date}`,
       date,
     }),

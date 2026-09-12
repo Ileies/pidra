@@ -14,11 +14,19 @@
 
   let { data }: { data: PageData } = $props();
 
+  /** Completed, but a source dropped out. Counted here rather than server-side: `stepErrors` is
+      already on every row, and the summary query has no business learning a second failure mode. */
+  const degradedCount = $derived(
+    data.runs.filter((run) => run.status === "completed" && run.stepErrors.length > 0).length,
+  );
+
   $effect(() => {
     setPageContext({
       surface: "global",
       route: "/runs",
-      digest: `Pipeline run history: ${data.summary.total} runs, ${data.summary.failed} failed, ${data.summary.running} still running.`,
+      digest:
+        `Pipeline run history: ${data.summary.total} runs, ${data.summary.failed} failed, ` +
+        `${data.summary.running} still running, ${degradedCount} completed with a source missing.`,
     });
   });
 
@@ -117,6 +125,11 @@
       {#each data.runs as run (run.id)}
         {@const open = !!expanded[run.id]}
         {@const failed = run.status === "failed"}
+        <!-- A completed run carries `step_errors` when a source dropped out but the briefing was
+             still written. The row used to gate the whole disclosure on `failed`, so those were
+             stored and never rendered: a green badge and no way to find out Calendar had been
+             dead for a week. -->
+        {@const degraded = !failed && run.stepErrors.length > 0}
         <li class="rounded-lg border border-surface-700 bg-surface-900">
           <div class="flex flex-wrap items-center gap-3 px-4 py-3">
             <a href="/{run.runDate}" class="text-sm font-medium text-surface-100 no-underline hover:text-primary-400 tabular-nums">
@@ -127,6 +140,8 @@
             </Badge>
             {#if failed && run.failedStep}
               <span class="text-xs text-error-400 font-mono">{run.failedStep}</span>
+            {:else if degraded}
+              <span class="text-xs text-warning-400">{run.stepErrors.length} source{run.stepErrors.length === 1 ? "" : "s"} failed</span>
             {/if}
             <span class="text-xs text-surface-400 tabular-nums">{fmtDuration(run.durationMs)}</span>
             {#if run.startedAt}
@@ -139,19 +154,28 @@
               <span class="text-xs text-surface-400 tabular-nums">{runCost(run)}</span>
             {/if}
 
-            {#if failed && run.stepErrors.length > 0}
+            {#if run.stepErrors.length > 0 && (failed || degraded)}
               <button
                 type="button"
                 aria-expanded={open}
                 onclick={() => (expanded[run.id] = !open)}
                 class="tap ml-auto px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer"
-              >{open ? "Hide" : "Show"} {run.stepErrors.length} attempt{run.stepErrors.length === 1 ? "" : "s"}</button>
+              >
+                {open ? "Hide" : "Show"}
+                {run.stepErrors.length}
+                {#if degraded}failure{run.stepErrors.length === 1 ? "" : "s"}{:else}attempt{run.stepErrors.length === 1 ? "" : "s"}{/if}
+              </button>
             {/if}
           </div>
 
           {#if open}
             <div class="px-4 pb-4">
-              <ErrorCard step={run.failedStep} durationMs={run.durationMs} attempts={run.stepErrors} />
+              <ErrorCard
+                step={run.failedStep}
+                durationMs={run.durationMs}
+                attempts={run.stepErrors}
+                variant={degraded ? "degraded" : "failed"}
+              />
             </div>
           {/if}
         </li>

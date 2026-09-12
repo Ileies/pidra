@@ -31,6 +31,30 @@ stated by them directly. They outrank every other input here, without exception:
   never add a section about them: the document reads as one coherent profile.
 - If the list is empty, proceed exactly as you would without it.`;
 
+/**
+ * The document's heading contract, shared by the full build and the update patch.
+ *
+ * `pickSections` (src/pipeline/long-term-context.ts) splits the document on `# N.` headings and
+ * routes each numbered section to one of the two daily synthesis calls, so these numbers are an
+ * interface rather than a formatting preference. Only the full build ever stated the structure,
+ * and only as a bare list: the 2026-09-11 update run answered with one "# Updated Personal
+ * Context" title over "## 1." headings, the split matched nothing, and every briefing after it
+ * synthesised on an empty document while the run was recorded as completed.
+ */
+const DOCUMENT_STRUCTURE = `Structure it as exactly these five top-level sections, each introduced by a level-1 heading
+that starts with the section number and a dot:
+
+# 1. Identity & Relationships (key contacts, roles, relationships)
+# 2. Active Projects & Commitments (ongoing work, open tasks, deadlines)
+# 3. Knowledge Domains & Interests (main areas of expertise and curiosity)
+# 4. Standing Context (rules, habits, recurring commitments from Keep notes)
+# 5. Technical Profile (languages, tools, repos)
+
+These headings are parsed downstream, so they are not a suggestion: write all five, keep the
+numbering, and use no other level-1 heading anywhere in the document. Sub-headings inside a
+section are free-form ("## ..." and deeper). Do not add a title above section 1, do not merge,
+rename, reorder or drop a section, and do not emit a section that only says what changed.`;
+
 // `max_output_tokens` on the Responses API covers reasoning tokens too, so every cap here sits
 // well above the prose budget stated in the corresponding prompt.
 function call(
@@ -142,12 +166,7 @@ export async function synthesizeFullContext(
     `You are building a long-term personal context document for a morning briefing AI system.
 Given structured summaries from multiple data sources, produce a coherent context document.
 
-Structure it as:
-1. Identity & Relationships (key contacts, roles, relationships)
-2. Active Projects & Commitments (ongoing work, open tasks, deadlines)
-3. Knowledge Domains & Interests (main areas of expertise and curiosity)
-4. Standing Context (rules, habits, recurring commitments from Keep notes)
-5. Technical Profile (languages, tools, repos)
+${DOCUMENT_STRUCTURE}
 
 Write in second person ("You are..."). Be specific and factual.
 Be thorough and extensive - this is the system's only long-term memory of who the user is, and
@@ -172,10 +191,20 @@ export async function synthesizePatch(
   return call(
     `Update this existing personal context document with new information from the delta summaries.
 
+Output the complete updated document, not a patch, a changelog or a summary of what changed.
+It replaces the existing one, so anything you leave out is lost: carry every section, fact,
+name and detail of existing_context forward verbatim unless the delta contradicts it.
+
+${DOCUMENT_STRUCTURE}
+
 The existing context reflects ${counts.existing} previously indexed items.
 The delta contains ${counts.delta} new items. Merge proportionally - do not alter conclusions
 drawn from the existing context unless directly contradicted by the delta.
 Add new contacts and entities if present. Do not shrink the document.
+
+The delta carries only the sources that produced something this run. A source that is absent
+from it was not fetched, which says nothing about whether it still exists: never read a missing
+source as a reason to shorten or remove the part of the document it fed.
 
 ${CORRECTIONS_RULES}
 

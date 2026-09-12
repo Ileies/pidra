@@ -51,8 +51,12 @@ const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2
  * name under this machine's own output directory. The proper fix is to stop putting a filesystem
  * path in a shared database at all - see TODO - but this makes the existing rows work on both
  * machines without a migration.
+ *
+ * Exported because the Context Builder's update mode reads the same column to find the document
+ * it is patching, and had the same bug: a workstation path that the server cannot open made it
+ * fall back to a full rebuild, silently and at full cost.
  */
-async function readDocument(outputPath: string): Promise<string> {
+export async function readDocument(outputPath: string): Promise<string> {
   try {
     return await readFile(outputPath, "utf-8");
   } catch (err) {

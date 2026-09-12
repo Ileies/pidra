@@ -221,7 +221,7 @@ class Assistant {
       if ((err as Error)?.name === "AbortError") {
         this.#patchReply(reply, (current) => ({
           ...current,
-          content: current.content || "Abgebrochen.",
+          content: current.content || "Stopped.",
         }));
       } else {
         this.error = err instanceof Error ? err.message : String(err);
@@ -319,7 +319,7 @@ class Assistant {
     }
 
     if (type === "error") {
-      this.error = String(event.message ?? "Unbekannter Fehler");
+      this.error = String(event.message ?? "Unknown error");
     }
   }
 

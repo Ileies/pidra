@@ -81,7 +81,7 @@ All architecture decisions, prompts, schema, and build rationale are in the plan
 
 Phases 0-6 of the daily pipeline are complete and the whole chain runs unattended: as of 2026-09-12 a run ingests all 16 sources, synthesises both sections and delivers the push notification without intervention.
 
-The dashboard redesign in `DASHBOARD_PLAN.md` is executed except M-9, the real-hardware pass, which decision 6 makes a gate: nothing in the redesign has been opened on a phone yet. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline.
+The dashboard redesign in `DASHBOARD_PLAN.md` is executed and closed, M-9 included, so the app has been through a real device pass on iOS and Android. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline.
 
 See [`TODO.md`](./TODO.md) for open items.
 

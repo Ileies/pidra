@@ -1,4 +1,4 @@
--- DASHBOARD_PLAN C1 / decision 4: the structured form of the report, alongside the markdown.
+-- The structured form of the report, stored alongside the markdown.
 --
 -- Nullable, and `full_report` is never dropped: it is what the model actually produced, and the
 -- archive must remain readable if the parser in src/pipeline/report-json.ts is ever wrong. A

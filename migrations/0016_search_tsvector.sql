@@ -1,4 +1,4 @@
--- DASHBOARD_PLAN D8 / decision 5: keyword search across the archive.
+-- Keyword search across the archive.
 --
 -- Generated columns, not triggers and not application code: a stored tsvector that is derived by
 -- the database cannot drift from the text it indexes, which is the failure mode this would
@@ -7,7 +7,7 @@
 -- `simple`, not `english`: the archive is a mix of German and English, and an English stemmer
 -- applied to German text produces confidently wrong matches. `simple` gives exact word matching,
 -- which is predictable and is what a keyword search should be. Semantic search is parked
--- deliberately - see DASHBOARD_PLAN §12 - and is not what this is trying to approximate.
+-- deliberately (see TODO.md under Later) and is not what this is trying to approximate.
 --
 -- drizzle-kit migrate hangs in this environment, so this was applied manually via a temporary
 -- Bun script using `new SQL(DATABASE_URL)`. This file is the reference copy.

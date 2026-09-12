@@ -1,6 +1,7 @@
 import { db, standingContext, contextBuilderRuns } from "../db";
 import { eq, desc } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
 import { listActiveCorrections, type ActiveCorrection } from "../context/corrections";
 
 export interface StandingRule {
@@ -31,6 +32,35 @@ export interface LongTermContext {
 // ~11k-token document twice a day. Override with a comma-separated list of section numbers.
 const INTEL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_INTEL ?? "3,5";
 const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2,4";
+
+/**
+ * Reads the harvest document, tolerating the fact that `context_builder_runs.output_path` is an
+ * absolute path recorded by whichever machine ran the Context Builder.
+ *
+ * That is a cross-machine assumption the schema never actually held: the first runs happened on the
+ * workstation, so the column holds `/home/<user>/...`, while the pipeline runs on the server out of
+ * `/var/www/pidra`. Every production briefing since the harvest therefore logged "long-term context
+ * unavailable" and synthesised with `context doc 0 chars` - the standing rules still arrived from
+ * the database, but the document itself never did, silently, for the one input the Context Builder
+ * exists to provide.
+ *
+ * So the stored path is a hint, not an address: if it does not resolve, the file is looked up by
+ * name under this machine's own output directory. The proper fix is to stop putting a filesystem
+ * path in a shared database at all - see TODO - but this makes the existing rows work on both
+ * machines without a migration.
+ */
+async function readDocument(outputPath: string): Promise<string> {
+  try {
+    return await readFile(outputPath, "utf-8");
+  } catch (err) {
+    const local = resolve(
+      process.env.CONTEXT_BUILDER_OUTPUT_DIR ?? "context-builder/output",
+      basename(outputPath),
+    );
+    if (local === outputPath) throw err;
+    return await readFile(local, "utf-8");
+  }
+}
 
 export function pickSections(doc: string, spec: string): string {
   const wanted = new Set(
@@ -91,7 +121,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
   }
 
   try {
-    const parsed = JSON.parse(await readFile(run.outputPath, "utf-8")) as {
+    const parsed = JSON.parse(await readDocument(run.outputPath)) as {
       fullContext?: string;
       generatedAt?: string;
     };

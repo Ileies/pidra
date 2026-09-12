@@ -15,8 +15,11 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   process.exit(1);
 }
 
-// Desktop App credentials use localhost as redirect
-const REDIRECT_URI = "http://localhost:3333";
+// Desktop App credentials use localhost as redirect. Google matches this string exactly against
+// what is registered in the Cloud console, so it is overridable: the callback server below accepts
+// any path, and a project registered as .../oauth/callback would otherwise fail the flow with
+// redirect_uri_mismatch before the consent screen ever appears.
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3333";
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 

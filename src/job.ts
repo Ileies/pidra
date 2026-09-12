@@ -12,6 +12,7 @@
  *   bun run src/job.ts meta-run
  *   bun run src/job.ts review
  *   bun run src/job.ts prune
+ *   bun run src/job.ts context-builder
  */
 
 import { runPipeline } from "./pipeline/run";
@@ -20,6 +21,7 @@ import { runWeeklySourceScoring } from "./pipeline/weekly-source-scoring";
 import { runWeeklyMetaRun } from "./pipeline/weekly-meta-run";
 import { runWeeklyReview } from "./pipeline/weekly-review";
 import { pruneEntityGraph } from "./pipeline/entity-pruning";
+import { runContextBuilder } from "../context-builder/run";
 
 const today = () => new Date().toISOString().split("T")[0]!;
 
@@ -30,6 +32,11 @@ const JOBS: Record<string, (date: string) => Promise<unknown>> = {
   "meta-run": () => runWeeklyMetaRun(),
   "review": () => runWeeklyReview(),
   "prune": () => pruneEntityGraph(),
+  // Monthly re-harvest, always as an update: the index and the previous document are what make it
+  // a delta rather than a rebuild of three years of mail. `forceUpdate` rather than letting
+  // detectMode decide, so that a run left wedged by the previous month is retired instead of
+  // resumed - its checkpoint describes a mailbox state a month stale.
+  "context-builder": () => runContextBuilder({ forceUpdate: true }),
 };
 
 const [name, dateArg] = process.argv.slice(2);

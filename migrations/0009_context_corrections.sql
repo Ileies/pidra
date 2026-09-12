@@ -1,6 +1,5 @@
 -- Correction layer over the harvested long-term context, plus the chat that produces it.
 -- Append-only: harvested information is never overwritten, only adjusted and complemented.
--- See CONTEXT_REVISION_PLAN.md.
 
 CREATE TABLE IF NOT EXISTS context_corrections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

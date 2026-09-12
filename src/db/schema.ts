@@ -95,7 +95,7 @@ export const entities = pgTable("entities", {
   status: text("status").default("active"), // active | dormant
   importance: text("importance").default("normal"), // high | normal | low
   // Set by a `revise_context` correction. Re-seeds and bulk writers must leave the corrected
-  // fields alone; see CONTEXT_REVISION_PLAN.md.
+  // fields alone; `src/context/corrections.ts` is what sets this.
   locked: boolean("locked").default(false),
 });
 
@@ -167,7 +167,7 @@ export const contacts = pgTable("contacts", {
  * The mutable working layer: the user's standing instructions plus whatever Phase 6 writes from
  * the `<!--SYSTEM-->` block. Unlike the harvested context, notes are edited in place - the
  * pre-change state is appended to `noteRevisions` and deletes are soft, so every mutation stays
- * reversible. `src/notes/store.ts` is the only writer. See ASSISTANT_PLAN.md.
+ * reversible. `src/notes/store.ts` is the only writer.
  */
 export const notes = pgTable("notes", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -326,8 +326,8 @@ export const contextBuilderRuns = pgTable("context_builder_runs", {
  *
  * Append-only by design: harvested information is never overwritten, only adjusted and
  * complemented. Rows are never deleted and never edited except to flip `status`, so the
- * history of what the harvest believed and what the user corrected stays intact. Full
- * reasoning in `CONTEXT_REVISION_PLAN.md`.
+ * history of what the harvest believed and what the user corrected stays intact.
+ * `src/context/corrections.ts` is the only writer.
  */
 export const contextCorrections = pgTable("context_corrections", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

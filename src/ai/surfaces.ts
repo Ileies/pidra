@@ -17,8 +17,6 @@
  * `send_email`, `send_mail`, `create_file` and `open_project_in_editor` are deliberately on no
  * surface: the widget is a content editor, not a way to mail someone or pop open an editor on the
  * host by accident. They stay bridge-only and manual.
- *
- * See ASSISTANT_PLAN.md.
  */
 
 export const SURFACES_LIST = [

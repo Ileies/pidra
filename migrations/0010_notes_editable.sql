@@ -1,5 +1,5 @@
 -- Editable notes and page-aware chat. Applied manually (drizzle-kit migrate hangs here);
--- this file is the reference copy. See ASSISTANT_PLAN.md.
+-- this file is the reference copy.
 
 -- Notes become mutable and reversible. Every consumer must filter `deleted_at IS NULL`.
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS updated_at timestamptz;

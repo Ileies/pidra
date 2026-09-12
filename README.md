@@ -74,7 +74,6 @@ All architecture decisions, prompts, schema, and build rationale are in the plan
 - [`MORNING_BRIEFING_PLAN.md`](./MORNING_BRIEFING_PLAN.md) - Complete build plan: architecture, pipeline, DB schema, prompts, delivery, cost analysis, full roadmap
 - [`CONTEXT_AND_DECISIONS.md`](./CONTEXT_AND_DECISIONS.md) - Builder profile, intelligence priorities, newsletter selection rationale, key decisions made, design principles
 - [`CONTEXT_BUILDER_PLAN.md`](./CONTEXT_BUILDER_PLAN.md) - Context Builder architecture, run modes (full/update/resume), pipeline phases, cost analysis, testing checklist
-- [`CONTEXT_REVISION_PLAN.md`](./CONTEXT_REVISION_PLAN.md) - How corrections to the harvested context work: the append-only layer, and why the harvest itself is never rewritten
 
 ## Build Status
 

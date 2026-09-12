@@ -11,7 +11,7 @@ import { db, notes, noteRevisions } from "../db";
  * write endpoints and the note skills both come through this module, so a UI edit and a chat edit
  * cannot behave differently or skip the history.
  *
- * See ASSISTANT_PLAN.md. The harvested-context counterpart is `src/context/corrections.ts`.
+ * The harvested-context counterpart is `src/context/corrections.ts`.
  */
 
 export const NOTE_SCOPES = ["global", "intel", "personal", "contact", "search"] as const;

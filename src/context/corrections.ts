@@ -13,8 +13,6 @@ import { and, desc, eq, sql as drizzleSql } from "drizzle-orm";
  * row, because `phase3-context` and Section 2 read those rows directly and would otherwise keep
  * serving the wrong value. Even there the write is a field-level merge, the pre-merge row is
  * snapshotted into `previous_state`, and the row is locked against re-seeding.
- *
- * Full reasoning in `CONTEXT_REVISION_PLAN.md`.
  */
 
 export const TARGET_KINDS = ["document", "standing_context", "entity", "contact"] as const;

@@ -6,7 +6,7 @@
  * can only act through skills - may read them and nothing more. Reading is fine and `read_report`
  * depends on it, so this looks for writes specifically, both through Drizzle and in raw SQL.
  *
- * Wired into `bun run check`. See ASSISTANT_PLAN.md.
+ * Wired into `bun run check`.
  */
 
 import { readdirSync } from "fs";
@@ -52,7 +52,7 @@ if (violations.length > 0) {
   for (const violation of violations) {
     console.error(`  skills/${violation.file}:${violation.line}  ${violation.text}`);
   }
-  console.error("\nWrite a note, a todo or a context correction instead. See ASSISTANT_PLAN.md.");
+  console.error("\nWrite a note, a todo or a context correction instead. See \"Reports are final\" in CLAUDE.md.");
   process.exit(1);
 }
 

@@ -15,8 +15,6 @@ import { SURFACES, resolveSurface, type Surface } from "./surfaces";
  * or that has been disabled from /skills - is never even offered. Every call goes through `executeSkill`, which re-checks the surface server-side and
  * owns the risk gating and the audit log - the model can invent a tool name, and the surface
  * arrives from a client.
- *
- * See ASSISTANT_PLAN.md and CONTEXT_REVISION_PLAN.md.
  */
 
 // Enough for read → write → read-back on several facts in one turn, with a hard stop so a model

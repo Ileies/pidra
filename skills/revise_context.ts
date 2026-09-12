@@ -5,7 +5,6 @@ import { recordCorrection, TARGET_KINDS, OPERATIONS, type TargetKind, type Opera
  * Surgical revision of the harvested context. Nothing is overwritten: the correction is stored
  * in its own layer and injected alongside the harvest, which the daily prompts are told to
  * treat as outranked. Structured rows get a field-level merge with a restore snapshot.
- * See CONTEXT_REVISION_PLAN.md.
  */
 const skill: Skill = {
   name: "revise_context",

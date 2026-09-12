@@ -46,7 +46,7 @@ export async function seedContacts(contactProfiles: ContactProfile[]): Promise<v
           // the running count, same split as entities.mention_count. A re-seed must not clobber it.
         },
         // A row the user corrected through `revise_context` is left exactly as it is: a re-seed
-        // must never undo a correction. See CONTEXT_REVISION_PLAN.md.
+        // must never undo a correction.
         setWhere: drizzleSql`${contacts.locked} IS NOT TRUE`,
       });
   }

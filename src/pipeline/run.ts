@@ -8,7 +8,7 @@ import { runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
 import { withRetry, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
-import { sendPushNotifications } from "../push";
+import { sendPushNotifications, sendFailureNotification } from "../push";
 
 export async function runPipeline(runDate?: string): Promise<string> {
   const date = runDate ?? new Date().toISOString().split("T")[0];
@@ -88,6 +88,9 @@ export async function runPipeline(runDate?: string): Promise<string> {
     const step = err instanceof StepError ? err.step : "unknown";
     const stepErrors = err instanceof StepError ? err.attempts : [];
     await markFailed(step, stepErrors);
+    // Awaited, unlike the success notification: nothing runs after this but the rethrow, and a
+    // fire-and-forget send would race the process exiting under systemd.
+    await sendFailureNotification(date, step).catch(console.error);
     console.error(`\n=== Pipeline FAILED at ${step} in ${Math.round((Date.now() - start) / 1000)}s ===\n`);
     throw err;
   }

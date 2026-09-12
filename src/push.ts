@@ -2,24 +2,31 @@ import webpush from "web-push";
 import { eq } from "drizzle-orm";
 import { db, pushSubscriptions } from "./db";
 
-webpush.setVapidDetails(
-  "mailto:ileies200@gmail.com",
-  process.env.PUBLIC_VAPID_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+/**
+ * VAPID contact, handed to the push service so it can reach the operator about a misbehaving
+ * sender. It is configuration, not a constant: it is a personal address, and the privacy rule in
+ * CLAUDE.md keeps those out of the source. `mailto:` or an `https://` URL, both are valid.
+ */
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:pidra@localhost";
 
-export async function sendPushNotifications(date: string, summary: string | null): Promise<void> {
+/**
+ * Push is optional. Without keys the pipeline still has to run to completion, so a missing pair
+ * disables notifications with a warning instead of throwing at import time and taking down every
+ * caller of this module - the bridge included.
+ */
+const PUSH_CONFIGURED = Boolean(process.env.PUBLIC_VAPID_KEY && process.env.VAPID_PRIVATE_KEY);
+
+if (PUSH_CONFIGURED) {
+  webpush.setVapidDetails(VAPID_SUBJECT, process.env.PUBLIC_VAPID_KEY!, process.env.VAPID_PRIVATE_KEY!);
+} else {
+  console.warn("[push] PUBLIC_VAPID_KEY / VAPID_PRIVATE_KEY unset - notifications are disabled.");
+}
+
+/** Delivers one payload to every subscription, dropping the ones the push service has retired. */
+async function deliver(payload: string): Promise<void> {
+  if (!PUSH_CONFIGURED) return;
   const subs = await db.select().from(pushSubscriptions);
   if (subs.length === 0) return;
-
-  // `date` is carried separately from `url` so the service worker can offer the "Personal
-  // first" action and tag the notification per day, instead of stacking one per run (E5).
-  const payload = JSON.stringify({
-    title: `PIDRA - ${date}`,
-    body: summary?.slice(0, 120) ?? "Today's briefing is ready.",
-    url: `/${date}`,
-    date,
-  });
 
   const results = await Promise.allSettled(
     subs.map((sub) =>
@@ -45,4 +52,37 @@ export async function sendPushNotifications(date: string, summary: string | null
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   console.log(`[push] Sent ${sent}/${subs.length} push notifications.`);
+}
+
+export async function sendPushNotifications(date: string, summary: string | null): Promise<void> {
+  // `date` is carried separately from `url` so the service worker can offer the "Personal
+  // first" action and tag the notification per day, instead of stacking one per run (E5).
+  await deliver(
+    JSON.stringify({
+      title: `PIDRA - ${date}`,
+      body: summary?.slice(0, 120) ?? "Today's briefing is ready.",
+      url: `/${date}`,
+      date,
+    }),
+  );
+}
+
+/**
+ * The failure counterpart, and the reason it exists: the success notification is sent at the very
+ * end of `runPipeline`, so every failure mode used to be silent. Waking up to no notification is
+ * indistinguishable from waking up before the run finished, which is the worst of both - the run
+ * that died at phase 6 on 2026-09-11 went unnoticed until the table was read by hand.
+ *
+ * This is not a violation of "never send emails for system events" (CLAUDE.md): it goes to the
+ * dashboard's own PWA, not to an inbox, and it carries no detail beyond the failed step - the
+ * error log lives on `/runs`, which is where the notification points.
+ */
+export async function sendFailureNotification(date: string, step: string): Promise<void> {
+  await deliver(
+    JSON.stringify({
+      title: `PIDRA - ${date} failed`,
+      body: `The pipeline stopped at ${step}. No briefing today; open /runs for the attempt log.`,
+      url: "/runs",
+    }),
+  );
 }

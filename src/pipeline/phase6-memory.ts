@@ -387,7 +387,7 @@ async function upsertEntitiesFromExtractions(runDate: string): Promise<void> {
       .onConflictDoNothing();
   }
 
-  console.log(`[Phase 6] Upserted ${entityMap.size} entities, ${relationList.length} relation(s) from Ollama output`);
+  console.log(`[Phase 6] Upserted ${entityMap.size} entities, ${relationList.length} relation(s) from synthesis output`);
 }
 
 async function markDormantEntities(runDate: string): Promise<void> {

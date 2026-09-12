@@ -114,7 +114,7 @@ async function getResumableRun(): Promise<{ id: string; mode: "full" | "update" 
 }
 
 // Items already extracted during the interrupted run are stored with their full result -
-// reuse them instead of re-running (potentially expensive) Ollama extraction on them again.
+// reuse them instead of paying for extraction on the same items a second time.
 async function getPriorResults<T>(dbRunId: string, source: string): Promise<{ skipIds: Set<string>; results: T[] }> {
   const rows = await db
     .select({ itemId: contextBuilderIndexedItems.itemId, data: contextBuilderIndexedItems.data })

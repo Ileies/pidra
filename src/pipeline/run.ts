@@ -93,7 +93,13 @@ export async function runPipeline(runDate?: string): Promise<string> {
       .slice(0, 3)
       .join(" ")
       .slice(0, 120);
-    sendPushNotifications(date, notificationSummary).catch(console.error);
+    // Awaited, and that is the whole point. Fire-and-forget meant the promise was still in flight
+    // when runPipeline returned, job.ts logged, and the one-shot process exited - taking the
+    // in-flight FCM requests with it. The success notification had therefore never been delivered
+    // once: not on 2026-09-10, not on 2026-09-12. There is no `[push]` line in any journal entry
+    // for a completed run, while the awaited failure path logged "Sent 3/4" the first morning it
+    // existed. A few seconds of latency at the very end of a 79 s run costs nothing.
+    await sendPushNotifications(date, notificationSummary).catch(console.error);
 
     console.log(`\n=== Pipeline complete in ${Math.round(durationMs / 1000)}s ===\n`);
     return report;

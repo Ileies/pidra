@@ -20,9 +20,13 @@ const REDIRECT_URI = "http://localhost:3333";
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
+// Read *and* write. The pipeline only reads, but `add_calendar_event`, `add_todo_item` and
+// `complete_todo_item` all call insert/patch, and with the readonly scopes this script used to
+// request they could never have succeeded - the grant simply did not cover them. Calendar is
+// scoped to events rather than the full calendar: creating an event is the only write there is.
 const SCOPES = [
-  "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/tasks.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/tasks",
 ];
 
 const authUrl = oauth2Client.generateAuthUrl({

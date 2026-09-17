@@ -18,8 +18,8 @@
    * controls that pushed the row over, and they belong next to the date they step.
    */
   import { page } from "$app/state";
-  import { ROUTES, NAV_GROUPS, routeFor, type NavGroup, type RouteDef } from "$lib/routes";
-  import NotifyButton from "$lib/components/NotifyButton.svelte";
+  import { ROUTES, NAV_GROUPS, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
+  import NotifyButton from "#lib/components/NotifyButton.svelte";
 
   interface Props {
     /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */

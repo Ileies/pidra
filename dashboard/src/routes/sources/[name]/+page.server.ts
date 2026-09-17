@@ -1,8 +1,8 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
-import { parseSender, parseTitle } from "$lib/mail";
+import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
+import { parseSender, parseTitle } from "#lib/mail.js";
 
 const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 

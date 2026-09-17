@@ -11,9 +11,9 @@
    * more often than it means a note containing the word.
    */
   import { goto } from "$app/navigation";
-  import { ROUTES } from "$lib/routes";
-  import type { SearchHit } from "$lib/server/search";
-  import Spinner from "$lib/components/Spinner.svelte";
+  import { ROUTES } from "#lib/routes.js";
+  import type { SearchHit } from "#lib/server/search.js";
+  import Spinner from "#lib/components/Spinner.svelte";
 
   interface Props {
     open: boolean;

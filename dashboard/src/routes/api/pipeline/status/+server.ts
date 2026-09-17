@@ -1,7 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
+import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
 
 /**
  * Live pipeline status for one day (C7).

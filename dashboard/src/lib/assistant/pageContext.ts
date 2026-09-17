@@ -10,7 +10,7 @@
  * and the visible-row ids.
  */
 
-import { surfaceForPath } from "$lib/routes";
+import { surfaceForPath } from "#lib/routes.js";
 
 export type Surface = "notes" | "context" | "entities" | "report" | "sources" | "prompts" | "global";
 

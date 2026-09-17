@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { assistant } from "$lib/assistant/state.svelte";
-  import Panel from "$lib/assistant/Panel.svelte";
+  import { assistant } from "#lib/assistant/state.svelte.js";
+  import Panel from "#lib/assistant/Panel.svelte";
 
   /**
    * The floating assistant: one button, bottom right, on every page from `sm` up. Mounted once

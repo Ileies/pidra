@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import Panel from "$lib/assistant/Panel.svelte";
-  import { assistant, setPageContext } from "$lib/assistant/state.svelte";
-  import { fmtDateTimeShort } from "$lib/format";
+  import Panel from "#lib/assistant/Panel.svelte";
+  import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
+  import { fmtDateTimeShort } from "#lib/format.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -33,7 +33,7 @@
   // and the corrections list from Postgres.
   $effect(() => {
     if (assistant.conversationId && assistant.conversationId !== data.activeId && !assistant.streaming) {
-      goto(`/chat?c=${assistant.conversationId}`, { invalidateAll: true, noScroll: true });
+      goto(`/chat?c=${assistant.conversationId}`, { refreshAll: true, reset: false });
     }
   });
 

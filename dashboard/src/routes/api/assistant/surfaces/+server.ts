@@ -1,10 +1,10 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { env } from "$env/dynamic/private";
+import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 // Fetched when the widget is first opened rather than in a layout load: the surface registry is
 // nice to have, and a dead bridge must not take every dashboard page down with it.
-const API = env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 export const GET: RequestHandler = async () => {
   try {

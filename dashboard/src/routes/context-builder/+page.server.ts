@@ -1,11 +1,11 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { readContextDocument } from "$lib/server/contextBuilder";
-import { renderMarkdown } from "$lib/markdown";
-import { env } from "$env/dynamic/private";
-import { sql } from "$lib/db";
+import { readContextDocument } from "#lib/server/contextBuilder.js";
+import { renderMarkdown } from "#lib/markdown.js";
+import { SKILLS_BRIDGE_URL } from "$app/env/private";
+import { sql } from "#lib/db.js";
 
-const API = env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 /** How far back to look for a run that produced an actual harvest, before giving up. */
 const CANDIDATE_RUNS = 6;
@@ -23,7 +23,7 @@ const CANDIDATE_RUNS = 6;
  * is what says whether it is usable, not the `mode` column or the run's status.
  */
 function isDocument(fullContext: string): boolean {
-  return /^#\s*\d+\./m.test(fullContext);
+  return (/^#\s*\d+\./m).test(fullContext);
 }
 
 interface Doc {
@@ -122,7 +122,7 @@ export const load: PageServerLoad = async () => {
     break;
   }
 
-  run ??= (runs[0] as (typeof runs)[number] | undefined) ?? null;
+  run ??= runs[0] as (typeof runs)[number] | undefined ?? null;
 
   const standing = await db`
     SELECT key, value, source, updated_at FROM standing_context ORDER BY updated_at DESC, key
@@ -156,7 +156,7 @@ export const actions: Actions = {
   revertCorrection: async ({ request }) => {
     const form = await request.formData();
     const id = String(form.get("id") ?? "");
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { error: "Invalid correction id" });
+    if (!(/^[0-9a-f-]{36}$/i).test(id)) return fail(400, { error: "Invalid correction id" });
 
     try {
       const res = await fetch(`${API}/api/context/corrections/${id}/revert`, { method: "POST" });

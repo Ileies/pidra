@@ -1,13 +1,13 @@
 <script lang="ts">
   import { goto, invalidateAll } from "$app/navigation";
-  import NoteCard from "$lib/notes/NoteCard.svelte";
-  import Page from "$lib/components/Page.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import Spinner from "$lib/components/Spinner.svelte";
-  import { assistant, setPageContext } from "$lib/assistant/state.svelte";
-  import { focusFrom } from "$lib/assistant/pageContext";
-  import { toasts } from "$lib/toast.svelte";
-  import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "$lib/notes/api";
+  import NoteCard from "#lib/notes/NoteCard.svelte";
+  import Page from "#lib/components/Page.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
+  import { focusFrom } from "#lib/assistant/pageContext.js";
+  import { toasts } from "#lib/toast.svelte.js";
+  import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "#lib/notes/api.js";
   import type { PageData } from "./$types";
   import type { NoteRow } from "./+page.server";
 
@@ -58,7 +58,7 @@
     if (next.view !== "active") params.set("view", next.view);
 
     const query = params.toString();
-    goto(query ? `/notes?${query}` : "/notes", { keepFocus: true, noScroll: true, replaceState: true });
+    goto(query ? `/notes?${query}` : "/notes", { reset: false, replaceState: true });
   }
 
   function onSearchInput(event: Event & { currentTarget: HTMLInputElement }) {

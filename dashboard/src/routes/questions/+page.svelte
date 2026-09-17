@@ -1,9 +1,9 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import Page from "$lib/components/Page.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import Spinner from "$lib/components/Spinner.svelte";
-  import { toasts } from "$lib/toast.svelte";
+  import Page from "#lib/components/Page.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import { toasts } from "#lib/toast.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

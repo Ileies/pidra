@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { sql } from "$lib/db";
+import { sql } from "#lib/db.js";
 
 /**
  * The report archive, fetched when the date picker opens (C8, E7).

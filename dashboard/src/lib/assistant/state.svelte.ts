@@ -1,6 +1,6 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 import { invalidateAll } from "$app/navigation";
-import { surfaceForRoute, type PageContext, type Surface } from "$lib/assistant/pageContext";
+import { surfaceForRoute, type PageContext, type Surface } from "#lib/assistant/pageContext.js";
 
 /**
  * The floating assistant's client state. Lives in the root layout, so it survives navigation
@@ -282,7 +282,7 @@ class Assistant {
     if (type === "tool_call") {
       const call: UiToolCall = {
         name: String(event.name ?? ""),
-        arguments: (event.arguments as Record<string, unknown>) ?? {},
+        arguments: event.arguments as Record<string, unknown> ?? {}
       };
       this.#patchReply(reply, (current) => ({ ...current, toolCalls: [...current.toolCalls, call] }));
       return;
@@ -308,7 +308,7 @@ class Assistant {
     }
 
     if (type === "done") {
-      const touched = (event.touched as string[]) ?? [];
+      const touched = event.touched as string[] ?? [];
       if (touched.length > 0) {
         this.touchedIds = this.#idsFrom(reply);
         if (!this.open) this.unseen = true;
@@ -324,7 +324,7 @@ class Assistant {
   }
 
   #patchReply(reply: UiMessage, patch: (current: UiMessage) => UiMessage) {
-    this.messages = this.messages.map((entry) => (entry.id === reply.id ? patch(entry) : entry));
+    this.messages = this.messages.map((entry) => entry.id === reply.id ? patch(entry) : entry);
   }
 
   /**

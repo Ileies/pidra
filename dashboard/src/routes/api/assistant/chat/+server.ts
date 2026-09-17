@@ -1,12 +1,12 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { env } from "$env/dynamic/private";
-import { isShuttingDown, registerStream } from "$lib/server/shutdown";
+import { SKILLS_BRIDGE_URL } from "$app/env/private";
+import { isShuttingDown, registerStream } from "#lib/server/shutdown.js";
 
 // The turn loop runs on the skills bridge, because that is where the skill registry lives. This
 // only forwards, and passes the event stream straight through so tool calls reach the widget as
 // they execute.
-const API = env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 const encoder = new TextEncoder();
 

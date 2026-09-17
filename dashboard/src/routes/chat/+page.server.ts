@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
+import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
 
 export interface ChatToolCall {
   call_id: string;

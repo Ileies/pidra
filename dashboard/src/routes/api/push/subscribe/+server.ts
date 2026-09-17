@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { sql } from "$lib/db";
+import { sql } from "#lib/db.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const sub = await request.json();

@@ -17,8 +17,8 @@
    * Either way the page itself never scrolls horizontally.
    */
   import type { Snippet } from "svelte";
-  import { ALIGN, SHOW_AT, type Column } from "$lib/components/table";
-  import EmptyState from "$lib/components/EmptyState.svelte";
+  import { ALIGN, SHOW_AT, type Column } from "#lib/components/table.js";
+  import EmptyState from "#lib/components/EmptyState.svelte";
 
   interface Props {
     rows: Row[];

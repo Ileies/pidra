@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { UiToolCall } from "$lib/assistant/state.svelte";
+  import type { UiToolCall } from "#lib/assistant/state.svelte.js";
 
   let { call }: { call: UiToolCall } = $props();
 

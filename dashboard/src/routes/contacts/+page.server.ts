@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { sql } from "$lib/db";
+import { sql } from "#lib/db.js";
 
 /**
  * The sender directory (D7).

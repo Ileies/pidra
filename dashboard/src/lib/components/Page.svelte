@@ -11,7 +11,7 @@
    * the viewport: the report's stats bar.
    */
   import type { Snippet } from "svelte";
-  import { PAGE_PADDING, PAGE_SIZES, PAGE_VERTICAL, type PageSize } from "$lib/ui/layout";
+  import { PAGE_PADDING, PAGE_SIZES, PAGE_VERTICAL, type PageSize } from "#lib/ui/layout.js";
 
   interface Props {
     size?: PageSize;

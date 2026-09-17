@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { startRun, getStatus } from "$lib/server/contextBuilder";
+import { startRun, getStatus } from "#lib/server/contextBuilder.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const status = await getStatus();

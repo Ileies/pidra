@@ -1,14 +1,14 @@
 <script lang="ts">
-  import Page from "$lib/components/Page.svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import StatCard from "$lib/components/StatCard.svelte";
-  import ErrorCard from "$lib/components/ErrorCard.svelte";
-  import Sparkline from "$lib/components/Sparkline.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtTime } from "$lib/format";
-  import { label as displayLabel } from "$lib/labels";
-  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
+  import Page from "#lib/components/Page.svelte";
+  import Badge from "#lib/components/Badge.svelte";
+  import StatCard from "#lib/components/StatCard.svelte";
+  import ErrorCard from "#lib/components/ErrorCard.svelte";
+  import Sparkline from "#lib/components/Sparkline.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtTime } from "#lib/format.js";
+  import { label as displayLabel } from "#lib/labels.js";
+  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import type { RunRow } from "./+page.server";
   import type { PageData } from "./$types";
 

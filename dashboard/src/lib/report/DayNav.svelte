@@ -10,8 +10,8 @@
    * load - all 60 dates used to ship with every report and nothing on the client read them (X3).
    */
   import { goto } from "$app/navigation";
-  import Spinner from "$lib/components/Spinner.svelte";
-  import { fmtDate } from "$lib/format";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import { fmtDate } from "#lib/format.js";
 
   interface Props {
     date: string;

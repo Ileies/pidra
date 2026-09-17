@@ -6,10 +6,10 @@
    * a report several screens long. It expands the same extraction cards in place now; the deep
    * link stays as the shareable form and as the fallback for a browser with no JS.
    */
-  import Spinner from "$lib/components/Spinner.svelte";
-  import ExtractionCard from "$lib/report/ExtractionCard.svelte";
-  import RateButtons from "$lib/report/RateButtons.svelte";
-  import type { ExtractionItem } from "$lib/server/extractions";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import ExtractionCard from "#lib/report/ExtractionCard.svelte";
+  import RateButtons from "#lib/report/RateButtons.svelte";
+  import type { ExtractionItem } from "#lib/server/extractions.js";
   import type { RenderedEntry } from "../../routes/[date]/+page.server";
 
   interface Props {

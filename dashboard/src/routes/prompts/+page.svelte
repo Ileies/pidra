@@ -1,12 +1,12 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import Page from "$lib/components/Page.svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import Diff from "$lib/components/Diff.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import { fmtDateTime } from "$lib/format";
-  import { toastFormResult } from "$lib/toast.svelte";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import Page from "#lib/components/Page.svelte";
+  import Badge from "#lib/components/Badge.svelte";
+  import Diff from "#lib/components/Diff.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import { fmtDateTime } from "#lib/format.js";
+  import { toastFormResult } from "#lib/toast.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

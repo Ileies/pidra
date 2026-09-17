@@ -1,7 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { error, fail } from "@sveltejs/kit";
-import { renderMarkdown } from "$lib/markdown";
-import { loadExtractions, parseIds, rateExtraction, UUID_RE } from "$lib/server/extractions";
+import { renderMarkdown } from "#lib/markdown.js";
+import { loadExtractions, parseIds, rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 
 export const load: PageServerLoad = async ({ params }) => {
   const { date, ids } = params;

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { assistant } from "$lib/assistant/state.svelte";
-  import ToolChip from "$lib/assistant/ToolChip.svelte";
+  import { assistant } from "#lib/assistant/state.svelte.js";
+  import ToolChip from "#lib/assistant/ToolChip.svelte";
 
   interface Props {
     /** The widget hides its own transcript scroller inside a fixed panel; /chat does not. */

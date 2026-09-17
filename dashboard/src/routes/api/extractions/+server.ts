@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { loadExtractions, parseIds } from "$lib/server/extractions";
+import { loadExtractions, parseIds } from "#lib/server/extractions.js";
 
 /**
  * The items behind one report entry (C5).

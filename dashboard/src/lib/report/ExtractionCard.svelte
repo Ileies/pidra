@@ -3,10 +3,10 @@
    * One extraction, as a card. Used by the deep-link page and by the report's inline expansion
    * (C5), so the two show the same thing.
    */
-  import Badge from "$lib/components/Badge.svelte";
-  import { fmtDateTime } from "$lib/format";
-  import { label as displayLabel } from "$lib/labels";
-  import type { ExtractionItem } from "$lib/server/extractions";
+  import Badge from "#lib/components/Badge.svelte";
+  import { fmtDateTime } from "#lib/format.js";
+  import { label as displayLabel } from "#lib/labels.js";
+  import type { ExtractionItem } from "#lib/server/extractions.js";
 
   interface Props {
     item: ExtractionItem;

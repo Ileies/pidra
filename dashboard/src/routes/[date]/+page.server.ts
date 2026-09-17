@@ -1,10 +1,10 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { error, fail } from "@sveltejs/kit";
-import { renderMarkdown } from "$lib/markdown";
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
-import { rateExtraction, UUID_RE } from "$lib/server/extractions";
-import type { ReportJson, Urgency } from "$lib/report/types";
+import { renderMarkdown } from "#lib/markdown.js";
+import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
+import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
+import type { ReportJson, Urgency } from "#lib/report/types.js";
 
 /** One entry of the report, ready to render: sanitised HTML plus the refs behind it. */
 export interface RenderedEntry {

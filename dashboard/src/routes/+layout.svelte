@@ -1,13 +1,13 @@
 <script lang="ts">
   import "../app.css";
   import { page } from "$app/state";
-  import Navbar from "$lib/components/Navbar.svelte";
-  import TabBar from "$lib/components/TabBar.svelte";
-  import Toast from "$lib/components/Toast.svelte";
-  import CommandPalette from "$lib/components/CommandPalette.svelte";
-  import Shortcuts from "$lib/components/Shortcuts.svelte";
-  import Assistant from "$lib/assistant/Assistant.svelte";
-  import { assistant } from "$lib/assistant/state.svelte";
+  import Navbar from "#lib/components/Navbar.svelte";
+  import TabBar from "#lib/components/TabBar.svelte";
+  import Toast from "#lib/components/Toast.svelte";
+  import CommandPalette from "#lib/components/CommandPalette.svelte";
+  import Shortcuts from "#lib/components/Shortcuts.svelte";
+  import Assistant from "#lib/assistant/Assistant.svelte";
+  import { assistant } from "#lib/assistant/state.svelte.js";
   import { navigating } from "$app/state";
 
   let { children } = $props();

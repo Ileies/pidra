@@ -52,6 +52,21 @@ const LABELS: Record<string, string> = {
   // extraction skip reasons
   promotional: "Promotional or automated",
 
+  // Phase 3 gate verdicts (src/pipeline/gate.ts)
+  below_threshold: "Scored under the bar",
+  skipped_by_extraction: "Extraction found nothing to report",
+  extraction_failed: "The extraction call failed",
+  spam: "Classified as spam",
+  general_news: "General news, not personal",
+  automated_low_urgency: "Automated and not urgent",
+  not_gated: "Not subject to the gate",
+
+  // ingest drop reasons (src/ingest/imap.ts)
+  substack_system: "Substack system notification",
+  ignored_sender: "Sender on this account's ignore list",
+  covered_by_rss: "Already covered by the RSS feed",
+  empty_content: "Nothing left after the HTML was stripped",
+
   // who made a change
   user: "You",
   chat: "The assistant",

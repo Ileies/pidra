@@ -6,9 +6,9 @@
  * They must show the same thing, so they read through the same function.
  */
 
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
-import { parseSender, tidyRawContent } from "$lib/mail";
+import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
+import { parseSender, tidyRawContent } from "#lib/mail.js";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

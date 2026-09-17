@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { enhance } from "$app/forms";
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import Page from "$lib/components/Page.svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import StatCard from "$lib/components/StatCard.svelte";
-  import { fmtCost, fmtDateTime, fmtElapsed, fmtNum } from "$lib/format";
-  import { label as displayLabel } from "$lib/labels";
-  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
-  import { toastFormResult, toasts } from "$lib/toast.svelte";
-  import type { ContextBuilderStatus } from "$lib/server/contextBuilder";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import Page from "#lib/components/Page.svelte";
+  import Badge from "#lib/components/Badge.svelte";
+  import StatCard from "#lib/components/StatCard.svelte";
+  import { fmtCost, fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
+  import { label as displayLabel } from "#lib/labels.js";
+  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
+  import { toastFormResult, toasts } from "#lib/toast.svelte.js";
+  import type { ContextBuilderStatus } from "#lib/server/contextBuilder.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

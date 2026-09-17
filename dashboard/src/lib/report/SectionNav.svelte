@@ -10,7 +10,7 @@
    * that is the bug the notes bulk bar had (X6, M8).
    */
   import { onMount } from "svelte";
-  import type { NavTarget } from "$lib/report/types";
+  import type { NavTarget } from "#lib/report/types.js";
 
   interface Props {
     /** Top-level sections, in reading order. */

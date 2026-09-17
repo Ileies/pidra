@@ -7,8 +7,8 @@
    * resolving the subscription never resizes the row after paint.
    */
   import { onMount } from "svelte";
-  import { env } from "$env/dynamic/public";
-  import { toasts } from "$lib/toast.svelte";
+  import { PUBLIC_VAPID_KEY } from '$app/env/public';
+  import { toasts } from "#lib/toast.svelte.js";
 
   interface Props {
     /** `bar` is the desktop nav pill; `row` is a full-width row in the overflow sheet. */
@@ -30,11 +30,11 @@
       return;
     }
     const sw = await navigator.serviceWorker.ready;
-    state = (await sw.pushManager.getSubscription()) ? "subscribed" : "unsubscribed";
+    state = await sw.pushManager.getSubscription() ? "subscribed" : "unsubscribed";
   });
 
   function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
-    const padding = "=".repeat((4 - (b64.length % 4)) % 4);
+    const padding = ("=").repeat((4 - b64.length % 4) % 4);
     const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
     const raw = atob(base64);
     const arr = new Uint8Array(raw.length);
@@ -68,7 +68,7 @@
 
       const sub = await sw.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(env.PUBLIC_VAPID_KEY),
+        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
       });
 
       await fetch("/api/push/subscribe", {

@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { search } from "$lib/server/search";
+import { search } from "#lib/server/search.js";
 
 /**
  * What the command palette calls (D8). The UI knows nothing about how the ranking was produced,

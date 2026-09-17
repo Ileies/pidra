@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
-import { sql } from "$lib/db";
-import { parseJsonb } from "$lib/jsonb";
-import type { StepAttempt } from "$lib/pipeline";
+import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
+import type { StepAttempt } from "#lib/pipeline.js";
 
 /**
  * Pipeline run history (D5).

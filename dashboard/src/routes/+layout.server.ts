@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from "./$types";
-import { sql } from "$lib/db";
+import { sql } from "#lib/db.js";
 
 /**
  * Everything the navbar needs, loaded once. The navbar is on every page, so the badge counts

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import { focusFrom } from "$lib/assistant/pageContext";
-  import Page from "$lib/components/Page.svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import DataTable from "$lib/components/DataTable.svelte";
-  import type { Column } from "$lib/components/table";
-  import { fmtDate } from "$lib/format";
-  import { label as displayLabel } from "$lib/labels";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import { focusFrom } from "#lib/assistant/pageContext.js";
+  import Page from "#lib/components/Page.svelte";
+  import Badge from "#lib/components/Badge.svelte";
+  import DataTable from "#lib/components/DataTable.svelte";
+  import type { Column } from "#lib/components/table.js";
+  import { fmtDate } from "#lib/format.js";
+  import { label as displayLabel } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

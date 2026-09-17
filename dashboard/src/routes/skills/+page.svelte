@@ -8,12 +8,12 @@
    * full-width panel rather than a cell.
    */
   import { enhance } from "$app/forms";
-  import Page from "$lib/components/Page.svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import { fmtDateTimeShort } from "$lib/format";
-  import { label as displayLabel } from "$lib/labels";
-  import { toastFormResult } from "$lib/toast.svelte";
+  import Page from "#lib/components/Page.svelte";
+  import Badge from "#lib/components/Badge.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import { fmtDateTimeShort } from "#lib/format.js";
+  import { label as displayLabel } from "#lib/labels.js";
+  import { toastFormResult } from "#lib/toast.svelte.js";
   import type { SkillInfo } from "./+page.server";
   import type { PageData, ActionData } from "./$types";
 

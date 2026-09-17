@@ -1,10 +1,10 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { env } from "$env/dynamic/private";
+import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 // The chat loop runs on the skills bridge, because that is where the skill registry lives. The
 // dashboard only proxies, so the bridge stays on localhost and is never internet-exposed.
-const API = env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json().catch(() => ({}));

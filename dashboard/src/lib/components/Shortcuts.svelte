@@ -9,7 +9,7 @@
    * Desktop by nature, which is fine: the phone gets the bottom tab bar instead.
    */
   import { goto } from "$app/navigation";
-  import { ROUTES } from "$lib/routes";
+  import { ROUTES } from "#lib/routes.js";
 
   interface Props {
     onOpenSearch: () => void;

@@ -3,10 +3,10 @@
     updateNote, noteHistory, revertRevision,
     NOTE_SCOPES, SCOPE_CLASS,
     type NoteRevisionRow,
-  } from "$lib/notes/api";
-  import { fmtDateTime } from "$lib/format";
-  import { label as displayLabel } from "$lib/labels";
-  import Spinner from "$lib/components/Spinner.svelte";
+  } from "#lib/notes/api.js";
+  import { fmtDateTime } from "#lib/format.js";
+  import { label as displayLabel } from "#lib/labels.js";
+  import Spinner from "#lib/components/Spinner.svelte";
   import type { NoteRow } from "../../routes/notes/+page.server";
 
   interface Props {

@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import Page from "$lib/components/Page.svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import ConfirmButton from "$lib/components/ConfirmButton.svelte";
-  import DataTable from "$lib/components/DataTable.svelte";
-  import StatCard from "$lib/components/StatCard.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import type { Column } from "$lib/components/table";
-  import { fmtDate, fmtDateTime, fmtPct, fmtScore } from "$lib/format";
-  import { label as displayLabel, TREND_GLYPH } from "$lib/labels";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import Page from "#lib/components/Page.svelte";
+  import Badge from "#lib/components/Badge.svelte";
+  import ConfirmButton from "#lib/components/ConfirmButton.svelte";
+  import DataTable from "#lib/components/DataTable.svelte";
+  import StatCard from "#lib/components/StatCard.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import type { Column } from "#lib/components/table.js";
+  import { fmtDate, fmtDateTime, fmtPct, fmtScore } from "#lib/format.js";
+  import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

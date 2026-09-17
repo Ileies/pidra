@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import { error } from "@sveltejs/kit";
-import { sql } from "$lib/db";
-import { UUID_RE } from "$lib/server/extractions";
+import { sql } from "#lib/db.js";
+import { UUID_RE } from "#lib/server/extractions.js";
 
 /**
  * Entity detail (D2).

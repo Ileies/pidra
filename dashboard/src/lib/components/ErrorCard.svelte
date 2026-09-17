@@ -12,9 +12,9 @@
    * "Attempt 1/3" for something that was never attempted twice.
    */
   import type { Snippet } from "svelte";
-  import Badge from "$lib/components/Badge.svelte";
-  import { fmtDuration, fmtTime } from "$lib/format";
-  import type { StepAttempt } from "$lib/pipeline";
+  import Badge from "#lib/components/Badge.svelte";
+  import { fmtDuration, fmtTime } from "#lib/format.js";
+  import type { StepAttempt } from "#lib/pipeline.js";
 
   interface Props {
     /** The step that failed, as recorded by the pipeline. */

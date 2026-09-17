@@ -1,11 +1,11 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import Page from "$lib/components/Page.svelte";
-  import Spinner from "$lib/components/Spinner.svelte";
-  import ExtractionCard from "$lib/report/ExtractionCard.svelte";
-  import RateButtons from "$lib/report/RateButtons.svelte";
-  import { toastFormResult } from "$lib/toast.svelte";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import Page from "#lib/components/Page.svelte";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import ExtractionCard from "#lib/report/ExtractionCard.svelte";
+  import RateButtons from "#lib/report/RateButtons.svelte";
+  import { toastFormResult } from "#lib/toast.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();

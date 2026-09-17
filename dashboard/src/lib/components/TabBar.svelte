@@ -11,8 +11,8 @@
    * under it.
    */
   import { page } from "$app/state";
-  import { ROUTES, TABS, MORE_ICON, routeFor } from "$lib/routes";
-  import NotifyButton from "$lib/components/NotifyButton.svelte";
+  import { ROUTES, TABS, MORE_ICON, routeFor } from "#lib/routes.js";
+  import NotifyButton from "#lib/components/NotifyButton.svelte";
 
   interface Props {
     open: boolean;

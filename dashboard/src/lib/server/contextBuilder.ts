@@ -1,14 +1,14 @@
 import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import { env } from "$env/dynamic/private";
-import { sql } from "$lib/db";
+import { CONTEXT_BUILDER_OUTPUT_DIR } from "$app/env/private";
+import { sql } from "#lib/db.js";
 
 // Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.
 const PROJECT_ROOT = resolve(process.cwd(), "..");
 const CHECKPOINT_PATH = resolve(PROJECT_ROOT, "context-builder/.checkpoint.json");
 const ERRORS_PATH = resolve(PROJECT_ROOT, "context-builder/errors.json");
 const LOG_PATH = resolve(PROJECT_ROOT, "context-builder/.dashboard-run.log");
-const OUTPUT_DIR = resolve(PROJECT_ROOT, env.CONTEXT_BUILDER_OUTPUT_DIR ?? "context-builder/output");
+const OUTPUT_DIR = resolve(PROJECT_ROOT, CONTEXT_BUILDER_OUTPUT_DIR ?? "context-builder/output");
 
 export interface PhaseProgress {
   total: number;
@@ -123,7 +123,7 @@ export async function getStatus(): Promise<ContextBuilderStatus> {
     readJsonFile<CbError[]>(ERRORS_PATH),
   ]);
 
-  const dbRun = (dbRunRows[0] as DbRun | undefined) ?? null;
+  const dbRun = dbRunRows[0] as DbRun | undefined ?? null;
   const trackedPid = child?.pid ?? null;
   const alive = trackedPid != null && isAlive(trackedPid);
   const rssMb = alive && trackedPid != null ? await getRssMb(trackedPid) : null;

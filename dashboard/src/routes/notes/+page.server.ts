@@ -1,5 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import { sql } from "$lib/db";
+import { sql } from "#lib/db.js";
 
 export interface NoteRow {
   id: string;

@@ -7,7 +7,7 @@
    * centred, because a centred toast at the bottom of a phone sits exactly where the thumb is
    * (M7). On desktop it sits bottom-left, clear of the floating assistant on the right.
    */
-  import { toasts } from "$lib/toast.svelte";
+  import { toasts } from "#lib/toast.svelte.js";
 
   const TONES = {
     info: "border-surface-500 text-surface-100",

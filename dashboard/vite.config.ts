@@ -6,7 +6,9 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    sveltekit({ adapter: adapter(), env: { dir: ".." } })
+    // Registered by hand in app.html, not auto-registered: the /sw.js migration needs to
+    // unregister the old worker's registration before the new one takes over (OFFLINE_PLAN.md §7).
+    sveltekit({ adapter: adapter(), env: { dir: ".." }, serviceWorker: { register: false } })
   ],
   server: { port: 5173 }
 });

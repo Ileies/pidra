@@ -10,12 +10,7 @@ import { sql } from "#lib/db.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import { parseSender, tidyRawContent } from "#lib/mail.js";
 
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** At most ten: a report entry anchors one or two, and the URL form is user-editable. */
-export function parseIds(raw: string): string[] {
-  return raw.split(",").filter((id) => UUID_RE.test(id)).slice(0, 10);
-}
+export { UUID_RE, parseIds } from "#lib/ids.js";
 
 export interface ExtractedJson {
   headline?: string;

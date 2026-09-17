@@ -2,6 +2,7 @@ import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { CONTEXT_BUILDER_OUTPUT_DIR } from "$app/env/private";
 import { sql } from "#lib/db.js";
+import { renderMarkdown } from "#lib/markdown.js";
 
 // Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.
 const PROJECT_ROOT = resolve(process.cwd(), "..");
@@ -95,6 +96,129 @@ export async function readContextDocument(
     if (local === outputPath) throw err;
     return { content: await readFile(local, "utf-8"), path: local };
   }
+}
+
+/** How far back to look for a run that produced an actual harvest, before giving up. */
+const CANDIDATE_RUNS = 6;
+
+/**
+ * Whether a run's output is the context document or something that only describes a change to it.
+ * Same test the pipeline applies in `pickSections`: the shape of the document is what says whether
+ * it is usable, not the `mode` column or the run's status.
+ */
+function isHarvestDocument(fullContext: string): boolean {
+  return (/^#\s*\d+\./m).test(fullContext);
+}
+
+export interface HarvestSection {
+  key: string;
+  title: string;
+  html: string;
+  chars: number;
+}
+
+export interface HarvestDoc {
+  generatedAt: string | null;
+  date: string | null;
+  path: string;
+  fullContextHtml: string;
+  chars: number;
+  sections: HarvestSection[];
+}
+
+export interface HarvestRun {
+  id: string;
+  mode: string;
+  started_at: string;
+  completed_at: string | null;
+  items_indexed: number | null;
+  output_path: string | null;
+}
+
+/**
+ * The harvested context document, rendered, plus the standing rules and active corrections layered
+ * over it. Shared between the live `/context-builder` page and the offline snapshot endpoint
+ * (OFFLINE_PLAN.md §5) so the two never render the harvest differently.
+ *
+ * The newest completed run is *not* always the right row to read - a run whose output is a delta
+ * rather than a document is a fraction of it, not a newer version. So the newest run that produced
+ * an actual document wins, and anything newer that was skipped is reported rather than quietly
+ * passed over.
+ */
+export async function loadHarvestDocument(): Promise<{
+  run: HarvestRun | null;
+  doc: HarvestDoc | null;
+  docError: string | null;
+  skipped: { startedAt: string; mode: string; reason: string }[];
+}> {
+  const db = sql();
+
+  const runs = (await db`
+    SELECT id, mode, started_at, completed_at, items_indexed, output_path
+    FROM context_builder_runs
+    WHERE status = 'completed'
+    ORDER BY started_at DESC
+    LIMIT ${CANDIDATE_RUNS}
+  `) as unknown as HarvestRun[];
+
+  let run: HarvestRun | null = null;
+  let doc: HarvestDoc | null = null;
+  let docError: string | null = null;
+  const skipped: { startedAt: string; mode: string; reason: string }[] = [];
+
+  for (const candidate of runs) {
+    const note = (reason: string) => skipped.push({ startedAt: candidate.started_at, mode: candidate.mode, reason });
+
+    if (!candidate.output_path) {
+      note("recorded no output file");
+      continue;
+    }
+
+    let raw: Record<string, string>;
+    let path: string;
+    try {
+      const file = await readContextDocument(candidate.output_path);
+      raw = JSON.parse(file.content) as Record<string, string>;
+      path = file.path;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      docError ??= message;
+      note(message);
+      continue;
+    }
+
+    const fullContext = raw.fullContext ?? "";
+    if (!isHarvestDocument(fullContext)) {
+      note("produced a list of changes instead of the full document, so it cannot replace it");
+      continue;
+    }
+
+    const section = (key: string, title: string): HarvestSection => ({
+      key,
+      title,
+      html: renderMarkdown(raw[key]),
+      chars: (raw[key] ?? "").length,
+    });
+    run = candidate;
+    doc = {
+      generatedAt: raw.generatedAt ?? null,
+      date: raw.date ?? null,
+      path,
+      fullContextHtml: renderMarkdown(fullContext),
+      chars: fullContext.length,
+      sections: [
+        section("keep", "Personal knowledge (Keep notes)"),
+        section("contacts", "Contact directory (email)"),
+        section("github", "Technical profile (GitHub)"),
+        section("tasks", "Active commitments (Tasks)"),
+      ],
+    };
+    break;
+  }
+
+  run ??= runs[0] ?? null;
+
+  return { run, doc, docError, skipped };
 }
 
 async function getRssMb(pid: number): Promise<number | null> {

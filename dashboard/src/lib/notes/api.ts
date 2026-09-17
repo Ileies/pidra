@@ -7,6 +7,20 @@
  * rather than patching bridge responses into the list.
  */
 
+/** Snake_case shape the mirror and the (former) page load both use, as Postgres returns it. */
+export interface NoteRow {
+  id: string;
+  content: string;
+  scope: string;
+  created_at: string;
+  updated_at: string | null;
+  expires_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  deleted_at: string | null;
+  revision_count: number;
+}
+
 export interface NoteApiRow {
   id: string;
   content: string;

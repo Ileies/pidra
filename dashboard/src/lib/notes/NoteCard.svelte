@@ -7,7 +7,7 @@
   import { fmtDateTime } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
   import Spinner from "#lib/components/Spinner.svelte";
-  import type { NoteRow } from "../../routes/notes/+page.server";
+  import type { NoteRow } from "#lib/notes/api.js";
 
   interface Props {
     note: NoteRow;

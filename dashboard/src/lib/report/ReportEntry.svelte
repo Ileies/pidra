@@ -10,7 +10,7 @@
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
   import RateButtons from "#lib/report/RateButtons.svelte";
   import type { ExtractionItem } from "#lib/server/extractions.js";
-  import type { RenderedEntry } from "../../routes/[date]/+page.server";
+  import type { RenderedEntry } from "#lib/server/reports.js";
 
   interface Props {
     entry: RenderedEntry;

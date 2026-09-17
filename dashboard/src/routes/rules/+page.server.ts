@@ -1,47 +1,18 @@
-import type { Actions, PageServerLoad } from "./$types";
+import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/db.js";
 
 /**
- * Standing context (D3).
+ * Actions only. The read side moved to `+page.ts` (OFFLINE_PLAN.md O2); see `[date]/+page.server.ts`
+ * for why a co-located `load` here would never run for a client-side navigation now.
  *
- * `standing_context` is injected into the Section 2 prompt as the user's own persistent rules,
- * and the whole design assumes the user curates it. Until now the only view of it was read-only,
- * inside the Context Builder document.
- *
- * The harvest itself is never overwritten (CLAUDE.md), and these rows are the one part of it the
- * owner writes directly: `source` records who put a rule there, and a Keep-seeded rule keeps that
- * provenance visible even after it is edited here. Rows the Context Builder seeded are still
- * re-seedable, so an edit to one is flagged as `user` and will not be silently reverted.
+ * `standing_context` is injected into the Section 2 prompt as the user's own persistent rules, and
+ * the whole design assumes the user curates it. The harvest itself is never overwritten (CLAUDE.md),
+ * and these rows are the one part of it the owner writes directly: `source` records who put a rule
+ * there, and a Keep-seeded rule keeps that provenance visible even after it is edited here.
  */
 
-export interface RuleRow {
-  id: string;
-  key: string;
-  value: string;
-  source: string;
-  updatedAt: string | null;
-}
-
 const KEY_RE = /^[a-z0-9_]{2,64}$/;
-
-export const load: PageServerLoad = async () => {
-  const rows = await sql()`
-    SELECT id, key, value, source, updated_at
-    FROM standing_context
-    ORDER BY source, key
-  `;
-
-  return {
-    rules: rows.map((row) => ({
-      id: row.id as string,
-      key: row.key as string,
-      value: row.value as string,
-      source: (row.source as string | null) ?? "context_builder",
-      updatedAt: (row.updated_at as string | null) ?? null,
-    })) as RuleRow[],
-  };
-};
 
 export const actions: Actions = {
   create: async ({ request }) => {

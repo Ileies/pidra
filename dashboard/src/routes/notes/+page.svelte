@@ -9,7 +9,7 @@
   import { toasts } from "#lib/toast.svelte.js";
   import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "#lib/notes/api.js";
   import type { PageData } from "./$types";
-  import type { NoteRow } from "./+page.server";
+  import type { NoteRow } from "#lib/notes/api.js";
 
   let { data }: { data: PageData } = $props();
 

@@ -1,38 +1,48 @@
 {
-  "name": "pidra-dashboard",
-  "private": true,
-  "version": "0.0.1",
-  "homepage": "https://github.com/Ileies/pidra",
-  "type": "module",
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts"
-  },
-  "dependencies": {
-    "@skeletonlabs/skeleton": "^5.0.1",
-    "@skeletonlabs/skeleton-svelte": "^5.0.1",
-    "@types/diff": "^8.0.0",
-    "diff": "^9.0.0",
-    "isomorphic-dompurify": "^4.2.0",
-    "marked": "^18.0.13",
-    "postgres": "^3.4.9"
-  },
-  "devDependencies": {
-    "@sveltejs/adapter-node": "^6.0.0-next.0",
-    "@sveltejs/kit": "^3.0.0-next.27",
-    "@sveltejs/vite-plugin-svelte": "^7.3.0",
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/bun": "^1.4.2",
-    "svelte": "^5.57.0",
-    "svelte-check": "^4.7.6",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^6.0.3",
-    "vite": "^8.3.0"
-  },
-  "imports": {
-    "#lib": "./src/lib/index.js",
-    "#lib/*": "./src/lib/*"
-  }
+	"name": "pidra-dashboard",
+	"private": true,
+	"version": "0.0.1",
+	"homepage": "https://github.com/Ileies/pidra",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"format": "prettier --write .",
+		"lint": "eslint .",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts"
+	},
+	"dependencies": {
+		"@skeletonlabs/skeleton": "^5.0.1",
+		"@skeletonlabs/skeleton-svelte": "^5.0.1",
+		"@types/diff": "^8.0.0",
+		"diff": "^9.0.0",
+		"isomorphic-dompurify": "^4.2.0",
+		"marked": "^18.0.13",
+		"postgres": "^3.4.9"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@sveltejs/adapter-node": "^6.0.0-next.0",
+		"@sveltejs/kit": "^3.0.0-next.27",
+		"@sveltejs/vite-plugin-svelte": "^7.3.0",
+		"@tailwindcss/vite": "^4.3.3",
+		"@types/bun": "^1.4.2",
+		"eslint": "^10.10.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.23.0",
+		"globals": "^17.12.0",
+		"prettier": "^3.9.7",
+		"prettier-plugin-svelte": "^4.1.1",
+		"svelte": "^5.57.0",
+		"svelte-check": "^4.7.6",
+		"tailwindcss": "^4.3.3",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.70.0",
+		"vite": "^8.3.0"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	}
 }

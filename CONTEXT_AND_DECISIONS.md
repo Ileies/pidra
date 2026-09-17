@@ -300,6 +300,9 @@ Section 1 never waits. Section 2 blocks. After 45 min, Section 2 proceeds with u
 ### Prompt self-evolution: human approval always required
 Weekly meta-run generates diff. Never auto-applied. Each change approved/rejected individually.
 
+### Offline mode: mirrored data moves outside the wg0 boundary
+**Decision, 2026-09-17: yes, a rolling local mirror is worth the change to the threat model.** Full design in `OFFLINE_PLAN.md`. Today every byte of personal content stays behind the wg0 ACL (`SECURITY_PLAN.md` §0, capability 3), and the dashboard has no login because that ACL is the whole boundary. Offline mode deliberately moves a copy of the briefing archive, the notes, the standing rules and the harvested context document onto the phone's storage, outside that boundary, protected only by the device lock and the OS disk encryption. What keeps this proportionate: raw message bodies (`raw_items.raw_content`) never enter the mirror, only rendered report and extraction output; the window is bounded at `MIRROR_DAYS = 60`; "Clear offline data" is one tap. The mirror is deliberately **not encrypted** - a key the app can use unattended is a key an attacker with the device already has, so it would be ceremony rather than protection. Context corrections, contact edits and anything that writes a report stay online-only regardless (`OFFLINE_PLAN.md` §1).
+
 ---
 
 ## 10. Core Design Principles

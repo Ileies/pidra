@@ -42,6 +42,42 @@ export const extractions = pgTable("extractions", {
   includedInReport: boolean("included_in_report").default(false),
   revealedRelevance: integer("revealed_relevance"),
   aiFailed: boolean("ai_failed").default(false),
+  /**
+   * The Phase 3 gate: was this item handed to synthesis at all. Null means the run predates the
+   * column and nothing reconstructed it - `/[date]/triage` renders that as "not recorded" rather
+   * than as a rejection. See `src/pipeline/gate.ts`.
+   */
+  gatePassed: boolean("gate_passed"),
+  gateReason: text("gate_reason"), // see GateReason in pipeline/gate.ts
+  /** The arithmetic behind the verdict: trust score, corroboration, threshold, category. */
+  gateDetail: jsonb("gate_detail").$type<import("../pipeline/gate").GateDetail | null>(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+});
+
+/**
+ * Mails the IMAP ingest threw away before they ever became a `raw_items` row.
+ *
+ * Without this the triage view has a hole exactly where the worst failure hides: a mail dropped
+ * at ingest is not in `raw_items`, so "everything that arrived" would silently not include it and
+ * the view would answer "that mail never arrived" when the truth is "an ignore-list entry ate it".
+ * Only the mail path is logged - RSS drops are stale feed entries, not something a reader goes
+ * looking for.
+ *
+ * Deliberately not logged: a message already ingested on an earlier run. That is not a loss, it
+ * is the dedup working, and with a one-day lookback it would be most of every morning's mail.
+ */
+export const ingestDrops = pgTable("ingest_drops", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runDate: dateStr("run_date").notNull(),
+  accountId: text("account_id"),
+  sourceType: text("source_type"), // newsletter | personal_email
+  sourceName: text("source_name"),
+  messageId: text("message_id"),
+  subject: text("subject"),
+  sender: text("sender"),
+  receivedAt: timestamptz("received_at"),
+  // substack_system | ignored_sender | covered_by_rss | empty_content
+  reason: text("reason").notNull(),
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 

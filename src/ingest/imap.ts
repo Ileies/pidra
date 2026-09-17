@@ -1,10 +1,14 @@
 import Imap from "imap";
+import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
-import { db, rawItems, rawItemExists } from "../db";
+import { db, ingestDrops, rawItems, rawItemExists } from "../db";
 import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
 import { RSS_SOURCE_NAMES } from "../config/rss-feeds";
 import type { EmailAccount } from "../config/email-accounts";
+
+/** The four ways a fetched mail can be discarded before it becomes a `raw_items` row. */
+type DropReason = "substack_system" | "ignored_sender" | "covered_by_rss" | "empty_content";
 
 function openImap(account: EmailAccount): Promise<Imap> {
   return new Promise((resolve, reject) => {
@@ -69,7 +73,13 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
 
   console.log(`[Ingest/IMAP] [${account.user}] Fetched ${raw.length} messages`);
 
+  // This account's drops for this date are rewritten, not appended to: Phase 1 is wrapped in
+  // `withRetry`, and three attempts must not read as three times the mail.
+  await db.delete(ingestDrops).where(and(eq(ingestDrops.runDate, runDate), eq(ingestDrops.accountId, account.user)));
+
   let stored = 0;
+  let dropped = 0;
+
   for (const buffer of raw) {
     const parsed = await simpleParser(buffer);
 
@@ -79,11 +89,39 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
 
     const senderEmail = ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase();
 
+    /**
+     * Records why a mail was thrown away, so `/[date]/triage` can show it. Without this, a mail
+     * discarded here is indistinguishable from one that never arrived - which is the single
+     * hardest case to diagnose, because the reader knows perfectly well that it was sent.
+     */
+    const drop = async (reason: DropReason, sourceType?: string, sourceName?: string | null) => {
+      dropped++;
+      await db.insert(ingestDrops).values({
+        runDate,
+        accountId: account.user,
+        sourceType: sourceType ?? null,
+        sourceName: sourceName ?? null,
+        messageId,
+        subject: subject || null,
+        sender: from || null,
+        receivedAt: parsed.date?.toISOString() ?? null,
+        reason,
+      });
+    };
+
     // Skip Substack system notifications
-    if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") continue;
+    if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") {
+      await drop("substack_system");
+      continue;
+    }
 
-    if (account.ignore?.some((addr) => addr.toLowerCase() === senderEmail)) continue;
+    if (account.ignore?.some((addr) => addr.toLowerCase() === senderEmail)) {
+      await drop("ignored_sender");
+      continue;
+    }
 
+    // Not a drop: the message is already in `raw_items` under the run that first saw it, and
+    // with a one-day lookback that is most of what a fetch returns.
     if (messageId && await rawItemExists(messageId)) continue;
 
     const { sourceType, sourceName } = account.isNewsAccount
@@ -91,14 +129,20 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
       : { sourceType: "personal_email" as const, sourceName: senderEmail };
 
     // Skip newsletters covered by RSS - RSS content is cleaner and already ingested
-    if (sourceType === "newsletter" && sourceName && RSS_SOURCE_NAMES.has(sourceName)) continue;
+    if (sourceType === "newsletter" && sourceName && RSS_SOURCE_NAMES.has(sourceName)) {
+      await drop("covered_by_rss", sourceType, sourceName);
+      continue;
+    }
 
     const content = cleanEmailContent(
       parsed.html || undefined,
       parsed.text || undefined
     );
 
-    if (!content) continue;
+    if (!content) {
+      await drop("empty_content", sourceType, sourceName);
+      continue;
+    }
 
     await db.insert(rawItems).values({
       runDate,
@@ -113,6 +157,9 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     stored++;
   }
 
-  console.log(`[Ingest/IMAP] [${account.user}] Stored ${stored} new items`);
+  console.log(
+    `[Ingest/IMAP] [${account.user}] Stored ${stored} new items` +
+    (dropped > 0 ? `, dropped ${dropped} before storage (see /${runDate}/triage)` : ""),
+  );
   return stored;
 }

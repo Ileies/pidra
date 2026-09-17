@@ -1,7 +1,7 @@
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
 import { eq, and, isNull } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
-import { isPersonalItemIncluded } from "./email-category";
+import { decideGate, type GateDecision } from "./gate";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
 import { loadLongTermContext, type LongTermContext } from "./long-term-context";
 
@@ -64,17 +64,38 @@ export interface ExtractionWithSource {
   extraction: typeof extractions.$inferSelect;
   sourceName: string | null;
   sourceType: string;
+  /** Why this item was or was not handed to synthesis. Persisted before this phase returns. */
+  gate: GateDecision;
 }
 
 function parseJsonRows<T>(rows: { rawContent: string | null }[]): T[] {
   return rows.flatMap((r) => { try { return [JSON.parse(r.rawContent ?? "") as T]; } catch { return []; } });
 }
 
-function corroborationBonus(sourceCount: number): number {
-  if (sourceCount >= 4) return 1.0;
-  if (sourceCount === 3) return 0.7;
-  if (sourceCount === 2) return 0.3;
-  return 0;
+/**
+ * Writes the gate's verdict back onto every extraction of the run, so `/[date]/triage` can say
+ * why an item is missing from the briefing instead of only that it is.
+ *
+ * `effective_relevance` is overwritten on purpose: Phase 2 seeds the column with the raw
+ * relevance score as a placeholder, and the number the gate actually compared is this one -
+ * trust-weighted and corroborated. Phase 6 reads the column afterwards for the source scores,
+ * which means its relevance fallback now matches the real bar rather than approximating it.
+ *
+ * Row by row rather than one statement: the phase is wrapped in `withRetry`, so this has to be
+ * idempotent, and it is - every attempt writes the same verdict over the same id.
+ */
+async function persistGate(items: ExtractionWithSource[]): Promise<void> {
+  for (const item of items) {
+    await db
+      .update(extractions)
+      .set({
+        effectiveRelevance: item.gate.effectiveRelevance,
+        gatePassed: item.gate.passed,
+        gateReason: item.gate.reason,
+        gateDetail: item.gate.detail,
+      })
+      .where(eq(extractions.id, item.extraction.id));
+  }
 }
 
 export async function runPhase3(runDate: string): Promise<ContextPayload> {
@@ -134,7 +155,7 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     }
   }
 
-  // Compute effective relevance with trust score + corroboration
+  // Compute effective relevance with trust score + corroboration, and run the gate on it
   const items: ExtractionWithSource[] = [];
   for (const row of todaysExtractions) {
     const rawItem = (row as any).rawItem;
@@ -147,22 +168,37 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
       [...relatedItemIds].map((id) => todaysExtractions.find((r) => r.id === id)?.rawItemId)
     ).size : 1;
 
-    const effective = ((row.relevanceScore ?? 0) * trustScore) + corroborationBonus(sourceCount);
+    const sourceType = rawItem?.sourceType ?? "unknown";
+    const gate = decideGate({
+      sourceType,
+      aiFailed: row.aiFailed ?? false,
+      extractedJson: (row.extractedJson as Record<string, unknown> | null) ?? null,
+      relevanceScore: row.relevanceScore,
+      trustScore,
+      sourceCount,
+    });
 
     items.push({
-      extraction: { ...row, effectiveRelevance: effective },
+      extraction: { ...row, effectiveRelevance: gate.effectiveRelevance },
       sourceName: rawItem?.sourceName ?? null,
-      sourceType: rawItem?.sourceType ?? "unknown",
+      sourceType,
+      gate,
     });
   }
 
-  const newsletterItems = items.filter((i) => i.sourceType === "newsletter" && (i.extraction.effectiveRelevance ?? 0) >= 3);
-  const personalItems = items.filter((i) => {
-    if (i.sourceType !== "personal_email" && i.sourceType !== "sms") return false;
-    return isPersonalItemIncluded(i.extraction.extractedJson as Record<string, any> | null, i.extraction.effectiveRelevance ?? 0);
-  });
+  await persistGate(items);
 
-  const highRelevanceCount = newsletterItems.filter((i) => (i.extraction.effectiveRelevance ?? 0) >= 3).length;
+  // The two lists synthesis receives are exactly what the gate passed - one decision, recorded
+  // and acted on. They used to be two inline filters, which is how a dropped item became
+  // untraceable.
+  const newsletterItems = items.filter((i) => i.gate.passed && i.sourceType === "newsletter");
+  const personalItems = items.filter(
+    (i) => i.gate.passed && (i.sourceType === "personal_email" || i.sourceType === "sms"),
+  );
+
+  // Every newsletter item that passed the gate cleared the threshold, so the two are the same
+  // figure now.
+  const highRelevanceCount = newsletterItems.length;
   const volumeSignal: "light" | "normal" | "heavy" =
     highRelevanceCount < 10 ? "light" : highRelevanceCount > 25 ? "heavy" : "normal";
 
@@ -188,8 +224,10 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     );
   }
 
+  const gatedOut = items.length - newsletterItems.length - personalItems.length;
   console.log(
-    `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items, ` +
+    `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items ` +
+    `(${gatedOut} of ${items.length} dropped at the gate - see /${runDate}/triage), ` +
     `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}, ` +
     `${webSearchResults.length} web search slot(s), ` +
     `${longTermContext.standingRules.length} standing rule(s), ` +

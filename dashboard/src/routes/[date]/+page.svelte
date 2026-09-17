@@ -2,18 +2,18 @@
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import { onDestroy } from "svelte";
-  import { setPageContext } from "$lib/assistant/state.svelte";
-  import Page from "$lib/components/Page.svelte";
-  import StatBar from "$lib/components/StatBar.svelte";
-  import ErrorCard from "$lib/components/ErrorCard.svelte";
-  import Spinner from "$lib/components/Spinner.svelte";
-  import DayNav from "$lib/report/DayNav.svelte";
-  import ReportEntry from "$lib/report/ReportEntry.svelte";
-  import SectionNav from "$lib/report/SectionNav.svelte";
-  import { URGENCY_META, type NavTarget } from "$lib/report/types";
-  import { fmtCost, fmtDate, fmtNum } from "$lib/format";
-  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "$lib/pricing";
-  import { toastFormResult } from "$lib/toast.svelte";
+  import { setPageContext } from "#lib/assistant/state.svelte.js";
+  import Page from "#lib/components/Page.svelte";
+  import StatBar from "#lib/components/StatBar.svelte";
+  import ErrorCard from "#lib/components/ErrorCard.svelte";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import DayNav from "#lib/report/DayNav.svelte";
+  import ReportEntry from "#lib/report/ReportEntry.svelte";
+  import SectionNav from "#lib/report/SectionNav.svelte";
+  import { URGENCY_META, type NavTarget } from "#lib/report/types.js";
+  import { fmtCost, fmtDate, fmtNum } from "#lib/format.js";
+  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
+  import { toastFormResult } from "#lib/toast.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -134,7 +134,20 @@
 
 {#snippet statsBar()}
   {#if data.report}
-    <StatBar {stats} />
+    <!-- The bar says how much was ingested and how much made it. The question that leaves - which
+         items, and why not - is the one thing the report itself can never answer, so the link to
+         the page that can belongs right here. Its label does not lean on `itemsFiltered`: that is
+         a subtraction over what synthesis was handed, not over what arrived, and it reads as
+         "0 filtered" on a day where plenty was. -->
+    <StatBar {stats}>
+      <a
+        href="/{data.date}/triage"
+        class="text-xs text-primary-400 no-underline hover:text-primary-300 sm:ml-auto"
+        title="Every mail of this run and where it stopped"
+      >
+        What was left out? →
+      </a>
+    </StatBar>
   {/if}
 {/snippet}
 
@@ -221,6 +234,12 @@
       {:else}
         <p>No report for {fmtDate(data.date)}.</p>
       {/if}
+
+      <!-- A run that failed or produced nothing is exactly when the reader wants to know what
+           did arrive, so the link is here too and not only on the stats bar. -->
+      <a href="/{data.date}/triage" class="text-xs text-primary-400 no-underline hover:text-primary-300">
+        See what was ingested on this day →
+      </a>
 
       {#if !triggering && !polling && data.pipelineRun?.status !== "running"}
         <form

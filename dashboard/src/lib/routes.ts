@@ -14,7 +14,7 @@
  * Adding a page means adding one entry.
  */
 
-import type { Surface } from "$lib/assistant/pageContext";
+import type { Surface } from "#lib/assistant/pageContext.js";
 
 export type NavGroup = "report" | "intel" | "memory" | "system" | "chat";
 
@@ -81,7 +81,7 @@ export const ROUTES: RouteDef[] = [
     surface: "report",
     group: "report",
     icon: ICON.report,
-    children: ["/[date]/detail/[ids]"],
+    children: ["/[date]/detail/[ids]", "/[date]/triage"],
     tab: 0,
   },
   {

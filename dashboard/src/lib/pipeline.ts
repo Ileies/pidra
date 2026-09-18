@@ -13,3 +13,87 @@ export interface StepAttempt {
 }
 
 export type RunStatus = "running" | "completed" | "failed";
+
+/**
+ * How a source failed. A closed vocabulary on purpose, and the reason this is a classifier rather
+ * than a pass-through: `step_errors` is raw text from whatever threw, and the plan keeps it off the
+ * phone entirely (OFFLINE_PLAN.md §4) because an attempt stack can quote raw source content - the
+ * 2026-09-11 run recorded a failed `INSERT INTO contacts` with its values inline. Reducing a
+ * message to one of these four words carries the fact the reader needs without carrying the text.
+ */
+export type IngestFailureKind = "timeout" | "auth" | "connection" | "unknown";
+
+export interface IngestFailure {
+  /** `imap:<account>`, `calendar`, `tasks`, `rss`, or `ingest` when Phase 1 failed as a whole. */
+  source: string;
+  kind: IngestFailureKind;
+  /**
+   * The original message. **Server-side only** - the snapshot endpoint drops this field before
+   * anything reaches the offline mirror, so a consumer that has it is one rendering on the server
+   * from a live query.
+   */
+  detail?: string;
+}
+
+/** True for a source that is a mailbox, which is the half of this the reader acts on. */
+export function isMailbox(failure: IngestFailure): boolean {
+  return failure.source.startsWith("imap:");
+}
+
+/** The account part of `imap:<account>`, or the source name unchanged for everything else. */
+export function failureLabel(failure: IngestFailure): string {
+  return failure.source.startsWith("imap:") ? failure.source.slice("imap:".length) : failure.source;
+}
+
+/**
+ * Timeout is tested before auth, and the order is the whole point: "Timed out while authenticating"
+ * matches both, and it is a timeout - the server never answered. Calling that an auth failure would
+ * send the reader to reset a password that was never wrong.
+ */
+const KINDS: [RegExp, IngestFailureKind][] = [
+  [/timed?\s?out|timeout|etimedout/i, "timeout"],
+  [/invalid_grant|auth|credential|password|unauthoriz|login failed|invalid_client/i, "auth"],
+  [/econnrefused|enotfound|ehostunreach|econnreset|epipe|socket|network|dns|certificate|tls/i, "connection"],
+];
+
+export function classifyFailure(message: string): IngestFailureKind {
+  return KINDS.find(([pattern]) => pattern.test(message))?.[1] ?? "unknown";
+}
+
+/**
+ * The sources that did not deliver on one run.
+ *
+ * Only `phase1` attempts are read. Everything later in the chain failed *after* the mail was in
+ * hand, so it is a different question with a different page (`/runs`), and a Phase 2 or Phase 6
+ * message is exactly the kind that quotes content.
+ *
+ * Deduplicated by source and kind, because `withRetry` records one attempt per try and three
+ * identical timeouts are one dead mailbox, not three.
+ */
+export function ingestFailures(attempts: StepAttempt[] | null | undefined): IngestFailure[] {
+  const seen = new Map<string, IngestFailure>();
+
+  for (const attempt of attempts ?? []) {
+    if (attempt.step !== "phase1" || !attempt.error) continue;
+
+    // Phase 1 formats a per-source failure as "<source>: <message>"; a run that threw outright
+    // records the bare message, and that is still worth showing under a generic source.
+    const split = attempt.error.match(/^(imap:\S+?|calendar|tasks|rss):\s*(.+)$/is);
+    const source = split ? split[1] : "ingest";
+    const detail = (split ? split[2] : attempt.error).trim();
+    const kind = classifyFailure(detail);
+
+    seen.set(`${source}|${kind}`, { source, kind, detail });
+  }
+
+  return [...seen.values()].sort((a, b) => {
+    // Mailboxes first: they are what the reader asked to be warned about.
+    if (isMailbox(a) !== isMailbox(b)) return isMailbox(a) ? -1 : 1;
+    return a.source.localeCompare(b.source);
+  });
+}
+
+/** Strips the raw message, leaving only what may cross into the offline mirror. */
+export function withoutDetail(failures: IngestFailure[]): IngestFailure[] {
+  return failures.map(({ source, kind }) => ({ source, kind }));
+}

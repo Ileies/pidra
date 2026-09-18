@@ -8,6 +8,7 @@
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import Spinner from "#lib/components/Spinner.svelte";
   import DayNav from "#lib/report/DayNav.svelte";
+  import IngestWarning from "#lib/report/IngestWarning.svelte";
   import ReportEntry from "#lib/report/ReportEntry.svelte";
   import SectionNav from "#lib/report/SectionNav.svelte";
   import { URGENCY_META, type NavTarget } from "#lib/report/types.js";
@@ -32,6 +33,12 @@
           ? `${data.report.itemsIncluded ?? 0} of ${data.report.itemCount ?? 0} items in the report, ${data.report.itemsFiltered ?? 0} filtered out.`
           : "There is no report for this day yet.",
         data.pipelineRun ? `Last run: ${data.pipelineRun.status}.` : "",
+        // So the assistant does not reason about a briefing as if it were complete when it is not.
+        data.ingestFailures.length > 0
+          ? `Ingest was incomplete: ${data.ingestFailures
+              .map((f) => `${f.source} (${f.kind})`)
+              .join(", ")} never delivered, so anything from them is missing from this briefing.`
+          : "",
       ].filter(Boolean).join(" "),
     });
   });
@@ -153,6 +160,10 @@
 
 <Page title={data.date} size="read" bleed={statsBar} class="flex flex-col gap-5">
   <DayNav date={data.date} today={data.today} prevDate={data.prevDate} nextDate={data.nextDate} />
+
+  <!-- Above the briefing, and above the "no report" state too: what a dead mailbox means is that
+       the text below is incomplete, which has to be read before the text, not after it. -->
+  <IngestWarning failures={data.ingestFailures} date={data.date} />
 
   {#if data.structured}
     {#if sectionTargets.length > 1}

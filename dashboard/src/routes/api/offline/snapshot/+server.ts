@@ -4,6 +4,7 @@ import { version } from "$app/env";
 import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/reports.js";
 import { loadExtractions } from "#lib/server/extractions.js";
 import { loadHarvestDocument } from "#lib/server/contextBuilder.js";
+import { ingestFailures, withoutDetail, type IngestFailure, type StepAttempt } from "#lib/pipeline.js";
 import type { ReportJson } from "#lib/report/types.js";
 
 /**
@@ -21,6 +22,12 @@ import type { ReportJson } from "#lib/report/types.js";
  * Never in the payload: `raw_items.raw_content` (loadExtractions with withRawContent: false, same
  * as the inline expansion), and anything from chat_messages, skill_executions, push_subscriptions
  * or pipeline_runs.step_errors.
+ *
+ * The one thing derived from `step_errors` is `ingestFailures`, and it is not an exception to that
+ * rule: `withoutDetail` reduces each Phase 1 failure to a source name and one of four fixed words
+ * before it is put in the payload, so no error text crosses. It is derived here rather than in the
+ * page because this is the choke point - the report page reads only the mirror, so a consumer
+ * cannot reach past this to the raw column even if it tried.
  */
 
 const MIRROR_DAYS = 60;
@@ -46,6 +53,8 @@ interface MirroredReport {
     completedAt: string | null;
     durationMs: number | null;
   } | null;
+  /** Sources that never delivered on the run behind this report. Source and kind only. */
+  ingestFailures: IngestFailure[];
   structured: ReturnType<typeof renderReport>["structured"];
   reportHtml: string | null;
   ratings: Record<string, string>;
@@ -66,9 +75,13 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
       FROM daily_reports
       WHERE report_date::text = ANY(${dates})
     `,
+    // The newest run per date, and only that one. A date can carry several attempts, but the
+    // report on the page is what the last one produced, so its failures are the ones that explain
+    // what is and is not in the text. An earlier attempt that could not reach a mailbox the last
+    // one then read fine is history, and `/runs` is where history lives.
     db`
       SELECT DISTINCT ON (run_date) run_date::text AS run_date, status, failed_step,
-             started_at, completed_at, duration_ms
+             started_at, completed_at, duration_ms, step_errors
       FROM pipeline_runs
       WHERE run_date::text = ANY(${dates})
       ORDER BY run_date, started_at DESC
@@ -113,6 +126,11 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
             durationMs: (run.duration_ms as number | null) ?? null,
           }
         : null,
+      // `withoutDetail` is the boundary: the raw attempt text stays on the server, the source and
+      // the kind of failure cross.
+      ingestFailures: withoutDetail(
+        ingestFailures(parseJsonb<StepAttempt[]>(run?.step_errors, [])),
+      ),
       structured,
       reportHtml,
       ratings: {},

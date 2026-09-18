@@ -21,6 +21,7 @@
 import { sql } from "#lib/db.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import { parseSender, parseTitle } from "#lib/mail.js";
+import { ingestFailures, type IngestFailure, type StepAttempt } from "#lib/pipeline.js";
 
 /**
  * The gate's verdict codes. Declared here, not imported: the dashboard is a separate package that
@@ -104,18 +105,6 @@ export interface TriageItem {
   extractions: TriageExtraction[];
 }
 
-/**
- * An ingest source that threw on this run. The decisive case the item list cannot express: a
- * mailbox that never answered has no items to show, so its mail is absent from the page for the
- * same reason it is absent from the report, and without this the page would quietly imply that
- * nothing arrived there.
- */
-export interface IngestFailure {
-  /** `imap:<account>`, `calendar`, `tasks`, `rss` - or the bare error on a run that failed whole. */
-  source: string;
-  error: string;
-}
-
 export interface TriageSummary {
   ingested: number;
   inReport: number;
@@ -129,7 +118,14 @@ export interface TriageSummary {
   extractions: number;
   /** True when at least one verdict was reconstructed rather than recorded by the run. */
   hasReconstructed: boolean;
-  /** Sources that failed to deliver on this day, across every run attempted for it. */
+  /**
+   * Sources that never delivered on the run behind this date. The decisive case the item list
+   * cannot express: a mailbox that never answered has no items to show, so its mail is absent for
+   * the same reason it is absent from the report, and without this the page would quietly imply
+   * that nothing arrived there.
+   *
+   * Server-rendered and online-only, so unlike the report's copy these keep their `detail`.
+   */
   ingestFailures: IngestFailure[];
 }
 
@@ -190,34 +186,6 @@ function outcomeOf(extractions: TriageExtraction[]): Outcome {
   return "unjudged";
 }
 
-/**
- * Which ingest sources failed on this date, across every run attempted for it.
- *
- * Phase 1 does not abort on a single dead source - a briefing is worth more partial than absent -
- * so the failure rides along in `pipeline_runs.step_errors` and the run still reports "completed".
- * That is the right call for the pipeline and a trap for this page, where "no mail from that
- * account" and "that account never answered" look identical.
- */
-function collectIngestFailures(runs: { step_errors: unknown }[]): IngestFailure[] {
-  const seen = new Map<string, IngestFailure>();
-
-  for (const run of runs) {
-    const errors = parseJsonb<{ step: string; error: string }[]>(run.step_errors, []);
-    for (const entry of errors) {
-      if (entry.step !== "phase1" || !entry.error) continue;
-      // Phase 1 formats these as "<source>: <message>"; a run that failed outright records the
-      // bare message instead, and that is still worth showing.
-      const split = entry.error.match(/^([a-z]+:[^:]+|[a-z]+):\s*(.+)$/i);
-      const failure = split
-        ? { source: split[1], error: split[2] }
-        : { source: "ingest", error: entry.error };
-      seen.set(`${failure.source}|${failure.error}`, failure);
-    }
-  }
-
-  return [...seen.values()];
-}
-
 export async function loadTriage(date: string): Promise<{ items: TriageItem[]; summary: TriageSummary }> {
   const db = sql();
 
@@ -267,7 +235,10 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
       WHERE run_date = ${date}
       ORDER BY received_at DESC NULLS LAST
     `,
-    db`SELECT step_errors FROM pipeline_runs WHERE run_date = ${date} ORDER BY started_at`,
+    // The newest run only, matching what the report page warns about. A date can carry several
+    // attempts, and an earlier one that could not reach a mailbox the last one then read fine is
+    // history rather than a gap in this list; `/runs` holds the history.
+    db`SELECT step_errors FROM pipeline_runs WHERE run_date = ${date} ORDER BY started_at DESC LIMIT 1`,
   ]);
 
   const items: TriageItem[] = [];
@@ -354,7 +325,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
       unjudged: count("unjudged"),
       extractions: items.reduce((sum, i) => sum + i.extractions.length, 0),
       hasReconstructed: items.some((i) => i.extractions.some((e) => e.gateDetail?.recordedBy === "backfill")),
-      ingestFailures: collectIngestFailures(runRows as unknown as { step_errors: unknown }[]),
+      ingestFailures: ingestFailures(parseJsonb<StepAttempt[]>(runRows[0]?.step_errors, [])),
     },
   };
 }

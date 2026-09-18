@@ -28,7 +28,11 @@ export const load: PageLoad = async ({ params }) => {
     today: localToday(),
     report: data?.report ?? null,
     // stepErrors is never mirrored (OFFLINE_PLAN.md §4); ErrorCard's `attempts` prop defaults to [].
+    // `ingestFailures` is the sanitised digest of the same column - source and kind, no text - and
+    // is what the warning above the briefing renders from. A report mirrored before that field
+    // existed has none, hence the fallback rather than a required field.
     pipelineRun: data?.pipelineRun ? { ...data.pipelineRun, stepErrors: [] } : null,
+    ingestFailures: data?.ingestFailures ?? [],
     structured: data?.structured ?? null,
     reportHtml: data?.reportHtml ?? null,
     ratings: data?.ratings ?? {},

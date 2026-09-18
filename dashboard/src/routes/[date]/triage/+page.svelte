@@ -14,6 +14,7 @@
   import EmptyState from "#lib/components/EmptyState.svelte";
   import Page from "#lib/components/Page.svelte";
   import StatBar from "#lib/components/StatBar.svelte";
+  import IngestWarning from "#lib/report/IngestWarning.svelte";
   import TriageCard from "#lib/report/TriageCard.svelte";
   import { fmtDate } from "#lib/format.js";
   import type { Outcome } from "#lib/server/triage.js";
@@ -138,25 +139,9 @@
   <!-- First, because it outranks everything below it: a mailbox that never answered has no items
        here, and its absence looks exactly like an empty inbox. Phase 1 deliberately carries on
        when one source dies, so nothing else on the page hints that half the mail was never
-       fetched. -->
-  {#if data.summary.ingestFailures.length > 0}
-    <div class="rounded-lg border border-warning-800 bg-warning-950 px-3 py-2 text-xs text-warning-400 flex flex-col gap-1">
-      <p class="font-semibold">
-        Ingest was incomplete on this day - {data.summary.ingestFailures.length}
-        {data.summary.ingestFailures.length === 1 ? "source" : "sources"} failed.
-      </p>
-      <ul class="flex flex-col gap-0.5">
-        {#each data.summary.ingestFailures as failure (failure.source + failure.error)}
-          <li><span class="font-medium">{failure.source}</span> - {failure.error}</li>
-        {/each}
-      </ul>
-      <p>
-        A mail from one of those sources cannot be listed below: it was never fetched, so nothing
-        about it ever reached the database. <a href="/runs" class="text-warning-400 underline">The run log</a>
-        has the attempts.
-      </p>
-    </div>
-  {/if}
+       fetched. The same component the briefing carries, so the two never word it differently -
+       here with the raw error, which is safe on a server-rendered, online-only page. -->
+  <IngestWarning failures={data.summary.ingestFailures} date={data.date} compact />
 
   {#if data.summary.hasReconstructed}
     <p class="rounded-lg border border-surface-700 bg-surface-950 px-3 py-2 text-xs text-surface-400">

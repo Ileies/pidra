@@ -64,15 +64,18 @@
     <p>
       {#if mailboxes.length > 0}
         Mail from {mailboxes.length === 1 ? "that account" : "those accounts"} was never fetched, so
-        it is not in this briefing and was not left out by choice.
+        it is missing from this day's briefing rather than left out of it by choice.
       {:else}
         Nothing from {others.length === 1 ? "that source" : "those sources"} reached this run, so
-        this briefing was written without it.
+        the briefing was written without it.
       {/if}
+    </p>
+
+    <p class="flex flex-wrap gap-x-3 gap-y-1">
       {#if !compact}
-        <a href="/{date}/triage" class="underline">What did arrive</a>,
+        <a href="/{date}/triage" class="underline">What did arrive</a>
       {/if}
-      <a href="/runs" class="underline">the run log</a> has the attempts.
+      <a href="/runs" class="underline">Every attempt</a>
     </p>
   </div>
 {/if}

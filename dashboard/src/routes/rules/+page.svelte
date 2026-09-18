@@ -1,5 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { invalidateAll } from "$app/navigation";
+  import * as outbox from "#lib/offline/outbox.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
@@ -71,9 +73,10 @@
     <form
       method="POST"
       action="?/create"
-      use:enhance={() => async ({ update }) => {
+      use:enhance={({ formData, cancel }) => {
+        cancel();
         adding = false;
-        await update();
+        outbox.createRule(String(formData.get("key") ?? ""), String(formData.get("value") ?? "")).then(invalidateAll);
       }}
       class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3"
     >
@@ -111,9 +114,10 @@
             <form
               method="POST"
               action="?/update"
-              use:enhance={() => async ({ update }) => {
+              use:enhance={({ formData, cancel }) => {
+                cancel();
                 editing = null;
-                await update();
+                outbox.updateRule(rule.id, String(formData.get("value") ?? "")).then(invalidateAll);
               }}
               class="flex flex-col gap-2"
             >
@@ -148,7 +152,10 @@
             <form
               method="POST"
               action="?/delete"
-              use:enhance
+              use:enhance={({ cancel }) => {
+                cancel();
+                outbox.deleteRule(rule.id).then(invalidateAll);
+              }}
               class="ml-auto"
             >
               <input type="hidden" name="id" value={rule.id} />

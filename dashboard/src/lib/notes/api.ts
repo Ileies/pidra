@@ -1,11 +1,15 @@
 /**
- * Client side of the notes API. Everything here proxies to the skills bridge, which owns
- * `src/notes/store.ts` - the single writer of `notes` and `note_revisions`.
+ * Client side of the notes API.
  *
- * The bridge answers with Drizzle rows, so these are camelCase. The page's own `load` reads
- * Postgres directly and yields snake_case (`NoteRow`); the UI refreshes from that after a write
- * rather than patching bridge responses into the list.
+ * The mutating calls (`createNote`, `updateNote`, `deleteNote`, `restoreNote`) go through the
+ * offline outbox (OFFLINE_PLAN.md O3): they apply to the mirror immediately and queue the real
+ * write, so they resolve the same way online or off and the caller never sees a network error for
+ * a write that is simply going to retry. `noteHistory` and `revertRevision` stay direct calls to
+ * the skills bridge proxy - reverting a revision is a correction-adjacent write kept online-only
+ * (OFFLINE_PLAN.md §1), and history is read-only trivia, not core to reading or writing a note.
  */
+
+import * as outbox from "#lib/offline/outbox.js";
 
 /** Snake_case shape the mirror and the (former) page load both use, as Postgres returns it. */
 export interface NoteRow {
@@ -75,13 +79,14 @@ async function call<T>(path: string, method: string, body?: unknown): Promise<T>
 }
 
 export const createNote = (input: { content: string; scope?: string; expires_at?: string | null }) =>
-  call<NoteApiRow>("", "POST", input);
+  outbox.createNote({ content: input.content, scope: input.scope, expiresAt: input.expires_at });
 
-export const updateNote = (id: string, patch: NotePatch) => call<NoteApiRow>(`/${id}`, "PATCH", patch);
+export const updateNote = (id: string, patch: NotePatch) =>
+  outbox.updateNote(id, { content: patch.content, scope: patch.scope, ...("expires_at" in patch ? { expiresAt: patch.expires_at ?? null } : {}) });
 
-export const deleteNote = (id: string) => call<NoteApiRow>(`/${id}`, "DELETE");
+export const deleteNote = (id: string) => outbox.deleteNote(id);
 
-export const restoreNote = (id: string) => call<NoteApiRow>(`/${id}/restore`, "POST");
+export const restoreNote = (id: string) => outbox.restoreNote(id);
 
 export const noteHistory = (id: string) => call<NoteRevisionRow[]>(`/${id}/history`, "GET");
 

@@ -101,13 +101,22 @@ export async function getNote(id: string): Promise<Note | null> {
   return row ?? null;
 }
 
-export async function createNote(input: NoteWrite & { content: string }, actor: Actor): Promise<Note> {
+/**
+ * `id` is optional and only ever client-supplied by the offline outbox (OFFLINE_PLAN.md §6): a
+ * note created offline is given its id in the browser, before the write ever reaches here, so the
+ * mirror and the eventual server row agree on identity from the start. `onConflictDoNothing`
+ * makes replaying the same create safe if the first attempt's response never made it back - the
+ * row from that first attempt is what a caller gets either way.
+ */
+export async function createNote(input: NoteWrite & { content: string; id?: string }, actor: Actor): Promise<Note> {
   const content = (input.content ?? "").trim();
   if (!content) throw new NoteError("content is required");
+  const id = input.id === undefined ? undefined : assertUuid(input.id, "id");
 
   const [row] = await db
     .insert(notes)
     .values({
+      ...(id === undefined ? {} : { id }),
       content,
       scope: normaliseScope(input.scope ?? "global"),
       expiresAt: input.expiresAt === undefined ? null : normaliseExpiry(input.expiresAt),
@@ -115,9 +124,22 @@ export async function createNote(input: NoteWrite & { content: string }, actor: 
       // `updated_by`, so a Phase 6 note the user fixed still reads as pipeline-written.
       createdBy: actor.by,
     })
+    .onConflictDoNothing()
     .returning();
 
-  return row;
+  if (row) return row;
+  const existing = id === undefined ? null : await getNote(id);
+  if (existing) return existing;
+  throw new NoteError("failed to create note");
+}
+
+/** Whether `id`'s row has moved since `baseUpdatedAt` - what an offline edit was based on. Read
+ *  and the later write are not atomic with each other, which is fine for a single-user system;
+ *  see `updateNote`'s own not-found handling for the case where the row is gone entirely. */
+export async function wasUpdatedSince(id: string, baseUpdatedAt: string | null): Promise<boolean> {
+  const note = await getNote(assertUuid(id));
+  if (!note) return false;
+  return (note.updatedAt ?? null) !== (baseUpdatedAt ?? null);
 }
 
 /**

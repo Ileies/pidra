@@ -9,8 +9,15 @@
    *
    * The rating is optimistic and re-synced from the server on the next load, so a tap under a
    * thumb never waits on a round trip.
+   *
+   * Online, with JS: `use:enhance` cancels the form's own network submission and hands the tap to
+   * the offline outbox instead (OFFLINE_PLAN.md O3), which applies it to the mirror and queues the
+   * real write - the same code path whether the VPN is up or not. No JS: the form still posts to
+   * `action` directly, which is why it and its hidden fields stay in the markup rather than being
+   * replaced by a plain button.
    */
   import { enhance } from "$app/forms";
+  import * as outbox from "#lib/offline/outbox.js";
 
   interface Props {
     extractionId: string;
@@ -34,9 +41,10 @@
     <form
       method="POST"
       {action}
-      use:enhance={() => {
+      use:enhance={({ cancel }) => {
+        cancel();
         onRate(extractionId, rating === button.event ? null : button.event);
-        return async ({ update }) => update({ reset: false, invalidateAll: false });
+        outbox.rate(extractionId, button.signal);
       }}
     >
       <input type="hidden" name="extraction_id" value={extractionId} />

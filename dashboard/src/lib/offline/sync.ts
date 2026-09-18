@@ -9,15 +9,23 @@
  * measured size (OFFLINE_PLAN.md §4) that is cheap enough to do on every sync, and it makes
  * deletions free - a row missing from the response is gone from the mirror without the server
  * having to track a tombstone list.
+ *
+ * `flush()` runs first so a snapshot never overwrites a write with the pre-write state the server
+ * had a moment ago, and `reapplyPending()` runs after so anything that still could not flush -
+ * offline the whole time, or a transport failure right in this same call - is re-asserted on top
+ * of what the pull just brought back, rather than looking discarded until it eventually lands.
  */
 
 import * as db from "./db.js";
+import * as outbox from "./outbox.js";
 
 export type SyncResult = "synced" | "offline";
 
 const DEFAULT_TIMEOUT_MS = 8000;
 
 export async function pull(options: { timeoutMs?: number } = {}): Promise<SyncResult> {
+  await outbox.flush().catch(() => {});
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   try {
@@ -25,6 +33,7 @@ export async function pull(options: { timeoutMs?: number } = {}): Promise<SyncRe
     if (!res.ok) throw new Error(`snapshot ${res.status}`);
     const snapshot = (await res.json()) as Snapshot;
     await applySnapshot(snapshot);
+    await outbox.reapplyPending();
     return "synced";
   } catch {
     return "offline";

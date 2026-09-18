@@ -16,7 +16,7 @@ import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
 import { listActiveCorrections, recordCorrection, revertCorrection, CorrectionError, type Operation, type TargetKind } from "../context/corrections";
 import {
   listNotes, createNote, updateNote, softDeleteNote, restoreNote, noteHistory, revertToRevision,
-  NoteError, type Actor, type NoteWrite,
+  wasUpdatedSince, NoteError, type Actor, type NoteWrite,
 } from "../notes/store";
 
 const app = new Hono();
@@ -415,16 +415,24 @@ app.get("/api/notes", async (c) => {
 });
 
 app.post("/api/notes", async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { content?: string; scope?: string; expires_at?: string | null };
+  const body = await c.req.json().catch(() => ({})) as { id?: string; content?: string; scope?: string; expires_at?: string | null };
   try {
-    return c.json(await createNote({ content: body.content ?? "", scope: body.scope, expiresAt: body.expires_at ?? null }, USER), 201);
+    return c.json(
+      await createNote(
+        { id: body.id, content: body.content ?? "", scope: body.scope, expiresAt: body.expires_at ?? null },
+        USER,
+      ),
+      201,
+    );
   } catch (err) {
     return noteError(c, err);
   }
 });
 
 app.patch("/api/notes/:id", async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { content?: string; scope?: string; expires_at?: string | null };
+  const body = await c.req.json().catch(() => ({})) as {
+    content?: string; scope?: string; expires_at?: string | null; base_updated_at?: string | null;
+  };
   // `expires_at` is only touched when the key is actually present: absent means "leave it",
   // null means "clear it".
   const patch: NoteWrite = {};
@@ -433,7 +441,14 @@ app.patch("/api/notes/:id", async (c) => {
   if ("expires_at" in body) patch.expiresAt = body.expires_at ?? null;
 
   try {
-    return c.json(await updateNote(c.req.param("id"), patch, USER));
+    // Read before write, not atomic with it - acceptable for one user. `base_updated_at` only
+    // ever arrives from the offline outbox (OFFLINE_PLAN.md §6); a live UI edit never sends it,
+    // so `_conflict` is always false for those and costs nothing extra.
+    const conflict = "base_updated_at" in body
+      ? await wasUpdatedSince(c.req.param("id"), body.base_updated_at ?? null)
+      : false;
+    const note = await updateNote(c.req.param("id"), patch, USER);
+    return c.json({ ...note, _conflict: conflict });
   } catch (err) {
     return noteError(c, err);
   }

@@ -23,6 +23,10 @@ export interface NoteRow {
   updated_by: string | null;
   deleted_at: string | null;
   revision_count: number;
+  /** Mirror-only, set by the outbox (OFFLINE_PLAN.md O4): an offline edit's `base_updated_at`
+   *  did not match the row's actual `updated_at` when it flushed - "changed on the server while
+   *  you were offline". Never present in a server response; only `NoteCard` reads it. */
+  conflicted?: boolean;
 }
 
 export interface NoteApiRow {

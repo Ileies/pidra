@@ -150,6 +150,23 @@ export async function reapplyPending(): Promise<void> {
   for (const intent of await sortedOutbox()) await applyOptimistic(intent);
 }
 
+// --- status change notifications ---
+
+/** The header dot and the sync sheet (OFFLINE_PLAN.md O4) read `pending()`/`failed()` on demand
+ *  rather than owning outbox state themselves; this is how they know when to ask again. Plain
+ *  callbacks, not a store of their own - `state.svelte.ts` is the one place that turns "something
+ *  changed" into a re-render. */
+const listeners = new Set<() => void>();
+
+export function onChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
 // --- enqueue ---
 
 async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Promise<void> {
@@ -164,6 +181,7 @@ async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Prom
   };
   await applyOptimistic(intent);
   await db.put("outbox", intent);
+  notify();
   flush().catch(() => {}); // best effort; failures stay queued and the caller never waits on them
 }
 
@@ -222,12 +240,12 @@ const REQUEST_TIMEOUT_MS = 8000;
  *  transport (offline, or the origin unreachable) and always retried. */
 class TerminalError extends Error {}
 
-async function send(intent: Intent): Promise<void> {
+async function send(intent: Intent): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const res = await request(intent, controller.signal);
-    if (res.ok) return;
+    if (res.ok) return res;
     if (res.status >= 400 && res.status < 500) {
       const body = await res.text().catch(() => "");
       throw new TerminalError(`${res.status}: ${body.slice(0, 200)}`);
@@ -236,6 +254,19 @@ async function send(intent: Intent): Promise<void> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** `PATCH /api/notes/:id` reports whether the row moved since the edit's `base_updated_at`
+ *  (OFFLINE_PLAN.md §6) - the mechanic behind O4's "changed on the server" flag. Nothing else the
+ *  outbox sends carries a response worth reading past its status. */
+async function markConflictIfFlagged(intent: Intent, res: Response): Promise<void> {
+  if (intent.kind !== "note.update") return;
+  const body = (await res.json().catch(() => null)) as { _conflict?: boolean } | null;
+  const p = intent.payload as { id: string };
+  const current = await db.get<NoteRow>("notes", p.id);
+  // Set unconditionally, not just on a conflict: a later edit that lands cleanly clears a flag an
+  // earlier one left, rather than the note staying marked forever.
+  if (current) await db.put("notes", { ...current, conflicted: !!body?._conflict });
 }
 
 function request(intent: Intent, signal: AbortSignal): Promise<Response> {
@@ -298,16 +329,20 @@ export function flush(): Promise<void> {
 async function run(): Promise<void> {
   for (const intent of await sortedOutbox()) {
     try {
-      await send(intent);
+      const res = await send(intent);
+      await markConflictIfFlagged(intent, res);
       await db.del("outbox", intent.id);
+      notify();
     } catch (err) {
       if (err instanceof TerminalError) {
         await db.put("failed", { ...intent, lastError: err.message });
         await db.del("outbox", intent.id);
+        notify();
         continue;
       }
       const message = err instanceof Error ? err.message : String(err);
       await db.put("outbox", { ...intent, attempts: intent.attempts + 1, lastError: message });
+      notify();
       return; // transport failure: stop here, ordering is preserved for the next attempt
     }
   }
@@ -329,9 +364,11 @@ export async function retryFailed(id: string): Promise<void> {
   if (!intent) return;
   await db.del("failed", id);
   await db.put("outbox", { ...intent, seq: await nextSeq(), attempts: 0, lastError: null });
+  notify();
   flush().catch(() => {});
 }
 
 export async function discardFailed(id: string): Promise<void> {
   await db.del("failed", id);
+  notify();
 }

@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import * as outbox from "#lib/offline/outbox.js";
+  import { offline } from "#lib/offline/state.svelte.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
@@ -33,6 +34,16 @@
     user: "Yours",
     system: "System",
   };
+
+  /** OFFLINE_PLAN.md §9: `rule.id` is the outbox's own `localId` for a still-unflushed create
+   *  (`applyOptimistic`'s temporary row, OFFLINE_PLAN.md O3), so one check covers a queued create
+   *  as well as a queued edit or delete against a rule already synced from the server. */
+  function queuedFor(id: string): boolean {
+    return offline.pending.some((i) => {
+      const p = i.payload as { id?: string; localId?: string };
+      return (i.kind === "rule.create" && p.localId === id) || (i.kind !== "rule.create" && p.id === id);
+    });
+  }
 
   /** Exactly what the block looks like where it lands in the Section 2 prompt. */
   const preview = $derived(
@@ -146,6 +157,9 @@
           <div class="flex flex-wrap items-center gap-2 text-xs text-surface-400">
             <code class="break-all">{rule.key}</code>
             <Badge tone={rule.source === "user" ? "primary" : "muted"}>{SOURCE_LABEL[rule.source] ?? rule.source}</Badge>
+            {#if queuedFor(rule.id)}
+              <Badge tone="warning">Queued</Badge>
+            {/if}
             {#if rule.updatedAt}
               <span>{fmtDateTime(rule.updatedAt)}</span>
             {/if}

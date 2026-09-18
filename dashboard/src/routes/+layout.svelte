@@ -8,6 +8,7 @@
   import Shortcuts from "#lib/components/Shortcuts.svelte";
   import Assistant from "#lib/assistant/Assistant.svelte";
   import { assistant } from "#lib/assistant/state.svelte.js";
+  import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import { navigating } from "$app/state";
 
   let { children } = $props();
@@ -69,6 +70,7 @@
 
 <!-- One instance each for the whole app, so a turn and an undo offer both survive navigation. -->
 <Assistant />
+<SyncSheet />
 <Toast />
 <CommandPalette open={searchOpen} onOpenChange={(open) => (searchOpen = open)} />
 <!-- Every global key binding lives in one component, which is how the Ctrl+K collision between

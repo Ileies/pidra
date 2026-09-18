@@ -20,6 +20,7 @@
   import { page } from "$app/state";
   import { ROUTES, NAV_GROUPS, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
+  import SyncIndicator from "#lib/offline/SyncIndicator.svelte";
 
   interface Props {
     /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
@@ -72,6 +73,8 @@
     {#if subtitle}
       <span class="text-surface-400 text-sm truncate min-w-0">{subtitle}</span>
     {/if}
+
+    <SyncIndicator />
 
     <!-- Desktop: the whole registry, grouped. -->
     <nav aria-label="Main" class="hidden sm:flex items-center justify-end gap-2 flex-wrap ml-auto">

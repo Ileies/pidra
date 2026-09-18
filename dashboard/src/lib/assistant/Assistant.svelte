@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { assistant } from "#lib/assistant/state.svelte.js";
+  import { offline } from "#lib/offline/state.svelte.js";
   import Panel from "#lib/assistant/Panel.svelte";
 
   /**
@@ -39,7 +40,9 @@
   const label = $derived(assistant.info?.label ?? "Assistant");
 
   // /chat is the assistant, full screen. A floating copy of it on top of itself is noise.
-  const hidden = $derived(page.url.pathname.startsWith("/chat"));
+  // Offline (OFFLINE_PLAN.md §9): the assistant needs the model, and a chat box that swallows a
+  // message is worse than no chat box, so it is hidden rather than offered and left to fail.
+  const hidden = $derived(page.url.pathname.startsWith("/chat") || offline.reachable === "offline");
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />

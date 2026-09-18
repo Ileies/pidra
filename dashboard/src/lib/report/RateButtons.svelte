@@ -18,6 +18,7 @@
    */
   import { enhance } from "$app/forms";
   import * as outbox from "#lib/offline/outbox.js";
+  import { offline } from "#lib/offline/state.svelte.js";
 
   interface Props {
     extractionId: string;
@@ -34,9 +35,18 @@
     { signal: "1", glyph: "+", event: "explicit_plus", name: "Relevant - this was worth reading", on: "bg-success-700 border-success-500 text-success-50" },
     { signal: "-1", glyph: "−", event: "explicit_minus", name: "Not relevant", on: "bg-error-700 border-error-500 text-error-50" },
   ] as const;
+
+  /** OFFLINE_PLAN.md §9: optimistic, but never pretending it is durable - a small dot rather than
+   *  hiding the fact that this rating has not reached the server yet. */
+  const queued = $derived(
+    offline.pending.some((i) => i.kind === "rate" && (i.payload as { extractionId?: string }).extractionId === extractionId),
+  );
 </script>
 
 <div class="flex items-center gap-1">
+  {#if queued}
+    <span class="h-1.5 w-1.5 rounded-full bg-warning-500" title="Rating queued, not yet synced" aria-hidden="true"></span>
+  {/if}
   {#each BUTTONS as button (button.signal)}
     <form
       method="POST"

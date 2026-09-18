@@ -113,6 +113,8 @@ A 60-day window comes to roughly **2 to 3 MB** including rendered HTML, growing 
 - `raw_items.raw_content`. The inline expansion already loads extractions with `withRawContent: false`; offline gets the same treatment, so raw newsletter and personal mail bodies never leave the server. The detail page's raw-body pane is an online-only affordance, and says so.
 - Anything from `chat_messages`, `skill_executions`, `push_subscriptions` or `pipeline_runs.step_errors`.
 
+**One digest is derived from `step_errors`, and it is not a hole in that rule.** Each report carries `ingestFailures`: the Phase 1 sources that never delivered on the run behind it, as a source name plus one of four fixed words (`timeout | auth | connection | unknown`). It exists because Phase 1 deliberately does not abort when a single source dies, so a run with a dead mailbox still writes a report and still records `completed` - and the reader then has no way to tell mail that never arrived from mail that was never sent. `ingestFailures()` in `$lib/pipeline.ts` classifies, `withoutDetail()` drops the message, and the snapshot endpoint calls both, so no error text crosses and the classification cannot drift between the briefing's warning and the one on `/[date]/triage`. Only `phase1` attempts are read: a later step failed after the mail was already in hand, and those are the messages that quote content - the 2026-09-11 run recorded a failing `INSERT INTO contacts` with its values inline.
+
 ---
 
 ## 5. The snapshot endpoint

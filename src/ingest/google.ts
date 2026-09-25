@@ -1,5 +1,6 @@
-import { google } from "googleapis";
+import { google, type calendar_v3 } from "googleapis";
 import { db, rawItems, rawItemExists } from "../db";
+import { HOME_TIME_ZONE, isLocalDate, zonedToIso } from "../util/time";
 
 export interface CalendarEvent {
   id: string;
@@ -86,6 +87,52 @@ export async function resolveTaskList(requested?: string | null): Promise<string
   return "@default";
 }
 
+/**
+ * A skill's start or end as the Calendar API takes it: `YYYY-MM-DD` is a whole-day `date`,
+ * anything else a `dateTime`. A time without an offset is read in `HOME_TIME_ZONE` rather than
+ * in the process's own zone, which on a server running in UTC was two hours off. The other field
+ * is sent as null so a patch can turn a timed event into a whole-day one and back.
+ */
+export function eventTime(value: string): calendar_v3.Schema$EventDateTime {
+  const trimmed = value.trim();
+  if (isLocalDate(trimmed)) return { date: trimmed, dateTime: null, timeZone: HOME_TIME_ZONE };
+  const iso = zonedToIso(trimmed) ?? (Number.isNaN(Date.parse(trimmed)) ? null : new Date(trimmed).toISOString());
+  if (!iso) throw new Error(`Not a date or time: "${value}"`);
+  return { dateTime: iso, date: null, timeZone: HOME_TIME_ZONE };
+}
+
+function toCalendarEvent(event: calendar_v3.Schema$Event & { id: string }): CalendarEvent {
+  return {
+    id: event.id,
+    title: event.summary ?? "(no title)",
+    start: event.start?.dateTime ?? event.start?.date ?? "",
+    end: event.end?.dateTime ?? event.end?.date ?? "",
+    location: event.location ?? null,
+    description: event.description ?? null,
+    attendees: (event.attendees ?? []).map((a) => a.email!).filter(Boolean),
+    is_all_day: !event.start?.dateTime,
+  };
+}
+
+/**
+ * The primary calendar's events overlapping `[timeMin, timeMax)`, for a caller that needs a window
+ * other than the ingest's seven days (the quick actions check a proposed event's own day).
+ */
+export async function listCalendarEvents(timeMin: string, timeMax: string): Promise<CalendarEvent[]> {
+  const calendar = await getCalendarClient();
+  const response = await calendar.events.list({
+    calendarId: "primary",
+    timeMin,
+    timeMax,
+    singleEvents: true,
+    orderBy: "startTime",
+    maxResults: 50,
+  });
+  return (response.data.items ?? [])
+    .filter((event): event is calendar_v3.Schema$Event & { id: string } => !!event.id)
+    .map(toCalendarEvent);
+}
+
 export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   const auth = createAuthClient();
   const calendar = google.calendar({ version: "v3", auth });
@@ -108,17 +155,7 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   for (const event of events) {
     if (!event.id) continue;
 
-    const isAllDay = !event.start?.dateTime;
-    const content: CalendarEvent = {
-      id: event.id,
-      title: event.summary ?? "(no title)",
-      start: event.start?.dateTime ?? event.start?.date ?? "",
-      end: event.end?.dateTime ?? event.end?.date ?? "",
-      location: event.location ?? null,
-      description: event.description ?? null,
-      attendees: (event.attendees ?? []).map((a) => a.email!).filter(Boolean),
-      is_all_day: isAllDay,
-    };
+    const content = toCalendarEvent({ ...event, id: event.id });
 
     // Snapshot, not an append log, same shape as ingestGoogleTasks: the key carries no runDate,
     // so an event still in the 7-day window is refreshed in place instead of costing a fresh row

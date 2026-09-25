@@ -1,14 +1,17 @@
 # PIDRA - Personal Ingestive Daily Report Agent
 
-AI-powered morning briefing system. Phase 1 pulls from 16 independent sources every morning - 13 mailboxes over IMAP, 24 newsletter feeds over RSS, Google Calendar and Google Tasks - and SMS arrives separately by webhook. 32 curated newsletters in total, the rest of them by mail. Produces a structured two-section report and pushes it to the phone. Gets smarter over time through feedback loops, an entity knowledge graph, and weekly self-improvement runs.
+AI-powered morning briefing system. Phase 1 pulls from 16 independent sources every morning - 13 mailboxes over IMAP, 24 newsletter feeds over RSS, Google Calendar and Google Tasks - and SMS arrives separately by webhook. 32 curated newsletters in total, the rest of them by mail. Alongside them, six news desks research the day's news on the web. Produces a structured three-section report and pushes it to the phone. Gets smarter over time through feedback loops, an entity knowledge graph, and weekly self-improvement runs.
 
 ## Output
 
-**Section 1 - Intelligence Briefing**
-World-facing intelligence organized by topic domain (AI, China, Finance, Science, etc.). Cross-referenced with previous reports - never re-explains background, only surfaces updates and novel developments.
-
-**Section 2 - Personal Action Center**
+**Section 2 - Personal Action Center** (shown first)
 Life logistics: emails requiring response, payment deadlines, upcoming calendar events, tasks approaching due dates, SMS follow-ups. Prioritized by urgency. Cross-linked with calendar and to-do list.
+
+**News**
+What happened since the last briefing, researched every morning by six web-search desks: the world's front page, the home city and country, the reader's first priority as a beat, their other fields, what people are talking about, and one or two things they would never have looked for. Every story is checked in code against what the search actually returned before it is written up, and every link on it is a checked source.
+
+**Section 1 - Intelligence Briefing**
+World-facing intelligence from the newsletters, organized by topic domain (AI, China, Finance, Science, etc.). Cross-referenced with previous reports - never re-explains background, only surfaces updates and novel developments.
 
 ## Tech Stack
 
@@ -21,7 +24,7 @@ Life logistics: emails requiring response, payment deadlines, upcoming calendar 
 | Database | Postgres + DrizzleORM |
 | Email | IMAP (Netcup) |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |
-| Web search | Brave Search API (free tier to start) |
+| Web search | OpenAI `web_search` for the news desks; Brave Search API for the Section 1 slots |
 | Push notifications | Web Push API (PWA), VAPID |
 | Scheduling | systemd timers on the host, one one-shot unit per job |
 | OS | NixOS (self-hosted on `pronix`) |
@@ -105,3 +108,5 @@ A **partial** ingest failure is not a failed run. Phase 1 settles all 16 sources
 Measured, and only for what the system actually tracks. `daily_reports` records synthesis tokens: the 2026-09-12 run was 25.6k in / 3.9k out, about a cent at `gpt-5.6-luna` list prices ($0.20 / $1.20 per Mtok). Every call runs on `service_tier: "flex"`, so the real spend is below the dashboard's figure, which prices at list.
 
 Extraction is not tracked per run and sits on top of that. The Context Builder prints its own running total: the 2026-09-12 monthly update was $0.05 for 177 items; a full harvest is the expensive one, estimated in `CONTEXT_BUILDER_PLAN.md`.
+
+The news desks are the largest daily cost, and their tokens are in the report's figures. On the 2026-09-25 probes they took 250k to 670k input tokens a morning depending on reasoning effort, most of it search results. Their web search calls, 26 to 77 a morning on the same probes, are billed per call on top of tokens and appear in the report's "web searches" figure, not in its cost.

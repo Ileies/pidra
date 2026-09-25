@@ -744,6 +744,14 @@ Apply trust score update rules from §12. Log threshold crossings to notes.
 
 ## 15. Web Search Module
 
+> **Added 2026-09-25: the news desks.** Separate from the three slots below, and much larger: six
+> web-search research calls a morning (world, home, beat, fields, talk of the day, something
+> different) that produce the report's News section, between Section 2 and Section 1. They run on
+> OpenAI's `web_search` tool rather than Brave, store their stories as `web_news` extractions, and
+> are checked in code before the gate. Design and reasoning: `src/news/` and
+> `CONTEXT_AND_DECISIONS.md` §9, "News desks". The slots below are unchanged and still feed
+> Section 1 and the Mentions subsection.
+
 Three search slots per day. All fire in parallel at Phase 3. Results processed by Ollama before reaching Sonnet (relevance filter: if Ollama scores web result relevance < 3, discard silently).
 
 **Web search API:** TODO - see §23
@@ -1290,22 +1298,10 @@ personal_context (
 - Requires HTTPS: ensure server has valid SSL (Let's Encrypt on Netcup)
 
 ### Report format
-Final Markdown structure:
+Final Markdown structure, in the order Phase 6 writes it (Section 2 first since the dashboard
+redesign, the News section between the two since 2026-09-25):
 ```markdown
 # Morning Briefing - Monday, 6 May 2025
-
----
-
-## Intelligence Briefing
-
-### AI & Technology
-...
-
-### China
-...
-
-### Also noted
-...
 
 ---
 
@@ -1318,6 +1314,38 @@ Final Markdown structure:
 ...
 
 ### Normal
+...
+
+---
+
+## News
+
+### Top stories
+...
+
+### {home area}
+...
+
+### {one per field}
+...
+
+### Talk of the day
+...
+
+### Something different
+...
+
+---
+
+## Intelligence Briefing
+
+### AI & Technology
+...
+
+### China
+...
+
+### Also noted
 ...
 ```
 

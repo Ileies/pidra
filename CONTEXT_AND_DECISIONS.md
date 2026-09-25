@@ -78,6 +78,8 @@ These are ordered. When forced to choose between two stories, rank by this list.
 
 **Exclude always:** Celebrity, sports, US domestic politics unrelated to tech or China, promotional content, items with effective relevance < 3.
 
+**Superseded for the News section (2026-09-25):** these exclusions describe the newsletter briefing (Section 1), not the news. The News section includes anything of major public salience whatever its domain (a globally famous person attacked, a war, a disaster in the home city, the match everyone discussed), because the reader relies on it as their only news source and exclusions there are exactly how they end up the last to know. See §9, "News desks".
+
 **Boost automatically:**
 - Stories covered by 3+ newsletters (corroboration signal)
 - Stories connecting two or more priority domains (cross-domain connections are the highest-value output)
@@ -98,6 +100,7 @@ These are functional requirements, not style preferences. A high-density reading
 - **Cross-domain connections made explicit** - if an AI story connects to a China story, state the link directly. Do not leave it implicit.
 - **Section 2 urgency labels are load-bearing** - Critical/High/Normal must be correct. An incorrectly labeled urgent item that gets skipped has real consequences.
 - **Target length:** Section 1: 600–900 words. Section 2: 300–500 words. Hold these regardless of input volume.
+- **News section:** one bullet per story, a bold headline sentence and the facts needed to retell it, at most 45 words. No analysis: it is read to know what happened, and the newsletters are where the depth lives.
 
 ---
 
@@ -287,6 +290,17 @@ Push notification says only "Morning briefing ready - N items." No content in no
 ### Report language: English (always, regardless of source language)
 ### Web search: Start with Brave Search API (free tier, 2,000 calls/month)
 Abstracted behind internal interface. Evaluate Tavily or Exa after 30 days if quality insufficient.
+
+### News desks: the briefing is the reader's only news source
+**Decision, 2026-09-25: the briefing covers the day's news itself, researched on the web every morning.** The owner's words: this app is their only source of news, and at work and at home they are asked whether they live behind the moon. The evidence agreed. The 32 newsletters are slow news by design (essays, research, analysis) and none of them is a general news source; 12 of them, TLDR AI among them, had not delivered a single issue since 2026-09-12; weekends brought one to three items. The briefing of 2026-09-25 spent its Section 1 on a neurology society's leadership election and an 18th-century book, and could not say where the US-China summit was taking place. Nothing in the system could have reported a war, an election or a fire in the home city.
+
+The shape, and why:
+- **Six desks, each one web-search call with one mandate** (`src/news/desks.ts`): world front page, home city and country, the reader's first priority as a beat, their other fields, talk of the day, something different. Separate mandates because recall is the failure that matters and a single "find the news" call runs a few searches and stops. The beat desk exists because the fields desk, given all seven priorities, spread four search calls across them on its first real run.
+- **OpenAI's `web_search` tool, not Brave.** A desk has to search, read and judge in one call, and Brave returns snippets. The Brave slots stay where they are, for Section 1's topic deep dive. Probed 2026-09-25: the tool works with `gpt-5.6-luna` on flex, `store: false` and a strict schema.
+- **The model selects, code verifies** (`src/news/validate.ts`): a story is held back when none of its sources is a URL the search returned, when it predates the window, when another desk's copy was kept, or when the reader already saw it and nothing is new. Each has a gate reason, so nothing is dropped silently.
+- **Links are never model-written.** The editor cites short ids; code maps them to extraction ids and attaches the links from checked sources, and strips any link the editor wrote.
+- **What a desk may see is the privacy boundary.** Its queries go to a search engine, so it gets the home location (`NEWS_HOME_*`, configuration, not the profile text), the interests section of the context document, the intel notes and recent headlines, never the personal sections.
+- **Cost, measured on 2026-09-25:** about 26-30 search calls and 250k input tokens a morning with every desk at medium effort, about 77 calls and 670k tokens with every desk at high. The defaults put the four recall-critical desks at high and fields and something-different at medium; `NEWS_REASONING_EFFORT=medium` roughly halves the calls.
 
 ### Passive context sources
 **Status: none of the three are built yet.** This is Phase 7 of the roadmap (`MORNING_BRIEFING_PLAN.md` §20), deliberately deferred until Phase 6 has run stably for 2+ weeks (`CLAUDE.md`, "What not to build (yet)"). The design below is the plan, not the current state - no `keep_notes`, `keep_index`, `chat_signals`, or `personal_context` table exists yet.

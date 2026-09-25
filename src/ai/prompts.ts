@@ -141,8 +141,9 @@ Output rules:
 - ONGOING STORIES: start entry with "UPDATE:" then state only what is new. Do not re-explain background.
 - NEW STORIES: introduce concisely, state the key claim. Fold personal relevance into that claim rather than appending a separate sentence for it.
 - HEAVY DAY: include only top 20 items by relevance. Add ## Also noted section with one-line entries for items 21+.
-- LIGHT DAY: go deeper. Include more context on ongoing stories. Accept effective_relevance >= 2.5.
-- Target length: 600–900 words regardless of volume.
+- LIGHT DAY: a light day is a short section. Give each item what its extraction supports and no
+  more; never pad an item with analysis or background to fill space.
+- Target length: at most 900 words. Length follows the material: on a light day, write less.
 - Use this structure:
   ## Intelligence Briefing
   ### {Domain}

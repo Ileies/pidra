@@ -99,7 +99,7 @@ These are functional requirements, not style preferences. A high-density reading
 - **One-liners in "Also noted"** - single-sentence claim statement only. Not a summary.
 - **Cross-domain connections made explicit** - if an AI story connects to a China story, state the link directly. Do not leave it implicit.
 - **Section 2 urgency labels are load-bearing** - Critical/High/Normal must be correct. An incorrectly labeled urgent item that gets skipped has real consequences.
-- **Target length:** Section 1: 600–900 words. Section 2: 300–500 words. Hold these regardless of input volume.
+- **Target length:** Section 1: at most 900 words, and less on a light day. Section 2: 300–500 words. Revised 2026-09-25 from "600–900 regardless of input volume": held on a day with six thin items, the floor is what turned a neurology society's leadership election and an 18th-century book into two-paragraph essays, and the owner had started scrolling past Section 1 altogether. With the News section carrying what happened, Section 1 is the depth layer and is as long as its material. The same revision dropped "go deeper on a light day" and its 2.5 relevance floor, which the gate had already made dead: nothing under 3 reaches synthesis.
 - **News section:** one bullet per story, a bold headline sentence and the facts needed to retell it, at most 45 words. No analysis: it is read to know what happened, and the newsletters are where the depth lives.
 
 ---

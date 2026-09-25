@@ -25,7 +25,8 @@
  * app up and no network beneath it, a request neither succeeds nor fails, it waits for the OS
  * connect timeout. So a live page's navigation races the network against `NAV_BUDGET_MS` and then
  * boots the cached shell (its load then fails into `OfflineNotice`), and an asset missing from the
- * precache gets `ASSET_BUDGET_MS`. `/api/**` and `__data.json` are not touched here:
+ * precache gets `ASSET_BUDGET_MS`. Every request the worker makes is *aborted* at its budget
+ * (`send`), not just stopped being waited for. `/api/**` and `__data.json` are not touched here:
  * `$lib/offline/net.ts` bounds those in the page, where the answer can be turned into a designed
  * state. Server-rendered pages are deliberately not cached: an old copy of the approval queue
  * served as if it were current is the lie OFFLINE_PLAN.md §1 rules out. Public legal pages are
@@ -104,7 +105,7 @@ self.addEventListener("install", (event) => {
     // The shell of this build first, fetched now while the network is known to be there (the
     // worker script itself just came over it). Without this, the first launch after a deploy that
     // happens offline would have no document for this version at all, although the mirror is full.
-    withBudget(fromNetwork(new Request(SHELL_SOURCE)), ASSET_BUDGET_MS)
+    fromNetwork(new Request(SHELL_SOURCE))
       .catch(() => {})
       .then(() => (self.registration.active ? undefined : sleep(FIRST_INSTALL_DELAY_MS)))
       .then(precache),
@@ -140,6 +141,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * A request this worker makes, aborted when its budget runs out (found by the H5 blackhole suite).
+ * `withBudget()` alone only stops *waiting*: the request itself kept its socket until the OS gave
+ * up, 11 to 24 s in the suite, and over HTTP/1.1 a handful of those take the whole per-host
+ * connection pool, so the page's own probe queued behind them and the app could not even tell it
+ * was back online. The timer is never cleared: the abort also covers a body that stalls after the
+ * headers, and aborting a request that already finished does nothing.
+ */
+function send(request: Request, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  // A navigation request cannot be passed to `fetch` together with an init, so it is rebuilt from
+  // its parts; `redirect: "manual"` is what a navigation has, and what it must get back.
+  if (request.mode === "navigate") {
+    return fetch(request.url, { headers: request.headers, credentials: request.credentials, redirect: "manual", signal: controller.signal });
+  }
+  return fetch(request, { signal: controller.signal });
+}
+
 function withBudget<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("budget exceeded")), ms);
@@ -170,7 +190,11 @@ async function precache(): Promise<void> {
       try {
         const known = path.startsWith("/_app/immutable/") ? await caches.match(path) : undefined;
         if (known) await cache.put(path, known);
-        else await withBudget(cache.add(path), ASSET_BUDGET_MS);
+        else {
+          const response = await send(new Request(path), ASSET_BUDGET_MS);
+          if (!response.ok) throw new Error(`${path}: ${response.status}`);
+          await cache.put(path, response);
+        }
       } catch {
         // Fetched on first use instead, by `cacheFirst`.
       }
@@ -215,7 +239,7 @@ async function navigation(event: FetchEvent): Promise<Response> {
       // worker alive until the OS gives up. A late or missing answer says nothing the page's own
       // requests will not say sooner.
       event.waitUntil(
-        withBudget(fromNetwork(event.request), ASSET_BUDGET_MS).catch(() => {
+        fromNetwork(event.request).catch(() => {
           offline = true;
         }),
       );
@@ -226,13 +250,14 @@ async function navigation(event: FetchEvent): Promise<Response> {
   if (offline) {
     // Still ask, in the background: a late answer refreshes the shell and clears the flag, so the
     // next navigation goes to the network again without the page having to say so.
-    event.waitUntil(withBudget(fromNetwork(event.request), ASSET_BUDGET_MS).catch(() => {}));
+    event.waitUntil(fromNetwork(event.request).catch(() => {}));
     return fallbackDocument();
   }
 
   const network = fromNetwork(event.request);
-  // A navigation that outruns the budget keeps going; when it lands, it still refreshes the shell.
-  event.waitUntil(withBudget(network, ASSET_BUDGET_MS).catch(() => {}));
+  // A navigation that outruns the page's budget keeps going up to its own (`send`); when it lands
+  // inside that, it still refreshes the shell.
+  event.waitUntil(network.catch(() => {}));
   return withBudget(network, NAV_BUDGET_MS).catch(() => {
     offline = true;
     return fallbackDocument();
@@ -240,7 +265,7 @@ async function navigation(event: FetchEvent): Promise<Response> {
 }
 
 async function fromNetwork(request: Request): Promise<Response> {
-  const response = await fetch(request);
+  const response = await send(request, ASSET_BUDGET_MS);
   if (!response.headers.has("x-pidra")) throw new Error("answered by something other than the app");
   offline = false;
   if (response.ok && response.headers.has("x-pidra-shell")) {
@@ -256,7 +281,7 @@ async function cacheFirst(request: Request): Promise<Response> {
   const hit = await caches.match(request);
   if (hit) return hit;
   try {
-    const response = await withBudget(fetch(request), ASSET_BUDGET_MS);
+    const response = await send(request, ASSET_BUDGET_MS);
     if (response.ok) {
       const cache = await caches.open(CACHE);
       await cache.put(request, response.clone());

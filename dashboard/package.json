@@ -10,7 +10,8 @@
 		"preview": "vite preview",
 		"format": "prettier --write .",
 		"lint": "eslint .",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts && bun run scripts/check-offline.ts"
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts && bun run scripts/check-offline.ts && bun run scripts/blackhole/run.ts",
+		"test:offline": "bun run scripts/blackhole/run.ts"
 	},
 	"dependencies": {
 		"@skeletonlabs/skeleton": "^5.0.1",
@@ -32,6 +33,7 @@
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",
 		"globals": "^17.12.0",
+		"playwright-core": "^1.63.0",
 		"prettier": "^3.9.7",
 		"prettier-plugin-svelte": "^4.1.1",
 		"svelte": "^5.57.0",

@@ -271,7 +271,7 @@ export interface EntityAppearance {
   relevanceScore: number | null;
 }
 
-interface MirroredRelation {
+export interface MirroredRelation {
   id: string;
   fromId: string;
   toId: string;
@@ -282,7 +282,7 @@ interface MirroredRelation {
   confirmed: boolean;
 }
 
-interface MirroredAppearance extends EntityAppearance {
+export interface MirroredAppearance extends EntityAppearance {
   entityId: string;
 }
 

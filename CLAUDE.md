@@ -74,7 +74,9 @@ See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 - `feedback_events` - explicit +/- ratings and implicit behavioral signals per extraction
 - `push_subscriptions` - Web Push VAPID subscriptions for PWA notifications
 
-## DB migrations
+## DB access and migrations
+
+`DATABASE_URL` points at `192.168.10.85`, which is reachable on the LAN only. To run from outside, tunnel first with `ssh -N -L 15432:127.0.0.1:5432 ros`, then point `DATABASE_URL` at `127.0.0.1:15432`.
 
 `drizzle-kit migrate` hangs in this environment. **Always apply schema changes manually** via a temporary Bun script using `new SQL(DATABASE_URL)`. After applying, delete the temp script. The `migrations/` folder and DrizzleORM schema stay in sync for reference, but the actual migration is applied raw.
 

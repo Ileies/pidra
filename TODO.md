@@ -67,9 +67,3 @@ Corrections about the owner (relationships, client domains, standing rules, comm
 
 **Email self-hosting** (decided 2026-09-10: not now):
 - **[INFRA]** Revisit after ~60 days of stable runs. It puts deliverability and IMAP reliability under the one system that is meant to be trustworthy. When it happens: **Stalwart** - a single binary, far less config surface than Postfix + Dovecot, and a better fit for a NixOS module
-
----
-
-## Operational notes
-
-- `DATABASE_URL` points at `192.168.10.85`, reachable on the LAN only. To run from outside, tunnel first: `ssh -N -L 15432:127.0.0.1:5432 ros`, then point `DATABASE_URL` at `127.0.0.1:15432`

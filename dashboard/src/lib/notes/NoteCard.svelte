@@ -277,7 +277,7 @@
       {#if note.revision_count > 0}
         <details
           bind:open={historyOpen}
-          ontoggle={() => historyOpen && history.length === 0 && loadHistory()}
+          ontoggle={(event) => event.currentTarget.open && history.length === 0 && loadHistory()}
           class="mt-2"
         >
           <summary class="tap text-xs text-surface-400 hover:text-surface-200 cursor-pointer">

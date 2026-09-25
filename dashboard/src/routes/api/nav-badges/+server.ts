@@ -1,4 +1,5 @@
 import { sql } from "#lib/db.js";
+import { parseJsonb } from "#lib/jsonb.js";
 
 /**
  * Pulled out of +layout.server.ts. Kept as a real endpoint rather than a
@@ -8,12 +9,14 @@ import { sql } from "#lib/db.js";
  */
 export const GET = async () => {
   const db = sql();
-  const [[pendingQuestions], [pendingSkills]] = await Promise.all([
-    db`SELECT count(*)::int AS n FROM question_gate_sessions WHERE status = 'pending'`,
+  // The same row `/questions` renders, counted the way it counts: its questions, not the number
+  // of pending sessions, so the badge and the page heading cannot disagree.
+  const [[gate], [pendingSkills]] = await Promise.all([
+    db`SELECT questions FROM question_gate_sessions WHERE status = 'pending' ORDER BY created_at DESC LIMIT 1`,
     db`SELECT count(*)::int AS n FROM skill_executions WHERE status = 'pending'`,
   ]);
 
-  const questions = (pendingQuestions?.n as number | undefined) ?? 0;
+  const questions = gate ? parseJsonb<unknown[]>(gate.questions, []).length : 0;
   const skills = (pendingSkills?.n as number | undefined) ?? 0;
 
   return Response.json({

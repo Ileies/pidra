@@ -13,9 +13,14 @@
   import { netJson } from "#lib/offline/net.js";
   import { poll } from "#lib/offline/poll.js";
   import { sync } from "#lib/offline/sync.js";
+  import { offline } from "#lib/offline/state.svelte.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  // The run controls and a correction's revert are online-only (OFFLINE_PLAN.md §1): disabled once
+  // the app knows it is offline, with the reason, like the writes on /contacts and /topics.
+  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
@@ -260,7 +265,12 @@
                 class="shrink-0"
               >
                 <input type="hidden" name="id" value={correction.id} />
-                <button type="submit" class="tap nav-btn nav-btn-muted cursor-pointer">Revert</button>
+                <button
+                  type="submit"
+                  disabled={isOffline}
+                  title={isOffline ? "Needs the connection" : undefined}
+                  class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >Revert</button>
               </form>
             </div>
           </li>
@@ -291,7 +301,7 @@
     <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-3">
         <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
-          {displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
+          {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
         </Badge>
         {#if status?.dbRun}
           <span class="text-surface-400 text-sm">{displayLabel(status.dbRun.mode)} mode</span>
@@ -300,27 +310,32 @@
       <div class="flex items-center gap-2 flex-wrap">
         <button
           class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={starting || status?.running}
+          disabled={isOffline || starting || status?.running}
           onclick={() => start(null)}
         >
           {starting ? "Starting…" : "Start"}
         </button>
         <button
           class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={starting || status?.running}
+          disabled={isOffline || starting || status?.running}
           onclick={() => start("full")}
         >
           Force full
         </button>
         <button
           class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={stopping || !status?.trackedByDashboard}
+          disabled={isOffline || stopping || !status?.trackedByDashboard}
           onclick={stop}
         >
           {stopping ? "Stopping…" : "Stop"}
         </button>
       </div>
     </div>
+
+    {#if isOffline}
+      <!-- Live run state is what this section shows, and a copy of it would be a lie (§1). -->
+      <p class="text-xs text-surface-400 mb-3">Starting or stopping a run needs the connection. The run status below is the last one seen.</p>
+    {/if}
 
     {#if status?.dbRun}
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">

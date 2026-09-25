@@ -18,9 +18,13 @@
   import { netJson } from "#lib/offline/net.js";
   import { poll } from "#lib/offline/poll.js";
   import { sync } from "#lib/offline/sync.js";
+  import { offline } from "#lib/offline/state.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  // A pipeline trigger is online-only (OFFLINE_PLAN.md §1); said before the tap, not after it.
+  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
@@ -300,11 +304,15 @@
         >
           <button
             type="submit"
+            disabled={isOffline}
             class="tap px-6 py-2.5 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {data.pipelineRun?.status === "failed" ? "Retry" : "Run pipeline now"}
           </button>
         </form>
+        {#if isOffline}
+          <p class="text-xs text-surface-400">Running the pipeline needs the connection.</p>
+        {/if}
       {/if}
     </div>
   {/if}

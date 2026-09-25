@@ -10,6 +10,7 @@
   import { assistant } from "#lib/assistant/state.svelte.js";
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import FirstSync from "#lib/offline/FirstSync.svelte";
+  import { navBadges } from "#lib/navBadges.svelte.js";
   import { navigating } from "$app/state";
 
   let { children } = $props();
@@ -17,6 +18,14 @@
   // A mirrored page whose load found the mirror empty: first launch, or right after "Clear offline
   // data". Decided from the load's own answer, so the first frame is already the right one.
   const firstSync = $derived(page.data.mirrorEmpty === true);
+
+  // Whenever the page's data reloads - a navigation, or a form action's invalidation - the badge
+  // counts may have moved. Read `page.data` so the effect re-runs on each reload; the fetch itself
+  // is background and throttled, and nothing waits for it.
+  $effect(() => {
+    void page.data;
+    void navBadges.refresh();
+  });
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.
   // `dvh`, not `vh`: mobile browser chrome makes 100vh taller than the visible area, which put

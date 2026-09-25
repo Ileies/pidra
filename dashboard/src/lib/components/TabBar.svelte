@@ -14,6 +14,7 @@
   import { ROUTES, TABS, MORE_ICON, needsConnection, routeFor } from "#lib/routes.js";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
+  import { navBadges } from "#lib/navBadges.svelte.js";
 
   interface Props {
     open: boolean;
@@ -23,7 +24,7 @@
   let { open, onOpenChange }: Props = $props();
 
   const current = $derived(routeFor(page.route.id));
-  const badges = $derived((page.data.navBadges ?? {}) as Record<string, number>);
+  const badges = $derived(navBadges.counts);
   const anyPending = $derived(Object.values(badges).some((count) => count > 0));
   const isOffline = $derived(offline.reachable === "offline");
 

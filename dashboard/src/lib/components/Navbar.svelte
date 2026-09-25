@@ -22,6 +22,7 @@
   import NotifyButton from "#lib/components/NotifyButton.svelte";
   import SyncIndicator from "#lib/offline/SyncIndicator.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
+  import { navBadges } from "#lib/navBadges.svelte.js";
 
   interface Props {
     /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
@@ -33,7 +34,7 @@
   const routeId = $derived(page.route.id ?? "");
   const current = $derived(routeFor(routeId));
   /** Keyed by href, so the navbar renders a badge without knowing what it counts. */
-  const badges = $derived((page.data.navBadges ?? {}) as Record<string, number>);
+  const badges = $derived(navBadges.counts);
   const isOffline = $derived(offline.reachable === "offline");
 
   /**

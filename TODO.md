@@ -45,6 +45,7 @@ Corrections about the owner (relationships, client domains, standing rules, comm
 ## Later
 
 - **[FEATURE]** Travel-aware home desk: when the calendar puts the reader in another city (a trip, the China pre-trip window of `CONTEXT_AND_DECISIONS.md` §1), cover that city as well as home for the duration. The home desk reads one fixed `NEWS_HOME_*` location today
+- **[DECISION]** Whether `/runs` and `/sources` get a read-only "last seen" copy offline, labelled with its age, instead of the `OfflineNotice` they show today. Defensible because neither page acts on what it shows; the cost is two more stores in the snapshot and the fingerprint. `/questions`, `/skills`, `/prompts` and `/chat` stay online-only either way: acting on a stale gate or approval is the harm `OFFLINE_PLAN.md` §1 rules out. Left open by H3 of the offline plan (2026-09-25)
 
 **Phase 8 - Smart reply** (only after all prior phases are complete and stable):
 - **[FEATURE]** `reply_monitoring: boolean` per address config block

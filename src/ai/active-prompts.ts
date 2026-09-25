@@ -24,6 +24,7 @@ import {
   NEWS_WORLD_PROMPT,
   NEWSLETTER_EXTRACTION_PROMPT,
   PERSONAL_EMAIL_PROMPT,
+  QUICK_ACTIONS_PROMPT,
   SECTION1_SYSTEM_PROMPT,
   SECTION2_SYSTEM_PROMPT,
 } from "./prompts";
@@ -33,6 +34,7 @@ export const PROMPT_SECTIONS = [
   "section1",
   "section2",
   "news",
+  "quick_actions",
   "extraction",
   "entity_extraction",
   "personal_classification",
@@ -51,6 +53,7 @@ const BASELINES: Record<PromptSection, string> = {
   section1: SECTION1_SYSTEM_PROMPT,
   section2: SECTION2_SYSTEM_PROMPT,
   news: NEWS_SECTION_PROMPT,
+  quick_actions: QUICK_ACTIONS_PROMPT,
   extraction: NEWSLETTER_EXTRACTION_PROMPT,
   entity_extraction: ENTITY_EXTRACTION_PROMPT,
   personal_classification: PERSONAL_EMAIL_PROMPT,

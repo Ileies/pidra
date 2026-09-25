@@ -116,6 +116,38 @@ export const dailyReports = pgTable("daily_reports", {
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
+/**
+ * Quick actions: one-tap buttons the report offers beside a personal item, such as "add this
+ * event to the calendar". Proposed by a separate model call in Phase 5 (`src/actions/`), never
+ * by the report text itself, so the report stays final while each action keeps its own state.
+ *
+ * `src/actions/store.ts` is the only writer. The pipeline inserts proposals and a re-run replaces
+ * only the ones nobody has acted on; the dashboard resolves them through the bridge, which runs
+ * the skill through `executeSkill()`. A proposal the code threw out is kept as `discarded` with a
+ * reason, so a too-eager or too-timid agent can be judged from the table rather than guessed at.
+ */
+export const reportActions = pgTable("report_actions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runDate: dateStr("run_date").notNull(),
+  kind: text("kind").notNull(), // add_event | update_event | add_todo | complete_todo
+  skillName: text("skill_name").notNull(),
+  /** Exactly what the skill receives. */
+  parameters: jsonb("parameters").notNull().$type<Record<string, unknown>>(),
+  /** What the button shows. Display only, see `ActionPreview` in `src/actions/propose.ts`. */
+  preview: jsonb("preview").notNull().$type<import("../actions/propose").ActionPreview>(),
+  /** The model's one-line reason, in the words the dashboard shows beside an unattached action. */
+  reason: text("reason"),
+  /** The mails behind it. The dashboard attaches the button to the report entry citing them. */
+  sourceExtractionIds: uuid("source_extraction_ids").array().notNull(),
+  // proposed | running | done | failed | queued | dismissed | discarded
+  status: text("status").notNull().default("proposed"),
+  /** Why it was discarded, or what the skill said when it ran or failed. */
+  statusDetail: text("status_detail"),
+  skillExecutionId: uuid("skill_execution_id").references(() => skillExecutions.id, { onDelete: "set null" }),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+});
+
 export const entities = pgTable("entities", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   // Unique: every entity write in the codebase is an upsert keyed on the name, and the

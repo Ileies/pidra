@@ -13,6 +13,7 @@ import { executeSkill, resolvePendingSkill } from "../skills/execute";
 import { listEffectiveSkills, patchSkill, resetSkill, SkillOverrideError } from "../skills/overrides";
 import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
 import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
+import { ActionError, dismissAction, restoreAction, runAction } from "../actions/store";
 import { listActiveCorrections, recordCorrection, revertCorrection, CorrectionError, type Operation, type TargetKind } from "../context/corrections";
 import {
   listNotes, createNote, updateNote, softDeleteNote, restoreNote, noteHistory, revertToRevision,
@@ -483,6 +484,33 @@ app.post("/api/notes/revisions/:id/revert", async (c) => {
     return c.json(await revertToRevision(c.req.param("id"), USER));
   } catch (err) {
     return noteError(c, err);
+  }
+});
+
+// --- Quick actions ---
+//
+// The report's one-tap buttons (`src/actions/`). The dashboard is the only caller and it is the
+// owner tapping, so the skill runs attributed to them. `run` is safe to repeat: a second tap on a
+// done action answers with the first result instead of adding the event again.
+
+const ACTION_OPS = {
+  run: async (id: string) => runAction(id),
+  dismiss: async (id: string) => ({ action: await dismissAction(id), message: "Dismissed" }),
+  restore: async (id: string) => ({ action: await restoreAction(id), message: "Restored" }),
+} as const;
+
+app.post("/api/actions/:id/:op", async (c) => {
+  const id = c.req.param("id");
+  const op = c.req.param("op");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  if (!(op in ACTION_OPS)) return c.json({ error: "op must be run, dismiss or restore" }, 400);
+
+  try {
+    const { action, message } = await ACTION_OPS[op as keyof typeof ACTION_OPS](id);
+    return c.json({ id: action.id, status: action.status, message });
+  } catch (err) {
+    if (err instanceof ActionError) return c.json({ error: err.message }, err.kind === "not_found" ? 404 : 409);
+    throw err;
   }
 });
 

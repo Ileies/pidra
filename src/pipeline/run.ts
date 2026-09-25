@@ -11,6 +11,28 @@ import type { StepAttemptError } from "./withRetry";
 import { sendPushNotifications, sendFailureNotification } from "../push";
 import { EMPTY_NEWS_DESK, runNewsDesk, type NewsDeskOutcome } from "../news/desk";
 import { renderNewsFallback } from "../news/format";
+import { proposeQuickActions } from "../actions/propose";
+import { saveProposals } from "../actions/store";
+import type { ContextPayload } from "./phase3-context";
+
+/**
+ * The quick actions, run so that they can only ever add to a report. A button is a convenience
+ * the reader can do without, so a step that exhausted its retries costs the buttons and nothing
+ * else: its attempts go into `step_errors` for `/runs`, and the report is written as usual.
+ */
+async function tolerantQuickActions(ctx: ContextPayload, date: string, errors: StepAttemptError[]) {
+  try {
+    return await withRetry("phase5-actions", async () => {
+      const result = await proposeQuickActions(ctx, date);
+      await saveProposals(date, result.proposals);
+      return result;
+    });
+  } catch (err) {
+    if (err instanceof StepError) errors.push(...err.attempts);
+    console.error("[Phase 5] Quick actions failed, the report goes out without them:", err);
+    return { proposals: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 };
+  }
+}
 
 /**
  * The news desks, run so that nothing downstream can be failed by them. A briefing without the
@@ -71,10 +93,11 @@ export async function runPipeline(runDate?: string): Promise<string> {
     const ctx = await withRetry("phase3", () => runPhase3(date, news));
     const gate = await withRetry("phase4", () => runPhase4(date));
 
-    // Section 1, the News section and the question gate wait run in parallel.
+    // Section 1, the News section, the quick actions and the question gate wait run in parallel.
     // Section 2 blocks until the gate resolves or times out.
     const editorErrors: StepAttemptError[] = [];
-    const [s1, newsSection, questionAnswers] = await Promise.all([
+    const actionErrors: StepAttemptError[] = [];
+    const [s1, newsSection, questionAnswers, actions] = await Promise.all([
       withRetry("phase5-section1", () => runSection1(ctx, date)),
       // The editor is the one step here with a fallback that loses nothing but polish: the
       // stories are checked and stored already, so they are written out as they stand.
@@ -84,6 +107,7 @@ export async function runPipeline(runDate?: string): Promise<string> {
         return { text: renderNewsFallback(newsItemsOf(ctx.newsItems), ctx.newsDesk.home), tokensIn: 0, tokensOut: 0, aiCalls: 0 };
       }),
       gate.waitForAnswers(),
+      tolerantQuickActions(ctx, date, actionErrors),
     ]);
     const s2 = await withRetry("phase5-section2", () => runSection2(ctx, date, questionAnswers));
 
@@ -91,9 +115,9 @@ export async function runPipeline(runDate?: string): Promise<string> {
       section1: s1.text,
       section2: s2.text,
       news: newsSection.text,
-      tokensIn: s1.tokensIn + s2.tokensIn + newsSection.tokensIn + news.tokensIn,
-      tokensOut: s1.tokensOut + s2.tokensOut + newsSection.tokensOut + news.tokensOut,
-      aiCalls: 2 + newsSection.aiCalls + news.aiCalls,
+      tokensIn: s1.tokensIn + s2.tokensIn + newsSection.tokensIn + news.tokensIn + actions.tokensIn,
+      tokensOut: s1.tokensOut + s2.tokensOut + newsSection.tokensOut + news.tokensOut + actions.tokensOut,
+      aiCalls: 2 + newsSection.aiCalls + news.aiCalls + actions.aiCalls,
     };
 
     const report = await withRetry("phase6", () =>
@@ -124,6 +148,7 @@ export async function runPipeline(runDate?: string): Promise<string> {
           ...ingest.failures.map((f) => ({ step: "phase1", attempt: 1, error: `${f.source}: ${f.error}`, ts })),
           ...news.failures.map((f) => ({ step: "news", attempt: 1, error: `${f.source}: ${f.error}`, ts })),
           ...editorErrors,
+          ...actionErrors,
         ],
       })
       .where(eq(pipelineRuns.id, run.id));

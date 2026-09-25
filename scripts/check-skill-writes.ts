@@ -20,6 +20,9 @@ const PROTECTED: [string, string][] = [
   ["extractions", "extractions"],
   ["rawItems", "raw_items"],
   ["activeTopics", "active_topics"],
+  // The quick actions a report offers are the pipeline's proposals and the owner's taps, never
+  // the assistant's: `src/actions/store.ts` is the only writer.
+  ["reportActions", "report_actions"],
 ];
 
 interface Violation {

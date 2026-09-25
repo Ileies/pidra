@@ -16,7 +16,9 @@
  *
  * `send_email`, `send_mail`, `create_file` and `open_project_in_editor` are deliberately on no
  * surface: the widget is a content editor, not a way to mail someone or pop open an editor on the
- * host by accident. They stay bridge-only and manual.
+ * host by accident. They stay bridge-only and manual. `update_calendar_event` is on no surface
+ * either: it exists for the report's quick actions (`src/actions/`), which know the event id, and
+ * the assistant has no way to look one up.
  */
 
 export const SURFACES_LIST = [
@@ -110,6 +112,9 @@ it afterwards would fix nothing.
 
 What you can do instead, and should offer when the user objects to something in the report:
 - something to remember or act on: \`add_todo_item\`, \`add_calendar_event\`
+
+The report may already offer a quick action for it, a button beside the entry. Tapping that runs
+the same skill, so point the user at the button rather than adding the same event or task twice.
 - a standing instruction for how future briefings should treat this kind of item: \`write_note\`
   ('intel' for Section 1 topics, 'personal' for Section 2)
 - a wrong fact about the user that the briefing inherited from the long-term context:

@@ -24,6 +24,11 @@ export interface ExecutionOptions {
    * the surface arrives from a client and is therefore untrusted.
    */
   surface?: Surface;
+  /**
+   * Who the write is attributed to, when `triggeredBy` does not say. A quick action is proposed by
+   * the pipeline but run because the owner tapped it, so it is theirs.
+   */
+  actor?: SkillContext["actor"];
 }
 
 /**
@@ -92,8 +97,9 @@ export async function executeSkill(
     executionId: execRow.id,
     triggeredBy,
     conversationId: options.conversationId ?? null,
-    // A write from the chat is the assistant's, anything else is the system acting on its own.
-    actor: triggeredBy === "chat" ? "chat" : "system",
+    // A write from the chat is the assistant's, anything else is the system acting on its own,
+    // unless the caller knows better.
+    actor: options.actor ?? (triggeredBy === "chat" ? "chat" : "system"),
   };
 
   try {

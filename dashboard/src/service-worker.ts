@@ -322,9 +322,10 @@ async function syncFetch(input: string, init?: RequestInit): Promise<Response> {
   }
 }
 
-/** Tells every open page which stores changed, so it re-renders them (`state.svelte.ts`). */
-async function announce(stores: MirrorStore[], outbox: boolean): Promise<void> {
-  if (stores.length === 0 && !outbox) return;
+/** Tells every open page which stores changed, so it re-renders them (`state.svelte.ts`). A pull
+ *  that changed nothing is still said: it moved `lastSyncedAt`, which the page shows. */
+async function announce(stores: MirrorStore[], outbox: boolean, pulled: boolean): Promise<void> {
+  if (stores.length === 0 && !outbox && !pulled) return;
   const windows = await self.clients.matchAll({ type: "window" });
   for (const client of windows) client.postMessage({ type: "pidra:mirror-changed", stores, outbox });
 }
@@ -360,7 +361,7 @@ function workerSync(pull: "always" | "if-flushed"): Promise<WorkerSyncResult> {
         // Offline or failed; the page's own sync tries again when it opens.
       }
     }
-    await announce(changed, drained.delivered > 0);
+    await announce(changed, drained.delivered > 0, pulled);
     return { flushed: drained.complete, pulled };
   })().finally(() => {
     syncing = null;

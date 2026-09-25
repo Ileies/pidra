@@ -102,6 +102,16 @@ export function fmtDuration(ms: number | null | undefined): string {
   return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
 }
 
+/** "just now", "12 min", "3 h", "2 d": an age read at a glance, where `fmtDuration` is a measurement. */
+export function fmtAge(ms: number): string {
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `${hours} h ago`;
+  return `${Math.floor(hours / 24)} d ago`;
+}
+
 /** "2m 14s" since a timestamp. */
 export function fmtElapsed(since: DateInput): string {
   const date = toDate(since);

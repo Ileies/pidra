@@ -12,25 +12,17 @@
   import ReportEntry from "#lib/report/ReportEntry.svelte";
   import SectionNav from "#lib/report/SectionNav.svelte";
   import { URGENCY_META, type NavTarget } from "#lib/report/types.js";
-  import { fmtCost, fmtDate, fmtElapsed, fmtNum } from "#lib/format.js";
+  import { fmtCost, fmtDate, fmtNum } from "#lib/format.js";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import { netJson } from "#lib/offline/net.js";
   import { poll } from "#lib/offline/poll.js";
   import { sync } from "#lib/offline/sync.js";
-  import { offline } from "#lib/offline/state.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   $effect(() => toastFormResult(form));
-
-  /** OFFLINE_PLAN.md §9: a report read from the mirror is never shown without saying how stale it
-   *  might be. 24h is the plan's own threshold - the daily pipeline runs once a morning, so a
-   *  same-day mirror read is never stale in the sense that matters. Every report is read from the
-   *  mirror since H2, so the age alone decides, and it is the mirror's own timestamp: a sync that
-   *  found nothing new still moves it. */
-  const stale = $derived(!!offline.lastSyncedAt && Date.now() - new Date(offline.lastSyncedAt).getTime() > 24 * 3600_000);
 
   /**
    * `/` lands on the newest mirrored day when today's is not mirrored yet (§7). When a background
@@ -201,12 +193,6 @@
     <p role="status" class="flex items-center gap-3 rounded-lg border border-primary-800 bg-primary-950 px-3 py-2 text-sm text-primary-200">
       Today's briefing is here.
       <a href="/{data.today}" class="ml-auto text-primary-300 no-underline hover:text-primary-200">Read it →</a>
-    </p>
-  {/if}
-
-  {#if stale}
-    <p role="status" class="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-xs text-surface-400">
-      Reading from the offline copy, synced {fmtElapsed(offline.lastSyncedAt)} ago. Reconnect to the VPN to refresh it.
     </p>
   {/if}
 

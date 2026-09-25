@@ -11,6 +11,7 @@
    */
   import { goto } from "$app/navigation";
   import Spinner from "#lib/components/Spinner.svelte";
+  import { net } from "#lib/offline/net.js";
   import { fmtDate } from "#lib/format.js";
 
   interface Props {
@@ -40,7 +41,7 @@
     loading = true;
     loadError = null;
     try {
-      const res = await fetch("/api/reports/archive?limit=30");
+      const res = await net("/api/reports/archive?limit=30");
       if (!res.ok) throw new Error(`Could not load the archive (${res.status})`);
       days = (await res.json()).days as ArchiveDay[];
     } catch (err) {

@@ -1,5 +1,6 @@
 import { browser } from "$app/env";
 import { invalidateAll } from "$app/navigation";
+import { BUDGET, net } from "#lib/offline/net.js";
 import { surfaceForRoute, type PageContext, type Surface } from "#lib/assistant/pageContext.js";
 
 /**
@@ -162,7 +163,7 @@ class Assistant {
   async loadSurfaces() {
     if (this.surfaces) return;
     try {
-      const res = await fetch("/api/assistant/surfaces");
+      const res = await net("/api/assistant/surfaces");
       if (res.ok) this.surfaces = await res.json();
     } catch {
       // Hints are a nicety; the assistant works without them.
@@ -193,17 +194,23 @@ class Assistant {
     this.#controller = controller;
 
     try {
-      const res = await fetch("/api/assistant/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          conversation_id: this.conversationId ?? undefined,
-          context: this.context,
-          origin: "widget",
-        }),
-        signal: controller.signal,
-      });
+      // `stream`: only the wait for the headers is budgeted. A turn itself can legitimately run
+      // for minutes on the flex tier, and the stop button is the caller's own signal.
+      const res = await net(
+        "/api/assistant/chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            conversation_id: this.conversationId ?? undefined,
+            context: this.context,
+            origin: "widget",
+          }),
+          signal: controller.signal,
+        },
+        { stream: true, budgetMs: BUDGET.page },
+      );
 
       if (!res.ok || !res.body) {
         const body = await res.text();

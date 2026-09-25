@@ -7,6 +7,7 @@
    * link stays as the shareable form and as the fallback for a browser with no JS.
    */
   import Spinner from "#lib/components/Spinner.svelte";
+  import { net } from "#lib/offline/net.js";
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
   import RateButtons from "#lib/report/RateButtons.svelte";
   import type { ExtractionItem } from "#lib/server/extractions.js";
@@ -41,7 +42,7 @@
     loading = true;
     loadError = null;
     try {
-      const res = await fetch(`/api/extractions?ids=${entry.refIds.join(",")}`);
+      const res = await net(`/api/extractions?ids=${entry.refIds.join(",")}`);
       if (!res.ok) throw new Error(`Could not load the sources (${res.status})`);
       items = (await res.json()).items as ExtractionItem[];
     } catch (err) {

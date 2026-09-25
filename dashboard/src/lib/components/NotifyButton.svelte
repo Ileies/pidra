@@ -9,6 +9,7 @@
   import { onMount } from "svelte";
   import { PUBLIC_VAPID_KEY } from '$app/env/public';
   import { toasts } from "#lib/toast.svelte.js";
+  import { net } from "#lib/offline/net.js";
 
   interface Props {
     /** `bar` is the desktop nav pill; `row` is a full-width row in the overflow sheet. */
@@ -49,7 +50,7 @@
       const existing = await sw.pushManager.getSubscription();
 
       if (existing) {
-        await fetch("/api/push/subscribe", {
+        await net("/api/push/subscribe", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: existing.endpoint }),
@@ -71,7 +72,7 @@
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
       });
 
-      await fetch("/api/push/subscribe", {
+      await net("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(sub.toJSON()),

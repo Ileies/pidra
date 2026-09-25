@@ -18,18 +18,23 @@
 
 import * as db from "./db.js";
 import * as outbox from "./outbox.js";
+import { net } from "./net.js";
 
 export type SyncResult = "synced" | "offline";
 
+/**
+ * Loads still wait on this pull until H2 (OFFLINE_PLAN.md §14.3) moves it to the background, so it
+ * keeps the short ceiling the read path had. Offline is not what this bounds any more - `net()`
+ * detects that through its probe and fails every in-flight request at once, or fails at once when
+ * the state is already offline - it only bounds a slow but reachable link.
+ */
 const DEFAULT_TIMEOUT_MS = 8000;
 
 export async function pull(options: { timeoutMs?: number } = {}): Promise<SyncResult> {
   await outbox.flush().catch(() => {});
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   try {
-    const res = await fetch("/api/offline/snapshot", { signal: controller.signal });
+    const res = await net("/api/offline/snapshot", {}, { budgetMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS });
     if (!res.ok) throw new Error(`snapshot ${res.status}`);
     const snapshot = (await res.json()) as Snapshot;
     await applySnapshot(snapshot);
@@ -37,8 +42,6 @@ export async function pull(options: { timeoutMs?: number } = {}): Promise<SyncRe
     return "synced";
   } catch {
     return "offline";
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

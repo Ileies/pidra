@@ -10,6 +10,8 @@
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import { toastFormResult, toasts } from "#lib/toast.svelte.js";
   import type { ContextBuilderStatus } from "#lib/server/contextBuilder.js";
+  import { netJson } from "#lib/offline/net.js";
+  import { poll } from "#lib/offline/poll.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -38,12 +40,11 @@
   let status = $state<ContextBuilderStatus | null>(null);
   let starting = $state(false);
   let stopping = $state(false);
-  let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let stopPoll: (() => void) | undefined;
 
   async function refresh() {
     try {
-      const res = await fetch("/api/context-builder/status");
-      status = await res.json();
+      status = await netJson<ContextBuilderStatus>("/api/context-builder/status");
     } catch {
       // transient - next poll will retry
     }
@@ -52,15 +53,16 @@
   async function start(mode: "full" | "update" | null) {
     starting = true;
     try {
-      const res = await fetch("/api/context-builder/start", {
+      const body = await netJson<{ ok: boolean; error?: string }>("/api/context-builder/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode }),
       });
-      const body = await res.json();
       if (body.ok) toasts.success(`Context Builder started${mode ? ` in ${mode} mode` : ""}.`);
       else toasts.error(body.error ?? "Failed to start.");
       await refresh();
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
       starting = false;
     }
@@ -69,24 +71,22 @@
   async function stop() {
     stopping = true;
     try {
-      const res = await fetch("/api/context-builder/stop", { method: "POST" });
-      const body = await res.json();
+      const body = await netJson<{ ok: boolean; error?: string }>("/api/context-builder/stop", { method: "POST" });
       if (body.ok) toasts.show("Context Builder stopped.");
       else toasts.error(body.error ?? "Failed to stop.");
       await refresh();
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
       stopping = false;
     }
   }
 
   onMount(() => {
-    refresh();
-    pollTimer = setInterval(refresh, 2000);
+    stopPoll = poll(refresh, 2000, { immediate: true });
   });
 
-  onDestroy(() => {
-    if (pollTimer) clearInterval(pollTimer);
-  });
+  onDestroy(() => stopPoll?.());
 
   // The current run's window starts at the checkpoint's start, falling back to the DB run row.
   // Always with the date: errors.json spans every run ever made, and a time-only label made

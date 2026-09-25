@@ -11,6 +11,7 @@
  */
 
 import * as db from "./db.js";
+import { net, NetError } from "./net.js";
 import type { NoteRow } from "#lib/notes/api.js";
 import type { MirroredReport, MirroredExtraction, MirroredRule } from "./repo.js";
 
@@ -233,27 +234,19 @@ export async function deleteRule(id: string): Promise<void> {
 
 // --- flush ---
 
-const REQUEST_TIMEOUT_MS = 8000;
-
 /** Thrown for anything that will never succeed by retrying - a validation error, a 404 on a
- *  target that no longer exists. Distinct from a thrown `TypeError`/`AbortError`, which is always
- *  transport (offline, or the origin unreachable) and always retried. */
+ *  target that no longer exists. Distinct from a `NetError`, which is always transport (offline,
+ *  or the origin slow or unreachable) and always retried. */
 class TerminalError extends Error {}
 
 async function send(intent: Intent): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await request(intent, controller.signal);
-    if (res.ok) return res;
-    if (res.status >= 400 && res.status < 500) {
-      const body = await res.text().catch(() => "");
-      throw new TerminalError(`${res.status}: ${body.slice(0, 200)}`);
-    }
-    throw new Error(`server error ${res.status}`);
-  } finally {
-    clearTimeout(timeout);
+  const res = await request(intent);
+  if (res.ok) return res;
+  if (res.status >= 400 && res.status < 500) {
+    const body = await res.text().catch(() => "");
+    throw new TerminalError(`${res.status}: ${body.slice(0, 200)}`);
   }
+  throw new Error(`server error ${res.status}`);
 }
 
 /** `PATCH /api/notes/:id` reports whether the row moved since the edit's `base_updated_at`
@@ -269,42 +262,42 @@ async function markConflictIfFlagged(intent: Intent, res: Response): Promise<voi
   if (current) await db.put("notes", { ...current, conflicted: !!body?._conflict });
 }
 
-function request(intent: Intent, signal: AbortSignal): Promise<Response> {
+function request(intent: Intent): Promise<Response> {
   const json = (body: unknown) => JSON.stringify(body);
   const headers = { "Content-Type": "application/json" };
 
   switch (intent.kind) {
     case "note.create": {
       const p = intent.payload as { id: string; content: string; scope: string; expiresAt: string | null };
-      return fetch("/api/notes", { method: "POST", headers, signal, body: json({ id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt }) });
+      return net("/api/notes", { method: "POST", headers, body: json({ id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt }) });
     }
     case "note.update": {
       const p = intent.payload as { id: string; patch: NotePatchPayload; baseUpdatedAt: string | null };
-      return fetch(`/api/notes/${p.id}`, { method: "PATCH", headers, signal, body: json({ ...p.patch, base_updated_at: p.baseUpdatedAt }) });
+      return net(`/api/notes/${p.id}`, { method: "PATCH", headers, body: json({ ...p.patch, base_updated_at: p.baseUpdatedAt }) });
     }
     case "note.delete": {
       const p = intent.payload as { id: string };
-      return fetch(`/api/notes/${p.id}`, { method: "DELETE", signal });
+      return net(`/api/notes/${p.id}`, { method: "DELETE" });
     }
     case "note.restore": {
       const p = intent.payload as { id: string };
-      return fetch(`/api/notes/${p.id}/restore`, { method: "POST", signal });
+      return net(`/api/notes/${p.id}/restore`, { method: "POST" });
     }
     case "rate": {
       const p = intent.payload as { extractionId: string; signal: "1" | "-1" };
-      return fetch("/api/feedback", { method: "POST", headers, signal, body: json({ extraction_id: p.extractionId, signal: p.signal }) });
+      return net("/api/feedback", { method: "POST", headers, body: json({ extraction_id: p.extractionId, signal: p.signal }) });
     }
     case "rule.create": {
       const p = intent.payload as { key: string; value: string };
-      return fetch("/api/rules", { method: "POST", headers, signal, body: json({ key: p.key, value: p.value }) });
+      return net("/api/rules", { method: "POST", headers, body: json({ key: p.key, value: p.value }) });
     }
     case "rule.update": {
       const p = intent.payload as { id: string; value: string };
-      return fetch(`/api/rules/${p.id}`, { method: "PATCH", headers, signal, body: json({ value: p.value }) });
+      return net(`/api/rules/${p.id}`, { method: "PATCH", headers, body: json({ value: p.value }) });
     }
     case "rule.delete": {
       const p = intent.payload as { id: string };
-      return fetch(`/api/rules/${p.id}`, { method: "DELETE", signal });
+      return net(`/api/rules/${p.id}`, { method: "DELETE" });
     }
   }
 }
@@ -340,6 +333,8 @@ async function run(): Promise<void> {
         notify();
         continue;
       }
+      // Known offline: nothing left the device, so it was not an attempt and says nothing new.
+      if (err instanceof NetError && !err.sent) return;
       const message = err instanceof Error ? err.message : String(err);
       await db.put("outbox", { ...intent, attempts: intent.attempts + 1, lastError: message });
       notify();

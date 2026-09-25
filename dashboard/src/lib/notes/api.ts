@@ -10,6 +10,7 @@
  */
 
 import * as outbox from "#lib/offline/outbox.js";
+import { netJson } from "#lib/offline/net.js";
 
 /** Snake_case shape the mirror and the (former) page load both use, as Postgres returns it. */
 export interface NoteRow {
@@ -60,26 +61,12 @@ export interface NotePatch {
   expires_at?: string | null;
 }
 
-async function call<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api/notes${path}`, {
+function call<T>(path: string, method: string, body?: unknown): Promise<T> {
+  return netJson<T>(`/api/notes${path}`, {
     method,
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-
-  const text = await res.text();
-  let parsed: unknown = null;
-  try {
-    parsed = text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error(text.slice(0, 200) || `Request failed (${res.status})`);
-  }
-
-  if (!res.ok) {
-    const message = (parsed as { error?: string } | null)?.error;
-    throw new Error(message ?? `Request failed (${res.status})`);
-  }
-  return parsed as T;
 }
 
 export const createNote = (input: { content: string; scope?: string; expires_at?: string | null }) =>

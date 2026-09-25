@@ -1,4 +1,5 @@
 import type { LayoutLoad } from "./$types";
+import { netJson } from "#lib/offline/net.js";
 
 /**
  * Replaces +layout.server.ts (OFFLINE_PLAN.md O2). The root layout wraps every route, so a server
@@ -10,18 +11,15 @@ import type { LayoutLoad } from "./$types";
  * descendant leaf's `ssr` export.
  *
  * Badge counts degrade to empty/false when the endpoint is unreachable. Both consumers
- * (Navbar.svelte, TabBar.svelte) already treat a missing navBadges as no badges.
+ * (Navbar.svelte, TabBar.svelte) already treat a missing navBadges as no badges. Known offline,
+ * `netJson` fails in the same frame; H2 (OFFLINE_PLAN.md §14.3) takes this off the load path.
+ * The load's own `fetch` is passed through because this also runs during server rendering of
+ * the pages that still have it, where a relative URL needs SvelteKit's fetch.
  */
 export const load: LayoutLoad = async ({ fetch }) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
   try {
-    const res = await fetch("/api/nav-badges", { signal: controller.signal });
-    if (!res.ok) throw new Error(`nav-badges ${res.status}`);
-    return (await res.json()) as { hasPendingQuestions: boolean; navBadges: Record<string, number> };
+    return await netJson<{ hasPendingQuestions: boolean; navBadges: Record<string, number> }>("/api/nav-badges", {}, { budgetMs: 4000, fetch });
   } catch {
     return { hasPendingQuestions: false, navBadges: {} as Record<string, number> };
-  } finally {
-    clearTimeout(timeout);
   }
 };

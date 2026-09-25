@@ -15,6 +15,8 @@
   import { fmtCost, fmtDate, fmtElapsed, fmtNum } from "#lib/format.js";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
+  import { netJson } from "#lib/offline/net.js";
+  import { poll } from "#lib/offline/poll.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -103,7 +105,7 @@
 
   let triggering = $state(false);
   let polling = $state(false);
-  let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let stopPoll: (() => void) | undefined;
   let liveStatus = $state<string | null>(null);
 
   /**
@@ -111,28 +113,22 @@
    * and drew progress bars; the report just told the reader to come back later.
    */
   function startPolling() {
-    if (pollTimer) return;
+    if (stopPoll) return;
     polling = true;
-    pollTimer = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/pipeline/status?date=${data.date}`);
-        if (!res.ok) return;
-        const body = (await res.json()) as { hasReport: boolean; run: { status: string } | null };
-        liveStatus = body.run?.status ?? null;
+    stopPoll = poll(async () => {
+      const body = await netJson<{ hasReport: boolean; run: { status: string } | null }>(`/api/pipeline/status?date=${data.date}`);
+      liveStatus = body.run?.status ?? null;
 
-        if (body.hasReport || body.run?.status === "failed") {
-          stopPolling();
-          await invalidateAll();
-        }
-      } catch {
-        // transient - the next tick retries
+      if (body.hasReport || body.run?.status === "failed") {
+        stopPolling();
+        await invalidateAll();
       }
     }, 5000);
   }
 
   function stopPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = undefined;
+    stopPoll?.();
+    stopPoll = undefined;
     polling = false;
   }
 

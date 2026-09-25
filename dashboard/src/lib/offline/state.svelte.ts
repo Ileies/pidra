@@ -1,30 +1,27 @@
 /**
- * The header dot and the sync sheet's state (OFFLINE_PLAN.md O4, §8-§9). Reachability, not
- * `navigator.onLine`: that event only reports the WiFi link, and the failure this whole feature
- * exists for is WiFi up, wg0 down (§0). `GET /api/health` is the real signal - reaching the
- * dashboard process is exactly what the VPN gates - probed on a schedule that backs off rather
- * than hammering an origin that is genuinely unreachable:
+ * The header dot and the sync sheet's state (OFFLINE_PLAN.md O4, §8-§9, §14). Reachability itself
+ * is decided in `net.ts`, by the requests that actually go out: the first version decided it here
+ * from a separate `/api/health` schedule, which is how a Questions tap could fail on a dead
+ * network while this still said "online" (§14.1). This class mirrors that verdict into runes for
+ * the UI and owns the one thing `net.ts` cannot do from inside a request: find the way back.
  *
- * - on start, on the `online` event, and whenever the tab becomes visible again;
- * - `navigator.onLine === false` still short-circuits straight to offline without a probe - a
- *   free, instant negative that a real request would only be slower to reach the same way;
- * - every 60s while visible and believed offline, backing off to 5 minutes after the third
- *   consecutive failure, and not polling at all while hidden;
- * - two consecutive failures are what flip the dot to offline, one success flips it back, so one
- *   slow response does not make the indicator flap.
+ * While offline and visible, it probes every 20 s, backing off to a minute after ten failures in a
+ * row, and never while hidden. It also probes on the `online` event and whenever the app comes
+ * back to the foreground. `navigator.onLine === false` is still a free, certain negative.
  */
 
 import { browser } from "$app/env";
 import * as db from "./db.js";
 import * as outbox from "./outbox.js";
+import * as net from "./net.js";
 import { pull, getLastSyncedAt } from "./sync.js";
 
-export type Reachability = "checking" | "online" | "offline";
+export type { Reachability } from "./net.js";
+import type { Reachability } from "./net.js";
 
-const PROBE_TIMEOUT_MS = 3000;
-const POLL_MS = 60_000;
-const POLL_BACKOFF_MS = 300_000;
-const BACKOFF_AFTER = 3;
+const POLL_MS = 20_000;
+const POLL_BACKOFF_MS = 60_000;
+const BACKOFF_AFTER = 10;
 
 class OfflineState {
   reachable = $state<Reachability>("checking");
@@ -49,20 +46,28 @@ class OfflineState {
     if (this.#started || !browser) return;
     this.#started = true;
 
-    this.refresh();
-    this.probe();
-
-    outbox.onChange(() => this.refresh());
-    window.addEventListener("online", () => this.probe());
-    window.addEventListener("offline", () => {
-      this.reachable = "offline";
+    this.reachable = net.reachability();
+    net.onReachability((next) => {
+      this.reachable = next;
+      if (next === "online") {
+        this.#consecutiveFailures = 0;
+        // Whatever was queued while the connection was gone can go now.
+        outbox.flush().catch(() => {});
+      }
       this.#reschedule();
     });
+    this.#reschedule();
+    this.refresh();
+
+    outbox.onChange(() => this.refresh());
+    const probeAndReschedule = () => this.probe().then(() => this.#reschedule());
+    window.addEventListener("online", probeAndReschedule);
+    window.addEventListener("offline", () => net.markOffline());
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         clearTimeout(this.#pollTimer);
       } else {
-        this.probe();
+        probeAndReschedule();
         this.refresh();
       }
     });
@@ -83,57 +88,30 @@ class OfflineState {
   }
 
   async probe(): Promise<boolean> {
-    if (!navigator.onLine) {
-      this.#onFailure();
-      return false;
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    try {
-      const res = await fetch("/api/health", { signal: controller.signal, cache: "no-store" });
-      if (res.ok) {
-        this.#onSuccess();
-        return true;
-      }
-      this.#onFailure();
-      return false;
-    } catch {
-      this.#onFailure();
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
+    const reached = await net.probe();
+    if (!reached) this.#consecutiveFailures += 1;
+    return reached;
   }
 
-  #onSuccess(): void {
-    this.#consecutiveFailures = 0;
-    this.reachable = "online";
-    this.#reschedule();
-  }
-
-  #onFailure(): void {
-    this.#consecutiveFailures += 1;
-    if (this.reachable !== "offline" && (this.reachable === "checking" || this.#consecutiveFailures >= 2)) {
-      this.reachable = "offline";
-    }
-    this.#reschedule();
-  }
-
+  /** Only offline needs a schedule: online, every request the app makes is a probe already. */
   #reschedule(): void {
-    if (!browser || document.hidden) return;
     clearTimeout(this.#pollTimer);
+    if (!browser || document.hidden || this.reachable !== "offline") return;
     const delay = this.#consecutiveFailures >= BACKOFF_AFTER ? POLL_BACKOFF_MS : POLL_MS;
-    this.#pollTimer = setTimeout(() => this.probe(), delay);
+    this.#pollTimer = setTimeout(async () => {
+      await this.probe();
+      this.#reschedule();
+    }, delay);
   }
 
-  /** The sync sheet's "Sync now" - a manual pull outside the read path's own background one. */
+  /** The sync sheet's "Sync now" - a manual pull outside the read path's own background one.
+   *  Probes first, because while the state says offline `pull()` would not even try. */
   async syncNow(): Promise<void> {
     if (this.syncing) return;
     this.syncing = true;
     try {
-      await pull();
+      if (await this.probe()) await pull();
       await this.refresh();
-      await this.probe();
     } finally {
       this.syncing = false;
     }

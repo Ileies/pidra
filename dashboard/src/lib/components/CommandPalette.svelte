@@ -14,6 +14,7 @@
   import { ROUTES } from "#lib/routes.js";
   import type { SearchHit } from "#lib/server/search.js";
   import Spinner from "#lib/components/Spinner.svelte";
+  import { net } from "#lib/offline/net.js";
 
   interface Props {
     open: boolean;
@@ -72,7 +73,7 @@
     searchTimer = setTimeout(async () => {
       const id = ++requestId;
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(value)}`);
+        const res = await net(`/api/search?q=${encodeURIComponent(value)}`);
         const body = (await res.json()) as { hits: SearchHit[] };
         // A slower earlier request must not overwrite a newer result set.
         if (id === requestId) hits = body.hits;

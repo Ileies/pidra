@@ -10,7 +10,7 @@
 		"preview": "vite preview",
 		"format": "prettier --write .",
 		"lint": "eslint .",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts"
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts && bun run scripts/check-offline.ts"
 	},
 	"dependencies": {
 		"@skeletonlabs/skeleton": "^5.0.1",

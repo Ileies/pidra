@@ -236,14 +236,134 @@ async function buildContextCounts() {
   return counts as { contacts: number; entities: number; standing_context: number; indexed_email: number; indexed_keep: number };
 }
 
+// --- the reference tables (OFFLINE_PLAN.md §1, §4; H3) ---
+//
+// Mirrored whole: 447 entities, 91 relations, 14 contacts and 84 topics came to about 95 kB of
+// row text on 2026-09-25, and all of them move slowly. The fields the pages show, which here is
+// nearly the whole row. Appearances are the one set that grows per report day, so they are
+// bounded to the report window, like the extractions.
+
+async function buildEntities() {
+  const rows = await sql()`
+    SELECT id, name, aliases, type, domain, summary, first_seen::text AS first_seen,
+           last_mentioned::text AS last_mentioned, mention_count, status, importance, locked
+    FROM entities
+  `;
+  return rows.map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    aliases: (row.aliases as string[] | null) ?? [],
+    type: (row.type as string | null) ?? null,
+    domain: (row.domain as string | null) ?? null,
+    summary: (row.summary as string | null) ?? null,
+    firstSeen: (row.first_seen as string | null) ?? null,
+    lastMentioned: (row.last_mentioned as string | null) ?? null,
+    mentionCount: (row.mention_count as number | null) ?? 0,
+    status: (row.status as string | null) ?? "active",
+    importance: (row.importance as string | null) ?? "normal",
+    locked: !!row.locked,
+  }));
+}
+
+async function buildEntityRelations() {
+  const rows = await sql()`
+    SELECT id, from_id, to_id, relation_type, confidence, first_seen::text AS first_seen,
+           last_seen::text AS last_seen, confirmed
+    FROM entity_relations
+  `;
+  return rows.map((row) => ({
+    id: row.id as string,
+    fromId: row.from_id as string,
+    toId: row.to_id as string,
+    relationType: (row.relation_type as string | null) ?? null,
+    confidence: (row.confidence as number | null) ?? null,
+    firstSeen: (row.first_seen as string | null) ?? null,
+    lastSeen: (row.last_seen as string | null) ?? null,
+    confirmed: !!row.confirmed,
+  }));
+}
+
+async function buildEntityAppearances() {
+  const rows = await sql()`
+    SELECT id, entity_id, report_date::text AS report_date, context_snippet, relevance_score
+    FROM entity_appearances
+    WHERE report_date >= (
+      SELECT min(report_date) FROM (SELECT report_date FROM daily_reports ORDER BY report_date DESC LIMIT ${MIRROR_DAYS}) win
+    )
+  `;
+  return rows.map((row) => ({
+    id: row.id as string,
+    entityId: row.entity_id as string,
+    reportDate: (row.report_date as string | null) ?? null,
+    contextSnippet: (row.context_snippet as string | null) ?? null,
+    relevanceScore: (row.relevance_score as number | null) ?? null,
+  }));
+}
+
+async function buildContacts() {
+  const rows = await sql()`
+    SELECT id, identifier, name, relationship, priority, context_notes,
+           first_seen::text AS first_seen, updated_at, locked, email_count
+    FROM contacts
+  `;
+  return rows.map((row) => ({
+    id: row.id as string,
+    identifier: row.identifier as string,
+    name: (row.name as string | null) ?? null,
+    relationship: (row.relationship as string | null) ?? null,
+    priority: (row.priority as string | null) ?? "normal",
+    contextNotes: (row.context_notes as string | null) ?? null,
+    firstSeen: (row.first_seen as string | null) ?? null,
+    updatedAt: (row.updated_at as string | null) ?? null,
+    locked: !!row.locked,
+    emailCount: (row.email_count as number | null) ?? 0,
+  }));
+}
+
+async function buildTopics() {
+  const rows = await sql()`
+    SELECT id, headline, domain, running_summary, first_seen::text AS first_seen,
+           last_updated::text AS last_updated, status, update_count, sources
+    FROM active_topics
+  `;
+  return rows.map((row) => ({
+    id: row.id as string,
+    headline: row.headline as string,
+    domain: row.domain as string,
+    runningSummary: (row.running_summary as string | null) ?? null,
+    firstSeen: row.first_seen as string,
+    lastUpdated: row.last_updated as string,
+    status: (row.status as string | null) ?? "active",
+    updateCount: (row.update_count as number | null) ?? 1,
+    sources: (row.sources as string[] | null) ?? [],
+  }));
+}
+
 async function assemble(): Promise<SnapshotStores> {
-  const [{ reports, extractionIds }, notes, rules, corrections, counts, harvest] = await Promise.all([
+  const [
+    { reports, extractionIds },
+    notes,
+    rules,
+    corrections,
+    counts,
+    harvest,
+    entities,
+    entityRelations,
+    entityAppearances,
+    contacts,
+    topics,
+  ] = await Promise.all([
     buildReports(),
     buildNotes(),
     buildRules(),
     buildCorrections(),
     buildContextCounts(),
     loadHarvestDocument(),
+    buildEntities(),
+    buildEntityRelations(),
+    buildEntityAppearances(),
+    buildContacts(),
+    buildTopics(),
   ]);
 
   await attachRatings(reports);
@@ -266,7 +386,19 @@ async function assemble(): Promise<SnapshotStores> {
 
   // `contextDoc` is a one-row store, so every store has the same shape and the cache can hash and
   // diff them alike.
-  return { reports, extractions, notes, rules, corrections, contextDoc: [contextDoc] };
+  return {
+    reports,
+    extractions,
+    notes,
+    rules,
+    corrections,
+    contextDoc: [contextDoc],
+    entities,
+    entityRelations,
+    entityAppearances,
+    contacts,
+    topics,
+  };
 }
 
 export const GET: RequestHandler = async ({ request }) => {

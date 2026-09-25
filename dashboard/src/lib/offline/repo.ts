@@ -199,3 +199,158 @@ export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> 
   watch(depends, "contextDoc");
   return (await db.get<MirroredContextDoc>("contextDoc", "current")) ?? EMPTY_CONTEXT_DOC;
 }
+
+// --- the reference tables (OFFLINE_PLAN.md §1; H3). Read-only here: their writes are corrections
+// and topic curation, which stay online-only (§1), so the outbox never touches these stores. ---
+
+export interface MirroredEntity {
+  id: string;
+  name: string;
+  aliases: string[];
+  type: string | null;
+  domain: string | null;
+  summary: string | null;
+  firstSeen: string | null;
+  lastMentioned: string | null;
+  mentionCount: number;
+  status: string;
+  importance: string;
+  locked: boolean;
+}
+
+/** Most mentioned first, as the server-rendered table sorted them. */
+export async function entities(depends: Depends): Promise<MirroredEntity[]> {
+  watch(depends, "entities");
+  const rows = await db.getAll<MirroredEntity>("entities");
+  return rows.sort(
+    (a, b) => b.mentionCount - a.mentionCount || (b.lastMentioned ?? "").localeCompare(a.lastMentioned ?? ""),
+  );
+}
+
+export interface EntityRelation {
+  id: string;
+  otherId: string;
+  otherName: string;
+  otherType: string | null;
+  relationType: string | null;
+  confidence: number | null;
+  direction: "out" | "in";
+  firstSeen: string | null;
+  lastSeen: string | null;
+  confirmed: boolean;
+}
+
+export interface EntityAppearance {
+  id: string;
+  reportDate: string | null;
+  contextSnippet: string | null;
+  relevanceScore: number | null;
+}
+
+interface MirroredRelation {
+  id: string;
+  fromId: string;
+  toId: string;
+  relationType: string | null;
+  confidence: number | null;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  confirmed: boolean;
+}
+
+interface MirroredAppearance extends EntityAppearance {
+  entityId: string;
+}
+
+/**
+ * One entity with its edges read in both directions ("who does this relate to" is the question,
+ * and an edge stored the other way round is the same edge) and its appearances inside the report
+ * window. Null when the mirror has no such entity.
+ */
+export async function entity(
+  depends: Depends,
+  id: string,
+): Promise<{ entity: MirroredEntity; relations: EntityRelation[]; appearances: EntityAppearance[] } | null> {
+  watch(depends, "entities", "entityRelations", "entityAppearances");
+  const [row, all, relationRows, appearanceRows] = await Promise.all([
+    db.get<MirroredEntity>("entities", id),
+    db.getAll<MirroredEntity>("entities"),
+    db.getAll<MirroredRelation>("entityRelations"),
+    db.getAll<MirroredAppearance>("entityAppearances"),
+  ]);
+  if (!row) return null;
+
+  const byId = new Map(all.map((e) => [e.id, e]));
+  const relations: EntityRelation[] = [];
+  for (const r of relationRows) {
+    if (r.fromId !== id && r.toId !== id) continue;
+    const direction = r.fromId === id ? "out" : "in";
+    const other = byId.get(direction === "out" ? r.toId : r.fromId);
+    if (!other) continue;
+    relations.push({
+      id: r.id,
+      otherId: other.id,
+      otherName: other.name,
+      otherType: other.type,
+      relationType: r.relationType,
+      confidence: r.confidence,
+      direction,
+      firstSeen: r.firstSeen,
+      lastSeen: r.lastSeen,
+      confirmed: r.confirmed,
+    });
+  }
+  relations.sort((a, b) => (b.confidence ?? -1) - (a.confidence ?? -1) || a.otherName.localeCompare(b.otherName));
+
+  const appearances = appearanceRows
+    .filter((a) => a.entityId === id)
+    .sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? ""));
+
+  return { entity: row, relations, appearances };
+}
+
+export interface MirroredContact {
+  id: string;
+  identifier: string;
+  name: string | null;
+  relationship: string | null;
+  priority: string;
+  contextNotes: string | null;
+  firstSeen: string | null;
+  updatedAt: string | null;
+  locked: boolean;
+  /** Seeded once from the Context Builder's corpus, then owned by the live pipeline. */
+  emailCount: number;
+}
+
+const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1 };
+
+export async function contacts(depends: Depends): Promise<MirroredContact[]> {
+  watch(depends, "contacts");
+  const rows = await db.getAll<MirroredContact>("contacts");
+  return rows.sort(
+    (a, b) =>
+      (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2) ||
+      b.emailCount - a.emailCount ||
+      a.identifier.localeCompare(b.identifier),
+  );
+}
+
+export interface MirroredTopic {
+  id: string;
+  headline: string;
+  domain: string;
+  runningSummary: string | null;
+  firstSeen: string;
+  lastUpdated: string;
+  status: string;
+  updateCount: number;
+  sources: string[];
+}
+
+/** Most recently updated first. */
+export async function topics(depends: Depends): Promise<MirroredTopic[]> {
+  watch(depends, "topics");
+  const rows = await db.getAll<MirroredTopic>("topics");
+  return rows.sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated) || b.updateCount - a.updateCount);
+}

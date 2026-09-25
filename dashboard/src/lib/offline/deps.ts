@@ -13,7 +13,19 @@
 import { invalidate } from "$app/navigation";
 
 /** The stores the snapshot fills. `meta`, `outbox` and `failed` are not server state. */
-export const MIRROR_STORES = ["reports", "extractions", "notes", "rules", "corrections", "contextDoc"] as const;
+export const MIRROR_STORES = [
+  "reports",
+  "extractions",
+  "notes",
+  "rules",
+  "corrections",
+  "contextDoc",
+  "entities",
+  "entityRelations",
+  "entityAppearances",
+  "contacts",
+  "topics",
+] as const;
 export type MirrorStore = (typeof MIRROR_STORES)[number];
 
 export type MirrorKey = `mirror:${MirrorStore | "status"}`;

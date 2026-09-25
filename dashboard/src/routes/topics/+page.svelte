@@ -7,17 +7,52 @@
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
-  import type { TopicRow } from "./+page.server";
+  import { page } from "$app/state";
+  import { offline } from "#lib/offline/state.svelte.js";
+  import { sync } from "#lib/offline/sync.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  type TopicRow = PageData["topics"][number];
+
+  /** What one view renders, as the server-rendered page did. */
+  const SHOWN = 200;
+
+  // Filtered here, from the URL the chips and the GET form write (OFFLINE_PLAN.md H3): the load
+  // reads no URL, so a filter change re-renders this and never re-runs the load.
+  const statusFilter = $derived(page.url.searchParams.get("status") ?? "active");
+  const search = $derived(page.url.searchParams.get("q") ?? "");
+
+  const counts = $derived({
+    all: data.topics.length,
+    active: data.topics.filter((t) => t.status === "active").length,
+    dormant: data.topics.filter((t) => t.status === "dormant").length,
+    resolved: data.topics.filter((t) => t.status === "resolved").length,
+  });
+
+  const shown = $derived.by(() => {
+    const needle = search.trim().toLowerCase();
+    return data.topics
+      .filter(
+        (t) =>
+          (statusFilter === "all" || t.status === statusFilter) &&
+          (needle === "" ||
+            t.headline.toLowerCase().includes(needle) ||
+            (t.runningSummary ?? "").toLowerCase().includes(needle)),
+      )
+      .slice(0, SHOWN);
+  });
+
+  // Curation writes `active_topics` on the server, never through the outbox (OFFLINE_PLAN.md §1).
+  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => {
     setPageContext({
       surface: "entities",
       route: "/topics",
-      digest: `Active topics: ${data.topics.length} shown (${data.counts.active} active, ${data.counts.resolved} resolved). Filter: ${data.statusFilter}.`,
-      focus: focusFrom(data.topics, "topic", (topic) => ({ id: topic.id, label: topic.headline })),
+      digest: `Active topics: ${shown.length} shown (${counts.active} active, ${counts.resolved} resolved). Filter: ${statusFilter}.`,
+      focus: focusFrom(shown, "topic", (topic) => ({ id: topic.id, label: topic.headline })),
     });
   });
 
@@ -35,7 +70,7 @@
   ];
 
   function count(key: string): number {
-    return data.counts[key as keyof typeof data.counts] ?? 0;
+    return counts[key as keyof typeof counts] ?? 0;
   }
 
   /** The days a topic was live in, newest first, capped so a long-running story stays readable. */
@@ -52,6 +87,12 @@
       say "UPDATE:" and state only what is new, instead of re-explaining the background. Resolving
       one stops it carrying forward.
     </p>
+    {#if isOffline}
+      <p class="text-xs text-warning-400 max-w-prose">
+        Resolving and archiving need the connection: they change what tomorrow's briefing carries
+        forward, so they are never queued offline.
+      </p>
+    {/if}
   </div>
 
   {#if form?.error}
@@ -62,12 +103,12 @@
     <input
       type="search"
       name="q"
-      value={data.search}
+      value={search}
       placeholder="Search headlines and summaries…"
       aria-label="Search topics"
       class="input-base flex-1 min-w-48"
     />
-    <input type="hidden" name="status" value={data.statusFilter} />
+    <input type="hidden" name="status" value={statusFilter} />
     <button
       type="submit"
       class="tap px-4 py-1.5 rounded text-sm bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
@@ -77,10 +118,10 @@
   <div class="flex flex-wrap items-center gap-1">
     {#each FILTERS as [value, filterLabel] (value)}
       <a
-        href="/topics?status={value}{data.search ? `&q=${encodeURIComponent(data.search)}` : ''}"
-        aria-current={data.statusFilter === value ? "true" : undefined}
+        href="/topics?status={value}{search ? `&q=${encodeURIComponent(search)}` : ''}"
+        aria-current={statusFilter === value ? "true" : undefined}
         class="tap px-3 py-1 rounded text-xs border no-underline transition-colors
-          {data.statusFilter === value
+          {statusFilter === value
             ? 'bg-surface-700 border-surface-500 text-surface-50'
             : 'border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200'}"
       >
@@ -89,14 +130,14 @@
     {/each}
   </div>
 
-  {#if data.topics.length === 0}
+  {#if shown.length === 0}
     <EmptyState
       title="No topics match."
       hint="Topics are created by Phase 6 from the briefing's <!--SYSTEM--> block, so the first ones appear after a pipeline run that finds a story worth carrying forward."
     />
   {:else}
     <ul class="flex flex-col gap-3">
-      {#each data.topics as topic (topic.id)}
+      {#each shown as topic (topic.id)}
         <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-4 flex flex-col gap-3">
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div class="min-w-0 flex flex-col gap-1.5">
@@ -115,27 +156,40 @@
               </div>
             </div>
 
-            <form method="POST" action="?/setStatus" use:enhance class="shrink-0 flex gap-2">
+            <!-- Written on the server, not through the outbox, so the offline copy this page reads
+                 only shows it after a pull; forced, because the throttle would skip it. -->
+            <form
+              method="POST"
+              action="?/setStatus"
+              use:enhance={() => async ({ update, result }) => {
+                await update();
+                if (result.type === "success") await sync({ force: true });
+              }}
+              class="shrink-0 flex gap-2"
+            >
               <input type="hidden" name="id" value={topic.id} />
               {#if topic.status === "resolved"}
                 <button
                   type="submit"
+                  disabled={isOffline}
                   name="status"
                   value="active"
-                  class="tap px-3 py-1.5 rounded text-xs border border-success-600 text-success-400 hover:bg-success-950 cursor-pointer transition-colors"
+                  class="tap px-3 py-1.5 rounded text-xs border border-success-600 text-success-400 hover:bg-success-950 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >Reopen</button>
               {:else}
                 <button
                   type="submit"
+                  disabled={isOffline}
                   name="status"
                   value="dormant"
-                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors"
+                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >Archive</button>
                 <button
                   type="submit"
+                  disabled={isOffline}
                   name="status"
                   value="resolved"
-                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:border-primary-700 hover:text-primary-300 cursor-pointer transition-colors"
+                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:border-primary-700 hover:text-primary-300 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >Resolve</button>
               {/if}
             </form>

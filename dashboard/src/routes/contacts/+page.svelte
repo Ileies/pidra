@@ -8,9 +8,14 @@
   import { fmtDate, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
+  import { offline } from "#lib/offline/state.svelte.js";
+  import { sync } from "#lib/offline/sync.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  // An edit is a correction, which is never queued offline (OFFLINE_PLAN.md §1).
+  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
@@ -50,6 +55,12 @@
       context, not from here. Filling in a row here saves the question gate from asking about that
       sender again.
     </p>
+    {#if isOffline}
+      <p class="text-xs text-warning-400 max-w-prose">
+        Editing needs the connection: a change here is recorded as a correction, and corrections are
+        never queued offline.
+      </p>
+    {/if}
   </div>
 
   {#if data.contacts.length === 0}
@@ -76,8 +87,10 @@
             <button
               type="button"
               aria-expanded={open}
+              disabled={isOffline && !open}
+              title={isOffline && !open ? "Needs the connection" : undefined}
               onclick={() => (editing = open ? null : contact.id)}
-              class="tap ml-auto px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer"
+              class="tap ml-auto px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             >{open ? "Cancel" : "Edit"}</button>
           </div>
 
@@ -95,9 +108,12 @@
             <form
               method="POST"
               action="?/update"
-              use:enhance={() => async ({ update }) => {
-                editing = null;
+              use:enhance={() => async ({ update, result }) => {
+                if (result.type === "success") editing = null;
                 await update();
+                // Written on the server, not through the outbox, so this page's offline copy only
+                // shows it after a pull; forced, because the throttle would skip it.
+                if (result.type === "success") await sync({ force: true });
               }}
               class="flex flex-col gap-3 border-t border-surface-800 pt-3"
             >

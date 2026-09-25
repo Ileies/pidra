@@ -268,6 +268,10 @@ export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/notes",
   "/rules",
   "/context-builder",
+  "/entities",
+  "/entities/[id]",
+  "/contacts",
+  "/topics",
 ]);
 
 /**
@@ -289,8 +293,6 @@ export function isMirroredPath(pathname: string): boolean {
 /** Public, static documents. SvelteKit prerenders them and the service worker precaches them. */
 export const STATIC_OFFLINE_ROUTES: ReadonlySet<string> = new Set(["/privacy", "/terms"]);
 
-const NOT_MIRRORED_YET = "This page still reads the database directly; it joins the offline copy in a later phase.";
-
 /** Pages that need the connection, with the one line `OfflineNotice` says about why. */
 export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: string }>> = {
   "/sources": { label: "Sources", reason: "Source trust scores are a live query against the pipeline's own tables." },
@@ -302,10 +304,6 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/questions": { label: "Questions", reason: "A pending question gate is live state, not something a cache can represent honestly." },
   "/chat": { label: "Chat", reason: "The assistant needs a live connection to the model." },
   "/[date]/triage": { label: "Triage", reason: "Triage is a live query against the pipeline's own tables." },
-  "/entities": { label: "Entities", reason: NOT_MIRRORED_YET },
-  "/entities/[id]": { label: "Entities", reason: NOT_MIRRORED_YET },
-  "/contacts": { label: "Contacts", reason: NOT_MIRRORED_YET },
-  "/topics": { label: "Topics", reason: NOT_MIRRORED_YET },
 };
 
 const ONLINE_ONLY_PATTERNS = Object.entries(ONLINE_ONLY).map(([id, notice]) => ({

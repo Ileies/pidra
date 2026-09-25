@@ -9,7 +9,8 @@
  */
 
 const DB_NAME = "pidra-offline";
-const DB_VERSION = 1;
+/** 2: the reference tables (H3). An upgrade only ever adds stores, so it keeps what is there. */
+const DB_VERSION = 2;
 
 export const STORES = [
   "reports",
@@ -18,6 +19,11 @@ export const STORES = [
   "rules",
   "corrections",
   "contextDoc",
+  "entities",
+  "entityRelations",
+  "entityAppearances",
+  "contacts",
+  "topics",
   "meta",
   "outbox",
   "failed",
@@ -40,8 +46,20 @@ function openDb(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      // A newer build (another tab, or the service worker after an update) wants to upgrade. An
+      // open connection blocks that until it closes, so step aside; the next call reopens.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    req.onerror = () => {
+      dbPromise = null;
+      reject(req.error);
+    };
   });
   return dbPromise;
 }

@@ -7,11 +7,35 @@
   import type { Column } from "#lib/components/table.js";
   import { fmtDate } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
+  import { page } from "$app/state";
+  import type { MirroredEntity } from "#lib/offline/repo.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  type Entity = PageData["entities"][number];
+  type Entity = MirroredEntity;
+
+  /** What one view renders, as the server-rendered table did. */
+  const SHOWN = 200;
+
+  // Filtered here, from the URL the GET form writes (OFFLINE_PLAN.md H3): the load reads no URL,
+  // so submitting the form re-renders this and never re-runs the load.
+  const statusFilter = $derived(page.url.searchParams.get("status") ?? "all");
+  const typeFilter = $derived(page.url.searchParams.get("type") ?? "");
+  const search = $derived(page.url.searchParams.get("q") ?? "");
+
+  const types = $derived([...new Set(data.entities.map((e) => e.type).filter((t): t is string => !!t))].sort());
+
+  const matching = $derived.by(() => {
+    const needle = search.trim().toLowerCase();
+    return data.entities.filter(
+      (e) =>
+        (statusFilter === "all" || e.status === statusFilter) &&
+        (typeFilter === "" || e.type === typeFilter) &&
+        (needle === "" || e.name.toLowerCase().includes(needle)),
+    );
+  });
+  const shown = $derived(matching.slice(0, SHOWN));
 
   // Entity rows are corrected through revise_context, not rewritten: the correction merges the
   // named fields and keeps a snapshot. The focus list carries the names the model needs.
@@ -19,8 +43,8 @@
     setPageContext({
       surface: "entities",
       route: "/entities",
-      digest: `Entity graph: ${data.entities.length} entities visible.`,
-      focus: focusFrom(data.entities, "entity", (entity) => ({
+      digest: `Entity graph: ${shown.length} entities visible.`,
+      focus: focusFrom(shown, "entity", (entity) => ({
         id: entity.id,
         label: `${entity.name}${entity.type ? ` (${entity.type})` : ""}`,
       })),
@@ -61,7 +85,7 @@
 {/snippet}
 
 {#snippet mentionsCell(entity: Entity)}
-  <span class="tabular-nums text-surface-200">{entity.mention_count ?? 0}</span>
+  <span class="tabular-nums text-surface-200">{entity.mentionCount}</span>
 {/snippet}
 
 {#snippet statusCell(entity: Entity)}
@@ -77,7 +101,7 @@
 {/snippet}
 
 {#snippet lastSeenCell(entity: Entity)}
-  <span class="text-surface-400 text-xs whitespace-nowrap">{fmtDate(entity.last_mentioned)}</span>
+  <span class="text-surface-400 text-xs whitespace-nowrap">{fmtDate(entity.lastMentioned)}</span>
 {/snippet}
 
 <Page title="Entities" size="app" class="flex flex-col gap-4">
@@ -85,24 +109,24 @@
     <input
       type="search"
       name="q"
-      value={data.search}
+      value={search}
       placeholder="Search entities…"
       aria-label="Search entities"
       class="input-base flex-1 min-w-48"
     />
 
     <select name="status" aria-label="Status filter" class="input-base">
-      <option value="all" selected={data.statusFilter === "all"}>All statuses</option>
-      <option value="active" selected={data.statusFilter === "active"}>Active</option>
-      <option value="dormant" selected={data.statusFilter === "dormant"}>Dormant</option>
-      <option value="archived" selected={data.statusFilter === "archived"}>Archived</option>
+      <option value="all" selected={statusFilter === "all"}>All statuses</option>
+      <option value="active" selected={statusFilter === "active"}>Active</option>
+      <option value="dormant" selected={statusFilter === "dormant"}>Dormant</option>
+      <option value="archived" selected={statusFilter === "archived"}>Archived</option>
     </select>
 
-    {#if data.types.length > 0}
+    {#if types.length > 0}
       <select name="type" aria-label="Type filter" class="input-base">
-        <option value="" selected={data.typeFilter === ""}>All types</option>
-        {#each data.types as type (type)}
-          <option value={type} selected={data.typeFilter === type}>{type}</option>
+        <option value="" selected={typeFilter === ""}>All types</option>
+        {#each types as type (type)}
+          <option value={type} selected={typeFilter === type}>{type}</option>
         {/each}
       </select>
     {/if}
@@ -113,14 +137,16 @@
     >Filter</button>
   </form>
 
-  {#if data.entities.length > 0}
-    <div class="text-xs text-surface-400">{data.entities.length} entities</div>
+  {#if matching.length > 0}
+    <div class="text-xs text-surface-400">
+      {matching.length > shown.length ? `The first ${shown.length} of ${matching.length} entities` : `${matching.length} entities`}
+    </div>
   {/if}
 
   <!-- Scroll mode, not cards: this is a dense reference table where the grid is the
        information, and progressive columns already made it work on a phone (M-5). -->
   <DataTable
-    rows={data.entities}
+    rows={shown}
     key={(entity) => entity.id}
     mode="scroll"
     caption="Entity graph"

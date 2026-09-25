@@ -6,11 +6,17 @@
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
+  import type { EntityRelation } from "#lib/offline/repo.js";
   import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+  let { data: pageData }: { data: PageData } = $props();
+
+  // The layout renders the first-sync state instead of this page while the mirror is empty, so
+  // only the filled shape ever reaches the markup; this narrows the type to match.
+  const data = $derived(pageData.mirrorEmpty ? null : pageData);
 
   $effect(() => {
+    if (!data) return;
     setPageContext({
       surface: "entities",
       route: `/entities/${data.entity.id}`,
@@ -28,14 +34,15 @@
   const IMPORTANCE_TONE = { high: "warning", medium: "neutral", normal: "neutral", low: "muted" } as const;
 
   /** Reads the same in both directions: "X competes with Y" and "Y competes with X" are one edge. */
-  function relationPhrase(relation: PageData["relations"][number]): string {
+  function relationPhrase(relation: EntityRelation): string {
     const verb = (relation.relationType ?? "relates to").replace(/_/g, " ");
     return relation.direction === "out" ? verb : `${verb} (incoming)`;
   }
 
-  const confirmed = $derived(data.relations.filter((relation) => relation.confirmed).length);
+  const confirmed = $derived(data?.relations.filter((relation) => relation.confirmed).length ?? 0);
 </script>
 
+{#if data}
 <Page title={data.entity.name} size="app" class="flex flex-col gap-6">
   <div class="flex flex-col gap-2">
     <a href="/entities" class="text-xs text-surface-400 hover:text-surface-200 no-underline">← Entities</a>
@@ -136,3 +143,4 @@
     {/if}
   </section>
 </Page>
+{/if}

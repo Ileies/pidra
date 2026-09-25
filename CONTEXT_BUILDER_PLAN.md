@@ -1,6 +1,6 @@
 # Context Builder - Plan & TODO
 
-> **Third standalone tool in the PIDRA ecosystem.** Performs a comprehensive scan of all personal data sources, compresses them locally with Ollama, and synthesizes a structured long-term context document with a small number of targeted Sonnet calls. Runs in two modes: **full** (first run or explicit rebuild) and **update** (incremental - skips already-indexed items and merges new ones proportionally into the existing context). Output seeds PIDRA's entity graph, contacts table, and standing context - and produces a standalone human-readable "life snapshot."
+> **Third standalone tool in the PIDRA ecosystem.** Performs a comprehensive scan of personal data sources, extracts structured JSON and synthesizes a long-term context document through `src/ai/openai.ts`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. It runs in **full** mode for a first run or explicit rebuild and **update** mode for an incremental, proportional merge. Output seeds `entities`, `contacts` and `standing_context`, and produces a standalone human-readable snapshot.
 
 ---
 
@@ -9,30 +9,30 @@
 - Not a daily runner - runs on demand or monthly.
 - Not the main pipeline - it feeds it.
 - Not a backup tool - it extracts meaning, not raw data.
-- Not a cloud sync - all heavy processing happens locally via Ollama.
+- Not a cloud sync. Source data is fetched from its origin; model calls use the central OpenAI client with `store: false`.
 
 ---
 
 ## Design Constraints
 
 ### The context window problem
-Even a single large email account can produce 10k+ emails. No single Sonnet context window can hold this. Solution: **two-pass architecture** - Ollama reads everything and outputs only compact JSON (≤80 chars per item), Sonnet sees only the compressed summaries.
+Even a single large email account can produce 10k+ emails. No single synthesis context window can hold this. Solution: **two-pass architecture**: the configured extraction model outputs compact JSON, and the configured synthesis model sees only compressed summaries.
 
 ### The cost problem
-Processing 5,000 emails × 1,000 Keep notes × full Sonnet would cost $30–100+. With Ollama compression first, total Sonnet cost is **$0.40–$1.00** for the full run.
+Processing every raw email and Keep note in one synthesis prompt would be both unreliable and unnecessarily expensive. Extraction first bounds the synthesis payload; actual cost depends on the configured OpenAI model prices and is reported from usage rather than estimated from obsolete model rates.
 
 ### The failure-at-99% problem
 Every processed item is written to a checkpoint file immediately. A crash resumes from the exact item it stopped at - no work is lost, no API costs are doubled. Partial results are always written: if GitHub fails, email + Keep + Tasks still produce useful output.
 
 ### The "what to store" problem
-Raw email bodies, full note text, full README content: **never stored in the output**. Only stored: metadata + Ollama-compressed extraction (one JSON object per item, ≤200 bytes). The final Sonnet synthesis result is stored. The raw source data stays in its origin system.
+Raw email bodies, full note text and full README content are **never stored in the output**. The index stores metadata plus structured extraction JSON; the final synthesized document is stored separately. Raw source data stays in its origin system.
 
 ### The delta update problem
 After a full run, re-running must not rebuild from scratch. Equally, running with only 5 new emails must not produce a context dominated by those 5 emails - the existing index built from 2,847 emails represents far more signal. Solution: **proportional patch synthesis**.
 
 How it works:
-1. A persistent index state (Postgres table `context_builder_runs`) records every indexed item's ID and the run it was indexed in. On re-run, any item whose ID already appears in `context_builder_runs` is skipped entirely - no Ollama call, no fetch.
-2. Only genuinely new items are processed through the Ollama extraction pipeline.
+1. A persistent index state (`context_builder_indexed_items`) records every indexed item ID and its extraction. On re-run, an existing `(source, item_id)` is skipped.
+2. Only genuinely new items enter the structured extraction pipeline.
 3. The delta synthesis step receives: the **existing context document** (already compressed, ~3,000 tokens) + only the **new item extractions** (the delta). The prompt explicitly states the ratio: "The existing context reflects N items indexed previously. The delta contains M new items. Merge proportionally - do not alter conclusions drawn from N unless directly contradicted by the delta. Add new contacts and entities if present."
 4. The result replaces the previous context document, but the edit distance should be small for a small delta.
 
@@ -46,7 +46,7 @@ How it works:
 bun run context-builder/run.ts            # auto-detect: full if no prior index, update otherwise
 bun run context-builder/run.ts --full     # always rebuild from scratch (ignores existing index)
 bun run context-builder/run.ts --update   # force delta mode even if no prior index exists (no-op if nothing new)
-bun run context-builder/run.ts --dry-run  # inventory only, no Ollama, no API calls, no writes
+bun run context-builder/run.ts --dry-run  # inventory only, no model calls or writes
 ```
 
 ### Auto-detect logic
@@ -61,7 +61,7 @@ Processes all items across all sources. Ignores any existing index state. At the
 ### Update mode
 1. Fetches item IDs from each source (headers only for email, note IDs for Keep, task IDs for Tasks)
 2. Filters out any ID already present in `context_builder_runs.indexed_item_ids`
-3. Only processes the delta - Ollama extraction for new items only
+3. Only processes the delta: structured extraction for new items only
 4. Skips re-synthesis for sources where delta is zero (e.g., no new Keep notes → skip Keep synthesis entirely)
 5. Runs patch synthesis for sources that have a delta (see Design Constraints → delta update problem)
 6. Appends new item IDs to `context_builder_runs`
@@ -95,22 +95,22 @@ context-builder/
     keep.ts                 # Google Keep via gkeepapi (Python subprocess)
     tasks.ts                # Google Tasks API
   pipeline/
-    extract-email.ts        # Ollama pass: email → compact JSON
-    extract-note.ts         # Ollama pass: Keep note → compact JSON
+    extract-email.ts        # structured extraction: email → compact JSON
+    extract-note.ts         # structured extraction: Keep note → compact JSON
     batch-contacts.ts       # group email extractions by sender
-    synthesize.ts           # Sonnet synthesis calls
+    synthesize.ts           # OpenAI synthesis calls
   output/
     builder.ts              # assembles final context document
     db-writer.ts            # writes seeds into PIDRA Postgres tables
   prompts/
-    email-extraction.ts     # Ollama prompt: email → JSON
-    note-extraction.ts      # Ollama prompt: Keep note → JSON
+    email-extraction.ts     # email → JSON prompt
+    note-extraction.ts      # Keep note → JSON prompt
     synthesis/
-      contacts.ts           # Sonnet: contact profiles
-      projects.ts           # Sonnet: project portfolio
-      knowledge.ts          # Sonnet: interest + entity map
-      tasks.ts              # Sonnet: active commitments
-      final.ts              # Sonnet: full context synthesis
+      contacts.ts           # contact profiles
+      projects.ts           # project portfolio
+      knowledge.ts          # interest + entity map
+      tasks.ts              # active commitments
+      final.ts              # full context synthesis
 ```
 
 ---
@@ -133,24 +133,24 @@ No account addresses are hardcoded. Adding or removing an account in `email-acco
 2. Deduplicate against already-processed checkpoint
 3. Filter: skip automated system emails (no-reply, noreply, mailer-daemon, calendar invites from bots)
 4. Fetch body only for surviving emails
-5. Ollama pass → compact extraction JSON (see Prompts section)
+5. Structured extraction pass → compact JSON (see Prompts section)
 6. Write checkpoint entry immediately after each successful extraction
 7. After all emails: group by sender email → build sender profiles
 
-**Concurrency:** Semaphore capped at 4 Ollama calls. All non-news IMAP connections opened in parallel.
+**Concurrency:** extraction concurrency is `CONTEXT_BUILDER_EXTRACT_CONCURRENCY` (default 8). All non-news IMAP connections open in parallel.
 
 **Time window (applies to `isNewsAccount: false` accounts):**
 - Default: last 3 years (configurable via `CONTEXT_BUILDER_EMAIL_YEARS=3`)
 - Accounts with `classifyNewsVsPersonal: false` (dedicated personal/work accounts): apply time window normally
-- Anything older than the time window gets header-only metadata (no Ollama, no body fetch)
+- Anything older than the time window gets header-only metadata, with no body fetch or model call
 
 ### 2. Google Tasks (~130 items)
 
-Small dataset. No Ollama pass needed.
+Small dataset. No per-item extraction pass is needed.
 
 - Fetch all task lists + all tasks via Google Tasks API
 - Filter: exclude completed tasks older than 90 days
-- Full dataset → 1 Sonnet call → active commitments summary + urgency classification
+- Full dataset → one synthesis call → active commitments summary and urgency classification
 - Estimated tokens: ~3,000 input, ~800 output → **~$0.01**
 
 ### 3. Google Keep (~1,000 notes)
@@ -158,9 +158,9 @@ Small dataset. No Ollama pass needed.
 **API approach:** `gkeepapi` (unofficial Python library, accessible via Bun subprocess).
 
 - Fetch all notes
-- Per note: Ollama extraction (category, entities, topics, summary, type, temporal references)
+- Per note: structured extraction (category, entities, topics, summary, type, temporal references)
 - Group by category after extraction
-- Per category group → 1 Sonnet call → category-level synthesis
+- Per category group → one synthesis call → category-level synthesis
   - 10 categories × ~100 notes each compressed to ~80 chars = ~8,000 tokens input per category
   - Actual: ~3,000 tokens per category after compression
   - 10 calls × ~$0.02 each = **~$0.20 total**
@@ -172,19 +172,19 @@ Small dataset. No Ollama pass needed.
 - Per repo: fetch README (first 400 chars only - the "pitch line")
 - Per repo: last 10 commits (message + date only, no diff)
 - Total data: ~20–30 repos, ~15,000 tokens input
-- 1 Sonnet call → project portfolio summary → **~$0.04**
+- One synthesis call → project portfolio summary
 
 **Repos to include:** All public + private repos (requires `repo` scope on PAT). Archived repos: include but mark as archived.
 
 ### 5. Final Context Synthesis
 
-1 Sonnet call receives all prior synthesis outputs (contacts, projects, tasks, knowledge map) and produces the final structured context document.
+One synthesis call receives all prior synthesis outputs (contacts, projects, tasks, knowledge map) and produces the final structured context document.
 
 - Input: ~25,000 tokens (all summaries concatenated)
 - Output: ~3,000 tokens
 - Cost: **~$0.10**
 
-**Total estimated Sonnet cost: $0.35–$0.60 per full run.**
+Model cost is derived from returned usage and the configured rates. Do not rely on a static estimate because model selection is configurable.
 
 ---
 
@@ -193,16 +193,16 @@ Small dataset. No Ollama pass needed.
 ```
 Phase 0  - Mode detection + Inventory   [~2 min]   Detect full/update/resume, count items, estimate runtime
 Phase 1  - Email Headers                [~5 min]   Fetch headers, diff against index, plan extraction
-Phase 2  - Email Extraction             [~30-90 min / ~2-10 min delta] Ollama pass, new items only
+Phase 2  - Email Extraction             [~30-90 min / ~2-10 min delta] structured extraction, new items only
 Phase 3  - Contact Grouping             [~1 min]   Group new extractions by sender
-Phase 4  - Contact Synthesis            [~2 min]   Sonnet: contact profiles (skipped if delta=0)
+Phase 4  - Contact Synthesis            [~2 min]   synthesis: contact profiles (skipped if delta=0)
 Phase 5  - Tasks Fetch                  [~1 min]   Google Tasks API (always runs)
-Phase 6  - Tasks Synthesis              [~1 min]   Sonnet: commitments (always runs)
+Phase 6  - Tasks Synthesis              [~1 min]   synthesis: commitments (always runs)
 Phase 7  - Keep Fetch                   [~2 min]   gkeepapi fetch, diff against index
-Phase 8  - Keep Extraction              [~15-30 min / ~1-5 min delta] Ollama pass, new notes only
-Phase 9  - Keep Synthesis               [~5 min]   Sonnet per category (skipped if delta=0 for that category)
+Phase 8  - Keep Extraction              [~15-30 min / ~1-5 min delta] structured extraction, new notes only
+Phase 9  - Keep Synthesis               [~5 min]   synthesis per category (skipped if delta=0 for that category)
 Phase 10 - GitHub Fetch                 [~2 min]   REST API (always runs)
-Phase 11 - GitHub Synthesis             [~1 min]   Sonnet: project portfolio (always runs)
+Phase 11 - GitHub Synthesis             [~1 min]   synthesis: project portfolio (always runs)
 Phase 12 - Synthesis                    [~2 min]   Full context document (full mode) OR patch synthesis (update mode)
 Phase 13 - DB Seeding                   [~1 min]   Write seeds + update context_builder_runs
 Phase 14 - Report                       [~1 min]   Write JSON + Markdown output files
@@ -257,9 +257,8 @@ Implementation: write progress state object, re-render full table to stdout usin
 attempt 1 → fail → wait 2s → attempt 2 → fail → wait 8s → attempt 3 → fail → log to errors.json → mark as FAILED in checkpoint → continue
 ```
 
-- Ollama errors (GPU OOM, timeout): retry with 10s wait, reduce concurrency to 2 after 3 consecutive failures
+- OpenAI model errors, including flex-capacity responses: retry through the shared client with backoff
 - IMAP connection drops: reconnect once, then skip account for current run
-- Sonnet API errors: retry up to 3 times with exponential backoff (2s, 8s, 30s)
 - Google API 429: respect `Retry-After` header, default 60s
 
 ### Checkpoint file (`context-builder/.checkpoint.json`)
@@ -272,7 +271,7 @@ Tracks progress **within a single run**. Discarded when the run completes succes
   "phases_completed": ["inventory", "email_headers", "tasks_fetch"],
   "email_items": {
     "uni:<message-id>": { "status": "done", "extraction_id": "uuid" },
-    "gmail:<message-id>": { "status": "failed", "error": "Ollama timeout", "attempts": 3 }
+    "gmail:<message-id>": { "status": "failed", "error": "model request timed out", "attempts": 3 }
   },
   "keep_items": { ... },
   "stats": { "emails_total": 2847, "emails_done": 2701, "emails_failed": 146 }
@@ -294,9 +293,9 @@ CREATE TABLE context_builder_runs (
   completed_at timestamptz,
   items_indexed integer,                 -- total new items indexed this run
   items_skipped integer,                 -- items already in index (update mode)
-  context_doc_path text,                 -- path to output JSON for this run
-  sonnet_tokens_in integer,
-  sonnet_tokens_out integer,
+  output_path text,                      -- path to output JSON for this run
+  sonnet_tokens_in integer,  -- legacy column name; records OpenAI input tokens
+  sonnet_tokens_out integer, -- legacy column name; records OpenAI output tokens
   cost_usd real
 );
 
@@ -309,7 +308,7 @@ CREATE TABLE context_builder_indexed_items (
 );
 ```
 
-On update mode start: `SELECT item_id FROM context_builder_indexed_items WHERE source = 'email:gmail'` → skip these message IDs entirely (no header fetch, no Ollama call).
+On update mode start: `SELECT item_id FROM context_builder_indexed_items WHERE source = 'email:gmail'` → skip these message IDs entirely, without a body fetch or model call.
 
 ### Error log (`context-builder/errors.json`)
 Append-only log with timestamp, phase, item id, error message, stack trace. Survives restarts. Rolled over per run.
@@ -319,7 +318,7 @@ Final synthesis runs with whatever data is available. If email phase completed 8
 
 ---
 
-## Ollama Extraction Prompts
+## Structured Extraction Prompts
 
 ### Email extraction (per email)
 ```
@@ -357,29 +356,29 @@ Return JSON only.
 
 ---
 
-## Sonnet Synthesis Prompts (structure only - full prompts written during impl)
+## Synthesis Prompts (structure only - full prompts written during implementation)
 
-### Contact profiles (Sonnet)
+### Contact profiles
 Input: all sender profiles (email + name + list of compressed email summaries)
 Output: JSON array of contact objects `{ name, email, relationship, importance, communication_notes }`
 
-### Active commitments (Sonnet)
+### Active commitments
 Input: all Google Tasks items across all lists
 Output: structured commitment list with urgency levels and project assignments
 
-### Knowledge map (Sonnet)
-Input: Keep category summaries (post-Ollama)
+### Knowledge map
+Input: Keep category summaries after structured extraction
 Output: `{ interests[], known_entities[], travel_plans[], key_memories[], personal_rules[] }`
 
-### Project portfolio (Sonnet)
+### Project portfolio
 Input: GitHub repo data
 Output: `{ active_projects[], completed_projects[], tech_stack[], patterns[] }`
 
-### Final context document - full mode (Sonnet)
+### Final context document - full mode
 Input: all four synthesis outputs above
 Output: full context document (see Output Format below)
 
-### Patch synthesis - update mode (Sonnet)
+### Patch synthesis - update mode
 Input:
 - Existing context document (the last completed run's JSON, ~3,000 tokens)
 - Delta contact profiles (new senders only, if any)
@@ -481,7 +480,7 @@ Add to `.env.example`:
 ```bash
 # Context Builder
 CONTEXT_BUILDER_EMAIL_YEARS=3          # how far back to go for personal emails
-CONTEXT_BUILDER_OLLAMA_CONCURRENCY=4   # Ollama parallel calls
+CONTEXT_BUILDER_EXTRACT_CONCURRENCY=8  # parallel extraction calls to OpenAI
 GITHUB_TOKEN=                          # PAT with 'repo' scope for private repos
 GKEEPAPI_USERNAME=                     # Google account for gkeepapi
 GKEEPAPI_MASTER_TOKEN=                 # obtained via gkeepapi one-time auth
@@ -504,31 +503,7 @@ Bun calls Python via subprocess: `Bun.spawn(["python3", "context-builder/scripts
 
 ## Cost Analysis
 
-| Phase | Tool | Input tokens | Output tokens | Cost |
-|---|---|---|---|---|
-| Email extraction | Ollama | n/a | n/a | $0.00 |
-| Keep extraction | Ollama | n/a | n/a | $0.00 |
-| Contact synthesis | Sonnet | ~15,000 | ~2,000 | ~$0.05 |
-| Tasks synthesis | Sonnet | ~3,000 | ~800 | ~$0.01 |
-| Keep synthesis (10×) | Sonnet | ~30,000 | ~5,000 | ~$0.20 |
-| GitHub synthesis | Sonnet | ~15,000 | ~2,000 | ~$0.05 |
-| Final synthesis | Sonnet | ~25,000 | ~3,000 | ~$0.10 |
-| **Total (full run)** | | | | **~$0.41** |
-
-**Update run cost** (delta only, e.g. 1 month of new emails + unchanged Keep):
-
-| Phase | Tool | Notes | Cost |
-|---|---|---|---|
-| Email extraction (delta) | Ollama | ~50–200 new emails | $0.00 |
-| Keep extraction (delta) | Ollama | ~0–30 new notes | $0.00 |
-| Tasks synthesis | Sonnet | always re-runs | ~$0.01 |
-| GitHub synthesis | Sonnet | always re-runs | ~$0.04 |
-| Contact synthesis (delta) | Sonnet | only if new senders | ~$0.01 |
-| Keep synthesis (delta) | Sonnet | only affected categories | ~$0.02 |
-| Patch synthesis | Sonnet | existing context + delta summaries | ~$0.06 |
-| **Total (update run)** | | | **~$0.14** |
-
-Costs are based on Sonnet 4.6 pricing ($3/M input, $15/M output). Actual will be lower with prompt caching where applicable.
+Every extraction and synthesis request goes through `src/ai/openai.ts`. Cost depends on `OPENAI_MODEL_EXTRACTION`, `OPENAI_MODEL_SYNTHESIS` and the configured per-million-token rates. The default for both models is `gpt-5.6-luna`; `progress.ts` reports returned usage and computes a cost only when rates are configured. Static estimates based on another provider's pricing are intentionally omitted.
 
 ---
 
@@ -558,7 +533,7 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 ### Progress display
 - [x] Implement `progress.ts`: phase state machine + ANSI terminal renderer
 - [x] Implement 500ms refresh loop with cursor reposition
-- [x] Implement cost accumulator (tracks Sonnet token usage in real time)
+- [x] Implement cost accumulator (tracks OpenAI token usage in real time)
 - [x] Implement ETA calculator (based on items/sec × remaining items)
 
 ### Environment + config
@@ -583,16 +558,16 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 - [x] Implement time window filter (configurable years, default 3)
 - [x] Implement skip-set filter: drop any message-id already in `context_builder_indexed_items`
 - [x] Implement body fetch for filtered emails (streaming, with size cap at 50KB per email)
-- [x] Write Ollama extraction prompt for emails (`prompts/email-extraction.ts`)
-- [x] Implement `pipeline/extract-email.ts`: Ollama call with semaphore + checkpoint write per item + write to `context_builder_indexed_items` on success
+- [x] Write structured extraction prompt for emails (`prompts/email-extraction.ts`)
+- [x] Implement `pipeline/extract-email.ts`: OpenAI call with semaphore + checkpoint write per item + write to `context_builder_indexed_items` on success
 - [x] Implement `pipeline/batch-contacts.ts`: group new extractions by `from_email`
-- [x] Write Sonnet contact synthesis prompt
+- [x] Write contact synthesis prompt
 - [x] Implement contact synthesis call (batched: max 50 senders per call; skipped entirely if delta=0)
 
 ### Phase 5–6 - Google Tasks
 - [x] Implement `sources/tasks.ts`: fetch all lists + all tasks via Google Tasks API
 - [x] Filter: exclude completed tasks older than 90 days
-- [x] Write Sonnet tasks synthesis prompt
+- [x] Write tasks synthesis prompt
 - [x] Implement tasks synthesis call
 
 ### Phase 7–9 - Google Keep
@@ -600,23 +575,23 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 - [x] Write `context-builder/scripts/keep-fetch.py` (fetch all notes → stdout JSON)
 - [x] Implement `sources/keep.ts`: Bun subprocess → gkeepapi
 - [x] Implement skip-set filter: drop any note ID already in `context_builder_indexed_items`
-- [x] Write Ollama extraction prompt for Keep notes (`prompts/note-extraction.ts`)
-- [x] Implement `pipeline/extract-note.ts`: Ollama call with semaphore + checkpoint write + write to `context_builder_indexed_items` on success
-- [x] Write Sonnet Keep synthesis prompt (per category) — simplified to single call with all categories as a map; per-category split unnecessary after Ollama compression
+- [x] Write structured extraction prompt for Keep notes (`prompts/note-extraction.ts`)
+- [x] Implement `pipeline/extract-note.ts`: OpenAI call with semaphore + checkpoint write + write to `context_builder_indexed_items` on success
+- [x] Write Keep synthesis prompt (per category) — simplified to single call with all categories as a map; per-category split unnecessary after structured extraction
 - [x] Implement per-category synthesis calls (skipped for categories where delta=0) — single `synthesizeKeep()` call in `synthesize.ts`
 
 ### Phase 10–11 - GitHub
 - [x] Implement `sources/github.ts`: list repos (public + private) via REST API v3
 - [x] Fetch per repo: description, language, last_push, README (first 400 chars), last 10 commit messages
-- [x] Write Sonnet GitHub synthesis prompt
+- [x] Write GitHub synthesis prompt
 - [x] Implement GitHub synthesis call
 
 ### Phase 12 - Synthesis (full or patch)
-- [x] Write Sonnet full context synthesis prompt (`prompts/synthesis/final.ts`)
-- [x] Write Sonnet patch synthesis prompt (`prompts/synthesis/patch.ts`) - includes ratio metadata and proportionality instruction
+- [x] Write full context synthesis prompt (`prompts/synthesis/final.ts`)
+- [x] Write patch synthesis prompt (`prompts/synthesis/patch.ts`) - includes ratio metadata and proportionality instruction
 - [x] Implement full synthesis call (input: all phase outputs)
 - [x] Implement patch synthesis call (input: existing context JSON + delta summaries only)
-- [x] Parse and validate output structure (same schema for both modes) — not applicable; synthesis outputs plain text, DB seeding reads directly from Ollama extraction structs
+- [x] Parse and validate output structure (same schema for both modes) — synthesis returns plain text, while DB seeding reads structured extraction objects
 
 ### Phase 13 - DB Seeding
 - [x] Add `standing_context` table to Drizzle schema
@@ -628,18 +603,18 @@ The context builder is **not** a dependency of the daily pipeline - it only impr
 
 ### Phase 14 - Report output
 - [x] Implement `output/builder.ts`: JSON output writer
-- [x] Implement Markdown output writer (14 sections, human-readable) — done in `output/builder.ts` (5 sections, simpler format)
+- [x] Implement Markdown output writer with the five required top-level sections in `output/builder.ts`
 - [x] Print final summary: items processed, errors, cost, output file paths — done in `run.ts`
 
 ### Error handling
 - [x] Per-item retry with exponential backoff (2s, 8s) in `extract-email.ts` and `extract-note.ts`
-- [x] Ollama OOM detection (reduce concurrency to 2 on 3 consecutive failures) in both extract files
+- [x] Central OpenAI retry and flex-capacity handling through `extractJson()` in both extract files
 - [x] IMAP reconnect logic (1 retry per account) in `sources/email.ts`
-- [x] Sonnet 429 handling (respect Retry-After) in `pipeline/synthesize.ts`
+- [x] Central OpenAI retry and flex-capacity handling through `synthesize()`
 - [x] Partial output guarantee: each phase wrapped in try/catch, synthesis always runs with available data
 
 ### Testing
-- [x] Test with `--dry-run` flag: counts only, no API calls, no Ollama — verified 2026-09-11: real inventory (6 new emails, 1 new Keep note, 174 tasks, 40 repos), zero `context_builder_runs` writes, mode auto-detected as `update`.
+- [x] Test with `--dry-run` flag: counts only, no API or model calls — verified 2026-09-11: real inventory (6 new emails, 1 new Keep note, 174 tasks, 40 repos), zero `context_builder_runs` writes, mode auto-detected as `update`.
 - [x] Test email extraction on 10 emails before full run — moot: the first full run (2026-09-10) already succeeded end-to-end on the real inbox, so there's no longer a "before full run" smoke test to do.
 - [x] Test Keep extraction on 20 notes before full run — moot, same reasoning.
 - [x] Test checkpoint resume: kill mid-run, verify it continues correctly — verified 2026-09-11: killed the run (`kill -9`) mid-synthesis with 6 emails + 1 Keep note already extracted and persisted to `context_builder_indexed_items`. Re-invoking with no flags found the `status='running'` row, reused all 7 prior extractions (no re-extraction cost), and completed the *same* run row (`ba7d39b5-...`) rather than creating a new one.

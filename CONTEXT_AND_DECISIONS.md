@@ -35,7 +35,7 @@
 **China:** A standing personal and strategic interest rather than a casual geopolitical one. A calendar pre-trip window (2 weeks before any China flight) should trigger boosted China content in the intelligence section.  
 **Company:** Planning to found internationally. EU and Swiss regulatory context is professionally relevant, not just interesting.  
 **Cognitive style:** Needs high novelty per paragraph, clear section structure, no recap sentences, no padding. Format is functionally important, not aesthetic preference.  
-**Stack:** Bun, SvelteKit, Postgres, DrizzleORM, NixOS, Ollama, Claude API, GitHub. Self-hosts on own server (Netcup, migration possible). All projects solo-built.  
+**Stack:** Bun, SvelteKit, Postgres, DrizzleORM, NixOS, OpenAI Responses API and GitHub. Extraction and synthesis models are configurable and both default to `gpt-5.6-luna`. Self-hosts on own server (Netcup, migration possible). All projects solo-built.
 **University:** Currently enrolled - 7 active Uni tasks in Google Tasks. Uni emails and deadlines are real priority items for Section 2.
 
 ---
@@ -59,7 +59,7 @@
 ### Stack confirmation from project history
 The full project list confirms deep, production-level experience with: SvelteKit, Bun, Postgres, DrizzleORM, auth (multiple implementations), Stripe, i18n, NixOS deployment, Discord bots (Telegraf), Minecraft plugins (Paper/Kotlin), browser extensions, and LLM integrations. No scaffolding or boilerplate explanations needed.
 
-### Relevant skills the system can eventually call via Claude Code bridge
+### Relevant skills the system can eventually call via the local skills bridge
 Based on project history, the user has existing scripts and utilities for: NixOS service management (`nixos-mosh-flake`), DNS updates (`netcup-dynamic-ip`), Git operations (`gh-terrain-history`). These are natural candidates for early skill implementations.
 
 ---
@@ -142,7 +142,7 @@ Tier S = essential daily reads. Tier A = high-value, subscribe immediately. Tier
 
 **A - Benedict Evans**: Frameworks for tech displacement cycles. Weekly free.
 
-**A - SemiAnalysis** (Dylan Patel): Deepest AI hardware and semiconductor economics analysis available. Directly relevant to running Ollama on own server. Limited free.
+**A - SemiAnalysis** (Dylan Patel): Deepest AI hardware and semiconductor economics analysis available. Limited free.
 
 **A - Term Sheet** (Dan Primack): Gold standard VC/M&A news. Best sourcing in venture journalism. Daily free.
 
@@ -272,15 +272,14 @@ Design notes that shaped it, with no personal detail attached:
 ### Newsletter count: 32
 Cut from 50. Removed 18 sources due to: pure redundancy (same daily news cycle covered by a retained source), wrong format for LLM parsing (visual/eclectic/reference), or low signal-to-token ratio. Token cost was not a factor - ~$2–3/month at 50.
 
-### Ollama model: qwen2.5:14b (target, not what's running)
-Over llama3.1:8b: better multilingual (German emails, Chinese messages), stronger structured JSON extraction, better edge-case reasoning. Quantization: Q4_K_M (~8.5GB VRAM). Fallback to 8b if needed.
+### AI model selection
 
-**Current status (2026-09-10):** neither pipeline nor Context Builder actually calls Ollama for extraction. Both run `gpt-5.6-luna` via `src/ai/openai.ts` (`EXTRACTION_MODEL` / `SYNTHESIS_MODEL`). The Context Builder's local Ollama path was tried and removed - the 9B model truncated its own JSON mid-object and hit 90s timeouts, so runs never completed. This decision (which model, local vs. cloud) is explicitly not architecturally load-bearing: `CLAUDE.md` states "the two-stage split is the rule; which model fills each stage is not." Moving extraction back to Ollama remains the target, not a regression to fix.
+Both pipeline stages use the OpenAI Responses API through `src/ai/openai.ts`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. The two-stage split is architecturally load-bearing, while the configured model identifiers are not.
 
 ### GPU: RTX 4090 (24GB VRAM)
 Over 4070 Ti Super: future-proofs for 32b models, faster at concurrency 4, server already runs multiple demanding workloads simultaneously.
 
-**Current status:** moot for now - with extraction running on `gpt-5.6-luna` instead of local Ollama, this hardware sizing has no live workload to size for. Revisit if/when the Ollama target above is actually pursued.
+**Current status:** no current pipeline workload depends on local model hardware. Revisit only if a local execution path is deliberately introduced.
 
 ### Delivery: SvelteKit dashboard + PWA + push notification
 Push notification says only "Morning briefing ready - N items." No content in notification. Report read in SvelteKit dashboard (browser/desktop) or PWA (mobile).
@@ -321,7 +320,7 @@ Weekly meta-run generates diff. Never auto-applied. Each change approved/rejecte
 
 ## 10. Core Design Principles
 
-**Extraction is a compressor, not an analyst.** Converts text → structured JSON. Never judges importance, writes prose, or synthesizes across sources. Those responsibilities belong to synthesis exclusively. The two-stage split is the architectural rule; which model fills each stage is not - both stages currently run on `gpt-5.6-luna` (see §9), with Ollama-for-extraction still the target, not yet realized.
+**Extraction is a compressor, not an analyst.** Converts text → structured JSON. Never judges importance, writes prose, or synthesizes across sources. Those responsibilities belong to synthesis exclusively. The two-stage split is the architectural rule; models are configured through the OpenAI model environment variables and default to `gpt-5.6-luna`.
 
 **Synthesis synthesizes, never processes.** Sees only compressed extraction output (~12K tokens), not raw email HTML (~50K tokens). Quality is higher, cost is lower.
 
@@ -329,7 +328,7 @@ Weekly meta-run generates diff. Never auto-applied. Each change approved/rejecte
 
 **No prompt changes without human approval.** System can propose (weekly meta-run). Cannot apply. The user's information diet is too important to delegate to an automated optimization loop.
 
-**Diary content: the rule narrowed on 2026-09-10, and the two build tracks land differently.** The original rule here was absolute: raw diary text never reaches any cloud API, full stop. The owner has since decided the opposite for the Context Builder specifically - diary and other intimate personal content is deliberately in scope there, because it is some of the richest signal available for a thorough context document, and it goes to the API like anything else under `store: false` (`CLAUDE.md`). Only credentials are still hard-filtered before any consumer sees them. The still-unbuilt Phase 7 diary track (§9 above, `MORNING_BRIEFING_PLAN.md` §20.3) was designed under the *old* absolute rule - local-only weekly extraction, abstract block only, raw text never leaves the server - and that design has not yet been explicitly revisited against the newer, more permissive decision. Whoever picks up Phase 7's diary track should resolve this before writing code, not assume the old design still holds by default.
+**Diary content: the rule narrowed on 2026-09-10.** Diary and other intimate personal content are deliberately in scope for the Context Builder under `store: false`; only credentials are hard-filtered before any consumer sees them. The still-unbuilt Phase 7 diary track follows the same boundary: it may use the configured extraction model, while its stored output remains an abstract personal-context block.
 
 **The question gate fires before Section 2 synthesis.** Missing context is identified and resolved before writing, not after. A wrong report is worse than a slightly delayed one.
 
@@ -356,4 +355,4 @@ When an AI story connects to a China story, or a market development connects to 
 
 *Context document version: 2.1 - synced to actual code state, 2026-09-11*
 *Companion to: MORNING_BRIEFING_PLAN.md*
-*Build with: Bun + SvelteKit + Postgres + DrizzleORM. AI (current): OpenAI `gpt-5.6-luna` for both extraction and synthesis. AI (target, not yet running): Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis.*
+*Build with: Bun + SvelteKit + Postgres + DrizzleORM. AI uses the OpenAI Responses API; extraction and synthesis models are configurable and default to `gpt-5.6-luna`.*

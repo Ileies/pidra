@@ -13,7 +13,7 @@
 6. [System Architecture Overview](#6-system-architecture-overview)
 7. [Full Daily Pipeline](#7-full-daily-pipeline)
 8. [Database Schema](#8-database-schema)
-9. [Ollama Pre-processing Layer](#9-ollama-pre-processing-layer)
+9. [Structured Extraction Layer](#9-structured-extraction-layer)
 10. [Context & Memory Management](#10-context--memory-management)
 11. [Entity Knowledge Graph](#11-entity-knowledge-graph)
 12. [Source Quality Evolution](#12-source-quality-evolution)
@@ -22,7 +22,7 @@
 15. [Web Search Module](#15-web-search-module)
 16. [Question Gate](#16-question-gate)
 17. [Synthesis Prompts](#17-synthesis-prompts)
-18. [Claude Code API Bridge (Skills System)](#18-claude-code-api-bridge-skills-system)
+18. [Skills System](#18-skills-system)
 19. [External Integrations](#19-external-integrations)
 20. [Delivery Layer](#20-delivery-layer)
 21. [Token Cost Analysis](#21-token-cost-analysis)
@@ -52,7 +52,7 @@ Life logistics: emails requiring response, payment deadlines, invitations, upcom
 
 ## 3. Hardware
 
-**Recommended GPU for Ollama:** NVIDIA RTX 4090 (24GB VRAM)
+**Optional local-model hardware:** NVIDIA RTX 4090 (24GB VRAM). No current pipeline path depends on it.
 - Runs qwen2.5:14b (primary model) fully in VRAM at concurrency 4 with significant headroom
 - 24GB enables future upgrade to 32b models without hardware change
 - Faster inference than 4070 Ti Super, relevant when processing 50+ items in parallel
@@ -60,7 +60,7 @@ Life logistics: emails requiring response, payment deadlines, invitations, upcom
 
 **Fallback:** RTX 4070 Ti Super (16GB VRAM) - fits 14b model, less future-proof
 
-**RAM:** 32GB minimum system RAM recommended for NixOS + Postgres + Bun + Ollama concurrent operation
+**RAM:** 32GB minimum system RAM recommended for NixOS + Postgres + Bun.
 
 ---
 
@@ -70,17 +70,16 @@ Life logistics: emails requiring response, payment deadlines, invitations, upcom
 |---|---|
 | Runtime | Bun |
 | Frontend | SvelteKit (dashboard + PWA) |
-| Local AI | Ollama - qwen2.5:14b (primary), llama3.1:8b (fallback) |
-| Cloud AI | Claude Sonnet 4.6 (synthesis) |
+| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. |
 | Database | Postgres + DrizzleORM |
 | Email ingestion | IMAP (Netcup server) |
 | SMS ingestion | Android SMS forwarding service → webhook endpoint |
 | Calendar | Google Calendar API |
 | To-do | Google Tasks API |
-| Web search | **TODO - see §23** |
+| Web search | OpenAI `web_search` for the six news desks; Brave Search API for the three Section 1 slots |
 | Push notifications | Web Push API (PWA) |
-| Scheduling | Bun cron (built-in) |
-| Skill execution | Custom REST API → Claude Code bridge |
+| Scheduling | systemd timers, each invoking `bun run src/job.ts <job>` |
+| Skill execution | Local Hono bridge → TypeScript skill registry |
 | OS | NixOS |
 
 ---
@@ -135,22 +134,22 @@ All English unless noted. Ranked by signal quality for this user's profile.
 This system combines three architectural paradigms:
 
 **Architecture B - Map-Reduce Processing Spine**
-Every item (newsletter, email, SMS) is independently extracted by Ollama into structured JSON, stored in Postgres, then reduced into a synthesis payload for Sonnet. Parallelized via `Promise.allSettled` with concurrency limiting.
+Every item (newsletter, email, SMS) is independently extracted by the configured OpenAI extraction model into structured JSON, stored in Postgres, then reduced into a synthesis payload for the configured synthesis model. Parallelized via `Promise.allSettled` with concurrency limiting.
 
 **Architecture C - Structured Memory Layer**
-All continuity is achieved through explicit Postgres tables (active topics, entity graph, source quality, prompt versions) - no vector stores, no probabilistic retrieval. Keyword-based novelty scoring. RSS feeds used where available as a cleaner alternative to email HTML.
+All continuity is achieved through explicit Postgres tables (`active_topics`, `entities`, `entity_relations`, source quality and prompt versions) - no vector stores or probabilistic retrieval in the pipeline. Keyword-based novelty scoring. RSS feeds are used where available as a cleaner alternative to email HTML.
 
 **Architecture D - Topic-Graph Output**
 Section 1 is organized by topic domain, not by source. The entity knowledge graph enriches synthesis with relationship context. Cross-source corroboration scores determine story priority.
 
 **Compounding Intelligence Layer** (on top of B+C+D)
-Three feedback loops (implicit behavioral, explicit ratings, weekly review), source quality evolution via trust scores, entity graph growth via daily extraction, and a weekly meta-run that proposes prompt improvements for human approval.
+Three feedback loops (implicit behavioral, explicit ratings, weekly review), source-quality evolution via trust scores, entity-graph growth via daily extraction, and a weekly meta-run that proposes prompt improvements for human approval.
 
 ---
 
 ## 7. Full Daily Pipeline
 
-**Trigger:** Bun cron at configurable time (default: 06:30 local)
+**Trigger:** `pidra-pipeline` systemd timer at `PIPELINE_RUN_TIME` (default: 06:30 Europe/Berlin)
 
 ### Phase 1 - Parallel Ingestion (T+0s)
 All sources fetched simultaneously via `Promise.allSettled`. Failures are isolated and logged; they do not block other sources.
@@ -169,22 +168,22 @@ Raw items written to `raw_items` table. Items already seen (by Message-ID) are s
 
 **RSS supplement:** For newsletters that publish RSS feeds, poll RSS in parallel with IMAP. RSS content is cleaner (no HTML footers, unsubscribe links). Use RSS when available, IMAP as fallback.
 
-### Phase 2 - Ollama Extraction (T+8s, parallel, concurrency: 4)
-Two Ollama calls per newsletter email:
+### Phase 2 - Structured extraction (T+8s, parallel, concurrency: 4)
+Two OpenAI extraction calls per newsletter delivery:
 1. **Content extraction** → claims, topics, entities, relevance score (see §9)
 2. **Entity extraction** → named entities and relationships for the knowledge graph
 
-One Ollama call per personal email/SMS:
+One OpenAI extraction call per personal email/SMS:
 - Classification, urgency, action, deadline, unknown_context flag
 
 All calls fire in parallel, limited to 4 concurrent. At ~2s per call, 52 items finish in ~26s wall time.
 
-Failed Ollama calls fall back to passing raw stripped content directly to Sonnet with a `ollama_failed: true` flag.
+Failed calls create an `extractions` row with `ai_failed = true`; raw source content never bypasses the structured extraction boundary into synthesis.
 
 ### Phase 3 - Context Assembly + Web Search (T+12s, parallel with Phase 2)
-While Ollama runs, simultaneously:
+While extraction runs, simultaneously:
 - Query `active_topics` (status = active, last 14 days)
-- Query `entity_graph` for entities mentioned in today's extractions
+- Query `entities` and `entity_relations` for entities mentioned in today's extractions
 - Query `source_quality` for all 32 sources
 - Query `notes` (all non-expired)
 - Query `contacts` (all known) - pre-seeded from day 1 by Context Builder
@@ -196,12 +195,12 @@ While Ollama runs, simultaneously:
 
 ### Phase 4 - Question Gate (T+42s, conditional)
 If any item has `unknown_context: true`:
-- Batch all questions into a single POST to the question API
+- Batch all questions into one persisted question-gate session for the dashboard
 - Section 1 synthesis begins immediately (unblocked)
 - Section 2 synthesis blocks until answers received or 45-minute timeout
 
-### Phase 5 - Sonnet Synthesis (T+42s for S1, T+answer for S2)
-Two separate Sonnet 4.6 calls (see §17 for full prompts).
+### Phase 5 - Synthesis (T+42s for S1, T+answer for S2)
+Two separate calls through the configured OpenAI synthesis model (see §17 for full prompts).
 - **Call A** (Section 1): ~8–10K tokens in, ~1,200 tokens out, ~15–20s
 - **Call B** (Section 2): ~6–8K tokens in, ~800 tokens out, ~12–15s
 
@@ -214,11 +213,11 @@ Both calls resolve their prompt at run time via `src/ai/active-prompts.ts`: the 
 - Deliver via SvelteKit dashboard + PWA push notification (see §20)
 - Write to `daily_reports` (full report + short_summary)
 - Update `active_topics`: close resolved stories, add new ones, update running_summaries
-- Update `entity_graph`: upsert new entities and relations from Phase 2 extractions
+- Update `entities` and `entity_relations` from the Phase 6 `<!--SYSTEM ... -->` block
 - Increment `source_quality` metrics per source
 - Update `contacts` if question answers introduced new context
 - Write any new notes (e.g., "User confirmed X is a client")
-- Optionally POST tasks to Claude Code bridge if report identifies actionable dev work
+- Persist only the Phase 6 memory writes parsed from the synthesis output; reports themselves remain final
 
 **Total wall time:** ~2–3 min (no question gate) | ~4–8 min (gate answered promptly)
 
@@ -245,15 +244,15 @@ created_at      timestamptz DEFAULT now()
 id                  uuid PRIMARY KEY DEFAULT gen_random_uuid()
 raw_item_id         uuid REFERENCES raw_items(id)
 run_date            date NOT NULL
-extracted_json      jsonb          -- full Ollama output
-relevance_score     int            -- 1–5, from Ollama
+extracted_json      jsonb          -- full structured extraction output
+relevance_score     int            -- 1–5, from the extraction model
 effective_relevance float          -- relevance_score × source trust_score + corroboration bonus
 novelty             text           -- new | continuation | repeat
 unknown_context     boolean DEFAULT false
 question_for_user   text
 included_in_report  boolean DEFAULT false
 revealed_relevance  int            -- set by feedback loop (1–5)
-ollama_failed       boolean DEFAULT false
+ai_failed           boolean DEFAULT false
 created_at          timestamptz DEFAULT now()
 ```
 
@@ -280,9 +279,9 @@ short_summary       text                -- ~150 tokens, used for context retriev
 item_count          int
 items_included      int
 items_filtered      int
-sonnet_tokens_in    int
-sonnet_tokens_out   int
-ollama_calls        int
+tokens_in           int
+tokens_out          int
+ai_calls            int
 web_searches_run    int
 question_gate_fired boolean DEFAULT false
 created_at          timestamptz DEFAULT now()
@@ -363,7 +362,7 @@ created_by  text DEFAULT 'system'   -- system | user
 ```sql
 id              uuid PRIMARY KEY DEFAULT gen_random_uuid()
 version         int NOT NULL
-section         text NOT NULL       -- section1 | section2 | ollama_extraction | ollama_entity
+section         text NOT NULL       -- section1 | section2 | extraction | entity_extraction
 prompt_text     text NOT NULL
 active          boolean DEFAULT false
 change_summary  text                -- what changed and why
@@ -394,22 +393,17 @@ created_at      timestamptz DEFAULT now()
 
 ---
 
-## 9. Ollama Pre-processing Layer
+## 9. Structured Extraction Layer
 
 ### Model
-**Primary:** `qwen2.5:14b` (Q4_K_M quantization, ~8.5GB VRAM)
-- Best multilingual ability (German emails, potential Chinese sources)
-- Strong structured JSON extraction
-- Better edge-case reasoning than 8b models
-
-**Fallback:** `llama3.1:8b` if 14b is unavailable or too slow
+`OPENAI_MODEL_EXTRACTION` selects the extraction model and defaults to `gpt-5.6-luna`. The call path is centralised in `src/ai/openai.ts`, where strict JSON schemas, `store: false`, the flex tier and retries are enforced.
 
 ### Core principle
-Ollama is a **lossless compressor**, not an analyst. Its job: convert text → structured JSON. Never ask it to judge importance, write summaries, or synthesize across sources. Those decisions belong to Sonnet.
+The extraction stage is a **structured compressor**, not an analyst. Its job is to convert text into JSON. It does not write report prose or synthesize across sources; those decisions belong to the synthesis stage.
 
 ### Concurrency
-- Default: 4 concurrent Ollama calls
-- Adjust based on observed GPU memory pressure
+- Default: 4 concurrent API workers
+- Adjust only after observing API rate-limit and latency behaviour
 - Use a simple semaphore in Bun: `Promise.allSettled` with a queue
 
 ### Newsletter Extraction Prompt
@@ -443,7 +437,7 @@ EMAIL CONTENT:
 {{stripped_email_content}}
 ```
 
-### Entity Extraction Prompt (second pass, same Ollama call batched)
+### Entity Extraction Prompt (second structured extraction call)
 ```
 Extract named entities and relationships from the text below. Return ONLY valid JSON.
 
@@ -499,7 +493,7 @@ Subject: {{subject}}
 {{stripped_content}}
 ```
 
-### What Ollama does NOT do
+### What extraction does NOT do
 - Write prose or summaries
 - Judge geopolitical significance
 - Decide what matters most today
@@ -511,7 +505,7 @@ Subject: {{subject}}
 ## 10. Context & Memory Management
 
 ### Novelty scoring (Bun, no AI)
-After Ollama extraction, before synthesis:
+After structured extraction, before synthesis:
 1. For each extracted item, extract topic_tags and entity names
 2. Query `active_topics` for keyword overlap (headline, domain tags)
 3. If overlap found → set `novelty = "continuation"`, link to topic_id
@@ -520,7 +514,7 @@ After Ollama extraction, before synthesis:
 
 ### Effective relevance calculation
 ```
-effective_relevance = (ollama_relevance_score × source_trust_score) + corroboration_bonus
+effective_relevance = (relevance_score × source_trust_score) + corroboration_bonus
 
 corroboration_bonus:
   1 source   = 0
@@ -543,14 +537,14 @@ volume_signal:
 ```
 
 ### Active topics lifecycle
-- **New story:** Sonnet creates a new active topic entry in Phase 6 output
-- **Continuation:** `update_count++`, `running_summary` rewritten by Sonnet, `last_updated` = today
+- **New story:** synthesis creates a new active topic entry in Phase 6 output
+- **Continuation:** `update_count++`, `running_summary` rewritten by synthesis, `last_updated` = today
 - **Dormant:** if `last_updated` > 14 days, status = "dormant" (still triggers web search alert, not in main context payload)
-- **Resolved:** manually or when Sonnet marks a story concluded. status = "resolved", excluded from context
+- **Resolved:** manually or when synthesis marks a story concluded. status = "resolved", excluded from context
 - **Pruning:** resolved stories older than 60 days → archived. Dormant stories older than 30 days with `update_count < 3` → deleted
 
-### Context payload for Sonnet (what gets sent)
-The following is assembled into a structured JSON object before each Sonnet call:
+### Context payload for synthesis
+The following is assembled into a structured JSON object before each synthesis call:
 
 **Section 1 payload:**
 ```json
@@ -560,7 +554,7 @@ The following is assembled into a structured JSON object before each Sonnet call
   "high_relevance_count": 18,
   "active_topics": [...],
   "todays_items": [...filtered, novelty-scored extractions...],
-  "entity_contexts": [...relevant entity graph nodes with summaries...],
+  "entity_contexts": [...relevant entities and relations with summaries...],
   "web_search_results": [...],
   "notes_intel": [...active intel-scope notes...]
 }
@@ -584,7 +578,7 @@ The following is assembled into a structured JSON object before each Sonnet call
 ## 11. Entity Knowledge Graph
 
 ### Purpose
-Every named entity appearing in any report becomes a node. Edges capture relationships. By day 90+, when a new item mentions any known entity, the synthesis payload is automatically enriched with relationship context - Sonnet doesn't need to infer who or what things are.
+Every named entity appearing in any report becomes a node. Edges capture relationships. When a new item mentions a known entity, the synthesis payload is enriched with relationship context.
 
 ### Growth trajectory
 | Day | ~Entities | ~Relations | Capability |
@@ -595,7 +589,7 @@ Every named entity appearing in any report becomes a node. Edges capture relatio
 | 180 | 3,500 | 3,000 | Non-obvious cross-domain connections |
 
 ### Entity context injection
-When an entity with `mention_count >= 3` appears in today's extractions, inject a context block into the Sonnet payload:
+When an entity with `mention_count >= 3` appears in today's extractions, inject a context block into the synthesis payload:
 ```
 [Entity context: OpenAI - AI lab, heads Sam Altman. Competes with: Anthropic, Google DeepMind. Recent: GPT-5 release controversy (active topic #12).]
 ```
@@ -637,7 +631,7 @@ Weekly update rules:
 
 ### Effect on extraction
 ```
-effective_relevance = ollama_score × trust_score (before corroboration)
+effective_relevance = relevance_score × trust_score (before corroboration)
 
 trust 2.0: relevance-3 items promoted to effective 4.0 → included
 trust 0.5: items need raw relevance 4+ to reach inclusion threshold of 3.0
@@ -648,7 +642,7 @@ Applied on top of trust-adjusted scores. If the same story (by entity overlap) a
 
 ### Source retirement suggestion
 If a source's trust_score < 0.5 for 30+ consecutive days:
-- System writes a note: "Consider unsubscribing from [X] - 0 high-relevance items in 30 days, ~800 tokens/day Ollama processing wasted."
+- System writes a note: "Consider unsubscribing from [X] - 0 high-relevance items in 30 days."
 - Never acted on automatically.
 
 ---
@@ -661,32 +655,32 @@ Three mechanisms, each with different signal quality and friction:
 Detection logic in Phase 6:
 - If a report item's topic/entity appears in a new calendar event within 24h → `revealed_relevance = 5`
 - If a report item's topic appears in a new to-do item within 24h → `revealed_relevance = 4`
-- If a report item triggers a Claude Code skill execution → `revealed_relevance = 5`
-- If user answers a follow-up question about a topic via question API → `revealed_relevance = 4`
+- If a report item triggers an allowed skill execution → `revealed_relevance = 5`
+- If the user answers a follow-up question about a topic through the dashboard → `revealed_relevance = 4`
 
 Detected via cross-referencing today's calendar/todo writes with report items by keyword/entity overlap.
 
 ### Mechanism 2 - Explicit ratings (optional, ~10 seconds)
-User can reply to question API with:
+Users rate items in the dashboard with:
 ```
 +{item_id}  →  revealed_relevance = 5, domain interest score +0.1
 -{item_id}  →  revealed_relevance = 1, add filter pattern to notes
 ```
 Item IDs are short codes printed next to each item in the report. Not required - system works without this, but accelerates calibration significantly.
 
-### Mechanism 3 - Weekly review conversation (5 min, via Claude Code API)
+### Mechanism 3 - Weekly review conversation (5 min, via dashboard)
 Once per week (Sunday evening or Monday morning), system sends 3 questions:
 1. "What story from this week did you wish you'd seen more of?"
 2. "What did you consistently find irrelevant?"
 3. "Any new topics, people, or companies to start tracking?"
 
-Answers parsed by Sonnet → written to `notes` table → injected into next week's synthesis prompts.
+Answers parsed by synthesis → written to `notes` table → injected into next week's synthesis prompts.
 
 ### Calibration effect
 ```
 domain_interest_score[domain] = base_score + Σ(feedback_events × weight)
 
-Applied as a multiplier on Ollama's relevance score, per domain:
+Applied as a multiplier on the extraction relevance score, per domain:
   score > 1.2 → domain items get +0.5 effective relevance
   score < 0.8 → domain items get -0.3 effective relevance
 ```
@@ -709,8 +703,8 @@ Compute from last 7 days:
 - Question gate: how many questions fired, how many were repeats (same sender)
 ```
 
-### Step 2 - Prompt diff generation (1 Sonnet call, ~$0.04)
-Sonnet receives: analytics summary, current active prompt versions, last 7 report short_summaries, weekly review answers (if any).
+### Step 2 - Prompt diff generation (one configured synthesis call)
+The synthesis model receives analytics summary, current active prompt versions, last 7 report short summaries and weekly review answers, if any.
 
 Output format:
 ```json
@@ -718,7 +712,7 @@ Output format:
   "proposed_changes": [
     {
       "id": "chg_001",
-      "target": "section1_prompt | section2_prompt | ollama_extraction | ollama_entity",
+      "target": "section1 | section2 | extraction | entity_extraction",
       "type": "add_domain | remove_domain | adjust_threshold | add_filter | reword",
       "current_text": "...",
       "proposed_text": "...",
@@ -729,7 +723,7 @@ Output format:
 }
 ```
 
-### Step 3 - Human approval (via question API)
+### Step 3 - Human approval (via `/prompts`)
 Proposed changes sent as a structured message. User responds with approve/reject per change ID. Rejected changes are logged with reason - system will not re-propose the same change for 30 days.
 
 ### Step 4 - Entity graph pruning (Bun, no AI)
@@ -738,7 +732,7 @@ Apply pruning rules from §11.
 ### Step 5 - Source quality recalculation (Bun, no AI)
 Apply trust score update rules from §12. Log threshold crossings to notes.
 
-**Total weekly cost:** ~$0.04 (1 Sonnet call) + Bun compute (free)
+**Total weekly cost:** depends on the configured synthesis model and returned usage.
 
 ---
 
@@ -752,14 +746,14 @@ Apply trust score update rules from §12. Log threshold crossings to notes.
 > `CONTEXT_AND_DECISIONS.md` §9, "News desks". The slots below are unchanged and still feed
 > Section 1 and the Mentions subsection.
 
-Three search slots per day. All fire in parallel at Phase 3. Results processed by Ollama before reaching Sonnet (relevance filter: if Ollama scores web result relevance < 3, discard silently).
+Three search slots per day. All fire in parallel at Phase 3. Results are handled by the configured structured-extraction and synthesis path; every discard receives a named gate reason.
 
-**Web search API:** TODO - see §23
+**Web search API:** Brave Search API, behind `src/search/brave.ts`.
 
 ### Slot 1 - Top active topic deep-dive (always runs)
 **What:** Take the active topic with highest `update_count` OR highest corroboration today. Search for developments beyond what newsletters covered.
 
-**Query construction (Ollama):**
+**Query construction (configured extraction model):**
 ```
 Given this active topic headline and key entities, write a web search query (max 8 words) 
 that would find today's most recent developments. Return only the query string.
@@ -775,7 +769,7 @@ Today: {{ISO_date}}
 
 **Query:** `{entity_name} news {current_month} {current_year}`
 
-**Integration:** If result is relevant (Ollama score ≥ 3): treated as a new item with `source_name = "web"`, elevated effective relevance. If irrelevant: discarded.
+**Integration:** Relevant results are treated as web-search context; irrelevant results receive a named gate reason.
 
 ### Slot 3 - Self/project reputation monitoring (daily, rotating targets)
 **Target list** (stored in `notes`, scope = "search", manually maintained):
@@ -790,14 +784,14 @@ Rotate: one target per day from the list.
 
 ### Future slots (do not build yet, add after day 60)
 - Slot 4: Pre-meeting research (trigger: calendar event with unknown attendee in next 12h)
-- Slot 5: User-specified search intent (via question API: "watch [topic] starting today")
+- Slot 5: User-specified search intent from the dashboard
 
 ---
 
 ## 16. Question Gate
 
 ### Trigger conditions
-Any item with `unknown_context: true` after Ollama classification:
+Any item with `unknown_context: true` after personal-email classification:
 - Email from sender not in `contacts` table, content suggests a relationship (not spam)
 - Invoice or payment request from unknown party
 - SMS from unknown number with action-implied content
@@ -806,7 +800,7 @@ Any item with `unknown_context: true` after Ollama classification:
 ### Batching
 All questions for a single run are batched into one API call. Never send one question at a time.
 
-### Question API contract
+### Question-gate contract
 ```
 POST {QUESTION_API_ENDPOINT}/questions
 {
@@ -969,11 +963,11 @@ Output rules:
 ```
 
 ### Parsing Phase 6 output
-After both Sonnet calls complete, parse the `<!--SYSTEM ... -->` JSON blocks to drive all Phase 6 memory writes. This eliminates the need for a separate Sonnet call for Phase 6 logic.
+After both synthesis calls complete, parse the `<!--SYSTEM ... -->` JSON blocks to drive all Phase 6 memory writes. This eliminates the need for a separate model call for Phase 6 logic.
 
 ---
 
-## 18. Claude Code API Bridge (Skills System)
+## 18. Skills System
 
 ### Philosophy
 The bridge is an extensible local REST API that accepts structured skill execution requests from the briefing system. Skills are TypeScript modules loaded from a `/skills` directory - adding a `.ts` file auto-registers the skill. The system starts with conservative skills and capabilities expand over time as trust is established.
@@ -1004,8 +998,8 @@ Response:
 Each skill declares a `risk_level` in its definition:
 - `low` → auto-execute, no confirmation needed
 - `medium` → execute but log prominently, notify
-- `high` → require explicit confirmation via question API before executing
-- `critical` → never auto-execute, always confirm, brief delay built in
+- `high` → inserted as pending and requires manual confirmation
+- `critical` → always rejected until its separate approval and execution designs exist
 
 ### Skill definition structure
 ```typescript
@@ -1035,7 +1029,7 @@ export default {
 | `write_note` | low | Write to briefing system notes store |
 | `delete_note` | low | Remove a note by ID |
 | `run_web_search` | low | Execute a web search query |
-| `send_question` | low | Send a question to user via question API |
+| `send_question` | deprecated | Removed: question-gate interaction lives in the dashboard |
 | `create_file` | medium | Create a file at specified path on server |
 | `run_terminal_command` | high | Execute a shell command (allowlist enforced) |
 | `open_project_in_editor` | medium | Open a project directory in VS Code / Cursor |
@@ -1047,7 +1041,7 @@ export default {
 Allowlist is a JSON file, manually maintained. Starting allowlist:
 ```json
 ["bun run", "bun test", "git status", "git pull", "git log", "systemctl status", 
- "docker ps", "docker logs", "ollama list", "ping", "curl -I"]
+ "docker ps", "docker logs", "ping", "curl -I"]
 ```
 
 ### Skill expansion over time
@@ -1075,7 +1069,7 @@ New skills are added by creating a new `.ts` file in the skills directory. The b
 - Android SMS forwarding service → webhook endpoint on the briefing server
 - Endpoint: `POST /webhook/sms` receives `{ from, body, timestamp }`
 - Written to `raw_items` with `source_type = "sms"`
-- Processed through personal email classification prompt (same Ollama flow)
+- Processed through the personal-email classification prompt
 
 ### Google Calendar
 - API: Google Calendar API v3
@@ -1091,9 +1085,7 @@ New skills are added by creating a new `.ts` file in the skills directory. The b
 - Do not cache in Postgres
 
 ### Web Search
-- **TODO** - See §23. API to be decided.
-- Interface: `POST /search` internal endpoint that wraps whichever API is chosen
-- Abstracted behind a single interface so the search provider can be swapped without changing pipeline code
+- Brave Search API through `src/search/brave.ts` for the three Section 1 slots. The six news desks use OpenAI `web_search` through `researchJson()`.
 
 ---
 
@@ -1107,9 +1099,9 @@ Three additional data sources that enrich the system's understanding of the user
 
 **Role:** Queryable background knowledge base. The system learns what the user has already been thinking about and surfaces connections between existing notes and today's news.
 
-**What it does NOT do:** Never dumps all 1,000 notes into a Sonnet prompt. Never scans notes on every run.
+**What it does NOT do:** Never dumps all 1,000 notes into a synthesis prompt. Never scans notes on every run.
 
-**Initial bulk import:** Handled by the **Context Builder** (`context-builder/`), not this pipeline. Context Builder performs the one-time full scan of all ~1,000 notes via gkeepapi (Python subprocess), extracts entities and summaries with Ollama, and seeds the `entities` and `standing_context` tables. Run Context Builder before Phase 7 work begins - the `keep_notes` and `keep_index` tables it populates are what Phase 7 reads. See `CONTEXT_BUILDER_PLAN.md` for the full indexing architecture and API decision.
+**Initial bulk import:** Handled by the **Context Builder** (`context-builder/`), not this pipeline. It performs the full scan via gkeepapi, uses the configured OpenAI extraction model and seeds `entities` and `standing_context`. `keep_notes` and `keep_index` do not exist yet; they are Phase 7 work.
 
 **Architecture:**
 
@@ -1120,10 +1112,10 @@ For each of today's top 10 entities by effective relevance, query `keep_index` f
 ```
 [Prior context: You have 3 notes mentioning Neuralink - last from February, tagged "BCI investment thesis".]
 ```
-Sonnet uses this to connect today's news to existing thinking. This is how the system feels like it knows you rather than treating you as a generic reader.
+Synthesis uses this to connect today's news to existing thinking.
 
 *Weekly re-index (ongoing delta):*
-Run Ollama extraction on notes created or modified since last Context Builder run. ~5–10 new notes per week typically. Reuses the same gkeepapi scripts and `context_builder_indexed_items` skip-set from Context Builder. No full re-index needed.
+Run the configured extraction model on notes created or modified since the last Context Builder run. Reuse the gkeepapi scripts and the `context_builder_indexed_items` skip-set. No full re-index is needed.
 
 **API challenge:** Decided - gkeepapi (Python subprocess) only. Auth scripts live in `context-builder/scripts/`. (Google Keep API `keep.googleapis.com` is Workspace-only, not usable with a personal account.)
 
@@ -1154,12 +1146,12 @@ keep_index (
 
 **Role:** Topic and project signal extraction. If the user has been repeatedly asking about a subject this week, that subject is genuinely active in their mind and should be weighted higher in the briefing.
 
-**What it does NOT do:** Never sends raw chat content to any cloud API. Never includes full conversations in Sonnet payloads. Never creates a feedback loop where the system amplifies whatever was last discussed.
+**What it does NOT do:** Never includes full conversations in synthesis payloads and never creates a feedback loop where the system amplifies whatever was last discussed.
 
 **Architecture:**
 
-*Nightly extraction job (Ollama, runs at 03:00, before the 06:30 briefing):*
-Query the chat history DB for conversations from the last 7 days. For each conversation, run Ollama extraction:
+*Nightly extraction job (configured extraction model, runs at 03:00, before the 06:30 briefing):*
+Query the chat-history database for conversations from the last 7 days. For each conversation, run structured extraction:
 ```json
 {
   "topic_signals": ["EU AI regulation", "Bun performance", "fundraising"],
@@ -1195,7 +1187,7 @@ chat_signals (
 
 **Retention:** `chat_signals` rows older than 30 days are deleted. Only the rolling 4-week window matters.
 
-**Privacy note:** The chat history DB stays on the local server. Ollama processes it locally. Only the abstract signal JSON leaves the local processing step - and only to Postgres, not to any cloud API. Raw chat content is never read by Sonnet.
+**Privacy note:** The chat-history database stays on the local server. If this Phase 7 source is built, its cloud-data boundary must be decided explicitly before implementation, as with every new personal source.
 
 **User control:** A toggle in the SvelteKit dashboard enables/disables this feature entirely. Specific chat sessions can be flagged as excluded (e.g., private conversations) by tagging them in the chat history DB.
 
@@ -1205,12 +1197,12 @@ chat_signals (
 
 **Role:** Personal context and emotional register. The most powerful of the three sources for Section 2 quality. Allows the system to understand the user's current life phase, emotional state, and active personal concerns - and frame personal action items accordingly.
 
-**What it does NOT do:** Raw diary content NEVER leaves the local server. NEVER processed by any cloud API including Claude Sonnet. This is a hard architectural rule, not a configurable option.
+**What it does NOT do:** Credentials never leave the machine. Diary content is otherwise in scope for the Context Builder under `store: false`; Phase 7 must preserve that policy rather than revive the former local-only rule.
 
 **Architecture:**
 
-*Weekly personal context extraction (Ollama, Sunday):*
-Ollama reads the last 7 diary entries and produces an abstract personal context block. The prompt is deliberately abstract - it extracts themes, not content:
+*Weekly personal-context extraction (configured extraction model, Sunday):*
+The extraction model reads the last 7 diary entries and produces an abstract personal-context block. The prompt is deliberately abstract and extracts themes rather than content:
 ```
 Read these diary entries. Do NOT summarize the content. Extract only:
 - Overall emotional valence (positive / neutral / stressed / struggling)
@@ -1246,7 +1238,7 @@ This is how the system avoids treating you like a generic user. A payment deadli
 The system needs to read diary entries as plain text. Supported formats: Markdown files in a directory, a local SQLite DB, or a designated folder of `.txt` files. Format-specific reader implementations go in the integration layer. If the diary is in a proprietary app, an export/sync script is needed (similar to Keep).
 
 *User review:*
-The extracted personal context block is visible in the SvelteKit dashboard. The user can edit or override it at any time. If something is extracted incorrectly or too specifically, the user corrects it and that correction overrides the Ollama output until the next weekly extraction.
+The extracted personal context block is visible in the SvelteKit dashboard. The user can correct it through the append-only correction layer; no harvest text is edited in place.
 
 **Tables:**
 ```sql
@@ -1267,7 +1259,7 @@ personal_context (
 
 ### Summary: which sources go to which AI
 
-| Source | Ollama | Sonnet | Rule |
+| Source | Extraction model | Synthesis model | Rule |
 |---|---|---|---|
 | Google Keep | ✓ (indexing) | ✓ (matched summaries only) | Never full notes, only matched snippets |
 | AI chat history | ✓ (extraction) | ✓ (abstract signals only) | Never raw content |
@@ -1355,16 +1347,13 @@ redesign, the News section between the two since 2026-09-25):
 
 | Component | Monthly volume | Cost |
 |---|---|---|
-| Sonnet input (both sections, 2 calls/day) | ~12,600 tokens/day × 30 | ~$1.13 |
-| Sonnet output (both sections) | ~2,000 tokens/day × 30 | ~$0.90 |
-| Weekly meta-run (1 Sonnet call/week) | ~8,000 tokens × 4 | ~$0.14 |
-| Ollama (all extraction calls) | Runs locally | $0 |
-| Web search API | Depends on provider | ~$0–5 |
-| **Total monthly** | | **~$2.20–7.20** |
+| Extraction and synthesis | Configurable OpenAI models | Returned usage × configured rates |
+| News desk web searches | OpenAI `web_search` | Per-call and token billing |
+| Brave Search slots | Brave Search API | Provider plan |
 
-The Ollama pre-processing layer compresses raw input from ~49,600 tokens to ~12,600 tokens before Sonnet - a 75% reduction. Without this, monthly Sonnet cost would be ~$8–12.
+Structured extraction compresses raw input before synthesis. Costs must be calculated from the configured model rates, not this document.
 
 ---
 
 *Plan version: 1.1 - passive context sources added*
-*Build with: Bun + SvelteKit + Postgres + DrizzleORM + Ollama (qwen2.5:14b) + Claude Sonnet 4.6*
+*Build with: Bun + SvelteKit + Postgres + DrizzleORM + OpenAI Responses API. Extraction and synthesis models are configurable and default to `gpt-5.6-luna`.*

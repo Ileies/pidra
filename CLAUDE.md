@@ -18,8 +18,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 
 - **Runtime:** Bun (not Node, not tsx - Bun APIs throughout)
 - **Frontend:** SvelteKit
-- **AI (current):** OpenAI GPT-5.6 Luna - used for both extraction and synthesis during early development
-- **AI (target):** Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis
+- **AI:** OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`.
 - **DB:** Postgres via DrizzleORM (Bun SQL driver), running on pronix (`192.168.10.85`)
 - **OS:** NixOS
 
@@ -33,7 +32,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 
 ## Architecture rules (non-negotiable)
 
-- **Extraction outputs only structured JSON** - no prose, no judgments. Synthesis sees only compressed extraction output, never raw email HTML. The two-stage split is the rule; which model fills each stage is not. Both stages currently run on `gpt-5.6-luna` (see `src/ai/openai.ts`). The local Ollama path was removed from the Context Builder on 2026-09-10: the 9B model truncated its own JSON mid-object and hit 90 s timeouts, so runs never completed.
+- **Extraction outputs only structured JSON** - no prose, no judgments. Synthesis sees only compressed extraction output, never raw email HTML. The two-stage split is the rule; models are selected through `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS`, both defaulting to `gpt-5.6-luna` (see `src/ai/openai.ts`).
 - **No embedding path inside a pipeline phase.** All retrieval today is explicit keyword/entity lookup against Postgres, and search over the archive ships as `tsvector` keyword search. A vector store is allowed and planned - pgvector in the existing Postgres, local embeddings, hybrid ranking over the archive - but it is a large feature that gets its own design and its own project, so it never arrives as an incremental addition to a phase that is about something else. The sequencing is the rule, not a prohibition. Preconditions and the intended shape are in `TODO.md` under Later. What stays true regardless: vector retrieval is for searching the archive, never for deciding what enters a report, where a similarity threshold silently dropping an item is the failure mode that matters.
 - **`contacts` is an email sender directory, not a social graph** (owner's decision, 2026-09-10). It answers "mail arrived from this address, who is that and how much should triage care", nothing more. The user's actual social circle lives on a dozen messaging platforms and **none of them will be ingested**: no Discord, WhatsApp, Instagram, WeChat, Line, KakaoTalk, VK, Zalo, Facebook, X, Telegram or LinkedIn source, neither live nor via data export. A small `contacts` table is the expected steady state, not a seeding bug: the first Context Builder run produced 6 rows from 1432 emails and that is correct. Personal relationship context comes from `standing_context` (`profile_family_and_partner`), not from here. Full reasoning in `CONTEXT_AND_DECISIONS.md §8`.
 - **Credentials never reach any cloud API.** Enforced at the code level, at the fetch choke point rather than in a consumer, so no later call path can bypass it. Currently: `sources/keep.ts` drops every Keep note labelled `Credentials` (passwords, card and bank details, identity-document numbers) before any consumer sees it; the label list is `CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS`. Any new personal source needs its own equivalent filter.
@@ -65,7 +64,7 @@ See `MORNING_BRIEFING_PLAN.md §8` for full schema. Critical ones:
 - `entities` / `entity_relations` - knowledge graph nodes and edges
 - `source_quality` / `source_daily_scores` - per-source trust scores and 30-day rolling history
 - `prompt_versions` - versioned prompts, only one active per section at a time
-- `skill_executions` - audit log for all Claude Code bridge skill calls
+- `skill_executions` - audit log for all skills-bridge calls
 - `standing_context` - persistent rules/preferences injected into Section 2 prompt; seeded by Context Builder from Google Keep "Daily Life Rules" and other standing rules
 - `context_builder_runs` / `context_builder_indexed_items` - Context Builder run history and per-item index state; used for delta detection on re-runs
 - `context_corrections` - append-only correction layer over the harvested long-term context; injected into both synthesis prompts and authoritative over them
@@ -151,7 +150,7 @@ The `/chat` loop (`src/ai/chat.ts`) exposes the whole registry as tools automati
 
 ## Concurrency
 
-Phase 2 (extraction): `CONCURRENCY = 4` workers in `phase2-extract.ts`. It is an API concurrency limit, not a GPU one - extraction has run on `gpt-5.6-luna` since the local Ollama path was removed, so raising it trades rate-limit risk against wall-clock, not VRAM.
+Phase 2 (extraction): `CONCURRENCY = 4` workers in `phase2-extract.ts`. It is an API concurrency limit: raising it trades rate-limit risk against wall-clock, not VRAM.
 
 Phase 3 (context assembly + web search): runs in parallel with Phase 2.
 

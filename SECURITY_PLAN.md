@@ -1,6 +1,6 @@
 # SECURITY_PLAN.md - PIDRA
 
-Status: proposed, 2026-09-11. Nothing here is implemented yet.
+Status: proposed, 2026-09-11. The public passkey gate and the phased security design are not implemented. The skills bridge already binds to loopback by default; see §6.
 
 This document defines how PIDRA is exposed to the internet and how it is defended.
 Read it before adding any route, any skill, or any deployment change.
@@ -319,15 +319,16 @@ Freshness: 5 minutes, single use, never extended by activity.
 
 ## 6. Process isolation and bind addresses
 
-Currently both servers bind every interface. On pronix that is the public IP.
+The dashboard's bind address must be verified in its systemd unit before public exposure. The skills bridge already defaults to loopback.
 
-- `src/server/index.ts:552` - add `hostname: "127.0.0.1"`. The bridge is never
-  proxied by nginx and never leaves the box. `CLAUDE.md:101` claims this already;
-  make it true in code.
+- `src/server/index.ts` already sets `hostname: process.env.SKILLS_BRIDGE_HOST ?? "127.0.0.1"`.
+  Keep that loopback default and do not override it with a non-loopback address. The bridge is
+  never proxied by nginx and never leaves the box, as documented in `CLAUDE.md`'s Skills section.
 - adapter-node - `HOST=127.0.0.1 PORT=3010` in the systemd unit.
   `dashboard/build/index.js:236` defaults to `0.0.0.0` otherwise.
-- `idleTimeout: 0` on the bridge (`:550`) means a connection can be held open
-  forever. Set a real timeout.
+- `idleTimeout: 0` on the bridge is deliberate: assistant SSE turns can be quiet longer than a
+  short server idle timeout. Bound request and connection abuse at the reverse-proxy and gate
+  layers instead; do not reintroduce a generic Bun idle timeout that truncates valid streams.
 - Drop the Hono `cors()` at `src/server/index.ts:25`. It covers only `/api/*`,
   not `/skills/execute`, and it is a browser policy that does nothing against
   curl. It reads as protection while providing none - worse than absent.

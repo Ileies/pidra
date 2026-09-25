@@ -4,7 +4,7 @@ Scans all personal data sources (email, Google Keep, Google Tasks, GitHub), comp
 
 Runs by hand for a full harvest, and on its own in update mode on the 1st of each month at 03:00 as the `context-builder` systemd job (`hosts/pronix/pidra.nix`). Running on the server is not incidental: `context_builder_runs.output_path` is an absolute path, so a harvest written anywhere else is one the daily pipeline cannot open.
 
-Both stages call `gpt-5.6-luna` through `src/ai/openai.ts` on the `flex` service tier with `store: false`. Extraction uses strict JSON schemas, so the model cannot return malformed or drifting fields. The local Ollama path was removed: the 9B model truncated its own JSON mid-object and hit 90 s timeouts often enough that runs never completed.
+Both stages call `src/ai/openai.ts` on the `flex` service tier with `store: false`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. Extraction uses strict JSON schemas, so the model cannot return malformed or drifting fields.
 
 ## Prerequisites
 

@@ -19,8 +19,7 @@ World-facing intelligence from the newsletters, organized by topic domain (AI, C
 |---|---|
 | Runtime | Bun |
 | Frontend | SvelteKit (dashboard + PWA) |
-| AI (current) | OpenAI GPT-5.6 Luna - both extraction and synthesis |
-| AI (target) | Ollama (`qwen2.5:14b`) for extraction, Claude Sonnet 4.6 for synthesis |
+| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. |
 | Database | Postgres + DrizzleORM |
 | Email | IMAP (Netcup) |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |

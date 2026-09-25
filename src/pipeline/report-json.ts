@@ -17,7 +17,8 @@
  * page.
  */
 
-export const REPORT_JSON_VERSION = 1;
+/** 2 added `news`. A version-1 row simply has none, which reads the same as a day without news. */
+export const REPORT_JSON_VERSION = 2;
 
 export type Urgency = "critical" | "high" | "normal" | "mentions";
 
@@ -33,6 +34,11 @@ export interface ReportJson {
   date: string;
   /** Section 2, which the dashboard renders first at every width: it is the actionable half. */
   personal: { urgency: Urgency; entries: ReportEntry[] }[];
+  /**
+   * The News section, grouped under the headings the editor wrote ("Top stories", the home area,
+   * one per field, ...). Rendered between the two others. Empty on a day without news desks.
+   */
+  news: { group: string; entries: ReportEntry[] }[];
   /** Section 1. */
   intel: { domain: string; entries: ReportEntry[] }[];
   alsoNoted: ReportEntry[];
@@ -50,6 +56,8 @@ const URGENCIES: [RegExp, Urgency][] = [
 ];
 
 const ALSO_NOTED = /^also noted$/i;
+/** `## News`, and the variants an editor drifts into ("News - 25 September"). */
+const NEWS_SECTION = /^news\b/i;
 const BULLET = /^\s{0,3}([-*+]|\d+[.)])\s+/;
 /** A markdown horizontal rule and nothing else. */
 const RULE_ONLY = /^\s*([-*_])(\s*\1){2,}\s*$/;
@@ -161,12 +169,21 @@ export function parseReport(fullReport: string, date: string): ReportJson | null
   if (!hasPersonal || !hasIntel) return null;
 
   const personal = new Map<Urgency, ReportEntry[]>();
+  const news = new Map<string, ReportEntry[]>();
   const intel = new Map<string, ReportEntry[]>();
   const alsoNoted: ReportEntry[] = [];
 
   for (const block of parsed) {
     const items = entries(block.lines);
     if (items.length === 0) continue;
+
+    // Before the Also-noted check: that heading belongs to Section 1, and a News group that
+    // happened to carry the same words is still news.
+    if (NEWS_SECTION.test(block.section.trim())) {
+      const group = block.heading || "News";
+      news.set(group, [...(news.get(group) ?? []), ...items]);
+      continue;
+    }
 
     if (ALSO_NOTED.test(block.heading)) {
       alsoNoted.push(...items);
@@ -197,6 +214,7 @@ export function parseReport(fullReport: string, date: string): ReportJson | null
       urgency,
       entries: personal.get(urgency)!,
     })),
+    news: [...news.entries()].map(([group, list]) => ({ group, entries: list })),
     intel: [...intel.entries()].map(([domain, list]) => ({ domain, entries: list })),
     alsoNoted,
   };

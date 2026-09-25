@@ -9,9 +9,10 @@ import { eq } from "drizzle-orm";
 const CONCURRENCY = 4;
 
 // The only source types `extractItem` has a branch for. Todos and calendar events are read
-// straight out of `raw_items` by Phase 3, so they never need a model call. Keep this in sync
-// with the branches in `extractItem`: anything missing here is silently never extracted,
-// anything extra pads the failure ratio below with guaranteed successes.
+// straight out of `raw_items` by Phase 3, so they never need a model call, and a news desk
+// delivery (`web_news`) arrives with its extraction rows already written by `src/news/desk.ts`.
+// Keep this in sync with the branches in `extractItem`: anything missing here is silently never
+// extracted, anything extra pads the failure ratio below with guaranteed successes.
 const EXTRACTABLE_SOURCE_TYPES = new Set(["newsletter", "personal_email", "sms"]);
 
 interface NewsletterExtraction {
@@ -151,7 +152,7 @@ export async function runPhase2(runDate: string): Promise<void> {
   const passthrough = items.length - extractable.length;
   const skipped = extractable.length - activeItems.length;
   if (passthrough > 0) {
-    console.log(`[Phase 2] ${passthrough} item(s) need no extraction (todo/calendar) - read directly by Phase 3`);
+    console.log(`[Phase 2] ${passthrough} item(s) need no extraction (todo/calendar/news desk) - read directly by Phase 3`);
   }
   if (skipped > 0) console.log(`[Phase 2] Skipping ${skipped} items from disabled sources`);
   console.log(`[Phase 2] ${activeItems.length} items to extract`);

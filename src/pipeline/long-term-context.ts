@@ -21,6 +21,12 @@ export interface LongTermContext {
   intelSections: string;
   /** Document sections for the personal half (identity, commitments, standing context). */
   personalSections: string;
+  /**
+   * The interests alone, for the fields news desk. Narrower than `intelSections` on purpose: that
+   * call has a search engine attached, so it gets what the reader follows and nothing about who
+   * they are or what they are building.
+   */
+  interestSections: string;
   generatedAt: string | null;
   /** Set when the document could not be loaded, so the pipeline can log it without failing. */
   problem: string | null;
@@ -35,6 +41,7 @@ const CANDIDATE_RUNS = 5;
 
 const INTEL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_INTEL ?? "3,5";
 const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2,4";
+const INTEREST_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_NEWS ?? "3";
 
 /**
  * Reads the harvest document, tolerating the fact that `context_builder_runs.output_path` is an
@@ -90,6 +97,7 @@ const EMPTY: LongTermContext = {
   corrections: [],
   intelSections: "",
   personalSections: "",
+  interestSections: "",
   generatedAt: null,
   problem: null,
 };
@@ -155,6 +163,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
         corrections,
         intelSections,
         personalSections,
+        interestSections: pickSections(doc, INTEREST_SECTIONS),
         generatedAt: parsed.generatedAt ?? run.completedAt ?? null,
         // A fallback still worked, but the newest harvest did not, and that is worth seeing.
         problem: problems.length > 0 ? `fell back past ${problems.length} run(s): ${problems.join("; ")}` : null,

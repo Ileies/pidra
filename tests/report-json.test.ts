@@ -105,6 +105,10 @@ describe("parseReport", () => {
     expect(everything.some((entry) => entry.md.includes("new_topics"))).toBe(false);
   });
 
+  test("a report without a News section has an empty news list", () => {
+    expect(parsed.news).toEqual([]);
+  });
+
   test("keeps Section 1 prose that sits before the first domain heading", () => {
     const lead = parseReport(
       "## Personal Action Center\n\n### Critical\n\n- x <!--refs:a-->\n\n## Intelligence Briefing\n\nA lead paragraph.\n\n### AI\n\n- y <!--refs:b-->",
@@ -112,5 +116,72 @@ describe("parseReport", () => {
     )!;
     expect(lead.intel[0].domain).toBe("Briefing");
     expect(lead.intel[0].entries[0].md).toBe("A lead paragraph.");
+  });
+});
+
+/** Phase 6 places the News section between the two others. */
+const WITH_NEWS = `# Morning Briefing - 2026-09-25
+
+---
+
+## Personal Action Center
+
+### Critical
+
+- **Pay the invoice.** <!--refs:aaa-->
+
+---
+
+## News
+
+### Top stories
+
+- **A summit ended without a deal.** Facts. [Wire](https://wire.example.com/a) <!--refs:n-1-->
+- **UPDATE: The strike continues.** New facts. <!--refs:n-2,n-3-->
+
+### Springfield & Freedonia
+
+- **A fire closed the main station.** Facts. <!--refs:n-4-->
+
+### Also noted
+
+- **A group that happens to share the heading.** <!--refs:n-5-->
+
+---
+
+## Intelligence Briefing
+
+### AI
+
+- A newsletter claim. <!--refs:fff-->
+
+### Also noted
+
+- One-liner. <!--refs:iii-->`;
+
+describe("parseReport with a News section", () => {
+  const parsed = parseReport(WITH_NEWS, "2026-09-25")!;
+
+  test("groups the News section under the editor's headings, in order", () => {
+    expect(parsed.news.map((group) => group.group)).toEqual(["Top stories", "Springfield & Freedonia", "Also noted"]);
+    expect(parsed.news[0].entries).toHaveLength(2);
+    expect(parsed.news[0].entries[1].refIds).toEqual(["n-2", "n-3"]);
+  });
+
+  test("keeps the attached source links in the entry", () => {
+    expect(parsed.news[0].entries[0].md).toContain("[Wire](https://wire.example.com/a)");
+  });
+
+  test("a news heading never leaks into Section 1's Also noted", () => {
+    expect(parsed.alsoNoted.map((entry) => entry.refIds)).toEqual([["iii"]]);
+  });
+
+  test("leaves the other two sections as they were", () => {
+    expect(parsed.personal.map((group) => group.urgency)).toEqual(["critical"]);
+    expect(parsed.intel.map((group) => group.domain)).toEqual(["AI"]);
+  });
+
+  test("is version 2", () => {
+    expect(parsed.version).toBe(2);
   });
 });

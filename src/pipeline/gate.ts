@@ -18,8 +18,19 @@
  * view shows is the real rule rather than a second implementation of it.
  */
 
+import type { NewsValidation } from "../news/validate";
+
 /** A newsletter item needs this much effective relevance to be handed to synthesis. */
 export const NEWSLETTER_THRESHOLD = 3;
+
+/**
+ * A news desk story needs this significance, on its own desk's scale, to reach the News section.
+ * The desks are told the same bar; this is the net under that instruction.
+ */
+export const NEWS_THRESHOLD = 3;
+
+/** A country the reader follows from abroad gets its top headlines only. */
+export const NEWS_ABROAD_THRESHOLD = 4;
 
 export type GateReason =
   /** Handed to synthesis. Whether synthesis then wrote about it is `included_in_report`. */
@@ -34,6 +45,14 @@ export type GateReason =
   | "general_news"
   /** An automated mail that was not urgent enough to be worth the user's morning. */
   | "automated_low_urgency"
+  /** News desk: none of its sources is a URL the search returned, so nothing shows it was read. */
+  | "unverified_source"
+  /** News desk: the development predates the window - an old story presented as today's. */
+  | "outside_window"
+  /** News desk: another desk found the same story in the same run, and that copy was kept. */
+  | "duplicate"
+  /** News desk: the reader was told this on an earlier day, and the desk reported nothing new. */
+  | "already_reported"
   /** A source type the gate does not apply to - calendar and todo go straight to Phase 3. */
   | "not_gated";
 
@@ -147,6 +166,22 @@ export function decideGate(input: GateInput): GateDecision {
     return effectiveRelevance > 0 ? verdict(true, "passed") : verdict(false, "below_threshold", 0);
   }
 
+  if (input.sourceType === "web_news") {
+    // The checks ran when the desk answered (src/news/validate.ts), because they need what only
+    // that call had: the URLs its search returned. This names their outcome. Checks before the
+    // score: a fabricated story that claims a 5 is still fabricated.
+    const validation = (json.validation ?? {}) as Partial<NewsValidation>;
+    const bar = validation.abroad ? NEWS_ABROAD_THRESHOLD : NEWS_THRESHOLD;
+    if (validation.verified === false) return verdict(false, "unverified_source", bar);
+    if (validation.inWindow === false) return verdict(false, "outside_window", bar);
+    if (validation.duplicateOf) return verdict(false, "duplicate", bar);
+    if (validation.alreadyReported) return verdict(false, "already_reported", bar);
+
+    return effectiveRelevance >= bar
+      ? verdict(true, "passed", bar)
+      : verdict(false, "below_threshold", bar);
+  }
+
   return verdict(false, "not_gated");
 }
 
@@ -159,5 +194,9 @@ export const GATE_REASON_TEXT: Record<GateReason, string> = {
   spam: "Classified as spam",
   general_news: "Classified as general news, not personal",
   automated_low_urgency: "Automated and not urgent",
+  unverified_source: "No source the search actually returned",
+  outside_window: "Happened before the news window",
+  duplicate: "Same story as another desk's",
+  already_reported: "Already reported on an earlier day",
   not_gated: "Not subject to the gate",
 };

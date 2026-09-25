@@ -128,7 +128,10 @@ export async function runPhase6(
 ): Promise<string> {
   console.log("[Phase 6] Writing memory and report");
 
-  const rawReport = `# Morning Briefing - ${runDate}\n\n---\n\n${synthesis.section2}\n\n---\n\n${synthesis.section1}`;
+  // Personal first, then the News section, then the newsletter briefing: what needs acting on,
+  // then what happened, then the depth. A day without news simply has one section fewer.
+  const sections = [synthesis.section2, synthesis.news, synthesis.section1].filter((s) => s.trim() !== "");
+  const rawReport = `# Morning Briefing - ${runDate}\n\n---\n\n${sections.join("\n\n---\n\n")}`;
   const { report: fullReport, includedIds } = await resolveReportRefs(rawReport, runDate);
 
   // `included_in_report` is the ground truth for source trust: which items actually reached
@@ -165,7 +168,7 @@ export async function runPhase6(
     itemsFiltered: itemCount - reportItemsIncluded,
     tokensIn: synthesis.tokensIn,
     tokensOut: synthesis.tokensOut,
-    aiCalls: 2,
+    aiCalls: synthesis.aiCalls,
     questionGateFired,
     webSearchesRun,
   }).onConflictDoUpdate({

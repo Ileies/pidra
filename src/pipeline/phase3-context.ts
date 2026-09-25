@@ -4,6 +4,8 @@ import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { decideGate, type GateDecision } from "./gate";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
 import { loadLongTermContext, type LongTermContext } from "./long-term-context";
+import { NEWS_SOURCE_TYPE } from "../news/desks";
+import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/desk";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
@@ -11,6 +13,10 @@ export interface ContextPayload {
   activeTopics: (typeof activeTopics.$inferSelect)[];
   newsletterItems: ExtractionWithSource[];
   personalItems: ExtractionWithSource[];
+  /** News desk stories that passed the gate, for the News section. */
+  newsItems: ExtractionWithSource[];
+  /** How the news desks did on this run: the window, the home, which desks failed. */
+  newsDesk: NewsDeskOutcome;
   entityContexts: (typeof entities.$inferSelect)[];
   notesIntel: (typeof notes.$inferSelect)[];
   notesPersonal: (typeof notes.$inferSelect)[];
@@ -98,7 +104,7 @@ async function persistGate(items: ExtractionWithSource[]): Promise<void> {
   }
 }
 
-export async function runPhase3(runDate: string): Promise<ContextPayload> {
+export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMPTY_NEWS_DESK): Promise<ContextPayload> {
   console.log(`[Phase 3] Assembling context for ${runDate}`);
 
   // Fetch topics first (needed for Slot 1 query generation)
@@ -143,9 +149,15 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
 
   const qualityMap = new Map(qualityResult.map((s) => [s.sourceName, s.trustScore ?? 1.0]));
 
+  // A news desk story is not a newsletter's corroboration. The desks return dozens of stories
+  // naming the same few countries and leaders, so counting them would lift the bonus on almost
+  // every newsletter item that mentions one - a change to the newsletter bar nobody decided.
+  const isNews = (row: (typeof todaysExtractions)[number]) => (row as any).rawItem?.sourceType === NEWS_SOURCE_TYPE;
+
   // Group newsletter items by entity overlap to compute corroboration
   const entityToItems = new Map<string, string[]>();
   for (const row of todaysExtractions) {
+    if (isNews(row)) continue;
     const json = row.extractedJson as any;
     if (!json || !json.entities) continue;
     for (const entity of json.entities as string[]) {
@@ -169,13 +181,16 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     ).size : 1;
 
     const sourceType = rawItem?.sourceType ?? "unknown";
+    const news = sourceType === NEWS_SOURCE_TYPE;
     const gate = decideGate({
       sourceType,
       aiFailed: row.aiFailed ?? false,
       extractedJson: (row.extractedJson as Record<string, unknown> | null) ?? null,
       relevanceScore: row.relevanceScore,
-      trustScore,
-      sourceCount,
+      // A desk's significance is compared as it stands: a desk has no trust score, and its
+      // stories are neither corroborated nor corroborating (see above).
+      trustScore: news ? 1 : trustScore,
+      sourceCount: news ? 1 : sourceCount,
     });
 
     items.push({
@@ -195,6 +210,7 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
   const personalItems = items.filter(
     (i) => i.gate.passed && (i.sourceType === "personal_email" || i.sourceType === "sms"),
   );
+  const newsItems = items.filter((i) => i.gate.passed && i.sourceType === NEWS_SOURCE_TYPE);
 
   // Every newsletter item that passed the gate cleared the threshold, so the two are the same
   // figure now.
@@ -202,9 +218,12 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
   const volumeSignal: "light" | "normal" | "heavy" =
     highRelevanceCount < 10 ? "light" : highRelevanceCount > 25 ? "heavy" : "normal";
 
-  // Relevant entity contexts (mention_count >= 3)
+  // Relevant entity contexts (mention_count >= 3), for Section 1. The News section is written
+  // from its stories alone, so their entities would only add graph context nobody reads.
   const mentionedEntityNames = new Set(
-    items.flatMap((i) => ((i.extraction.extractedJson as any)?.entities ?? []) as string[])
+    items
+      .filter((i) => i.sourceType !== NEWS_SOURCE_TYPE)
+      .flatMap((i) => ((i.extraction.extractedJson as any)?.entities ?? []) as string[])
       .map((e: string) => e.toLowerCase())
   );
   const entityContexts = entityList.filter(
@@ -224,9 +243,10 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     );
   }
 
-  const gatedOut = items.length - newsletterItems.length - personalItems.length;
+  const gatedOut = items.length - newsletterItems.length - personalItems.length - newsItems.length;
   console.log(
-    `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items ` +
+    `[Phase 3] ${newsletterItems.length} newsletter items, ${personalItems.length} personal items, ` +
+    `${newsItems.length} news stories ` +
     `(${gatedOut} of ${items.length} dropped at the gate - see /${runDate}/triage), ` +
     `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}, ` +
     `${webSearchResults.length} web search slot(s), ` +
@@ -240,6 +260,8 @@ export async function runPhase3(runDate: string): Promise<ContextPayload> {
     activeTopics: topicsResult,
     newsletterItems,
     personalItems,
+    newsItems,
+    newsDesk,
     entityContexts,
     notesIntel: allNotes.filter((n) => n.scope === "intel" || n.scope === "global"),
     notesPersonal: allNotes.filter((n) => n.scope === "personal" || n.scope === "global"),

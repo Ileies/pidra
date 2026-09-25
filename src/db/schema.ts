@@ -20,7 +20,7 @@ const dateStr = (name: string) => date(name, { mode: "string" });
 export const rawItems = pgTable("raw_items", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   runDate: dateStr("run_date").notNull(),
-  sourceType: text("source_type").notNull(), // newsletter | personal_email | sms | calendar | todo
+  sourceType: text("source_type").notNull(), // newsletter | personal_email | sms | calendar | todo | web_news
   sourceName: text("source_name"),
   accountId: text("account_id"), // which email account this came from (e.g. "news", "uni", "work", "private")
   messageId: text("message_id").unique(),
@@ -240,7 +240,7 @@ export const noteRevisions = pgTable("note_revisions", {
 export const promptVersions = pgTable("prompt_versions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   version: integer("version").notNull(),
-  section: text("section").notNull(), // section1 | section2 | extraction | entity_extraction | personal_classification
+  section: text("section").notNull(), // one of PROMPT_SECTIONS in src/ai/active-prompts.ts
   promptText: text("prompt_text").notNull(),
   active: boolean("active").default(false),
   changeSummary: text("change_summary"),

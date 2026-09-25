@@ -1,7 +1,9 @@
 import { activePrompt, type PromptSection } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
-import type { ContextPayload } from "./phase3-context";
+import type { ContextPayload, ExtractionWithSource } from "./phase3-context";
+import { editorPayload, finishNewsSection, type NewsItem } from "../news/format";
+import type { NewsExtraction } from "../news/validate";
 
 // Null rather than an empty array, matching how every other optional block in the payload
 // signals "nothing here" - the prompts already say to proceed unchanged when a field is null.
@@ -13,8 +15,16 @@ function corrections(ctx: ContextPayload) {
 export interface SynthesisResult {
   section1: string;
   section2: string;
+  /** The News section, ready to place: refs are extraction ids and links are attached. May be "". */
+  news: string;
   tokensIn: number;
   tokensOut: number;
+  /** Every model call behind the report: syntheses and news desks alike. */
+  aiCalls: number;
+}
+
+export function newsItemsOf(items: ExtractionWithSource[]): NewsItem[] {
+  return items.map((i) => ({ id: i.extraction.id, story: i.extraction.extractedJson as NewsExtraction }));
 }
 
 function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
@@ -46,6 +56,11 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
       mention_count: e.mentionCount,
     })),
     notes_intel: ctx.notesIntel.map((n) => n.content),
+    // What the News section of the same briefing already tells the reader. Without it Section 1
+    // restates a headline the reader read a screen earlier, as analysis nobody asked for.
+    news_headlines: ctx.newsItems.length > 0
+      ? ctx.newsItems.map((i) => (i.extraction.extractedJson as NewsExtraction).headline)
+      : null,
     // Interests and technical profile from the Context Builder document: what the user cares
     // about, for judging which of today's items actually matter to them.
     long_term_context: ctx.longTermContext.intelSections || null,
@@ -115,19 +130,24 @@ export function runSection2(ctx: ContextPayload, runDate: string, questionAnswer
   return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, runDate, questionAnswers));
 }
 
-export async function runPhase5(
-  ctx: ContextPayload,
-  questionAnswers: Record<string, string> = {}
-): Promise<SynthesisResult> {
-  const runDate = new Date().toISOString().split("T")[0];
-  const [s1, s2] = await Promise.all([
-    runSection1(ctx, runDate),
-    runSection2(ctx, runDate, questionAnswers),
-  ]);
-  return {
-    section1: s1.text,
-    section2: s2.text,
-    tokensIn: s1.tokensIn + s2.tokensIn,
-    tokensOut: s1.tokensOut + s2.tokensOut,
-  };
+/**
+ * The News section: the editor over the news stories that passed the gate. Returns an empty
+ * section, and makes no call, on a day with no stories - the desks were off, or all of them failed,
+ * which the report says above the briefing rather than in an empty heading.
+ */
+export async function runNewsSection(ctx: ContextPayload, runDate: string) {
+  const items = newsItemsOf(ctx.newsItems);
+  if (items.length === 0) return { text: "", tokensIn: 0, tokensOut: 0, aiCalls: 0 };
+
+  const { payload, refs } = editorPayload(
+    items,
+    ctx.newsDesk.home,
+    // Only intel notes: global ones include the weekly meta-run's proposals, which are about
+    // prompts, not about what the reader wants covered.
+    ctx.notesIntel.filter((n) => n.scope === "intel").map((n) => n.content),
+    runDate,
+  );
+
+  const result = await synthesizeSection("News", "news", payload);
+  return { text: finishNewsSection(result.text, refs), tokensIn: result.tokensIn, tokensOut: result.tokensOut, aiCalls: 1 };
 }

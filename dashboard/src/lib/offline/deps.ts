@@ -11,31 +11,15 @@
  */
 
 import { invalidate } from "$app/navigation";
+import type { MirrorStore } from "./db.js";
 
-/** The stores the snapshot fills. `meta`, `outbox` and `failed` are not server state. */
-export const MIRROR_STORES = [
-  "reports",
-  "extractions",
-  "notes",
-  "rules",
-  "corrections",
-  "contextDoc",
-  "entities",
-  "entityRelations",
-  "entityAppearances",
-  "contacts",
-  "topics",
-] as const;
-export type MirrorStore = (typeof MIRROR_STORES)[number];
+// The store list lives in `db.ts`, which the service worker can import; this module cannot be.
+export { MIRROR_STORES, isMirrorStore, type MirrorStore } from "./db.js";
 
 export type MirrorKey = `mirror:${MirrorStore | "status"}`;
 
 export function mirrorKey(store: MirrorStore | "status"): MirrorKey {
   return `mirror:${store}`;
-}
-
-export function isMirrorStore(store: string): store is MirrorStore {
-  return (MIRROR_STORES as readonly string[]).includes(store);
 }
 
 /** Resolves once the current page has re-rendered from the changed stores. */

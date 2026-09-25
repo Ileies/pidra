@@ -31,6 +31,37 @@ export const STORES = [
 
 export type Store = (typeof STORES)[number];
 
+/** The stores the snapshot fills. `meta`, `outbox` and `failed` are not server state. */
+export const MIRROR_STORES = [
+  "reports",
+  "extractions",
+  "notes",
+  "rules",
+  "corrections",
+  "contextDoc",
+  "entities",
+  "entityRelations",
+  "entityAppearances",
+  "contacts",
+  "topics",
+] as const satisfies readonly Store[];
+export type MirrorStore = (typeof MIRROR_STORES)[number];
+
+export function isMirrorStore(store: string): store is MirrorStore {
+  return (MIRROR_STORES as readonly string[]).includes(store);
+}
+
+/**
+ * Runs `fn` while holding the named Web Lock, so the pages and the service worker never apply a
+ * snapshot or drain the outbox at the same time (OFFLINE_PLAN.md H3: the worker syncs on push).
+ * Without the lock both could send the same queued write. Not re-entrant: nothing that holds a
+ * lock may ask for the same one. Where the API is missing, it simply runs.
+ */
+export function withLock<T>(name: "pidra-outbox" | "pidra-snapshot", fn: () => Promise<T>): Promise<T> {
+  const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+  return locks ? locks.request(name, fn) : fn();
+}
+
 export interface Keyed {
   id: string;
 }

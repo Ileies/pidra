@@ -12,6 +12,11 @@
  * It also owns when a sync is *forced* past the one-a-minute throttle in `sync.ts` (§14.3, H2): at
  * app start, and when the app comes back to the foreground after more than five minutes away.
  * Every other sync is the background one a page read starts, which the throttle absorbs.
+ *
+ * And it hears from the service worker, which syncs on its own since H3 (on the morning push, a
+ * Background Sync, a periodic sync): when the worker changed the mirror or drained the queue, the
+ * page on screen re-renders from the stores it names. The periodic sync is registered here, once,
+ * where the browser grants it (Chrome for an installed app; nothing on iOS).
  */
 
 import { browser } from "$app/env";
@@ -19,7 +24,7 @@ import * as db from "./db.js";
 import * as outbox from "./outbox.js";
 import * as net from "./net.js";
 import { getLastSyncedAt, onSync, sync, type SyncResult } from "./sync.js";
-import { invalidateMirror, MIRROR_STORES } from "./deps.js";
+import { invalidateMirror, isMirrorStore, MIRROR_STORES } from "./deps.js";
 
 export type { Reachability } from "./net.js";
 import type { Reachability } from "./net.js";
@@ -29,6 +34,25 @@ const POLL_BACKOFF_MS = 60_000;
 const BACKOFF_AFTER = 10;
 /** Hidden for longer than this, coming back counts as a new start and syncs past the throttle. */
 const RESUME_SYNC_AFTER_MS = 5 * 60_000;
+/** The worker's periodic refresh. A hint: the browser decides the real cadence from engagement. */
+const PERIODIC_SYNC_MS = 12 * 60 * 60_000;
+
+/** Periodic Background Sync, which lib.dom does not type. */
+interface PeriodicSyncRegistration {
+  periodicSync?: { register(tag: string, options: { minInterval: number }): Promise<void> };
+}
+
+async function registerPeriodicSync(): Promise<void> {
+  try {
+    const registration = (await navigator.serviceWorker.ready) as ServiceWorkerRegistration & PeriodicSyncRegistration;
+    if (!registration.periodicSync) return;
+    const permission = await navigator.permissions.query({ name: "periodic-background-sync" as PermissionName });
+    if (permission.state !== "granted") return;
+    await registration.periodicSync.register("pidra-mirror", { minInterval: PERIODIC_SYNC_MS });
+  } catch {
+    // Not supported or not granted; the push and the app's own syncs cover it.
+  }
+}
 
 class OfflineState {
   reachable = $state<Reachability>("checking");
@@ -83,6 +107,16 @@ class OfflineState {
     void sync({ force: true });
 
     outbox.onChange(() => this.refresh());
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        const data = event.data as { type?: string; stores?: string[]; outbox?: boolean } | null;
+        if (data?.type !== "pidra:mirror-changed") return;
+        void invalidateMirror((data.stores ?? []).filter(isMirrorStore));
+        if (data.outbox) outbox.notify();
+        void this.refresh();
+      });
+      void registerPeriodicSync();
+    }
     const probeAndReschedule = () => this.probe().then(() => this.#reschedule());
     window.addEventListener("online", probeAndReschedule);
     window.addEventListener("offline", () => net.markOffline());

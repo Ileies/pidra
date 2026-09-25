@@ -8,15 +8,16 @@ import { sql } from "#lib/db.js";
  */
 export const GET = async () => {
   const db = sql();
-  const [[pendingGate], [pendingSkills]] = await Promise.all([
-    db`SELECT 1 FROM question_gate_sessions WHERE status = 'pending' LIMIT 1`,
+  const [[pendingQuestions], [pendingSkills]] = await Promise.all([
+    db`SELECT count(*)::int AS n FROM question_gate_sessions WHERE status = 'pending'`,
     db`SELECT count(*)::int AS n FROM skill_executions WHERE status = 'pending'`,
   ]);
 
+  const questions = (pendingQuestions?.n as number | undefined) ?? 0;
   const skills = (pendingSkills?.n as number | undefined) ?? 0;
 
   return Response.json({
-    hasPendingQuestions: !!pendingGate,
-    navBadges: { "/questions": pendingGate ? 1 : 0, "/skills": skills } as Record<string, number>,
+    hasPendingQuestions: questions > 0,
+    navBadges: { "/questions": questions, "/skills": skills } as Record<string, number>,
   });
 };

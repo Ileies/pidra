@@ -1,5 +1,5 @@
 /**
- * Precache, a bounded navigation with a shell fallback, and push. Replaces `static/sw.js`.
+ * Precache, the shell, bounded navigations, and push. Replaces `static/sw.js`.
  *
  * The old worker's precache list (`SHELL_ASSETS`) was hand-written and named no build output at
  * all - everything under `/_app/immutable/` was cached opportunistically, only after being
@@ -13,21 +13,29 @@
  * `ServiceWorkerGlobalScope` (`$app/service-worker`'s one remaining export) so this file type-checks
  * under the project's single, DOM-oriented tsconfig without a separate worker tsconfig.
  *
- * **Nothing here waits on the network without a budget** (OFFLINE_PLAN.md §14). Offline is usually
- * a blackhole, not an error: with the VPN app up and no network beneath it, a request neither
- * succeeds nor fails, it waits for the OS connect timeout. So a navigation races the network
- * against `NAV_BUDGET_MS` and then boots the cached shell, and an asset missing from the precache
- * gets `ASSET_BUDGET_MS`. `/api/**` and `__data.json` are not touched here: `$lib/offline/net.ts`
- * bounds those in the page, where the answer can be turned into a designed state.
+ * **The shell, cache-first** (OFFLINE_PLAN.md §14.3, H2). Mirrored routes are `ssr = false`, so the
+ * HTML the server returns for any of them is the same route-agnostic document; `hooks.server.ts`
+ * marks it with `x-pidra-shell`. A navigation to a mirrored path is answered from the cached shell
+ * straight away, online or not, and the network only refreshes it in the background: SvelteKit
+ * boots from it and routes by `location` (render.js only emits a hydrate payload when SSR is on),
+ * and the page reads the mirror. That takes the network out of every launch. Only a device with no
+ * shell yet goes to the network first.
  *
- * **The shell.** Mirrored routes are `ssr = false`, so the HTML the server returns for any of them
- * is the same route-agnostic document; `hooks.server.ts` marks it with `x-pidra-shell`. The newest
- * one is kept under `SHELL_KEY` and serves every navigation the network cannot answer, whatever
- * the path: SvelteKit boots from it and routes by `location` (render.js only emits a hydrate
- * payload when SSR is on). A live page that is not mirrored boots too, and its load then fails
- * into `OfflineNotice`. Server-rendered pages are deliberately not cached: an old copy of the
- * approval queue served as if it were current is the lie OFFLINE_PLAN.md §1 rules out. Public
- * legal pages are prerendered and precached separately, so their full text opens offline.
+ * **Everything else is bounded** (§14). Offline is usually a blackhole, not an error: with the VPN
+ * app up and no network beneath it, a request neither succeeds nor fails, it waits for the OS
+ * connect timeout. So a live page's navigation races the network against `NAV_BUDGET_MS` and then
+ * boots the cached shell (its load then fails into `OfflineNotice`), and an asset missing from the
+ * precache gets `ASSET_BUDGET_MS`. `/api/**` and `__data.json` are not touched here:
+ * `$lib/offline/net.ts` bounds those in the page, where the answer can be turned into a designed
+ * state. Server-rendered pages are deliberately not cached: an old copy of the approval queue
+ * served as if it were current is the lie OFFLINE_PLAN.md §1 rules out. Public legal pages are
+ * prerendered and precached separately, so their full text opens offline.
+ *
+ * **Deploys do not break open pages** (H2). A new worker installs and then waits: no automatic
+ * `skipWaiting()`. The app says a new version is ready and hands over on a tap
+ * (`$lib/offline/update.svelte.ts`), or the new worker takes over on the next cold start. The
+ * previous build's cache is kept one generation longer, and assets are looked up across both, so a
+ * page still running the old build keeps finding its lazy chunks.
  *
  * **A response the app did not write is not the app.** `hooks.server.ts` stamps `x-pidra` on every
  * response; one without it (nginx's 403 from the public path when DNS answers the public address,
@@ -40,16 +48,26 @@
 import { assets, immutable, prerendered } from "$app/manifest";
 import { version } from "$app/env";
 import { self } from "$app/service-worker";
+import { isMirroredPath } from "#lib/routes.js";
 
 const CACHE = `pidra-${version}`;
 const SHELL_CACHE = `pidra-shell-${version}`;
 const SHELL_KEY = "/__pidra/shell";
+/** Which builds' caches exist, oldest first. Kept in its own cache, which no version owns. */
+const META_CACHE = "pidra-meta";
+const GENERATIONS_KEY = "/__pidra/generations";
+/** This build and the one before it. */
+const GENERATIONS_KEPT = 2;
 /** Any mirrored route serves the shell; this one runs no load on the server at all. */
 const SHELL_SOURCE = "/notes";
 const STATIC_DOCUMENTS = new Set(["/privacy", "/terms"]);
 
 const NAV_BUDGET_MS = 3_000;
 const ASSET_BUDGET_MS = 10_000;
+/** Parallel precache requests, so an install does not saturate the same VPN link the app uses. */
+const PRECACHE_CONCURRENCY = 3;
+/** On a device's first install the page is loading right now; its own requests go first. */
+const FIRST_INSTALL_DELAY_MS = 1_500;
 
 const PRECACHE = [
   ...immutable.map((file) => file.path),
@@ -66,25 +84,25 @@ let offline = false;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    Promise.allSettled([
-      caches
-        .open(CACHE)
-        // One missing asset must not fail the whole install, which would leave the worker stuck
-        // on the previous version forever.
-        .then((cache) => Promise.allSettled(PRECACHE.map((path) => cache.add(path)))),
-      // The shell of this build, fetched now while the network is known to be there (the worker
-      // script itself just came over it). Without this, the first launch after a deploy that
-      // happens offline would have no document for this version at all, although the mirror is full.
-      withBudget(fromNetwork(new Request(SHELL_SOURCE)), ASSET_BUDGET_MS),
-    ]).then(() => self.skipWaiting()),
+    // The shell of this build first, fetched now while the network is known to be there (the
+    // worker script itself just came over it). Without this, the first launch after a deploy that
+    // happens offline would have no document for this version at all, although the mirror is full.
+    withBudget(fromNetwork(new Request(SHELL_SOURCE)), ASSET_BUDGET_MS)
+      .catch(() => {})
+      .then(() => (self.registration.active ? undefined : sleep(FIRST_INSTALL_DELAY_MS)))
+      .then(precache),
+    // No `skipWaiting()`: see the header. The very first install on a device has no page to break
+    // and activates at once anyway.
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE && key !== SHELL_CACHE).map((key) => caches.delete(key))))
+    rememberGeneration()
+      .then((kept) => {
+        const keep = new Set([META_CACHE, ...kept.flatMap((v) => [`pidra-${v}`, `pidra-shell-${v}`])]);
+        return caches.keys().then((keys) => Promise.all(keys.filter((key) => !keep.has(key)).map((key) => caches.delete(key))));
+      })
       .then(() => self.clients.claim()),
   );
 });
@@ -95,8 +113,15 @@ self.addEventListener("message", (event) => {
     offline = data.state === "offline";
   } else if (data?.type === "pidra:reachability?") {
     event.ports[0]?.postMessage({ state: offline ? "offline" : "unknown" });
+  } else if (data?.type === "pidra:skip-waiting") {
+    // The reader tapped Reload; the page reloads itself on `controllerchange`.
+    void self.skipWaiting();
   }
 });
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function withBudget<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -114,6 +139,39 @@ function withBudget<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/**
+ * Every build file, a few at a time. A hashed `/_app/immutable/` file the previous build already
+ * cached is the same bytes, so it is copied across instead of downloaded: a deploy fetches only
+ * what it changed. One missing asset must not fail the whole install, which would leave the worker
+ * stuck on the previous version forever.
+ */
+async function precache(): Promise<void> {
+  const cache = await caches.open(CACHE);
+  const queue = [...PRECACHE];
+  const next = async (): Promise<void> => {
+    for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
+      try {
+        const known = path.startsWith("/_app/immutable/") ? await caches.match(path) : undefined;
+        if (known) await cache.put(path, known);
+        else await withBudget(cache.add(path), ASSET_BUDGET_MS);
+      } catch {
+        // Fetched on first use instead, by `cacheFirst`.
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: PRECACHE_CONCURRENCY }, next));
+}
+
+/** Records this build as the newest generation and answers the versions whose caches stay. */
+async function rememberGeneration(): Promise<string[]> {
+  const meta = await caches.open(META_CACHE);
+  const stored = await meta.match(GENERATIONS_KEY);
+  const previous = stored ? ((await stored.json().catch(() => [])) as string[]) : [];
+  const kept = [...previous.filter((v) => v !== version), version].slice(-GENERATIONS_KEPT);
+  await meta.put(GENERATIONS_KEY, Response.json(kept));
+  return kept;
+}
+
 /** Shown only when the device has never cached a shell: first launch, with no connection. */
 function offlineDocument(): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111214"><title>PIDRA</title>
@@ -122,22 +180,42 @@ function offlineDocument(): Response {
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
-async function fallbackDocument(): Promise<Response> {
-  const shell = await caches.open(SHELL_CACHE).then((cache) => cache.match(SHELL_KEY));
-  return shell ?? offlineDocument();
+function cachedShell(): Promise<Response | undefined> {
+  return caches.open(SHELL_CACHE).then((cache) => cache.match(SHELL_KEY));
 }
 
-function navigation(event: FetchEvent): Promise<Response> {
+async function fallbackDocument(): Promise<Response> {
+  return (await cachedShell()) ?? offlineDocument();
+}
+
+async function navigation(event: FetchEvent): Promise<Response> {
+  const { pathname } = new URL(event.request.url);
+
+  if (isMirroredPath(pathname)) {
+    const shell = await cachedShell();
+    if (shell) {
+      // Refreshed behind the page, bounded like everything else, so a blackhole cannot keep the
+      // worker alive until the OS gives up. A late or missing answer says nothing the page's own
+      // requests will not say sooner.
+      event.waitUntil(
+        withBudget(fromNetwork(event.request), ASSET_BUDGET_MS).catch(() => {
+          offline = true;
+        }),
+      );
+      return shell;
+    }
+  }
+
   if (offline) {
     // Still ask, in the background: a late answer refreshes the shell and clears the flag, so the
     // next navigation goes to the network again without the page having to say so.
-    event.waitUntil(fromNetwork(event.request).catch(() => {}));
+    event.waitUntil(withBudget(fromNetwork(event.request), ASSET_BUDGET_MS).catch(() => {}));
     return fallbackDocument();
   }
 
   const network = fromNetwork(event.request);
   // A navigation that outruns the budget keeps going; when it lands, it still refreshes the shell.
-  event.waitUntil(network.catch(() => {}));
+  event.waitUntil(withBudget(network, ASSET_BUDGET_MS).catch(() => {}));
   return withBudget(network, NAV_BUDGET_MS).catch(() => {
     offline = true;
     return fallbackDocument();
@@ -156,12 +234,16 @@ async function fromNetwork(request: Request): Promise<Response> {
 }
 
 async function cacheFirst(request: Request): Promise<Response> {
-  const cache = await caches.open(CACHE);
-  const hit = await cache.match(request);
+  // Across every cache, not only this build's: a page still running the previous build asks for
+  // that build's chunks, which only its generation's cache holds.
+  const hit = await caches.match(request);
   if (hit) return hit;
   try {
     const response = await withBudget(fetch(request), ASSET_BUDGET_MS);
-    if (response.ok) cache.put(request, response.clone());
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      await cache.put(request, response.clone());
+    }
     return response;
   } catch {
     return new Response("", { status: 504, statusText: "Offline" });

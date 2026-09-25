@@ -270,6 +270,22 @@ export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/context-builder",
 ]);
 
+/**
+ * What a route parameter of a mirrored route matches, for the service worker, which sees paths and
+ * not route ids. It has to be as strict as the page is: `/[date]` as `[^/]+` would also match
+ * `/sources`, and serve that live page the shell cache-first. Anything not listed is one segment.
+ */
+const PARAM_PATTERNS: Record<string, string> = { date: "\\d{4}-\\d{2}-\\d{2}" };
+
+const MIRRORED_PATTERNS = [...MIRRORED_ROUTES].map(
+  (id) => new RegExp(`^${id.replace(/\[([^\]]+)\]/g, (_, name: string) => PARAM_PATTERNS[name] ?? "[^/]+")}/?$`),
+);
+
+/** True for a pathname that resolves to a mirrored route, so its document is the shell. */
+export function isMirroredPath(pathname: string): boolean {
+  return MIRRORED_PATTERNS.some((pattern) => pattern.test(pathname));
+}
+
 /** Public, static documents. SvelteKit prerenders them and the service worker precaches them. */
 export const STATIC_OFFLINE_ROUTES: ReadonlySet<string> = new Set(["/privacy", "/terms"]);
 

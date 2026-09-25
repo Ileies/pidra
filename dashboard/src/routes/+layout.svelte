@@ -10,6 +10,7 @@
   import { assistant } from "#lib/assistant/state.svelte.js";
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import FirstSync from "#lib/offline/FirstSync.svelte";
+  import { appUpdate } from "#lib/offline/update.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import { navigating } from "$app/state";
 
@@ -25,6 +26,10 @@
   $effect(() => {
     void page.data;
     void navBadges.refresh();
+  });
+
+  $effect(() => {
+    appUpdate.start();
   });
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.
@@ -74,6 +79,18 @@
   </a>
 
   <Navbar onOpenMore={() => (moreOpen = true)} />
+
+  {#if appUpdate.ready}
+    <!-- Never automatic: taking over mid-read would reload the page under the reader. -->
+    <div role="status" class="flex items-center justify-center gap-3 border-b border-surface-700 bg-surface-900 px-4 py-2 text-xs text-surface-300">
+      <span>A new version of PIDRA is ready.</span>
+      <button
+        type="button"
+        onclick={() => appUpdate.apply()}
+        class="tap rounded border border-primary-700 bg-primary-900 px-3 py-1 text-primary-200 hover:bg-primary-800 cursor-pointer"
+      >Reload</button>
+    </div>
+  {/if}
 
   <div id="main-content" class="flex flex-1 flex-col min-h-0">
     {#if firstSync}

@@ -389,25 +389,49 @@ self.addEventListener("periodicsync", (event) => {
   if (sync.tag === "pidra-mirror") sync.waitUntil(workerSync("always"));
 });
 
+const NOTIFICATION_ICON = "/icons/icon-192.png";
+
+/**
+ * The notification icon as a `data:` URL read from the precache. Given a path, the browser fetches
+ * the icon from the origin before it shows anything, outside this worker and without its budgets,
+ * so with the VPN off and the icon not in the HTTP cache a push showed nothing for over 40 s in
+ * testing (2026-09-25) - the 06:30 briefing on a train, exactly. Without a cached copy the icon is
+ * left out rather than risk that wait; the browser's default is shown instead.
+ */
+async function cachedIcon(): Promise<string | undefined> {
+  try {
+    const hit = await caches.match(NOTIFICATION_ICON);
+    if (!hit) return undefined;
+    const bytes = new Uint8Array(await hit.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return `data:${hit.headers.get("content-type") ?? "image/png"};base64,${btoa(binary)}`;
+  } catch {
+    return undefined;
+  }
+}
+
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? {};
   // The pull runs beside the notification, never before it: a push that shows nothing for long is
   // one iOS counts against the subscription. `waitUntil` keeps the worker alive for both.
   event.waitUntil(workerSync("always").catch(() => {}));
   event.waitUntil(
-    self.registration.showNotification(data.title ?? "PIDRA", {
-      body: data.body ?? "Today's briefing is ready.",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      tag: data.date ? `report-${data.date}` : "pidra",
-      data: { url: data.url ?? "/" },
-      actions: data.date
-        ? [
-            { action: "personal", title: "Personal first" },
-            { action: "open", title: "Open report" },
-          ]
-        : [],
-    }),
+    cachedIcon().then((icon) =>
+      self.registration.showNotification(data.title ?? "PIDRA", {
+        body: data.body ?? "Today's briefing is ready.",
+        icon,
+        badge: icon,
+        tag: data.date ? `report-${data.date}` : "pidra",
+        data: { url: data.url ?? "/" },
+        actions: data.date
+          ? [
+              { action: "personal", title: "Personal first" },
+              { action: "open", title: "Open report" },
+            ]
+          : [],
+      }),
+    ),
   );
 });
 

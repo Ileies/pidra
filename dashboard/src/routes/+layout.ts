@@ -1,5 +1,6 @@
 import type { LayoutLoad } from "./$types";
 import { netJson } from "#lib/offline/net.js";
+import { STATIC_OFFLINE_ROUTES } from "#lib/routes.js";
 
 /**
  * Replaces +layout.server.ts (OFFLINE_PLAN.md O2). The root layout wraps every route, so a server
@@ -16,7 +17,11 @@ import { netJson } from "#lib/offline/net.js";
  * The load's own `fetch` is passed through because this also runs during server rendering of
  * the pages that still have it, where a relative URL needs SvelteKit's fetch.
  */
-export const load: LayoutLoad = async ({ fetch }) => {
+export const load: LayoutLoad = async ({ fetch, route }) => {
+  // Prerendered legal documents must not fetch a private DB-backed endpoint at build time.
+  if (STATIC_OFFLINE_ROUTES.has(route.id ?? "")) {
+    return { hasPendingQuestions: false, navBadges: {} as Record<string, number> };
+  }
   try {
     return await netJson<{ hasPendingQuestions: boolean; navBadges: Record<string, number> }>("/api/nav-badges", {}, { budgetMs: 4000, fetch });
   } catch {

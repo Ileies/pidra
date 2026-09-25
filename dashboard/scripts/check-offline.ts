@@ -7,17 +7,16 @@
  *    budgets, tells slow from gone, and keeps the reachability state honest. A `fetch(` anywhere
  *    else in code that runs in the browser is a request that can hang for the OS connect timeout
  *    in the blackhole case, which is how the Questions tap of 2026-09-25 spun for minutes.
- * 2. **Every page is in exactly one offline tier** (`MIRRORED_ROUTES` or `ONLINE_ONLY` in
- *    `src/lib/routes.ts`), and a mirrored page really is one: `ssr = false` in its `+page.ts` and
- *    no server `load`. The shell the service worker boots every path from is only route-agnostic
- *    while that holds.
+ * 2. **Every page is in exactly one offline tier** (`MIRRORED_ROUTES`,
+ *    `STATIC_OFFLINE_ROUTES`, or `ONLINE_ONLY` in `src/lib/routes.ts`). A mirrored page has
+ *    `ssr = false`; a static offline page is prerendered into the service worker precache.
  *
  *   bun run scripts/check-offline.ts
  */
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { MIRRORED_ROUTES, ONLINE_ONLY } from "../src/lib/routes.ts";
+import { MIRRORED_ROUTES, STATIC_OFFLINE_ROUTES, ONLINE_ONLY } from "../src/lib/routes.ts";
 
 const ROOT = join(import.meta.dir, "..", "src");
 const ROUTES_DIR = join(ROOT, "routes");
@@ -73,10 +72,19 @@ for (const dir of [...new Set(pageDirs)].sort()) {
   const rel = relative(ROUTES_DIR, dir).split(sep).join("/");
   const id = rel === "" ? "/" : `/${rel}`;
   const mirrored = MIRRORED_ROUTES.has(id);
+  const staticOffline = STATIC_OFFLINE_ROUTES.has(id);
   const onlineOnly = id in ONLINE_ONLY;
 
-  if (mirrored && onlineOnly) errors.push(`${id}: listed in both MIRRORED_ROUTES and ONLINE_ONLY (src/lib/routes.ts)`);
-  if (!mirrored && !onlineOnly) errors.push(`${id}: in no offline tier; add it to MIRRORED_ROUTES or ONLINE_ONLY in src/lib/routes.ts`);
+  if (Number(mirrored) + Number(staticOffline) + Number(onlineOnly) !== 1) {
+    errors.push(`${id}: must be in exactly one offline tier (src/lib/routes.ts)`);
+  }
+  if (staticOffline) {
+    const universal = join(dir, "+page.ts");
+    if (!existsSync(universal) || !/export\s+const\s+prerender\s*=\s*true/.test(readFileSync(universal, "utf8"))) {
+      errors.push(`${id}: static offline page must export prerender = true in +page.ts`);
+    }
+    if (existsSync(join(dir, "+page.server.ts"))) errors.push(`${id}: static offline page cannot have a server load`);
+  }
   if (!mirrored) continue;
 
   const universal = join(dir, "+page.ts");
@@ -89,7 +97,7 @@ for (const dir of [...new Set(pageDirs)].sort()) {
   }
 }
 
-for (const id of [...MIRRORED_ROUTES, ...Object.keys(ONLINE_ONLY)]) {
+for (const id of [...MIRRORED_ROUTES, ...STATIC_OFFLINE_ROUTES, ...Object.keys(ONLINE_ONLY)]) {
   const dir = id === "/" ? ROUTES_DIR : join(ROUTES_DIR, ...id.slice(1).split("/"));
   if (!existsSync(join(dir, "+page.svelte")) && !existsSync(join(dir, "+page.ts"))) {
     errors.push(`${id}: listed in src/lib/routes.ts but no such page exists`);

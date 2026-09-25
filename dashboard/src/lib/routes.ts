@@ -270,6 +270,9 @@ export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/context-builder",
 ]);
 
+/** Public, static documents. SvelteKit prerenders them and the service worker precaches them. */
+export const STATIC_OFFLINE_ROUTES: ReadonlySet<string> = new Set(["/privacy", "/terms"]);
+
 const NOT_MIRRORED_YET = "This page still reads the database directly; it joins the offline copy in a later phase.";
 
 /** Pages that need the connection, with the one line `OfflineNotice` says about why. */
@@ -287,8 +290,6 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/entities/[id]": { label: "Entities", reason: NOT_MIRRORED_YET },
   "/contacts": { label: "Contacts", reason: NOT_MIRRORED_YET },
   "/topics": { label: "Topics", reason: NOT_MIRRORED_YET },
-  "/privacy": { label: "Privacy", reason: "The current privacy policy is served by the application." },
-  "/terms": { label: "Terms", reason: "The current terms are served by the application." },
 };
 
 const ONLINE_ONLY_PATTERNS = Object.entries(ONLINE_ONLY).map(([id, notice]) => ({

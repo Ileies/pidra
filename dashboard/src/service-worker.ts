@@ -26,7 +26,8 @@
  * the path: SvelteKit boots from it and routes by `location` (render.js only emits a hydrate
  * payload when SSR is on). A live page that is not mirrored boots too, and its load then fails
  * into `OfflineNotice`. Server-rendered pages are deliberately not cached: an old copy of the
- * approval queue served as if it were current is the lie OFFLINE_PLAN.md §1 rules out.
+ * approval queue served as if it were current is the lie OFFLINE_PLAN.md §1 rules out. Public
+ * legal pages are prerendered and precached separately, so their full text opens offline.
  *
  * **A response the app did not write is not the app.** `hooks.server.ts` stamps `x-pidra` on every
  * response; one without it (nginx's 403 from the public path when DNS answers the public address,
@@ -45,6 +46,7 @@ const SHELL_CACHE = `pidra-shell-${version}`;
 const SHELL_KEY = "/__pidra/shell";
 /** Any mirrored route serves the shell; this one runs no load on the server at all. */
 const SHELL_SOURCE = "/notes";
+const STATIC_DOCUMENTS = new Set(["/privacy", "/terms"]);
 
 const NAV_BUDGET_MS = 3_000;
 const ASSET_BUDGET_MS = 10_000;
@@ -185,6 +187,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (request.mode === "navigate") {
+    if (STATIC_DOCUMENTS.has(url.pathname)) {
+      event.respondWith(cacheFirst(request));
+      return;
+    }
     event.respondWith(navigation(event));
   }
 });

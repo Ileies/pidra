@@ -1,6 +1,9 @@
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
+import { SKILLS_BRIDGE_URL } from "$app/env/private";
+
+const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 /**
  * Actions only. The read side moved to `+page.ts`: with the page on
@@ -11,7 +14,7 @@ import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 export const actions: Actions = {
   runPipeline: async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/pipeline/run", { method: "POST" });
+      const res = await fetch(`${API}/api/pipeline/run`, { method: "POST" });
       if (!res.ok) return fail(502, { error: "The skills bridge returned an error." });
       return { triggered: true };
     } catch {

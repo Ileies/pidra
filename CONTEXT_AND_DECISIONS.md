@@ -305,6 +305,16 @@ The shape, and why:
 - **What a desk may see is the privacy boundary.** Its queries go to a search engine, so it gets the home location (`NEWS_HOME_*`, configuration, not the profile text), the interests section of the context document, the intel notes and recent headlines, never the personal sections.
 - **Cost, measured on 2026-09-25:** about 26-30 search calls and 250k input tokens a morning with every desk at medium effort, about 77 calls and 670k tokens with every desk at high. The defaults put the four recall-critical desks at high and fields and something-different at medium; `NEWS_REASONING_EFFORT=medium` roughly halves the calls.
 
+### Quick actions: one-tap buttons, rare by design
+**Decision, 2026-09-26: the report offers a button beside a personal item when one tap would do what the mail asks.** The owner's words: when a mail contains an event with a place and a time there should be an action to put it in the calendar right away, and when there is something to do that is not on the to-do list an action to add it, but "most of the time it should not add action buttons ... don't make it too aggressive". The build is in `CLAUDE.md`, architecture rules.
+
+The shape, and why:
+- **A separate call, not a Section 2 field.** Section 2's SYSTEM block already carried `calendar_suggestions` and `todo_suggestions`, and nothing ever read them. A writer handed a suggestions field fills it; a call asked only "is this mail worth a button", and told the normal answer is no, does not. Measured before shipping on ten real days (2026-09-12 to 09-25): two buttons in all, a council meeting with its room and its academic-quarter start, and a survey with its deadline. The five-a-day security alerts, receipts and marketing got none.
+- **Four kinds, each an existing skill but one:** add an event, add a to-do, mark a to-do done (a payment confirmation for the invoice on the list), and move an event already in the calendar, the one new skill (`update_calendar_event`, medium, so the pipeline can never run it by itself).
+- **Considered and left out.** *Open the link* (pay, track, check in): a one-tap link out of a mail is the phishing path, and for the same reason code strips links from everything an action writes. *Reply*: that is Phase 8, and `send_email` is deliberately on no surface. *Remove a cancelled event*: a delete from a model's reading of a mail, one tap from done, is the one kind whose mistake the owner might not notice; revisit with a week of real mornings behind it.
+- **Never queued offline.** It writes to Google, and replaying "add this event" days later against a calendar that moved on is wrong on the owner's behalf. The buttons say "Needs the connection".
+- **Idempotent tap.** A tap claims the row with one conditional update, so a double tap or a second device adds the event once.
+
 ### Passive context sources
 **Status: none of the three are built yet.** This is Phase 7 of the roadmap (`MORNING_BRIEFING_PLAN.md` §20), deliberately deferred until Phase 6 has run stably for 2+ weeks (`CLAUDE.md`, "What not to build (yet)"). The design below is the plan, not the current state - no `keep_notes`, `keep_index`, `chat_signals`, or `personal_context` table exists yet.
 - **Keep notes:** Index via local extraction, query by entity match during Phase 3. Matched summaries only reach synthesis.

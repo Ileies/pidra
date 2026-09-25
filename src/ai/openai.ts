@@ -9,6 +9,8 @@ export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export const EXTRACTION_MODEL = process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-5.6-luna";
 export const SYNTHESIS_MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-5.6-luna";
+/** The news desks' web-search calls. Defaults to the synthesis model, which is what was probed. */
+export const RESEARCH_MODEL = process.env.OPENAI_MODEL_RESEARCH ?? SYNTHESIS_MODEL;
 
 // gpt-5.6-luna rejects `temperature` and `max_tokens` with a hard 400. Determinism comes from
 // strict JSON schemas plus low reasoning effort instead; the output cap is `max_output_tokens`
@@ -134,6 +136,119 @@ export async function synthesize(
   opts.onUsage?.(tokensIn, tokensOut);
 
   return { text: response.output_text, tokensIn, tokensOut };
+}
+
+export interface ResearchOptions {
+  /** Required, unlike extraction: a research answer is only usable in a shape the caller can check. */
+  schema: { name: string; schema: Record<string, unknown> };
+  /**
+   * Approximate location for localising results. Leave it out for a desk that should see the
+   * world rather than one country's view of it.
+   */
+  userLocation?: { city?: string | null; region?: string | null; country?: string | null; timezone?: string | null };
+  searchContextSize?: "low" | "medium" | "high";
+  maxOutputTokens?: number;
+  reasoningEffort?: ReasoningEffort;
+}
+
+export interface ResearchResult<T> {
+  data: T;
+  /** Every query the model ran, in order. */
+  queries: string[];
+  /**
+   * Every URL the search tool returned or opened. The only URLs a claim can honestly cite, which
+   * is what makes a fabricated story checkable without a second model call.
+   */
+  sources: string[];
+  /** `web_search_call` items, which is the unit the tool is billed by. */
+  searchCalls: number;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+/**
+ * One web-search-backed call with a strict JSON answer. Probed on 2026-09-25 against
+ * gpt-5.6-luna: `web_search` works on the flex tier with `store: false` and a strict schema, took
+ * 50-60 s, and ran 16-24 queries across 4-6 search calls. JSON output carries no `url_citation`
+ * annotations, so the consulted URLs come from `web_search_call.action.sources` instead.
+ */
+export async function researchJson<T>(
+  systemPrompt: string,
+  userContent: string,
+  opts: ResearchOptions,
+): Promise<ResearchResult<T>> {
+  const input = `Return JSON only.\n\n${stripControlChars(userContent)}`;
+  const baseCap = opts.maxOutputTokens ?? 16000;
+  // Same reasoning as extractJson: a runaway array fails as `incomplete` and succeeds on a re-roll,
+  // and `max_output_tokens` covers the reasoning that plans the searches as well as the answer.
+  const caps = [baseCap, baseCap * 2];
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let lastReason = "unknown";
+
+  for (const cap of caps) {
+    const response = await withFlexRetry(() =>
+      openai.responses.create(
+        {
+          model: RESEARCH_MODEL,
+          store: false,
+          service_tier: "flex",
+          reasoning: { effort: opts.reasoningEffort ?? "medium" },
+          instructions: systemPrompt,
+          input,
+          max_output_tokens: cap,
+          tools: [{
+            type: "web_search",
+            search_context_size: opts.searchContextSize ?? "medium",
+            ...(opts.userLocation ? { user_location: { type: "approximate" as const, ...opts.userLocation } } : {}),
+          }],
+          include: ["web_search_call.action.sources"],
+          text: { format: { type: "json_schema", name: opts.schema.name, strict: true, schema: opts.schema.schema } },
+        },
+        // Flex can queue, and on the probes a desk at high effort searched for up to 294 s. Eight
+        // minutes leaves room for a slow morning and is still short enough that a stuck call is
+        // retried rather than holding the whole run hostage.
+        { timeout: 8 * 60_000 },
+      )
+    );
+
+    tokensIn += response.usage?.input_tokens ?? 0;
+    tokensOut += response.usage?.output_tokens ?? 0;
+
+    if (response.status === "incomplete") {
+      lastReason = response.incomplete_details?.reason ?? "unknown";
+      continue;
+    }
+
+    const content = response.output_text;
+    if (!content) throw new Error("Empty response from OpenAI research");
+
+    const searches = response.output.filter(
+      (item): item is Extract<typeof item, { type: "web_search_call" }> => item.type === "web_search_call",
+    );
+    const queries: string[] = [];
+    const sources = new Set<string>();
+    for (const call of searches) {
+      const action = call.action;
+      if (action.type === "search") {
+        queries.push(...(action.queries?.length ? action.queries : action.query ? [action.query] : []));
+        for (const source of action.sources ?? []) sources.add(source.url);
+      } else if (action.url) {
+        sources.add(action.url);
+      }
+    }
+
+    return {
+      data: JSON.parse(content) as T,
+      queries,
+      sources: [...sources],
+      searchCalls: searches.length,
+      tokensIn,
+      tokensOut,
+    };
+  }
+
+  throw new Error(`OpenAI research incomplete after ${caps.length} attempts: ${lastReason}`);
 }
 
 export type { FunctionTool, ResponseInput, ResponseInputItem };

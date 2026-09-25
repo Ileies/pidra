@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { sql } from "#lib/db.js";
 
 /**
@@ -20,7 +19,7 @@ export const GET: RequestHandler = async ({ url }) => {
     LIMIT ${limit}
   `;
 
-  return json({
+  return Response.json({
     days: (rows as unknown as { report_date: string; short_summary: string | null; items_included: number | null }[]).map(
       (row) => ({
         date: row.report_date,

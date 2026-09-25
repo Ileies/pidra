@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 // The chat loop runs on the skills bridge, because that is where the skill registry lives. The
@@ -9,7 +8,7 @@ const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json().catch(() => ({}));
   const message = typeof body?.message === "string" ? body.message.trim() : "";
-  if (!message) return json({ error: "message is required" }, { status: 400 });
+  if (!message) return Response.json({ error: "message is required" }, { status: 400 });
 
   try {
     const res = await fetch(`${API}/api/chat`, {
@@ -22,11 +21,11 @@ export const POST: RequestHandler = async ({ request }) => {
         origin: body.origin ?? "page",
       }),
     });
-    return json(await res.json(), { status: res.status });
+    return Response.json(await res.json(), { status: res.status });
   } catch (err) {
     // A dead bridge is the common failure here, and it is worth naming rather than showing a
     // generic fetch error in the chat window.
-    return json(
+    return Response.json(
       { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` },
       { status: 502 },
     );

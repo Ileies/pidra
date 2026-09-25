@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { loadExtractions, parseIds } from "#lib/server/extractions.js";
 
 /**
@@ -14,7 +13,7 @@ import { loadExtractions, parseIds } from "#lib/server/extractions.js";
  */
 export const GET: RequestHandler = async ({ url }) => {
   const ids = parseIds(url.searchParams.get("ids") ?? "");
-  if (ids.length === 0) return json({ error: "No valid extraction ids" }, { status: 400 });
+  if (ids.length === 0) return Response.json({ error: "No valid extraction ids" }, { status: 400 });
 
-  return json({ items: await loadExtractions(ids, { withRawContent: false }) });
+  return Response.json({ items: await loadExtractions(ids, { withRawContent: false }) });
 };

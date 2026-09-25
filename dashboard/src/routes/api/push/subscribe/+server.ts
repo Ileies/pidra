@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { sql } from "#lib/db.js";
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -7,7 +6,7 @@ export const POST: RequestHandler = async ({ request }) => {
   const { endpoint, keys } = sub as { endpoint: string; keys: { p256dh: string; auth: string } };
 
   if (!endpoint || !keys?.p256dh || !keys?.auth) {
-    return json({ error: "Invalid subscription" }, { status: 400 });
+    return Response.json({ error: "Invalid subscription" }, { status: 400 });
   }
 
   await sql()`
@@ -16,15 +15,15 @@ export const POST: RequestHandler = async ({ request }) => {
     ON CONFLICT (endpoint) DO NOTHING
   `;
 
-  return json({ ok: true });
+  return Response.json({ ok: true });
 };
 
 export const DELETE: RequestHandler = async ({ request }) => {
   const { endpoint } = await request.json() as { endpoint: string };
 
-  if (!endpoint) return json({ error: "Missing endpoint" }, { status: 400 });
+  if (!endpoint) return Response.json({ error: "Missing endpoint" }, { status: 400 });
 
   await sql()`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`;
 
-  return json({ ok: true });
+  return Response.json({ ok: true });
 };

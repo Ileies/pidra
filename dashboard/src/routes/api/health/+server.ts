@@ -1,4 +1,3 @@
-import { json } from "@sveltejs/kit";
 
 /**
  * Liveness of the dashboard process itself - no DB access - which is exactly what the wg0 ACL
@@ -7,4 +6,4 @@ import { json } from "@sveltejs/kit";
  * on a schedule while offline as the way back. `navigator.onLine` only reports the WiFi link, and
  * the failure this whole feature exists for is WiFi up, wg0 down.
  */
-export const GET = () => json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } });
+export const GET = () => Response.json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } });

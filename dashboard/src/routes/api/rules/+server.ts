@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { upsertRuleByKey, RuleError } from "#lib/server/rules.js";
 
 /**
@@ -13,9 +12,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
   try {
     const { id, key } = await upsertRuleByKey(body.key ?? "", body.value ?? "");
-    return json({ id, key }, { status: 201 });
+    return Response.json({ id, key }, { status: 201 });
   } catch (err) {
-    if (err instanceof RuleError) return json({ error: err.message }, { status: 400 });
+    if (err instanceof RuleError) return Response.json({ error: err.message }, { status: 400 });
     throw err;
   }
 };

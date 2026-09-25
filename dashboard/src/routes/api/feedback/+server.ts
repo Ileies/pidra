@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 
 /**
@@ -13,9 +12,9 @@ export const POST: RequestHandler = async ({ request }) => {
   const extractionId = (body.extraction_id ?? "").trim();
   const signal = body.signal;
 
-  if (!extractionId || !UUID_RE.test(extractionId)) return json({ error: "Invalid extraction id" }, { status: 400 });
-  if (signal !== "1" && signal !== "-1") return json({ error: "Invalid signal" }, { status: 400 });
+  if (!extractionId || !UUID_RE.test(extractionId)) return Response.json({ error: "Invalid extraction id" }, { status: 400 });
+  if (signal !== "1" && signal !== "-1") return Response.json({ error: "Invalid signal" }, { status: 400 });
 
   const eventType = await rateExtraction(extractionId, signal);
-  return json({ rated: extractionId, eventType });
+  return Response.json({ rated: extractionId, eventType });
 };

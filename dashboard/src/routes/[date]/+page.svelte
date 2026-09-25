@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
   import { onDestroy } from "svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
@@ -129,7 +129,7 @@
 
       if (body.hasReport || body.run?.status === "failed") {
         stopPolling();
-        await invalidateAll();
+        await refreshAll();
       }
     }, 5000);
   }

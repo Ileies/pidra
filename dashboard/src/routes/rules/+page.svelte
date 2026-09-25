@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
+  import { refreshAll } from "$app/navigation";
   import * as outbox from "#lib/offline/outbox.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
@@ -87,7 +87,7 @@
       use:enhance={({ formData, cancel }) => {
         cancel();
         adding = false;
-        outbox.createRule(String(formData.get("key") ?? ""), String(formData.get("value") ?? "")).then(invalidateAll);
+        outbox.createRule(String(formData.get("key") ?? ""), String(formData.get("value") ?? "")).then(refreshAll);
       }}
       class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3"
     >
@@ -128,7 +128,7 @@
               use:enhance={({ formData, cancel }) => {
                 cancel();
                 editing = null;
-                outbox.updateRule(rule.id, String(formData.get("value") ?? "")).then(invalidateAll);
+                outbox.updateRule(rule.id, String(formData.get("value") ?? "")).then(refreshAll);
               }}
               class="flex flex-col gap-2"
             >
@@ -168,7 +168,7 @@
               action="?/delete"
               use:enhance={({ cancel }) => {
                 cancel();
-                outbox.deleteRule(rule.id).then(invalidateAll);
+                outbox.deleteRule(rule.id).then(refreshAll);
               }}
               class="ml-auto"
             >

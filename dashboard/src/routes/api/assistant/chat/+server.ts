@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 import { isShuttingDown, registerStream } from "#lib/server/shutdown.js";
 
@@ -22,7 +21,7 @@ export const POST: RequestHandler = async ({ request }) => {
   // A turn started now would be killed seconds later, halfway through whatever skills it decided
   // to call. Refusing is the honest answer; the widget puts the draft back on a failed turn.
   if (isShuttingDown()) {
-    return json({ error: "The dashboard is restarting. Try again in a moment." }, { status: 503 });
+    return Response.json({ error: "The dashboard is restarting. Try again in a moment." }, { status: 503 });
   }
 
   const body = await request.text();
@@ -56,7 +55,7 @@ export const POST: RequestHandler = async ({ request }) => {
     });
   } catch (err) {
     upstream.abort();
-    return json(
+    return Response.json(
       { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` },
       { status: 502 },
     );

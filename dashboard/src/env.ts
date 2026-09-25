@@ -1,6 +1,5 @@
 import { defineEnvVars } from '@sveltejs/kit/env';
 
-// @migration-task Review usage of dynamic environment variables. They fall back to the empty string if not present, which may not be what you want.
 export const variables = defineEnvVars({
 	// The bridge is loopback-only and always local to whichever host runs the dashboard (CLAUDE.md,
 	// Skills). Every caller already wrote `SKILLS_BRIDGE_URL ?? "http://localhost:4000"`, which the

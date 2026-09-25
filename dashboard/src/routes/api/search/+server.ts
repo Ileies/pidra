@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { search } from "#lib/server/search.js";
 
 /**
@@ -8,7 +7,7 @@ import { search } from "#lib/server/search.js";
  */
 export const GET: RequestHandler = async ({ url }) => {
   const query = (url.searchParams.get("q") ?? "").trim();
-  if (query.length < 2) return json({ hits: [] });
+  if (query.length < 2) return Response.json({ hits: [] });
 
-  return json({ hits: await search(query, { limit: 20 }) });
+  return Response.json({ hits: await search(query, { limit: 20 }) });
 };

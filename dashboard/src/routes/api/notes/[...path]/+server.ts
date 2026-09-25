@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 // Note writes live on the skills bridge, because `src/notes/store.ts` there is the only writer of
@@ -24,7 +23,7 @@ async function proxy(method: string, path: string, search: string, body: string 
   } catch (err) {
     // A dead bridge is the common failure, and worth naming rather than showing a generic
     // fetch error in a toast.
-    return json(
+    return Response.json(
       { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` },
       { status: 502 },
     );

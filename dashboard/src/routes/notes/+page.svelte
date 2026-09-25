@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from "$app/navigation";
+  import { goto, refreshAll } from "$app/navigation";
   import NoteCard from "#lib/notes/NoteCard.svelte";
   import Page from "#lib/components/Page.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -85,7 +85,7 @@
       newContent = "";
       newExpires = "";
       adding = false;
-      await invalidateAll();
+      await refreshAll();
       toasts.success("Note added.");
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -129,7 +129,7 @@
     try {
       for (const id of ids) await updateNote(id, { scope });
       selected = new Set();
-      await invalidateAll();
+      await refreshAll();
       toasts.success(`${ids.length} notes set to "${scope}".`);
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -145,10 +145,10 @@
     try {
       for (const id of ids) await deleteNote(id);
       selected = new Set();
-      await invalidateAll();
+      await refreshAll();
       toasts.success(`${ids.length} notes deleted.`, async () => {
         for (const id of ids) await restoreNote(id);
-        await invalidateAll();
+        await refreshAll();
       });
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -162,10 +162,10 @@
   async function handleDelete(note: NoteRow) {
     try {
       await deleteNote(note.id);
-      await invalidateAll();
+      await refreshAll();
       toasts.success("Note deleted.", async () => {
         await restoreNote(note.id);
-        await invalidateAll();
+        await refreshAll();
       });
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -175,7 +175,7 @@
   async function handleRestore(note: NoteRow) {
     try {
       await restoreNote(note.id);
-      await invalidateAll();
+      await refreshAll();
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
     }
@@ -330,7 +330,7 @@
           highlighted={assistant.touchedIds.has(note.id)}
           selected={selected.has(note.id)}
           onToggleSelect={toggleSelect}
-          onChanged={invalidateAll}
+          onChanged={refreshAll}
           onDelete={handleDelete}
           onRestore={handleRestore}
         />

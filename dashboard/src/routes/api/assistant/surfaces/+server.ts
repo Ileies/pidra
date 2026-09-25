@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 // Fetched when the widget is first opened rather than in a layout load: the surface registry is
@@ -14,6 +13,6 @@ export const GET: RequestHandler = async () => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    return json({ error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` }, { status: 502 });
+    return Response.json({ error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` }, { status: 502 });
   }
 };

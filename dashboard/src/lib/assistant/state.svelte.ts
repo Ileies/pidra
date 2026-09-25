@@ -1,5 +1,5 @@
 import { browser } from "$app/env";
-import { invalidateAll } from "$app/navigation";
+import { refreshAll } from "$app/navigation";
 import { BUDGET, net } from "#lib/offline/net.js";
 import { surfaceForRoute, type PageContext, type Surface } from "#lib/assistant/pageContext.js";
 
@@ -320,7 +320,7 @@ class Assistant {
         this.touchedIds = this.#idsFrom(reply);
         if (!this.open) this.unseen = true;
         // The page the user is on now shows stale rows: reload its data.
-        await invalidateAll();
+        await refreshAll();
       }
       return;
     }

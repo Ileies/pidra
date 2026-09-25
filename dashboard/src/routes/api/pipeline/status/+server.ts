@@ -1,5 +1,4 @@
 import type { RequestHandler } from "./$types";
-import { json } from "@sveltejs/kit";
 import { sql } from "#lib/db.js";
 import { parseJsonb } from "#lib/jsonb.js";
 
@@ -15,7 +14,7 @@ import { parseJsonb } from "#lib/jsonb.js";
  */
 export const GET: RequestHandler = async ({ url }) => {
   const date = url.searchParams.get("date") ?? "";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Invalid date" }, { status: 400 });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({ error: "Invalid date" }, { status: 400 });
 
   const db = sql();
   const [[run], [report]] = await Promise.all([
@@ -29,7 +28,7 @@ export const GET: RequestHandler = async ({ url }) => {
     db`SELECT 1 AS present FROM daily_reports WHERE report_date = ${date}`,
   ]);
 
-  return json({
+  return Response.json({
     hasReport: !!report,
     run: run
       ? {

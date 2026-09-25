@@ -23,8 +23,8 @@
  *   means pronix was not reached.
  *
  * SvelteKit's own `__data.json` and form-action requests cannot be handed a signal, so
- * `guardKitFetch()` routes exactly those two through here as well. SvelteKit reads `window.fetch`
- * at call time for precisely this purpose (`load_data` in
+ * `guardKitFetch()` routes exactly those two through here as well, and bounds its version check.
+ * SvelteKit reads `window.fetch` at call time for precisely this purpose (`load_data` in
  * node_modules/@sveltejs/kit/src/runtime/client/client.js, and `enhance` in .../app/forms/client.js).
  */
 
@@ -272,12 +272,34 @@ function formActionError(err: NetError): Response {
   return Response.json({ type: "failure", status: STATUS[err.kind], data: JSON.stringify([{ error: 1 }, message]) }, { status: STATUS[err.kind] });
 }
 
+/**
+ * SvelteKit's `updated.check()` (`$app/state`), which every navigation that ends at a status of 400
+ * or more awaits before it renders (`client.js`, after `load_route`), to see whether a deploy
+ * removed the chunk it needed. Over a blackhole that request never ends, so the error page -
+ * `OfflineNotice` included - never appeared. Found in H2 testing; H1's measurement predates it.
+ *
+ * Not through `net()`: `version.json` is a static file adapter-node serves before the hooks, so it
+ * carries no `x-pidra` stamp and would read as "someone else answered". A plain bounded request
+ * instead, never sent while known offline, and anything but an answer means "no update", which is
+ * what `check()` does with a failed response anyway.
+ */
+function versionCheck(input: RequestInfo | URL, init: RequestInit | undefined): Promise<Response> {
+  if (state === "offline") return Promise.resolve(new Response(null, { status: 503 }));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BUDGET.probe);
+  return nativeFetch(input, { ...init, signal: controller.signal })
+    .catch(() => new Response(null, { status: 503 }))
+    .finally(() => clearTimeout(timer));
+}
+
 export function guardKitFetch(): void {
   if (!browser) return;
   const guarded: Fetcher = (input, init) => {
     const request = input instanceof Request ? input : null;
     const url = new URL(request ? request.url : String(input), location.href);
     if (url.origin !== location.origin) return nativeFetch(input, init);
+
+    if (url.pathname.endsWith("/_app/version.json")) return versionCheck(input, init);
 
     if (url.pathname.endsWith("/__data.json")) {
       return net(url, init, { budgetMs: BUDGET.page }).catch((err: unknown) => {

@@ -11,6 +11,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!-- Matches the real body background. #0f1117 left a visible seam at the status bar. -->
     <meta name="theme-color" content="#111214" />
+    <!-- The News section links out to dozens of news sites a day. The browser default would hand
+         each of them this dashboard's origin, an address that exists only inside the VPN. -->
+    <meta name="referrer" content="no-referrer" />
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover" data-theme="cerberus">

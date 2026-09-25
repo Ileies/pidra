@@ -62,6 +62,7 @@ const ICON = {
   prompts: "M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5",
   runs: "M4 19V5M4 19h16M8 15l3.5-4.5 3 2.5L19 7",
   questions: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4M12 17h.01",
+  legal: "M5 3h10l4 4v14H5zM15 3v5h5M8 12h8M8 16h8",
   chat: "M21 11.5a8.4 8.4 0 0 1-9 8.3 9 9 0 0 1-2.8-.4L3 21l1.6-4.8A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.3 8.4 8.4 0 0 1 8.4 8.3z",
   context: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5",
   feedback: "M7 10l-3 3v-9h16v9H10l-3 3v-3M8.5 8.5h7",
@@ -209,6 +210,24 @@ export const ROUTES: RouteDef[] = [
     icon: ICON.chat,
     tab: 2,
   },
+  {
+    href: "/privacy",
+    id: "/privacy",
+    label: "Privacy",
+    surface: "global",
+    group: "system",
+    icon: ICON.legal,
+    secondary: true,
+  },
+  {
+    href: "/terms",
+    id: "/terms",
+    label: "Terms",
+    surface: "global",
+    group: "system",
+    icon: ICON.legal,
+    secondary: true,
+  },
 ];
 
 export const MORE_ICON = ICON.more;
@@ -268,6 +287,8 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/entities/[id]": { label: "Entities", reason: NOT_MIRRORED_YET },
   "/contacts": { label: "Contacts", reason: NOT_MIRRORED_YET },
   "/topics": { label: "Topics", reason: NOT_MIRRORED_YET },
+  "/privacy": { label: "Privacy", reason: "The current privacy policy is served by the application." },
+  "/terms": { label: "Terms", reason: "The current terms are served by the application." },
 };
 
 const ONLINE_ONLY_PATTERNS = Object.entries(ONLINE_ONLY).map(([id, notice]) => ({

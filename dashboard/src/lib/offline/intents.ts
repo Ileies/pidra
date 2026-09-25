@@ -291,6 +291,13 @@ export function drain(send: Fetcher, options: DrainOptions = {}): Promise<DrainR
         delivered++;
         options.onChange?.();
       } catch (err) {
+        // Replaced while its request was out: `outbox.rate` drops the queued rating a new tap
+        // supersedes, without waiting for this lock, and the request can take seconds to fail in a
+        // blackhole. Writing the intent back would resurrect it and send both (H5 blackhole suite).
+        if (!(await db.get<Intent>("outbox", intent.id))) {
+          if (err instanceof TerminalError) continue;
+          return { complete: false, delivered, changed: [...changed] };
+        }
         if (err instanceof TerminalError) {
           await db.put("failed", { ...intent, lastError: err.message });
           await db.del("outbox", intent.id);

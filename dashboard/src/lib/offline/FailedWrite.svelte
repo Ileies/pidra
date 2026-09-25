@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A write the server refused for good (OFFLINE_PLAN.md §6), shown where it was made (H4).
+  // A write the server refused for good, shown on its row and not only in the sync sheet.
   import { offline } from "./state.svelte.js";
   import { INTENT_LABEL, intentSummary, type Intent } from "./outbox.js";
 

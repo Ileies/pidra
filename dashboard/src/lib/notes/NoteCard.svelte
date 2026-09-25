@@ -47,7 +47,7 @@
 
   const deleted = $derived(note.deleted_at !== null);
 
-  /** OFFLINE_PLAN.md §9: a small "queued" chip rather than pretending an offline write already
+  /** A small "queued" chip rather than pretending an offline write already
    *  reached the server. */
   const queued = $derived(offline.pending.some((i) => intentIsFor(i, "note", note.id)));
   const failedWrites = $derived(offline.failed.filter((i) => intentIsFor(i, "note", note.id)));

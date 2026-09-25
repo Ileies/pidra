@@ -40,7 +40,7 @@
   const label = $derived(assistant.info?.label ?? "Assistant");
 
   // /chat is the assistant, full screen. A floating copy of it on top of itself is noise.
-  // Offline (OFFLINE_PLAN.md §9): the assistant needs the model, and a chat box that swallows a
+  // Offline: the assistant needs the model, and a chat box that swallows a
   // message is worse than no chat box, so it is hidden rather than offered and left to fail.
   const hidden = $derived(page.url.pathname.startsWith("/chat") || offline.reachable === "offline");
 </script>

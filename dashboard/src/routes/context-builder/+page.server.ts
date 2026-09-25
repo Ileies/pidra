@@ -4,7 +4,7 @@ import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
-/** Actions only. The read side moved to `+page.ts` (OFFLINE_PLAN.md O2); see `[date]/+page.server.ts`
+/** Actions only. The read side moved to `+page.ts`; see `[date]/+page.server.ts`
  *  for why a co-located `load` here would never run for a client-side navigation now. */
 export const actions: Actions = {
   revertCorrection: async ({ request }) => {

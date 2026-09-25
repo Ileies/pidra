@@ -14,7 +14,8 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // An edit is a correction, which is never queued offline (OFFLINE_PLAN.md §1).
+  // An edit is a correction, which is never queued offline: replayed later, a locking merge on a
+  // row that moved meanwhile does lasting damage.
   const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));

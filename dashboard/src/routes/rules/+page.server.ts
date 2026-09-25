@@ -4,10 +4,10 @@ import { createRuleChecked, updateRule, deleteRule, RuleError } from "#lib/serve
 
 /**
  * Actions only, and now the no-JS fallback: the page's own writes go through the offline outbox
- * (OFFLINE_PLAN.md O3), which needs a real network round trip and so cannot be a form action. Both
+ * (`/api/rules`), which needs a real network round trip and so cannot be a form action. Both
  * paths call the same functions in `#lib/server/rules.js`, so they cannot drift.
  *
- * The read side moved to `+page.ts` (OFFLINE_PLAN.md O2); see `[date]/+page.server.ts` for why a
+ * The read side moved to `+page.ts`; see `[date]/+page.server.ts` for why a
  * co-located `load` here would never run for a client-side navigation now.
  */
 

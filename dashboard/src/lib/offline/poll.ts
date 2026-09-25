@@ -1,5 +1,5 @@
 /**
- * A polling loop that cannot pile up (OFFLINE_PLAN.md §14, H1). `setInterval` over a blackhole
+ * A polling loop that cannot pile up. `setInterval` over a blackhole
  * starts a new request every tick while the earlier ones are still waiting; this schedules the
  * next tick only after the previous one settled, and pauses entirely while the page is hidden or
  * the app is offline, resuming by itself when either comes back.

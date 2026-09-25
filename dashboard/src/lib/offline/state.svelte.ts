@@ -1,19 +1,19 @@
 /**
- * The header dot and the sync sheet's state (OFFLINE_PLAN.md O4, §8-§9, §14). Reachability itself
- * is decided in `net.ts`, by the requests that actually go out: the first version decided it here
- * from a separate `/api/health` schedule, which is how a Questions tap could fail on a dead
- * network while this still said "online" (§14.1). This class mirrors that verdict into runes for
+ * The header dot and the sync sheet's state. Reachability itself is decided in `net.ts`, by the
+ * requests that actually go out: the first version decided it here from a separate `/api/health`
+ * schedule, which is how a Questions tap could fail on a dead network while this still said
+ * "online" (the field report of 2026-09-25). This class mirrors that verdict into runes for
  * the UI and owns the one thing `net.ts` cannot do from inside a request: find the way back.
  *
  * While offline and visible, it probes every 20 s, backing off to a minute after ten failures in a
  * row, and never while hidden. It also probes on the `online` event and whenever the app comes
  * back to the foreground. `navigator.onLine === false` is still a free, certain negative.
  *
- * It also owns when a sync is *forced* past the one-a-minute throttle in `sync.ts` (§14.3, H2): at
+ * It also owns when a sync is *forced* past the one-a-minute throttle in `sync.ts`: at
  * app start, and when the app comes back to the foreground after more than five minutes away.
  * Every other sync is the background one a page read starts, which the throttle absorbs.
  *
- * And it hears from the service worker, which syncs on its own since H3 (on the morning push, a
+ * And it hears from the service worker, which syncs on its own (on the morning push, a
  * Background Sync, a periodic sync): when the worker changed the mirror or drained the queue, the
  * page on screen re-renders from the stores it names. The periodic sync is registered here, once,
  * where the browser grants it (Chrome for an installed app; nothing on iOS).
@@ -192,7 +192,7 @@ class OfflineState {
     void sync({ force: true });
   }
 
-  /** Refuses while anything is queued (§9): wiping a queue that still holds a write nothing else
+  /** Refuses while anything is queued: wiping a queue that still holds a write nothing else
    *  has a copy of would lose it, not just the cache. */
   async clearMirror(): Promise<{ ok: boolean; reason?: string }> {
     if (this.pending.length > 0) return { ok: false, reason: "Writes are still queued - sync first." };

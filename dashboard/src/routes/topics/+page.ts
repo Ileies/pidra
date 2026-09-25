@@ -2,7 +2,7 @@ import type { PageLoad } from "./$types";
 import { mirrorEmpty, reportDates, topics } from "#lib/offline/repo.js";
 
 /**
- * Active topics (D1), client-rendered and local-first (OFFLINE_PLAN.md §1, H3). Readable offline;
+ * Active topics (D1), client-rendered and local-first. Readable offline;
  * resolving or archiving one stays online-only, see `+page.server.ts`.
  *
  * Story continuity is the reason the system compounds over days, and it had no UI at all - the

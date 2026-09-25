@@ -11,7 +11,7 @@
    * thumb never waits on a round trip.
    *
    * Online, with JS: `use:enhance` cancels the form's own network submission and hands the tap to
-   * the offline outbox instead (OFFLINE_PLAN.md O3), which applies it to the mirror and queues the
+   * the offline outbox instead, which applies it to the mirror and queues the
    * real write - the same code path whether the VPN is up or not. No JS: the form still posts to
    * `action` directly, which is why it and its hidden fields stay in the markup rather than being
    * replaced by a plain button.
@@ -36,7 +36,7 @@
     { signal: "-1", glyph: "−", event: "explicit_minus", name: "Not relevant", on: "bg-error-700 border-error-500 text-error-50" },
   ] as const;
 
-  /** OFFLINE_PLAN.md §9: optimistic, but never pretending it is durable - a small dot rather than
+  /** Optimistic, but never pretending it is durable - a small dot rather than
    *  hiding the fact that this rating has not reached the server yet. */
   const queued = $derived(offline.pending.some((i) => outbox.intentIsFor(i, "rate", extractionId)));
   /** A tap replaces it (`outbox.rate`), so a retry here is just rating again. */

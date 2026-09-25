@@ -19,7 +19,7 @@
   <body data-sveltekit-preload-data="hover" data-theme="cerberus">
     <div style="display: contents">%sveltekit.body%</div>
     <script>
-      // Migration off the old /sw.js worker (OFFLINE_PLAN.md §7): a registration at a different
+      // Migration off the old /sw.js worker: a registration at a different
       // scriptURL does not replace the old one, so a device left on the old worker would keep
       // serving stale assets and would lose push once static/sw.js is gone. Safe to delete this
       // cleanup block a few weeks after this ships, once no installed device is still on it.

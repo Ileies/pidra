@@ -10,7 +10,7 @@
    * a page you know exists should not wait on a query, and typing "notes" means the page far
    * more often than it means a note containing the word.
    *
-   * Offline, the archive half searches this device's copy instead (OFFLINE_PLAN.md §13, H3), and
+   * Offline, the archive half searches this device's copy instead, and
    * says so: it matches plain text over the mirrored window, which is not what the server's
    * ranked keyword search finds.
    */

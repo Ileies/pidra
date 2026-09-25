@@ -19,7 +19,7 @@
   /** What one view renders, as the server-rendered page did. */
   const SHOWN = 200;
 
-  // Filtered here, from the URL the chips and the GET form write (OFFLINE_PLAN.md H3): the load
+  // Filtered here, from the URL the chips and the GET form write: the load
   // reads no URL, so a filter change re-renders this and never re-runs the load.
   const statusFilter = $derived(page.url.searchParams.get("status") ?? "active");
   const search = $derived(page.url.searchParams.get("q") ?? "");
@@ -44,7 +44,8 @@
       .slice(0, SHOWN);
   });
 
-  // Curation writes `active_topics` on the server, never through the outbox (OFFLINE_PLAN.md §1).
+  // Curation writes `active_topics` on the server, never through the outbox: it changes what
+  // tomorrow's briefing carries forward.
   const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => {

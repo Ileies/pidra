@@ -1,5 +1,5 @@
 /**
- * Deploys stop breaking open pages (OFFLINE_PLAN.md §14.3, H2). The worker used to `skipWaiting()`
+ * Deploys stop breaking open pages. The worker used to `skipWaiting()`
  * on install and delete the old build's cache on activate, which pulled the chunks out from under a
  * page still running the previous build: its next lazy route chunk missed the cache and 404'd
  * online or hung offline. Now a new worker installs and waits, this says so, and it takes over on

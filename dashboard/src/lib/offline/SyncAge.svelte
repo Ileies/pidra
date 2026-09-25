@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Every mirrored page shows the mirror's age (OFFLINE_PLAN.md H4); past a day it becomes the warning.
+  // Every mirrored page shows the mirror's age; past a day it becomes the warning.
   import { offline } from "./state.svelte.js";
   import { fmtAge, fmtDateTime } from "#lib/format.js";
 

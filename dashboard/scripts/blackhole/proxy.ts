@@ -6,13 +6,14 @@
  *   stand-in, so no request of the suite reaches a database or the skills bridge.
  * - `blackhole`: every request is accepted and never answered - the VPN app up with no network
  *   under it, or `10.200.200.1` on a network where nobody answers for it. What DevTools' offline
- *   mode cannot give, and the case the whole of OFFLINE_PLAN.md §14 is about.
+ *   mode cannot give, and the case the whole offline layer is built for.
  * - `gated`: every request answered by something that is not the app - nginx's 403 from the
  *   public path when DNS still resolves.
  * - `refused`: nothing listens, so every connection fails at once.
  *
  * Every request is tracked from arrival to answer or abort, so the suite can assert the rule of
- * §14: no request, from any caller - page, SvelteKit or service worker - outlives a fixed budget.
+ * the offline layer: no request, from any caller - page, SvelteKit or service worker -
+ * outlives a fixed budget.
  */
 
 import { ETAG, SNAPSHOT } from "./fixture.ts";

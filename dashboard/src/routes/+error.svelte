@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The one error boundary for the app. Its offline job (OFFLINE_PLAN.md §14): a page that could
+   * The one error boundary for the app. Its offline job: a page that could
    * not load because pronix was not reachable shows `OfflineNotice`, never "500 Internal Error".
    *
    * It decides from the error, not from the header dot. The first version asked

@@ -1,6 +1,6 @@
 /**
  * `standing_context` writes, in one place so the form actions on `/rules` and the JSON endpoints
- * the offline outbox posts to (OFFLINE_PLAN.md O3) cannot drift apart.
+ * the offline outbox posts to cannot drift apart.
  *
  * Create is the one operation with two different jobs at once: a person typing a new key in the
  * UI wants to be told when it is already taken, but a queued offline create replaying against a

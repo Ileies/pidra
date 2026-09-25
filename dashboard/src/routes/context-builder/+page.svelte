@@ -18,8 +18,9 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // The run controls and a correction's revert are online-only (OFFLINE_PLAN.md §1): disabled once
-  // the app knows it is offline, with the reason, like the writes on /contacts and /topics.
+  // The run controls and a correction's revert are online-only (live state, and the bridge):
+  // disabled once the app knows it is offline, with the reason, like the writes on /contacts and
+  // /topics.
   const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
@@ -333,7 +334,7 @@
     </div>
 
     {#if isOffline}
-      <!-- Live run state is what this section shows, and a copy of it would be a lie (§1). -->
+      <!-- Live run state is what this section shows, and a copy of it would be a lie. -->
       <p class="text-xs text-surface-400 mb-3">Starting or stopping a run needs the connection. The run status below is the last one seen.</p>
     {/if}
 

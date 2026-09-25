@@ -1,5 +1,5 @@
 /**
- * Pulls the offline snapshot into the mirror (OFFLINE_PLAN.md §5, §14.3 H2). Always in the
+ * Pulls the offline snapshot into the mirror. Always in the
  * background: nothing on screen waits for this, because a page reads the mirror and a finished sync
  * re-runs exactly the loads that read what changed (`deps.ts`).
  *
@@ -98,7 +98,7 @@ async function run(force: boolean): Promise<SyncResult> {
 
 /**
  * Asks the browser not to evict the mirror and, more importantly, the outbox, which holds writes
- * that exist nowhere else (OFFLINE_PLAN.md §12). Once per session, after a sync proved the app is
+ * that exist nowhere else. Once per session, after a sync proved the app is
  * in real use; an installed PWA is usually granted without a prompt.
  */
 async function persistStorage(): Promise<void> {

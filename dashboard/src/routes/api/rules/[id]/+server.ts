@@ -3,7 +3,7 @@ import { updateRule, deleteRule, RuleError } from "#lib/server/rules.js";
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 
-/** The offline outbox's update and delete (OFFLINE_PLAN.md §6). JSON twins of the `?/update` and
+/** The offline outbox's update and delete. JSON twins of the `?/update` and
  *  `?/delete` form actions, both calling the same `#lib/server/rules.js` functions. */
 export const PATCH: RequestHandler = async ({ params, request }) => {
   if (!UUID_RE.test(params.id)) return Response.json({ error: "Invalid rule id" }, { status: 400 });

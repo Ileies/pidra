@@ -1,6 +1,6 @@
 /**
- * One pull of `/api/offline/snapshot` into the mirror (OFFLINE_PLAN.md §5, §14.3 H2), in the form
- * both the pages (`sync.ts`) and the service worker (H3: on push, on a periodic sync) can run. It
+ * One pull of `/api/offline/snapshot` into the mirror, in the form
+ * both the pages (`sync.ts`) and the service worker (on push, on a periodic sync) can run. It
  * imports nothing but `db.ts` and `intents.ts`; the transport is handed in, and whatever should
  * re-render afterwards is the caller's business.
  *
@@ -68,7 +68,7 @@ async function apply(body: SnapshotBody, heldEtag: string | null, heldVersion: s
   }
 
   // A build the client has never seen replaces whatever it had cached rather than merging across
-  // a possible schema change (OFFLINE_PLAN.md §5). Such a body is always full: the version is part
+  // a possible schema change. Such a body is always full: the version is part
   // of the ETag, so no delta spans it. "outbox" and "failed" are never touched - they hold real
   // queued writes, not mirrored server state.
   const newVersion = !!heldVersion && heldVersion !== body.version;

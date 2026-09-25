@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The header dot (OFFLINE_PLAN.md §9). Online, offline, or "N queued" - tapping it opens the
+   * The header dot. Online, offline, or "N queued" - tapping it opens the
    * sync sheet. A sheet rather than a route on purpose: `routes.ts` and `src/ai/surfaces.ts` stay
    * untouched and `check-route-surfaces.ts` has nothing new to verify.
    *

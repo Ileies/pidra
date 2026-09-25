@@ -3,7 +3,7 @@ import { error } from "@sveltejs/kit";
 import { mirrorEmpty, report, reportDates } from "#lib/offline/repo.js";
 
 /**
- * Client-rendered and local-first (OFFLINE_PLAN.md O2, decision 1; §14.3 H2). Was `+page.server.ts`
+ * Client-rendered and local-first. Was `+page.server.ts`
  * querying Postgres directly; offline that meant no HTML and no `__data.json`, so a cached report
  * could be looked at but not rated, searched or re-rendered. Reads the mirror only and never waits
  * for the network: a background sync that changes a report re-runs this load by itself.
@@ -30,7 +30,8 @@ export const load: PageLoad = async ({ params, depends }) => {
     /** Whether today's briefing is in the mirror, so an older day can offer it when it arrives. */
     hasToday: dates.includes(today),
     report: data?.report ?? null,
-    // stepErrors is never mirrored (OFFLINE_PLAN.md §4); ErrorCard's `attempts` prop defaults to [].
+    // stepErrors is never mirrored (attempt stacks can quote raw content); ErrorCard's `attempts`
+    // prop defaults to [].
     // `ingestFailures` is the sanitised digest of the same column - source and kind, no text - and
     // is what the warning above the briefing renders from. A report mirrored before that field
     // existed has none, hence the fallback rather than a required field.

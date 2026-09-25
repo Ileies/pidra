@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * A page that needs the connection, offline (OFFLINE_PLAN.md §1, §14): live operational state -
+   * A page that needs the connection, offline: live operational state -
    * a pending approval queue, a running pipeline, an SSE chat with a model - where a cached copy
    * would be a lie rather than a convenience. Rendered by the root `+error.svelte` in place of the
    * page body when the load failed because pronix was not reachable, which is also what takes the

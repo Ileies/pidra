@@ -3,7 +3,7 @@ import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/db.js";
 
 /**
- * Topic curation, online-only (OFFLINE_PLAN.md §1). The read side moved to `+page.ts` (H3).
+ * Topic curation, online-only. The read side moved to `+page.ts`.
  */
 
 const STATUSES = ["active", "dormant", "resolved"] as const;

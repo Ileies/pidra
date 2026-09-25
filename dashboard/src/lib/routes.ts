@@ -252,7 +252,7 @@ export function isCurrent(entry: RouteDef, routeId: string | null | undefined): 
 }
 
 /**
- * The offline tiers (OFFLINE_PLAN.md §1, §14), per SvelteKit route id rather than per nav entry:
+ * The offline tiers (CLAUDE.md, Offline mode), per SvelteKit route id rather than per nav entry:
  * `/[date]` reads the mirror while its child `/[date]/triage` is live, so the entry is the wrong
  * grain. `dashboard/scripts/check-offline.ts` fails the build when a page is in neither list, and
  * when a mirrored page still has a server load or is not `ssr = false`.

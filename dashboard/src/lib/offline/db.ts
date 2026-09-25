@@ -1,5 +1,5 @@
 /**
- * Minimal IndexedDB wrapper for the offline mirror (OFFLINE_PLAN.md §3). No dependency: the
+ * Minimal IndexedDB wrapper for the offline mirror. No dependency: the
  * surface needed here - get, getAll, put, bulkPut, delete, bulkDelete, clear - is small enough
  * that a wrapper library would be more code to audit than to write.
  *
@@ -9,7 +9,8 @@
  */
 
 const DB_NAME = "pidra-offline";
-/** 2: the reference tables (H3). An upgrade only ever adds stores, so it keeps what is there. */
+/** 2: the reference tables (entities, relations, appearances, contacts, topics). An upgrade only
+ *  ever adds stores, so it keeps what is there. */
 const DB_VERSION = 2;
 
 export const STORES = [
@@ -53,7 +54,7 @@ export function isMirrorStore(store: string): store is MirrorStore {
 
 /**
  * Runs `fn` while holding the named Web Lock, so the pages and the service worker never apply a
- * snapshot or drain the outbox at the same time (OFFLINE_PLAN.md H3: the worker syncs on push).
+ * snapshot or drain the outbox at the same time (the worker syncs on push).
  * Without the lock both could send the same queued write. Not re-entrant: nothing that holds a
  * lock may ask for the same one. Where the API is missing, it simply runs.
  */
@@ -181,7 +182,7 @@ function sameRow(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Applies a snapshot (OFFLINE_PLAN.md §14.3, H2) to several stores in **one** transaction, so the
+ * Applies a snapshot to several stores in **one** transaction, so the
  * mirror is never half old and half new and the `meta` row that records the snapshot's ETag
  * commits only together with the rows it describes. Rows that did not change are not rewritten,
  * and the answer names the stores that actually did, which is what `sync.ts` invalidates.

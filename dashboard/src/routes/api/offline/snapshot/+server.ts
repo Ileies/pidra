@@ -9,7 +9,7 @@ import { ingestFailures, withoutDetail, type IngestFailure, type StepAttempt } f
 import type { ReportJson } from "#lib/report/types.js";
 
 /**
- * The one endpoint the offline mirror pulls from (OFFLINE_PLAN.md §5). Assembly, not new SQL
+ * The one endpoint the offline mirror pulls from. Assembly, not new SQL
  * semantics: every query here reuses the same server helpers the live pages call, so the mirror
  * never renders a report, a harvest document or a rule differently than the online path would.
  *
@@ -236,7 +236,7 @@ async function buildContextCounts() {
   return counts as { contacts: number; entities: number; standing_context: number; indexed_email: number; indexed_keep: number };
 }
 
-// --- the reference tables (OFFLINE_PLAN.md §1, §4; H3) ---
+// --- the reference tables ---
 //
 // Mirrored whole: 447 entities, 91 relations, 14 contacts and 84 topics came to about 95 kB of
 // row text on 2026-09-25, and all of them move slowly. The fields the pages show, which here is

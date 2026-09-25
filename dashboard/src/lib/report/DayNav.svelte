@@ -6,7 +6,7 @@
    * made the mobile header six rows tall, and they were only ever on this one route. They are
    * here now, as two large targets beside the date, with the archive behind the date itself.
    *
-   * The archive list is read when the picker opens, from the mirror (OFFLINE_PLAN.md H3): it is
+   * The archive list is read when the picker opens, from the mirror: it is
    * the list of reports this device can actually open, online or not, and it costs no request.
    */
   import { goto } from "$app/navigation";

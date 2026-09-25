@@ -18,7 +18,7 @@
   /** What one view renders, as the server-rendered table did. */
   const SHOWN = 200;
 
-  // Filtered here, from the URL the GET form writes (OFFLINE_PLAN.md H3): the load reads no URL,
+  // Filtered here, from the URL the GET form writes: the load reads no URL,
   // so submitting the form re-renders this and never re-runs the load.
   const statusFilter = $derived(page.url.searchParams.get("status") ?? "all");
   const typeFilter = $derived(page.url.searchParams.get("type") ?? "");

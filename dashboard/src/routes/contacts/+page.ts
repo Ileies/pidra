@@ -2,7 +2,7 @@ import type { PageLoad } from "./$types";
 import { contacts, mirrorEmpty } from "#lib/offline/repo.js";
 
 /**
- * The sender directory (D7), client-rendered and local-first (OFFLINE_PLAN.md §1, H3). Readable
+ * The sender directory (D7), client-rendered and local-first. Readable
  * offline; editing is a correction and stays online-only, see `+page.server.ts`.
  *
  * `contacts` answers one question: mail arrived from this address, who is that and how much

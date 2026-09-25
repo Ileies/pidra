@@ -4,7 +4,7 @@ import { UUID_RE } from "#lib/ids.js";
 import { entity, mirrorEmpty, reportDates } from "#lib/offline/repo.js";
 
 /**
- * Entity detail (D2), client-rendered and local-first (OFFLINE_PLAN.md §1, H3).
+ * Entity detail (D2), client-rendered and local-first.
  *
  * /entities was a flat table with no detail page, so `entity_relations` and `entity_appearances`
  * - the two tables that make it a graph rather than a list - had no UI at all. This is also the

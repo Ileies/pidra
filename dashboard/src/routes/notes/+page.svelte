@@ -45,8 +45,8 @@
     return query ? `?${query}` : "";
   }
 
-  // Filtering happens in the component (OFFLINE_PLAN.md §14.3, H2): the load returns every note,
-  // so a keystroke re-renders a `$derived` instead of re-running the load, which before H2 also
+  // Filtering happens in the component: the load returns every note,
+  // so a keystroke re-renders a `$derived` instead of re-running the load, which used to also
   // meant a full snapshot pull per keystroke.
   let filter = $state<NotesFilter>(parseFilter(page.url.searchParams));
 

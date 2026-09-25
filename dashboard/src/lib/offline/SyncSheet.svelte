@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The sync sheet (OFFLINE_PLAN.md §9): what the header dot opens. Mounted once in the root
+   * The sync sheet: what the header dot opens. Mounted once in the root
    * layout next to the other global overlays (`Assistant`, `Toast`, `CommandPalette`) rather than
    * inside `Navbar`, so it is a fixed overlay rather than something fighting the header's own
    * layout.

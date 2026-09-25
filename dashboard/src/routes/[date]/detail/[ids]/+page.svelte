@@ -11,8 +11,8 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // The deep dive is a model call through the skills bridge, so it is online-only (OFFLINE_PLAN.md
-  // §1). Said up front rather than as a "Not sent" after the tap, like the other online-only writes.
+  // The deep dive is a model call through the skills bridge, so it is online-only.
+  // Said up front rather than as a "Not sent" after the tap, like the other online-only writes.
   const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));

@@ -1,5 +1,5 @@
 /**
- * What makes an offline sync cheap (OFFLINE_PLAN.md §14.3, H2). `/api/offline/snapshot` used to
+ * What makes an offline sync cheap. `/api/offline/snapshot` used to
  * assemble and send the whole 60-day window, 645 kB, on every pull. Three layers now sit in front
  * of that, each one cheaper than the next:
  *
@@ -13,7 +13,7 @@
  *    holds exactly this, and the answer is a `304` of a few hundred bytes.
  * 3. **The delta.** When the client's ETag is one this process built recently, the answer carries
  *    only the rows whose hash differs from that version, plus every id per store so a deletion
- *    still reaches the mirror. This replaces §5's `since=<timestamp>`, for the same reason as the
+ *    still reaches the mirror. This replaces a `since=<timestamp>` delta, for the same reason as the
  *    fingerprint: a timestamp delta cannot see a change that moved no timestamp. A client whose
  *    ETag is not in the history (the process restarted, or a deploy changed the version) gets
  *    the full snapshot, which is always correct, only larger.
@@ -26,7 +26,7 @@ import { createHash } from "node:crypto";
 import { version } from "$app/env";
 import { sql } from "#lib/db.js";
 
-/** Newest report dates the mirror keeps (OFFLINE_PLAN.md §4). */
+/** Newest report dates the mirror keeps. About 2 to 3 MB, far inside any storage quota. */
 export const MIRROR_DAYS = 60;
 
 export interface Keyed {

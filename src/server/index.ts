@@ -442,7 +442,7 @@ app.patch("/api/notes/:id", async (c) => {
 
   try {
     // Read before write, not atomic with it - acceptable for one user. `base_updated_at` only
-    // ever arrives from the offline outbox (OFFLINE_PLAN.md §6); a live UI edit never sends it,
+    // ever arrives from the offline outbox; a live UI edit never sends it,
     // so `_conflict` is always false for those and costs nothing extra.
     const conflict = "base_updated_at" in body
       ? await wasUpdatedSince(c.req.param("id"), body.base_updated_at ?? null)

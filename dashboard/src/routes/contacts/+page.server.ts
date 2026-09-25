@@ -2,12 +2,12 @@ import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 
 /**
- * The sender directory's one write (D7). The read side moved to `+page.ts` (OFFLINE_PLAN.md H3).
+ * The sender directory's one write (D7). The read side moved to `+page.ts`.
  *
  * Editing goes through the bridge's correction endpoint rather than writing the row here: a
  * contact row is harvested context, so the same rules apply as to the assistant's own edits -
  * field-level merge, `previous_state` snapshot, row locked against a re-seed. That is also why it
- * stays online-only and never enters the offline outbox (OFFLINE_PLAN.md §1): replayed days later
+ * stays online-only and never enters the offline outbox: replayed days later
  * against a row that may have moved, a locking merge is the one write where a stale base does
  * lasting damage.
  */

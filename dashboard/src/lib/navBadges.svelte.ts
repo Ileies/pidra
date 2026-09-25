@@ -1,6 +1,6 @@
 /**
  * The navbar and tab bar badges (pending question gate, pending approvals), fetched in the
- * background (OFFLINE_PLAN.md §14.3, H2). They used to be the root layout's load, which every cold
+ * background. They used to be the root layout's load, which every cold
  * start awaited for up to 4 s before the first page could render, offline included. Now nothing
  * waits: the badges render as none until the count arrives.
  *

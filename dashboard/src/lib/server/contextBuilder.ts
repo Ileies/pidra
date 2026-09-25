@@ -138,7 +138,7 @@ export interface HarvestRun {
 /**
  * The harvested context document, rendered, plus the standing rules and active corrections layered
  * over it. Shared between the live `/context-builder` page and the offline snapshot endpoint
- * (OFFLINE_PLAN.md §5) so the two never render the harvest differently.
+ * so the two never render the harvest differently.
  *
  * The newest completed run is *not* always the right row to read - a run whose output is a delta
  * rather than a document is a fraction of it, not a newer version. So the newest run that produced

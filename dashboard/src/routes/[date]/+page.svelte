@@ -23,13 +23,13 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // A pipeline trigger is online-only (OFFLINE_PLAN.md §1); said before the tap, not after it.
+  // A pipeline trigger is online-only (it needs the server); said before the tap, not after it.
   const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
   /**
-   * `/` lands on the newest mirrored day when today's is not mirrored yet (§7). When a background
+   * `/` lands on the newest mirrored day when today's is not mirrored yet. When a background
    * sync then brings today's, the page offers it rather than swapping the text under the reader.
    * Only on the arrival itself: a day opened on purpose while today's was already there says nothing.
    */

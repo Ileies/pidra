@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The one screen that waits on the network (OFFLINE_PLAN.md §14.3, H2): the mirror is empty,
+   * The one screen that waits on the network: the mirror is empty,
    * because this is the first launch on the device or "Clear offline data" just ran, so there is
    * nothing local to show. The root layout renders it in place of a mirrored page whose load said
    * `mirrorEmpty`; the sync that fills the mirror re-runs that load, and the page takes its place.

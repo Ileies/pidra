@@ -6,7 +6,7 @@
    * a report several screens long. It expands the same extraction cards in place now; the deep
    * link stays as the shareable form and as the fallback for a browser with no JS.
    *
-   * The cards come from the mirror (OFFLINE_PLAN.md H3), which holds every extraction a mirrored
+   * The cards come from the mirror, which holds every extraction a mirrored
    * report cites, so they open in the same frame online or not. This used to be a request per
    * tap, which offline meant a spinner and then an error under a report that was otherwise fine.
    */

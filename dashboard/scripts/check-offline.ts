@@ -1,5 +1,5 @@
 /**
- * The offline layer's two structural rules (OFFLINE_PLAN.md §14), checked on every `bun run check`
+ * The offline layer's two structural rules, checked on every `bun run check`
  * because both regress silently: nothing about a hang or a missing tier looks broken on a desktop
  * with the VPN up.
  *
@@ -92,7 +92,7 @@ for (const dir of [...new Set(pageDirs)].sort()) {
   if (!existsSync(universal) || !/export\s+const\s+ssr\s*=\s*false/.test(readFileSync(universal, "utf8"))) {
     errors.push(`${id}: mirrored but its +page.ts does not export ssr = false, so its HTML is not the route-agnostic shell`);
   }
-  // H2 (§14.3): a mirrored load answers from the mirror and never waits on the network. `repo.ts`
+  // A mirrored load answers from the mirror and never waits on the network. `repo.ts`
   // starts the background sync; a load that awaits one, or makes a request itself, is how a cold
   // start sat behind two full snapshot pulls.
   if (existsSync(universal)) {

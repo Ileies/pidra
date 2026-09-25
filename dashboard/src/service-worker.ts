@@ -13,15 +13,15 @@
  * `ServiceWorkerGlobalScope` (`$app/service-worker`'s one remaining export) so this file type-checks
  * under the project's single, DOM-oriented tsconfig without a separate worker tsconfig.
  *
- * **The shell, cache-first** (OFFLINE_PLAN.md §14.3, H2). Mirrored routes are `ssr = false`, so the
- * HTML the server returns for any of them is the same route-agnostic document; `hooks.server.ts`
+ * **The shell, cache-first**. Mirrored routes are `ssr = false`, so the HTML the server
+ * returns for any of them is the same route-agnostic document; `hooks.server.ts`
  * marks it with `x-pidra-shell`. A navigation to a mirrored path is answered from the cached shell
  * straight away, online or not, and the network only refreshes it in the background: SvelteKit
  * boots from it and routes by `location` (render.js only emits a hydrate payload when SSR is on),
  * and the page reads the mirror. That takes the network out of every launch. Only a device with no
  * shell yet goes to the network first.
  *
- * **Everything else is bounded** (§14). Offline is usually a blackhole, not an error: with the VPN
+ * **Everything else is bounded**. Offline is usually a blackhole, not an error: with the VPN
  * app up and no network beneath it, a request neither succeeds nor fails, it waits for the OS
  * connect timeout. So a live page's navigation races the network against `NAV_BUDGET_MS` and then
  * boots the cached shell (its load then fails into `OfflineNotice`), and an asset missing from the
@@ -29,10 +29,10 @@
  * (`send`), not just stopped being waited for. `/api/**` and `__data.json` are not touched here:
  * `$lib/offline/net.ts` bounds those in the page, where the answer can be turned into a designed
  * state. Server-rendered pages are deliberately not cached: an old copy of the approval queue
- * served as if it were current is the lie OFFLINE_PLAN.md §1 rules out. Public legal pages are
- * prerendered and precached separately, so their full text opens offline.
+ * served as if it were current is a lie. Public legal pages are prerendered
+ * and precached separately, so their full text opens offline.
  *
- * **Deploys do not break open pages** (H2). A new worker installs and then waits: no automatic
+ * **Deploys do not break open pages**. A new worker installs and then waits: no automatic
  * `skipWaiting()`. The app says a new version is ready and hands over on a tap
  * (`$lib/offline/update.svelte.ts`), or the new worker takes over on the next cold start. The
  * previous build's cache is kept one generation longer, and assets are looked up across both, so a
@@ -42,7 +42,7 @@
  * response; one without it (nginx's 403 from the public path when DNS answers the public address,
  * a captive portal) is treated like no answer at all instead of being shown as the document.
  *
- * **The worker syncs, too** (H3). The 06:30 push pulls the snapshot while the notification is
+ * **The worker syncs, too**. The 06:30 push pulls the snapshot while the notification is
  * shown, so the morning briefing is in the mirror before it is tapped, including on a phone that
  * then goes on a train without the VPN. Queued writes flush from here on Background Sync
  * (`pidra-outbox`, registered by `outbox.ts` when a write could not go out) and on the push, and a
@@ -142,7 +142,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * A request this worker makes, aborted when its budget runs out (found by the H5 blackhole suite).
+ * A request this worker makes, aborted when its budget runs out (found by `scripts/blackhole`).
  * `withBudget()` alone only stops *waiting*: the request itself kept its socket until the OS gave
  * up, 11 to 24 s in the suite, and over HTTP/1.1 a handful of those take the whole per-host
  * connection pool, so the page's own probe queued behind them and the app could not even tell it
@@ -299,7 +299,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // The repository layer (OFFLINE_PLAN.md §3) decides what stale API data is acceptable, in one
+  // The repository layer (`repo.ts`) decides what stale API data is acceptable, in one
   // place that can reason about it, and `net.ts` bounds every such request. A worker that
   // silently answers an API call from cache is exactly how a stale rating or a vanished note
   // appears as a bug with no explanation.
@@ -319,7 +319,7 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// --- the worker's own sync (H3) ---
+// --- the worker's own sync ---
 
 /**
  * The worker's transport for `drain` and `pullSnapshot`: bounded, and a response without the

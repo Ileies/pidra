@@ -1,5 +1,5 @@
 /**
- * The one client-side caller of `fetch` (OFFLINE_PLAN.md §14, H1), and the owner of the app's
+ * The one client-side caller of `fetch`, and the owner of the app's
  * belief about whether pronix is reachable. `dashboard/scripts/check-offline.ts` fails the build
  * on a bare `fetch(` anywhere else in client code.
  *
@@ -276,7 +276,7 @@ function formActionError(err: NetError): Response {
  * SvelteKit's `updated.check()` (`$app/state`), which every navigation that ends at a status of 400
  * or more awaits before it renders (`client.js`, after `load_route`), to see whether a deploy
  * removed the chunk it needed. Over a blackhole that request never ends, so the error page -
- * `OfflineNotice` included - never appeared. Found in H2 testing; H1's measurement predates it.
+ * `OfflineNotice` included - never appeared. Found in testing, 2026-09-25.
  *
  * Not through `net()`: `version.json` is a static file adapter-node serves before the hooks, so it
  * carries no `x-pidra` stamp and would read as "someone else answered". A plain bounded request

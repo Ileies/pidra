@@ -1,5 +1,5 @@
 /**
- * How a page learns that the mirror changed under it (OFFLINE_PLAN.md §14.3, H2). Every Tier A load
+ * How a page learns that the mirror changed under it. Every mirrored load
  * reads through `repo.ts`, which declares `depends(mirrorKey(store))` for each store it touched, and
  * the two writers of the mirror (`sync.ts`, `outbox.ts`) invalidate exactly the stores they
  * changed. So a background sync that brought a new note re-runs `/notes` and nothing else, and

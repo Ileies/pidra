@@ -2,11 +2,12 @@
  * Client side of the notes API.
  *
  * The mutating calls (`createNote`, `updateNote`, `deleteNote`, `restoreNote`) go through the
- * offline outbox (OFFLINE_PLAN.md O3): they apply to the mirror immediately and queue the real
+ * offline outbox: they apply to the mirror immediately and queue the real
  * write, so they resolve the same way online or off and the caller never sees a network error for
  * a write that is simply going to retry. `noteHistory` and `revertRevision` stay direct calls to
  * the skills bridge proxy - reverting a revision is a correction-adjacent write kept online-only
- * (OFFLINE_PLAN.md §1), and history is read-only trivia, not core to reading or writing a note.
+ * (replayed later it would land on whatever the note has become), and history is read-only
+ * trivia, not core to reading or writing a note.
  */
 
 import * as outbox from "#lib/offline/outbox.js";
@@ -24,7 +25,7 @@ export interface NoteRow {
   updated_by: string | null;
   deleted_at: string | null;
   revision_count: number;
-  /** Mirror-only, set by the outbox (OFFLINE_PLAN.md O4): an offline edit's `base_updated_at`
+  /** Mirror-only, set by the outbox: an offline edit's `base_updated_at`
    *  did not match the row's actual `updated_at` when it flushed - "changed on the server while
    *  you were offline". Never present in a server response; only `NoteCard` reads it. */
   conflicted?: boolean;

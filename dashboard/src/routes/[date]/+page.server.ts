@@ -3,7 +3,7 @@ import { fail } from "@sveltejs/kit";
 import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 
 /**
- * Actions only. The read side moved to `+page.ts` (OFFLINE_PLAN.md O2): with the page on
+ * Actions only. The read side moved to `+page.ts`: with the page on
  * `ssr = false`, a co-located `load` here would never run for a client-side navigation - it is
  * `+page.ts` (universal) that runs, reading through `#lib/offline/repo.js`. Form actions are
  * unaffected by `ssr`; they always execute on the server when a form submits.

@@ -102,7 +102,7 @@ export async function getNote(id: string): Promise<Note | null> {
 }
 
 /**
- * `id` is optional and only ever client-supplied by the offline outbox (OFFLINE_PLAN.md §6): a
+ * `id` is optional and only ever client-supplied by the offline outbox: a
  * note created offline is given its id in the browser, before the write ever reaches here, so the
  * mirror and the eventual server row agree on identity from the start. `onConflictDoNothing`
  * makes replaying the same create safe if the first attempt's response never made it back - the

@@ -2,7 +2,7 @@ import type { RequestHandler } from "./$types";
 import { upsertRuleByKey, RuleError } from "#lib/server/rules.js";
 
 /**
- * The offline outbox's create (OFFLINE_PLAN.md §6). Upsert-on-key rather than the interactive
+ * The offline outbox's create. Upsert-on-key rather than the interactive
  * `?/create` action's 409-on-collision: a queued create is replayed by key, and if an earlier
  * attempt's response never reached the client, replaying it again must land on the same row
  * rather than fail. `/rules`'s own "add rule" form keeps the stricter check.

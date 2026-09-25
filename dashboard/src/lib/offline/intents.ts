@@ -1,9 +1,9 @@
 /**
- * The outbox's core (OFFLINE_PLAN.md §6), in the one form both the pages and the service worker
+ * The outbox's core, in the one form both the pages and the service worker
  * can run: what an intent is, what it does to the mirror, and how the queue is drained. It imports
  * nothing but `db.ts` and types, because the worker has no `window` and no SvelteKit router; the
  * transport is handed in. `outbox.ts` is the page's API on top of this, and the worker drains the
- * same queue on a push, a Background Sync or a periodic sync (H3), so a write queued offline can
+ * same queue on a push, a Background Sync or a periodic sync, so a write queued offline can
  * land with the app closed.
  *
  * One writer, `applyOptimistic`, used both when an intent is first queued and whenever it needs
@@ -142,7 +142,7 @@ export async function applyOptimistic(intent: Intent): Promise<void> {
     case "rule.create": {
       const p = intent.payload as { localId: string; key: string; value: string };
       // Only ever holds until the real row arrives on the next successful pull, keyed by the
-      // server's own id (OFFLINE_PLAN.md O3) - that pull's id list does not name this temporary
+      // server's own id - that pull's id list does not name this temporary
       // row, so `db.reconcile` drops it for us.
       const rule: MirroredRule = { id: p.localId, key: p.key, value: p.value, source: "user", updatedAt: intent.createdAt };
       await db.put("rules", rule);
@@ -238,7 +238,7 @@ async function deliver(intent: Intent, send: Fetcher): Promise<Response> {
 }
 
 /** `PATCH /api/notes/:id` reports whether the row moved since the edit's `base_updated_at`
- *  (OFFLINE_PLAN.md §6) - the mechanic behind O4's "changed on the server" flag. Nothing else the
+ *  - the mechanic behind the "changed on the server" flag on a note. Nothing else the
  *  outbox sends carries a response worth reading past its status. True when the mirror changed. */
 async function markConflictIfFlagged(intent: Intent, res: Response): Promise<boolean> {
   if (intent.kind !== "note.update") return false;
@@ -274,8 +274,9 @@ export interface DrainResult {
  * Drains the outbox in order, stopping at the first intent a transport failure could not
  * deliver - a later intent might depend on an earlier one (an edit on a note the same queue is
  * still trying to create), so skipping ahead would invert that. A terminal failure is different:
- * it will never succeed no matter how long it waits, so it is moved to `failed` (payload intact,
- * OFFLINE_PLAN.md §6) and the loop moves on rather than jamming everything behind it forever.
+ * it will never succeed no matter how long it waits, so it is moved to `failed` (payload intact, so
+ * the text can be recovered or re-filed) and the loop moves on rather than jamming everything
+ * behind it forever.
  *
  * Under the `pidra-outbox` lock, so a page and the worker never send the same intent twice.
  */
@@ -293,7 +294,8 @@ export function drain(send: Fetcher, options: DrainOptions = {}): Promise<DrainR
       } catch (err) {
         // Replaced while its request was out: `outbox.rate` drops the queued rating a new tap
         // supersedes, without waiting for this lock, and the request can take seconds to fail in a
-        // blackhole. Writing the intent back would resurrect it and send both (H5 blackhole suite).
+        // blackhole. Writing the intent back would resurrect it and send both (found by
+        // scripts/blackhole).
         if (!(await db.get<Intent>("outbox", intent.id))) {
           if (err instanceof TerminalError) continue;
           return { complete: false, delivered, changed: [...changed] };

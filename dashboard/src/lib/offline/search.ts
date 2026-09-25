@@ -1,5 +1,5 @@
 /**
- * The command palette's search while pronix is out of reach (OFFLINE_PLAN.md §13, H3). Online the
+ * The command palette's search while pronix is out of reach. Online the
  * palette asks `/api/search`, which ranks with Postgres `tsvector`; offline it asks this, which
  * matches plain text over what the mirror holds: reports, notes, standing rules and entities. The
  * palette says which one answered, because the two do not find the same things - no stemming, no

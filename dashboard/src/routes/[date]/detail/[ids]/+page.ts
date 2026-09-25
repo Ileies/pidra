@@ -3,7 +3,7 @@ import { error } from "@sveltejs/kit";
 import { parseIds } from "#lib/ids.js";
 import { extractionsFor, mirrorEmpty } from "#lib/offline/repo.js";
 
-/** Client-rendered and local-first (OFFLINE_PLAN.md O2, H2). The read side moved off
+/** Client-rendered and local-first. The read side moved off
  *  `+page.server.ts`; see `[date]/+page.ts` for the reasoning, identical here. */
 export const ssr = false;
 

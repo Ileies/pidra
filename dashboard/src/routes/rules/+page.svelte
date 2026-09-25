@@ -36,8 +36,8 @@
     system: "System",
   };
 
-  /** OFFLINE_PLAN.md §9: `rule.id` is the outbox's own `localId` for a still-unflushed create
-   *  (`applyOptimistic`'s temporary row, OFFLINE_PLAN.md O3), so one check covers a queued create
+  /** For the queued chip: `rule.id` is the outbox's own `localId` for a still-unflushed create
+   *  (`applyOptimistic`'s temporary row), so one check covers a queued create
    *  as well as a queued edit or delete against a rule already synced from the server. */
   function queuedFor(id: string): boolean {
     return offline.pending.some((i) => intentIsFor(i, "rule", id));

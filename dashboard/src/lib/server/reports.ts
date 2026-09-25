@@ -1,7 +1,7 @@
 /**
  * Rendering a report's markdown/JSON into sanitised HTML, shared between the live page and the
- * offline snapshot endpoint (OFFLINE_PLAN.md §5: "reuses the existing server helpers rather than
- * re-querying"). If these drifted into two implementations, the offline reader would eventually
+ * offline snapshot endpoint, which reuses the existing server helpers rather than
+ * re-querying. If these drifted into two implementations, the offline reader would eventually
  * see different rendering than the online one for the same report.
  */
 

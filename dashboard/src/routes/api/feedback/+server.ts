@@ -3,7 +3,7 @@ import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 
 /**
  * JSON twin of the `?/rate` form actions on `/[date]` and `/[date]/detail/[ids]`, and the offline
- * outbox's `rate` intent (OFFLINE_PLAN.md §6). Both call `rateExtraction()`, so a rating given
+ * outbox's `rate` intent. Both call `rateExtraction()`, so a rating given
  * offline and one given from the report itself cannot land differently. Naturally idempotent:
  * `rateExtraction` deletes then inserts, so replaying the same rating twice is a no-op.
  */

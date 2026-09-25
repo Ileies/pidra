@@ -4,7 +4,7 @@ import { renderMarkdown } from "#lib/markdown.js";
 import { parseIds, UUID_RE } from "#lib/ids.js";
 import { rateExtraction } from "#lib/server/extractions.js";
 
-/** Actions only. The read side moved to `+page.ts` (OFFLINE_PLAN.md O2); see `[date]/+page.server.ts`
+/** Actions only. The read side moved to `+page.ts`; see `[date]/+page.server.ts`
  *  for why a co-located `load` here would never run for a client-side navigation now. */
 export const actions: Actions = {
   rate: async ({ request }) => {

@@ -17,7 +17,7 @@ export type RunStatus = "running" | "completed" | "failed";
 /**
  * How a source failed. A closed vocabulary on purpose, and the reason this is a classifier rather
  * than a pass-through: `step_errors` is raw text from whatever threw, and the plan keeps it off the
- * phone entirely (OFFLINE_PLAN.md §4) because an attempt stack can quote raw source content - the
+ * phone entirely because an attempt stack can quote raw source content - the
  * 2026-09-11 run recorded a failed `INSERT INTO contacts` with its values inline. Reducing a
  * message to one of these four words carries the fact the reader needs without carrying the text.
  */

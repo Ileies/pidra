@@ -1,5 +1,5 @@
 /**
- * The read API Tier A pages use (OFFLINE_PLAN.md §3). Local-first for real since H2 (§14.3): every
+ * The read API the mirrored pages use. Local-first: every
  * read answers from the mirror at once and starts a background `sync()`, which is throttled and
  * single-flight, so no load ever waits on the network. When that sync changes a store, the loads
  * that read it re-run by themselves: each read takes the load's `depends` and registers the stores
@@ -61,7 +61,7 @@ export interface MirroredReport {
   pipelineRun: {
     status: "running" | "completed" | "failed";
     failedStep: string | null;
-    /** Never mirrored (OFFLINE_PLAN.md §4: attempt stacks can quote raw source content), so this
+    /** Never mirrored (attempt stacks can quote raw source content), so this
      *  is always empty offline. `ErrorCard`'s `attempts` prop already defaults to `[]`. */
     stepErrors: StepAttempt[];
     startedAt: string | null;
@@ -224,8 +224,8 @@ export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> 
   return (await db.get<MirroredContextDoc>("contextDoc", "current")) ?? EMPTY_CONTEXT_DOC;
 }
 
-// --- the reference tables (OFFLINE_PLAN.md §1; H3). Read-only here: their writes are corrections
-// and topic curation, which stay online-only (§1), so the outbox never touches these stores. ---
+// --- the reference tables. Read-only here: their writes are corrections
+// and topic curation, which stay online-only, so the outbox never touches these stores. ---
 
 export interface MirroredEntity {
   id: string;

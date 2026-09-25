@@ -1,12 +1,12 @@
 /**
- * The write path (OFFLINE_PLAN.md §6), as the pages see it. A page never writes the mirror
- * directly (§3, decision 3): it calls one of the functions below, which appends an intent, applies
+ * The write path, as the pages see it. A page never writes the mirror
+ * directly: it calls one of the functions below, which appends an intent, applies
  * its effect to the mirror optimistically, and tries to flush. `sync.ts` is the only other writer
  * of the mirror, and it calls `flush()` before every pull and `reapplyPending()` after, so a write
  * still queued when a pull lands is not clobbered by what the pull brings back.
  *
  * What an intent is and how the queue drains lives in `intents.ts`, which the service worker runs
- * too (H3): a write that could not go out is handed to Background Sync where the browser has it,
+ * too: a write that could not go out is handed to Background Sync where the browser has it,
  * so it can land with the app closed, and the worker drains the same queue on the morning push.
  */
 
@@ -35,7 +35,7 @@ async function nextSeq(): Promise<number> {
 
 // --- status change notifications ---
 
-/** The header dot and the sync sheet (OFFLINE_PLAN.md O4) read `pending()`/`failed()` on demand
+/** The header dot and the sync sheet read `pending()`/`failed()` on demand
  *  rather than owning outbox state themselves; this is how they know when to ask again. Plain
  *  callbacks, not a store of their own - `state.svelte.ts` is the one place that turns "something
  *  changed" into a re-render. */
@@ -54,10 +54,10 @@ export function notify(): void {
 // --- enqueue ---
 
 /**
- * Resolves once the page shows the write (OFFLINE_PLAN.md §14.3, H2): the optimistic effect is in
+ * Resolves once the page shows the write: the optimistic effect is in
  * the mirror and the loads that read it have re-run from it. The flush that sends it runs behind,
  * so the network is never between the tap and the re-render - a page used to `refreshAll()` here,
- * which re-ran every load up to the root layout and, before H2, a full snapshot pull with them.
+ * which re-ran every load up to the root layout and, before that, a full snapshot pull with them.
  */
 async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Promise<void> {
   const intent: Intent = {
@@ -119,7 +119,7 @@ export async function restoreNote(id: string): Promise<void> {
   await enqueue("note.restore", { id });
 }
 
-/** Collapses a queued rating for the same extraction (§6: "collapse queued duplicates per
+/** Collapses a queued rating for the same extraction ("collapse queued duplicates per
  *  extraction id") - a re-tap before the first tap has flushed replaces the queued intent rather
  *  than piling up a second one behind it. */
 export async function rate(extractionId: string, signal: "1" | "-1"): Promise<void> {

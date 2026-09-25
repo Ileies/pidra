@@ -9,7 +9,7 @@ import { MIRRORED_ROUTES } from "#lib/routes.js";
 if (!building && !dev) installShutdownHandlers();
 
 /**
- * Two stamps, both for the offline layer (OFFLINE_PLAN.md §14):
+ * Two stamps, both for the offline layer (CLAUDE.md, Offline mode):
  *
  * - `x-pidra` on every response this process serves. Without the VPN, the answer to a request
  *   can come from someone else - nginx's 403 on the public path, a captive portal - and the

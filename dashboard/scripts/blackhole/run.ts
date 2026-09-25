@@ -1,5 +1,5 @@
 /**
- * The blackhole suite (OFFLINE_PLAN.md §14.3, H5): "no request can hang" as something a check
+ * The blackhole suite: "no request can hang" as something a check
  * proves, rather than something a phone once showed.
  *
  * Builds the dashboard, starts the production server with no database behind it, and drives the
@@ -42,7 +42,7 @@ const DASHBOARD = join(import.meta.dir, "..", "..");
 const ARTIFACTS = join(tmpdir(), "pidra-blackhole");
 const args = process.argv.slice(2);
 
-/** The rule of §14.3 H5: a designed state within this, from the tap or the launch. */
+/** The rule this suite exists for: a designed state within this, from the tap or the launch. */
 const DESIGNED_WITHIN_MS = 4_000;
 /** Scheduling noise on top of a request's own budget before it counts as outliving it. */
 const SLACK_MS = 1_500;

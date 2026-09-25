@@ -64,7 +64,7 @@ export const BUDGET = {
   interactive: 15_000,
   /** A page's server load (`__data.json`), which is allowed to be merely slow. */
   page: 30_000,
-  /** The offline snapshot: 645 kB on a mobile link (measured 2026-09-25). */
+  /** A full offline snapshot: 645 kB raw, 178 kB as nginx gzips it (measured 2026-09-25). */
   sync: 60_000,
 } as const;
 
@@ -210,7 +210,10 @@ export async function net(input: string | URL, init: RequestInit = {}, options: 
     setState("online");
     if (options.stream) return res;
     const body = await res.arrayBuffer();
-    return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
+    // A 304 (the snapshot's ETag path) or 204 may not carry a body, not even an empty one: the
+    // constructor throws, which would read as a transport failure.
+    const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
+    return new Response(nullBody ? null : body, { status: res.status, statusText: res.statusText, headers: res.headers });
   } catch (err) {
     if (err instanceof NetError) throw err;
     // The caller cancelled. That says nothing about the network, so it is theirs to handle.

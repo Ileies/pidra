@@ -16,15 +16,18 @@
     /** Set while the assistant's last turn touched this note, for the change highlight. */
     highlighted?: boolean;
     onToggleSelect: (id: string, selected: boolean) => void;
-    /** A write landed: the page reloads from Postgres. */
-    onChanged: () => void;
+    /**
+     * A write went to the server directly rather than through the outbox (a revert), so the mirror
+     * needs a fresh pull to show it. Outbox writes need nothing: they re-render the page themselves.
+     */
+    onServerChange: () => void;
     onDelete: (note: NoteRow) => void;
     onRestore: (note: NoteRow) => void;
   }
 
   let {
     note, selected, highlighted = false,
-    onToggleSelect, onChanged, onDelete, onRestore,
+    onToggleSelect, onServerChange, onDelete, onRestore,
   }: Props = $props();
 
   let editing = $state(false);
@@ -80,7 +83,6 @@
     try {
       await updateNote(note.id, { content: next });
       editing = false;
-      onChanged();
     } catch (err) {
       // The editor stays open with the text intact: a failed save must not lose the edit.
       error = err instanceof Error ? err.message : String(err);
@@ -117,7 +119,6 @@
     error = null;
     try {
       await updateNote(note.id, patchBody);
-      onChanged();
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
     }
@@ -140,7 +141,7 @@
     try {
       await revertRevision(revisionId);
       historyOpen = false;
-      onChanged();
+      onServerChange();
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
     }

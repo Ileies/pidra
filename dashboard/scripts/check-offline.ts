@@ -9,7 +9,8 @@
  *    in the blackhole case, which is how the Questions tap of 2026-09-25 spun for minutes.
  * 2. **Every page is in exactly one offline tier** (`MIRRORED_ROUTES`,
  *    `STATIC_OFFLINE_ROUTES`, or `ONLINE_ONLY` in `src/lib/routes.ts`). A mirrored page has
- *    `ssr = false`; a static offline page is prerendered into the service worker precache.
+ *    `ssr = false` and a load that never waits on the network; a static offline page is
+ *    prerendered into the service worker precache.
  *
  *   bun run scripts/check-offline.ts
  */
@@ -91,6 +92,15 @@ for (const dir of [...new Set(pageDirs)].sort()) {
   if (!existsSync(universal) || !/export\s+const\s+ssr\s*=\s*false/.test(readFileSync(universal, "utf8"))) {
     errors.push(`${id}: mirrored but its +page.ts does not export ssr = false, so its HTML is not the route-agnostic shell`);
   }
+  // H2 (§14.3): a mirrored load answers from the mirror and never waits on the network. `repo.ts`
+  // starts the background sync; a load that awaits one, or makes a request itself, is how a cold
+  // start sat behind two full snapshot pulls.
+  if (existsSync(universal)) {
+    const source = stripComments(readFileSync(universal, "utf8"));
+    if (/\bawait\s+(sync|pull)\s*\(|\b(net|netJson|fetch)\s*\(/.test(source)) {
+      errors.push(`${id}: mirrored +page.ts waits on the network; read through $lib/offline/repo.ts, which syncs in the background`);
+    }
+  }
   const server = join(dir, "+page.server.ts");
   if (existsSync(server) && /export\s+(const|async\s+function|function)\s+load\b/.test(readFileSync(server, "utf8"))) {
     errors.push(`${id}: mirrored but +page.server.ts still has a load, which needs the network on every navigation`);
@@ -109,4 +119,4 @@ if (errors.length > 0) {
   for (const error of errors) console.error(`  ${error}`);
   process.exit(1);
 }
-console.log("check-offline: no bare fetch in client code, every page in exactly one offline tier");
+console.log("check-offline: no bare fetch in client code, every page in exactly one offline tier, no mirrored load waits on the network");

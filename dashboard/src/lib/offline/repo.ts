@@ -1,32 +1,44 @@
 /**
- * The read API Tier A pages use (OFFLINE_PLAN.md §3). Every function tries a fresh sync first and
- * then always reads the mirror - so the answer is identical in shape whether the pull succeeded or
- * not, and the caller only has to look at `source` to know which. Never written to directly by a
- * page: a page calls `repo`, and mutates only through `outbox` (landing in O3). One writer for the
- * mirror, mirroring how `src/notes/store.ts` is the one writer for `notes` one layer in.
+ * The read API Tier A pages use (OFFLINE_PLAN.md §3). Local-first for real since H2 (§14.3): every
+ * read answers from the mirror at once and starts a background `sync()`, which is throttled and
+ * single-flight, so no load ever waits on the network. When that sync changes a store, the loads
+ * that read it re-run by themselves: each read takes the load's `depends` and registers the stores
+ * it touched (`deps.ts`).
+ *
+ * The first version awaited a full pull before every read, which made "local-first" local-last:
+ * two full downloads in series on a cold start, one on every day step, preload and keystroke in the
+ * notes search, and up to 32 s of timers before an offline start read the mirror at all.
+ *
+ * An empty mirror (first launch, or right after "Clear offline data") is the one case with nothing
+ * to show. Loads still do not wait for it: they report `mirrorEmpty`, the root layout shows the
+ * first-sync state in the page's place, and the sync that fills the mirror re-runs the load.
+ *
+ * Never written to directly by a page: a page calls `repo`, and mutates only through `outbox`. One
+ * writer for the mirror, mirroring how `src/notes/store.ts` is the one writer for `notes` one layer
+ * in. How fresh the data is lives in `offline.lastSyncedAt`, not in what a read returns, since every
+ * read now comes from the same place.
  */
 
 import * as db from "./db.js";
-import { pull, getLastSyncedAt } from "./sync.js";
+import { getLastSyncedAt, sync } from "./sync.js";
+import { mirrorKey, type MirrorKey, type MirrorStore } from "./deps.js";
 import type { RenderedReport } from "#lib/server/reports.js";
 import type { ExtractedJson } from "#lib/server/extractions.js";
 import type { HarvestDoc, HarvestRun } from "#lib/server/contextBuilder.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
 import type { IngestFailure, StepAttempt } from "#lib/pipeline.js";
 
-export type Source = "network" | "mirror";
+/** A load's `depends`. */
+export type Depends = (...deps: MirrorKey[]) => void;
 
-export interface Result<T> {
-  data: T;
-  source: Source;
-  syncedAt: string | null;
+function watch(depends: Depends, ...stores: MirrorStore[]): void {
+  depends(mirrorKey("status"), ...stores.map(mirrorKey));
+  void sync();
 }
 
-async function withMirror<T>(read: () => Promise<T>): Promise<Result<T>> {
-  const outcome = await pull();
-  const data = await read();
-  const syncedAt = await getLastSyncedAt();
-  return { data, source: outcome === "synced" ? "network" : "mirror", syncedAt };
+/** True until the first sync on this device (or after "Clear offline data") has filled the mirror. */
+export async function mirrorEmpty(): Promise<boolean> {
+  return (await getLastSyncedAt()) === null;
 }
 
 export interface MirroredReport {
@@ -64,20 +76,17 @@ export interface MirroredReport {
   ratings: Record<string, string>;
 }
 
-export async function report(date: string): Promise<Result<MirroredReport | null>> {
-  return withMirror(async () => (await db.get<MirroredReport>("reports", date)) ?? null);
+export async function report(depends: Depends, date: string): Promise<MirroredReport | null> {
+  watch(depends, "reports");
+  return (await db.get<MirroredReport>("reports", date)) ?? null;
 }
 
-/** The dates of every mirrored report, newest first - what `/` resolves to when it cannot reach
- *  today's, and what a report page uses for its prev/next steppers. */
-export async function reportDates(): Promise<string[]> {
+/** The dates of every mirrored report, newest first - what `/` resolves to, and what a report page
+ *  uses for its prev/next steppers. */
+export async function reportDates(depends: Depends): Promise<string[]> {
+  watch(depends, "reports");
   const rows = await db.getAll<MirroredReport>("reports");
   return rows.map((r) => r.date).sort((a, b) => b.localeCompare(a));
-}
-
-export async function newestMirroredDate(): Promise<string | null> {
-  const dates = await reportDates();
-  return dates[0] ?? null;
 }
 
 export interface MirroredExtraction {
@@ -95,13 +104,18 @@ export interface MirroredExtraction {
   extracted: ExtractedJson | null;
 }
 
-export async function extractionsFor(ids: string[]): Promise<Result<MirroredExtraction[]>> {
-  return withMirror(async () => {
-    const all = await Promise.all(ids.map((id) => db.get<MirroredExtraction>("extractions", id)));
-    // Same order as requested, same as loadExtractions' effective-relevance ordering would give for
-    // a handful of ids; the detail page does not depend on a specific sort beyond "the ones asked for".
-    return all.filter((item): item is MirroredExtraction => !!item);
-  });
+export async function extractionsFor(depends: Depends, ids: string[]): Promise<MirroredExtraction[]> {
+  watch(depends, "extractions");
+  const all = await Promise.all(ids.map((id) => db.get<MirroredExtraction>("extractions", id)));
+  // Same order as requested; the detail page does not depend on a sort beyond "the ones asked for".
+  return all.filter((item): item is MirroredExtraction => !!item);
+}
+
+/** Every mirrored note, trash included. `/notes` filters them itself (`filterNotes`), so typing in
+ *  its search box never re-runs the load. */
+export async function notes(depends: Depends): Promise<MirroredNote[]> {
+  watch(depends, "notes");
+  return db.getAll<MirroredNote>("notes");
 }
 
 export interface NotesFilter {
@@ -111,31 +125,26 @@ export interface NotesFilter {
   view: "active" | "deleted" | "all";
 }
 
-export async function notes(filter: NotesFilter): Promise<Result<{ notes: MirroredNote[]; counts: { active: number; deleted: number } }>> {
-  return withMirror(async () => {
-    const all = await db.getAll<MirroredNote>("notes");
-    const counts = {
-      active: all.filter((n) => !n.deleted_at).length,
-      deleted: all.filter((n) => !!n.deleted_at).length,
-    };
+/** How many notes one view renders, as the server-rendered page did. */
+const NOTES_SHOWN = 200;
 
-    const query = filter.query.trim().toLowerCase();
-    let filtered = all.filter((n) => {
-      if (filter.scope && n.scope !== filter.scope) return false;
-      if (query && !n.content.toLowerCase().includes(query)) return false;
-      if (filter.view === "deleted") return !!n.deleted_at;
-      if (filter.view === "all") return true;
-      return !n.deleted_at;
-    });
-
-    filtered = filtered.sort((a, b) => {
-      if (filter.sort === "oldest") return a.created_at.localeCompare(b.created_at);
-      if (filter.sort === "edited") return (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at);
-      return b.created_at.localeCompare(a.created_at);
-    });
-
-    return { notes: filtered.slice(0, 200), counts };
+export function filterNotes(all: MirroredNote[], filter: NotesFilter): MirroredNote[] {
+  const query = filter.query.trim().toLowerCase();
+  const filtered = all.filter((n) => {
+    if (filter.scope && n.scope !== filter.scope) return false;
+    if (query && !n.content.toLowerCase().includes(query)) return false;
+    if (filter.view === "deleted") return !!n.deleted_at;
+    if (filter.view === "all") return true;
+    return !n.deleted_at;
   });
+
+  filtered.sort((a, b) => {
+    if (filter.sort === "oldest") return a.created_at.localeCompare(b.created_at);
+    if (filter.sort === "edited") return (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at);
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  return filtered.slice(0, NOTES_SHOWN);
 }
 
 export interface MirroredRule {
@@ -146,11 +155,10 @@ export interface MirroredRule {
   updatedAt: string | null;
 }
 
-export async function rules(): Promise<Result<MirroredRule[]>> {
-  return withMirror(async () => {
-    const rows = await db.getAll<MirroredRule>("rules");
-    return rows.sort((a, b) => a.source.localeCompare(b.source) || a.key.localeCompare(b.key));
-  });
+export async function rules(depends: Depends): Promise<MirroredRule[]> {
+  watch(depends, "rules");
+  const rows = await db.getAll<MirroredRule>("rules");
+  return rows.sort((a, b) => a.source.localeCompare(b.source) || a.key.localeCompare(b.key));
 }
 
 export interface MirroredCorrection {
@@ -187,6 +195,7 @@ const EMPTY_CONTEXT_DOC: MirroredContextDoc = {
   counts: { contacts: 0, entities: 0, standing_context: 0, indexed_email: 0, indexed_keep: 0 },
 };
 
-export async function contextDoc(): Promise<Result<MirroredContextDoc>> {
-  return withMirror(async () => (await db.get<MirroredContextDoc>("contextDoc", "current")) ?? EMPTY_CONTEXT_DOC);
+export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> {
+  watch(depends, "contextDoc");
+  return (await db.get<MirroredContextDoc>("contextDoc", "current")) ?? EMPTY_CONTEXT_DOC;
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { refreshAll } from "$app/navigation";
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
   import StatBar from "#lib/components/StatBar.svelte";
@@ -18,6 +17,8 @@
   import { toastFormResult } from "#lib/toast.svelte.js";
   import { netJson } from "#lib/offline/net.js";
   import { poll } from "#lib/offline/poll.js";
+  import { sync } from "#lib/offline/sync.js";
+  import { offline } from "#lib/offline/state.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -26,8 +27,29 @@
 
   /** OFFLINE_PLAN.md §9: a report read from the mirror is never shown without saying how stale it
    *  might be. 24h is the plan's own threshold - the daily pipeline runs once a morning, so a
-   *  same-day mirror read is never stale in the sense that matters. */
-  const stale = $derived(data.source === "mirror" && !!data.syncedAt && Date.now() - new Date(data.syncedAt).getTime() > 24 * 3600_000);
+   *  same-day mirror read is never stale in the sense that matters. Every report is read from the
+   *  mirror since H2, so the age alone decides, and it is the mirror's own timestamp: a sync that
+   *  found nothing new still moves it. */
+  const stale = $derived(!!offline.lastSyncedAt && Date.now() - new Date(offline.lastSyncedAt).getTime() > 24 * 3600_000);
+
+  /**
+   * `/` lands on the newest mirrored day when today's is not mirrored yet (§7). When a background
+   * sync then brings today's, the page offers it rather than swapping the text under the reader.
+   * Only on the arrival itself: a day opened on purpose while today's was already there says nothing.
+   */
+  let todayArrived = $state(false);
+  let hadToday = untrack(() => data.hasToday);
+  let seenDate = untrack(() => data.date);
+  $effect(() => {
+    if (data.date !== seenDate) {
+      seenDate = data.date;
+      hadToday = data.hasToday;
+      todayArrived = false;
+    } else if (!hadToday && data.hasToday) {
+      hadToday = true;
+      todayArrived = data.date !== data.today;
+    }
+  });
 
   // The report surface: the assistant can read this briefing and act on notes, todos, the
   // calendar or the long-term context, but never edit the report. Reports are final.
@@ -129,7 +151,8 @@
 
       if (body.hasReport || body.run?.status === "failed") {
         stopPolling();
-        await refreshAll();
+        // The report reaches this page through the mirror like any other; the sync re-runs the load.
+        await sync({ force: true });
       }
     }, 5000);
   }
@@ -174,9 +197,16 @@
        the text below is incomplete, which has to be read before the text, not after it. -->
   <IngestWarning failures={data.ingestFailures} date={data.date} />
 
+  {#if todayArrived}
+    <p role="status" class="flex items-center gap-3 rounded-lg border border-primary-800 bg-primary-950 px-3 py-2 text-sm text-primary-200">
+      Today's briefing is here.
+      <a href="/{data.today}" class="ml-auto text-primary-300 no-underline hover:text-primary-200">Read it →</a>
+    </p>
+  {/if}
+
   {#if stale}
     <p role="status" class="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-xs text-surface-400">
-      Reading from the offline copy, synced {fmtElapsed(data.syncedAt)} ago. Reconnect to the VPN to refresh it.
+      Reading from the offline copy, synced {fmtElapsed(offline.lastSyncedAt)} ago. Reconnect to the VPN to refresh it.
     </p>
   {/if}
 

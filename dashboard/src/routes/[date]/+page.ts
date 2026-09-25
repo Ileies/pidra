@@ -1,12 +1,12 @@
 import type { PageLoad } from "./$types";
 import { error } from "@sveltejs/kit";
-import { report, reportDates } from "#lib/offline/repo.js";
+import { mirrorEmpty, report, reportDates } from "#lib/offline/repo.js";
 
 /**
- * Client-rendered and local-first (OFFLINE_PLAN.md O2, decision 1). Was `+page.server.ts` querying
- * Postgres directly; offline that meant no HTML and no `__data.json`, so a cached report could be
- * looked at but not rated, searched or re-rendered. `repo.report()` always resolves from the
- * mirror, refreshed by a network pull first when one is reachable.
+ * Client-rendered and local-first (OFFLINE_PLAN.md O2, decision 1; §14.3 H2). Was `+page.server.ts`
+ * querying Postgres directly; offline that meant no HTML and no `__data.json`, so a cached report
+ * could be looked at but not rated, searched or re-rendered. Reads the mirror only and never waits
+ * for the network: a background sync that changes a report re-runs this load by itself.
  */
 export const ssr = false;
 
@@ -14,18 +14,21 @@ function localToday(): string {
   return new Date().toLocaleDateString("sv-SE");
 }
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params, depends }) => {
   const { date } = params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error(404, "Not found");
 
-  const [{ data, source, syncedAt }, dates] = await Promise.all([report(date), reportDates()]);
+  const [data, dates, empty] = await Promise.all([report(depends, date), reportDates(depends), mirrorEmpty()]);
+  const today = localToday();
 
   const sorted = dates.includes(date) ? dates : [...dates, date].sort((a, b) => b.localeCompare(a));
   const index = sorted.indexOf(date);
 
   return {
     date,
-    today: localToday(),
+    today,
+    /** Whether today's briefing is in the mirror, so an older day can offer it when it arrives. */
+    hasToday: dates.includes(today),
     report: data?.report ?? null,
     // stepErrors is never mirrored (OFFLINE_PLAN.md §4); ErrorCard's `attempts` prop defaults to [].
     // `ingestFailures` is the sanitised digest of the same column - source and kind, no text - and
@@ -39,7 +42,6 @@ export const load: PageLoad = async ({ params }) => {
     // Newer dates sort first, so "next" (a later date) is the previous array entry.
     prevDate: sorted[index + 1] ?? null,
     nextDate: index > 0 ? sorted[index - 1] : null,
-    source,
-    syncedAt,
+    mirrorEmpty: empty,
   };
 };

@@ -1,14 +1,14 @@
 import type { PageLoad } from "./$types";
-import { contextDoc } from "#lib/offline/repo.js";
+import { contextDoc, mirrorEmpty } from "#lib/offline/repo.js";
 
-/** Client-rendered and local-first (OFFLINE_PLAN.md O2). The run controls (start/stop, live
+/** Client-rendered and local-first (OFFLINE_PLAN.md O2, H2). The run controls (start/stop, live
  *  progress) stay online-only - they need the skills bridge and live pipeline state, which a
  *  cached copy cannot represent honestly (OFFLINE_PLAN.md §1). Only the harvested document,
  *  standing rules and active corrections are read from the mirror. */
 export const ssr = false;
 
-export const load: PageLoad = async () => {
-  const { data, source, syncedAt } = await contextDoc();
+export const load: PageLoad = async ({ depends }) => {
+  const [data, empty] = await Promise.all([contextDoc(depends), mirrorEmpty()]);
   return {
     run: data.run,
     doc: data.doc,
@@ -17,7 +17,6 @@ export const load: PageLoad = async () => {
     standing: data.standing,
     counts: data.counts,
     corrections: data.corrections,
-    source,
-    syncedAt,
+    mirrorEmpty: empty,
   };
 };

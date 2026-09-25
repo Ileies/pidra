@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { goto, refreshAll } from "$app/navigation";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import NoteCard from "#lib/notes/NoteCard.svelte";
   import Page from "#lib/components/Page.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -8,10 +9,81 @@
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import { toasts } from "#lib/toast.svelte.js";
   import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "#lib/notes/api.js";
+  import { filterNotes, type NotesFilter } from "#lib/offline/repo.js";
+  import { sync } from "#lib/offline/sync.js";
   import type { PageData } from "./$types";
   import type { NoteRow } from "#lib/notes/api.js";
 
   let { data }: { data: PageData } = $props();
+
+  // --- filters: applied here, kept in the URL so a view is shareable and survives a reload ---
+
+  const SORTS = ["newest", "oldest", "edited"] as const;
+  const VIEWS = ["active", "deleted", "all"] as const;
+
+  function parseFilter(params: Pick<URLSearchParams, "get">): NotesFilter {
+    const sort = params.get("sort") ?? "";
+    const view = params.get("view") ?? "";
+    return {
+      scope: params.get("scope") ?? "",
+      query: params.get("q") ?? "",
+      sort: (SORTS as readonly string[]).includes(sort) ? (sort as NotesFilter["sort"]) : "newest",
+      view: (VIEWS as readonly string[]).includes(view) ? (view as NotesFilter["view"]) : "active",
+    };
+  }
+
+  function searchOf(filter: NotesFilter): string {
+    const params = new URLSearchParams();
+    if (filter.scope) params.set("scope", filter.scope);
+    if (filter.query.trim()) params.set("q", filter.query.trim());
+    if (filter.sort !== "newest") params.set("sort", filter.sort);
+    if (filter.view !== "active") params.set("view", filter.view);
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
+
+  // Filtering happens in the component (OFFLINE_PLAN.md §14.3, H2): the load returns every note,
+  // so a keystroke re-renders a `$derived` instead of re-running the load, which before H2 also
+  // meant a full snapshot pull per keystroke.
+  let filter = $state<NotesFilter>(parseFilter(page.url.searchParams));
+
+  // The URL follows the filter without a navigation, so no load runs. A navigation from elsewhere
+  // to a different `/notes?...` (a link, the back button) is picked up by the effect below; the
+  // box does not fight the user mid-typing, because what we wrote ourselves is recognised.
+  let written = page.url.search;
+  let urlTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function writeUrl() {
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(() => {
+      written = searchOf(filter);
+      if (written === page.url.search) return;
+      goto(`/notes${written}`, { shallow: true, replace: true, reset: false, state: {} });
+    }, 250);
+  }
+
+  $effect(() => {
+    const search = page.url.search;
+    if (search !== written) {
+      written = search;
+      filter = parseFilter(page.url.searchParams);
+    }
+  });
+
+  function applyFilters(patch: Partial<NotesFilter>) {
+    filter = { ...filter, ...patch };
+    writeUrl();
+  }
+
+  function onSearchInput(event: Event & { currentTarget: HTMLInputElement }) {
+    applyFilters({ query: event.currentTarget.value });
+  }
+
+  const shown = $derived(filterNotes(data.notes, filter));
+  const counts = $derived({
+    active: data.notes.filter((note) => !note.deleted_at).length,
+    deleted: data.notes.filter((note) => !!note.deleted_at).length,
+  });
 
   // What the assistant sees of this page. The focus list gives it real ids for the rows on
   // screen, so "the second note from the top" resolves instead of being guessed.
@@ -20,52 +92,14 @@
       surface: "notes",
       route: "/notes",
       digest: [
-        `Notes management. View: ${data.view === "deleted" ? "trash" : data.view === "all" ? "all" : "active"}.`,
-        `Scope filter: ${data.scopeFilter || "all"}.`,
-        data.query ? `Search: "${data.query}".` : "",
-        `${data.notes.length} of ${data.counts.active} active notes visible, ${data.counts.deleted} in the trash.`,
+        `Notes management. View: ${filter.view === "deleted" ? "trash" : filter.view === "all" ? "all" : "active"}.`,
+        `Scope filter: ${filter.scope || "all"}.`,
+        filter.query.trim() ? `Search: "${filter.query.trim()}".` : "",
+        `${shown.length} of ${counts.active} active notes visible, ${counts.deleted} in the trash.`,
       ].filter(Boolean).join(" "),
-      focus: focusFrom(data.notes, "note", (note) => ({ id: note.id, label: note.content })),
+      focus: focusFrom(shown, "note", (note) => ({ id: note.id, label: note.content })),
     });
   });
-
-  // --- filters, kept in the URL so a view is shareable and survives a reload ---
-
-  let search = $state("");
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
-
-  // The URL is the source of truth, but the box must not fight the user mid-typing: it only
-  // re-syncs when the server-side query actually changed (first load, back button, a link).
-  let appliedQuery = "";
-  $effect(() => {
-    if (data.query !== appliedQuery) {
-      appliedQuery = data.query;
-      search = data.query;
-    }
-  });
-
-  function applyFilters(patch: Partial<{ scope: string; q: string; sort: string; view: string }>) {
-    const params = new URLSearchParams();
-    const next = {
-      scope: patch.scope ?? data.scopeFilter,
-      q: patch.q ?? search,
-      sort: patch.sort ?? data.sort,
-      view: patch.view ?? data.view,
-    };
-    if (next.scope) params.set("scope", next.scope);
-    if (next.q.trim()) params.set("q", next.q.trim());
-    if (next.sort !== "newest") params.set("sort", next.sort);
-    if (next.view !== "active") params.set("view", next.view);
-
-    const query = params.toString();
-    goto(query ? `/notes?${query}` : "/notes", { reset: false, replaceState: true });
-  }
-
-  function onSearchInput(event: Event & { currentTarget: HTMLInputElement }) {
-    search = event.currentTarget.value;
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => applyFilters({ q: search }), 250);
-  }
 
   // --- add ---
 
@@ -85,7 +119,6 @@
       newContent = "";
       newExpires = "";
       adding = false;
-      await refreshAll();
       toasts.success("Note added.");
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -99,7 +132,7 @@
   let selected = $state<Set<string>>(new Set());
   let busy = $state(false);
 
-  const visibleIds = $derived(data.notes.map((note) => note.id));
+  const visibleIds = $derived(shown.map((note) => note.id));
   const selectedCount = $derived(selected.size);
   const allSelected = $derived(visibleIds.length > 0 && visibleIds.every((id) => selected.has(id)));
 
@@ -129,7 +162,6 @@
     try {
       for (const id of ids) await updateNote(id, { scope });
       selected = new Set();
-      await refreshAll();
       toasts.success(`${ids.length} notes set to "${scope}".`);
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -145,10 +177,8 @@
     try {
       for (const id of ids) await deleteNote(id);
       selected = new Set();
-      await refreshAll();
       toasts.success(`${ids.length} notes deleted.`, async () => {
         for (const id of ids) await restoreNote(id);
-        await refreshAll();
       });
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -162,10 +192,8 @@
   async function handleDelete(note: NoteRow) {
     try {
       await deleteNote(note.id);
-      await refreshAll();
       toasts.success("Note deleted.", async () => {
         await restoreNote(note.id);
-        await refreshAll();
       });
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
@@ -175,7 +203,6 @@
   async function handleRestore(note: NoteRow) {
     try {
       await restoreNote(note.id);
-      await refreshAll();
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
     }
@@ -186,7 +213,7 @@
   <div class="flex flex-wrap items-center gap-2">
     <input
       type="search"
-      value={search}
+      value={filter.query}
       oninput={onSearchInput}
       placeholder="Search notes…"
       aria-label="Search notes"
@@ -194,7 +221,7 @@
     />
 
     <select
-      value={data.scopeFilter}
+      value={filter.scope}
       onchange={(event) => applyFilters({ scope: event.currentTarget.value })}
       aria-label="Filter by scope"
       class="input-base"
@@ -206,8 +233,8 @@
     </select>
 
     <select
-      value={data.sort}
-      onchange={(event) => applyFilters({ sort: event.currentTarget.value })}
+      value={filter.sort}
+      onchange={(event) => applyFilters({ sort: event.currentTarget.value as NotesFilter["sort"] })}
       aria-label="Sort order"
       class="input-base"
     >
@@ -217,13 +244,13 @@
     </select>
 
     <button
-      onclick={() => applyFilters({ view: data.view === "deleted" ? "active" : "deleted" })}
-      aria-pressed={data.view === "deleted"}
-      class="tap px-3 py-1.5 rounded text-sm border cursor-pointer transition-colors {data.view === 'deleted'
+      onclick={() => applyFilters({ view: filter.view === "deleted" ? "active" : "deleted" })}
+      aria-pressed={filter.view === "deleted"}
+      class="tap px-3 py-1.5 rounded text-sm border cursor-pointer transition-colors {filter.view === 'deleted'
         ? 'bg-surface-800 border-surface-500 text-surface-100'
         : 'bg-surface-900 border-surface-700 text-surface-300 hover:bg-surface-800'}"
     >
-      Trash{data.counts.deleted > 0 ? ` (${data.counts.deleted})` : ""}
+      Trash{counts.deleted > 0 ? ` (${counts.deleted})` : ""}
     </button>
 
     <button
@@ -270,10 +297,10 @@
     </div>
   {/if}
 
-  {#if data.notes.length === 0}
+  {#if shown.length === 0}
     <EmptyState
-      title={data.view === "deleted" ? "The trash is empty." : "No notes found."}
-      hint={data.view === "deleted"
+      title={filter.view === "deleted" ? "The trash is empty." : "No notes found."}
+      hint={filter.view === "deleted"
         ? undefined
         : "Notes are standing instructions for the briefing: intel and global steer Section 1, personal and global steer Section 2."}
     />
@@ -281,9 +308,9 @@
     <div class="flex items-center gap-3 text-xs text-surface-400">
       <label class="tap-check">
         <input type="checkbox" checked={allSelected} onchange={toggleSelectAll} class="accent-primary-600 cursor-pointer h-4 w-4" />
-        {data.notes.length} {data.notes.length === 1 ? "entry" : "entries"}
+        {shown.length} {shown.length === 1 ? "entry" : "entries"}
       </label>
-      {#if data.view === "deleted"}
+      {#if filter.view === "deleted"}
         <span>Trash: deleted notes no longer influence a briefing.</span>
       {/if}
     </div>
@@ -324,13 +351,13 @@
     {/if}
 
     <div class="flex flex-col gap-3">
-      {#each data.notes as note (note.id)}
+      {#each shown as note (note.id)}
         <NoteCard
           {note}
           highlighted={assistant.touchedIds.has(note.id)}
           selected={selected.has(note.id)}
           onToggleSelect={toggleSelect}
-          onChanged={refreshAll}
+          onServerChange={() => void sync({ force: true })}
           onDelete={handleDelete}
           onRestore={handleRestore}
         />

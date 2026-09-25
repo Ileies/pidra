@@ -12,6 +12,7 @@
   import type { ContextBuilderStatus } from "#lib/server/contextBuilder.js";
   import { netJson } from "#lib/offline/net.js";
   import { poll } from "#lib/offline/poll.js";
+  import { sync } from "#lib/offline/sync.js";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -44,7 +45,10 @@
 
   async function refresh() {
     try {
+      const wasRunning = status?.running ?? false;
       status = await netJson<ContextBuilderStatus>("/api/context-builder/status");
+      // A run that just finished wrote a new harvest, which this page reads from the offline copy.
+      if (wasRunning && !status.running) void sync({ force: true });
     } catch {
       // transient - next poll will retry
     }
@@ -244,7 +248,17 @@
                 {/if}
                 <div class="text-surface-400 text-xs mt-1">{fmtDateTime(correction.created_at)}</div>
               </div>
-              <form method="POST" action="?/revertCorrection" use:enhance class="shrink-0">
+              <!-- A revert is written on the server, not through the outbox, so the offline copy this
+                   page reads only shows it after a pull; forced, because the throttle would skip it. -->
+              <form
+                method="POST"
+                action="?/revertCorrection"
+                use:enhance={() => async ({ update, result }) => {
+                  await update();
+                  if (result.type === "success") await sync({ force: true });
+                }}
+                class="shrink-0"
+              >
                 <input type="hidden" name="id" value={correction.id} />
                 <button type="submit" class="tap nav-btn nav-btn-muted cursor-pointer">Revert</button>
               </form>

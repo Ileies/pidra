@@ -12,6 +12,7 @@
 
 import * as db from "./db.js";
 import { net, NetError } from "./net.js";
+import { invalidateMirror, type MirrorStore } from "./deps.js";
 import type { NoteRow } from "#lib/notes/api.js";
 import type { MirroredReport, MirroredExtraction, MirroredRule } from "./repo.js";
 
@@ -120,7 +121,8 @@ async function applyOptimistic(intent: Intent): Promise<void> {
     case "rule.create": {
       const p = intent.payload as { localId: string; key: string; value: string };
       // Only ever holds until the real row arrives on the next successful pull, keyed by the
-      // server's own id (OFFLINE_PLAN.md O3) - pruneToIds then drops this temporary row for us.
+      // server's own id (OFFLINE_PLAN.md O3) - that pull's id list does not name this temporary
+      // row, so `db.reconcile` drops it for us.
       const rule: MirroredRule = { id: p.localId, key: p.key, value: p.value, source: "user", updatedAt: intent.createdAt };
       await db.put("rules", rule);
       return;
@@ -170,6 +172,18 @@ function notify(): void {
 
 // --- enqueue ---
 
+/** The mirror stores an intent's optimistic effect writes, so exactly their loads re-run. */
+function storesOf(kind: IntentKind): MirrorStore[] {
+  if (kind === "rate") return ["reports", "extractions"];
+  return kind.startsWith("note.") ? ["notes"] : ["rules"];
+}
+
+/**
+ * Resolves once the page shows the write (OFFLINE_PLAN.md §14.3, H2): the optimistic effect is in
+ * the mirror and the loads that read it have re-run from it. The flush that sends it runs behind,
+ * so the network is never between the tap and the re-render - a page used to `refreshAll()` here,
+ * which re-ran every load up to the root layout and, before H2, a full snapshot pull with them.
+ */
 async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Promise<void> {
   const intent: Intent = {
     id: crypto.randomUUID(),
@@ -184,6 +198,7 @@ async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Prom
   await db.put("outbox", intent);
   notify();
   flush().catch(() => {}); // best effort; failures stay queued and the caller never waits on them
+  await invalidateMirror(storesOf(kind));
 }
 
 export async function createNote(input: { content: string; scope?: string; expiresAt?: string | null }): Promise<void> {
@@ -257,9 +272,12 @@ async function markConflictIfFlagged(intent: Intent, res: Response): Promise<voi
   const body = (await res.json().catch(() => null)) as { _conflict?: boolean } | null;
   const p = intent.payload as { id: string };
   const current = await db.get<NoteRow>("notes", p.id);
-  // Set unconditionally, not just on a conflict: a later edit that lands cleanly clears a flag an
-  // earlier one left, rather than the note staying marked forever.
-  if (current) await db.put("notes", { ...current, conflicted: !!body?._conflict });
+  // Written whenever it differs, not just on a conflict: a later edit that lands cleanly clears a
+  // flag an earlier one left, rather than the note staying marked forever.
+  if (current && !!current.conflicted !== !!body?._conflict) {
+    await db.put("notes", { ...current, conflicted: !!body?._conflict });
+    void invalidateMirror(["notes"]);
+  }
 }
 
 function request(intent: Intent): Promise<Response> {
@@ -330,6 +348,9 @@ async function run(): Promise<void> {
       if (err instanceof TerminalError) {
         await db.put("failed", { ...intent, lastError: err.message });
         await db.del("outbox", intent.id);
+        // Its optimistic effect is still in the mirror and the server will never match it, so a
+        // delta would never correct it either: without an ETag, the next sync is a full one.
+        await db.del("meta", "etag");
         notify();
         continue;
       }

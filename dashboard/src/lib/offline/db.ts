@@ -115,12 +115,66 @@ export async function clear(store: Store): Promise<void> {
   });
 }
 
-/** Deletes every record in `store` whose id is not in `keepIds`. Used after a full-replace pull
- *  (OFFLINE_PLAN.md §5) to prune rows that fell outside the window or were deleted server-side,
- *  without the server needing to compute an explicit tombstone list. */
-export async function pruneToIds(store: Store, keepIds: string[]): Promise<void> {
-  const keep = new Set(keepIds);
-  const existing = await getAll<Keyed>(store);
-  const drop = existing.filter((row) => !keep.has(row.id)).map((row) => row.id);
-  await bulkDelete(store, drop);
+export interface StorePlan {
+  store: Store;
+  /** Rows to write. One that is identical to what the store already holds is skipped. */
+  rows: Keyed[];
+  /** Every id the store should hold afterwards; anything else is deleted. Null leaves the rest. */
+  keep: string[] | null;
+  /** Empty the store first. */
+  clear?: boolean;
+}
+
+function sameRow(a: unknown, b: unknown): boolean {
+  // Both sides come from the same server serialisation, so key order matches for an unchanged
+  // row; a row the outbox rewrote optimistically may differ in order and is simply rewritten.
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Applies a snapshot (OFFLINE_PLAN.md §14.3, H2) to several stores in **one** transaction, so the
+ * mirror is never half old and half new and the `meta` row that records the snapshot's ETag
+ * commits only together with the rows it describes. Rows that did not change are not rewritten,
+ * and the answer names the stores that actually did, which is what `sync.ts` invalidates.
+ *
+ * Everything runs in request callbacks rather than awaits: an IndexedDB transaction commits itself
+ * as soon as a turn passes with no request pending, so awaiting anything in between would end it.
+ */
+export async function reconcile(plans: StorePlan[]): Promise<Store[]> {
+  if (plans.length === 0) return [];
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(plans.map((plan) => plan.store), "readwrite");
+    const changed = new Set<Store>();
+
+    for (const plan of plans) {
+      const os = t.objectStore(plan.store);
+      if (plan.clear) {
+        os.clear();
+        changed.add(plan.store);
+      }
+      // Requests on one store run in order, so after a clear this reads the empty store.
+      const read = os.getAll();
+      read.onsuccess = () => {
+        const existing = new Map((read.result as Keyed[]).map((row) => [row.id, row]));
+        for (const row of plan.rows) {
+          if (existing.has(row.id) && sameRow(existing.get(row.id), row)) continue;
+          os.put(row);
+          changed.add(plan.store);
+        }
+        if (plan.keep) {
+          const keep = new Set(plan.keep);
+          for (const id of existing.keys()) {
+            if (keep.has(id)) continue;
+            os.delete(id);
+            changed.add(plan.store);
+          }
+        }
+      };
+    }
+
+    t.oncomplete = () => resolve([...changed]);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error ?? new Error("mirror transaction aborted"));
+  });
 }

@@ -1,6 +1,7 @@
 import { browser } from "$app/env";
 import { refreshAll } from "$app/navigation";
 import { BUDGET, net } from "#lib/offline/net.js";
+import { sync } from "#lib/offline/sync.js";
 import { surfaceForRoute, type PageContext, type Surface } from "#lib/assistant/pageContext.js";
 
 /**
@@ -319,8 +320,9 @@ class Assistant {
       if (touched.length > 0) {
         this.touchedIds = this.#idsFrom(reply);
         if (!this.open) this.unseen = true;
-        // The page the user is on now shows stale rows: reload its data.
-        await refreshAll();
+        // The page the user is on now shows stale rows: reload its data. A mirrored page reads
+        // the offline copy, which only a sync brings up to date; a live page reloads from its load.
+        await Promise.all([refreshAll(), sync({ force: true })]);
       }
       return;
     }

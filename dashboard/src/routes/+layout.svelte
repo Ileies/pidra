@@ -9,9 +9,14 @@
   import Assistant from "#lib/assistant/Assistant.svelte";
   import { assistant } from "#lib/assistant/state.svelte.js";
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
+  import FirstSync from "#lib/offline/FirstSync.svelte";
   import { navigating } from "$app/state";
 
   let { children } = $props();
+
+  // A mirrored page whose load found the mirror empty: first launch, or right after "Clear offline
+  // data". Decided from the load's own answer, so the first frame is already the right one.
+  const firstSync = $derived(page.data.mirrorEmpty === true);
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.
   // `dvh`, not `vh`: mobile browser chrome makes 100vh taller than the visible area, which put
@@ -62,7 +67,11 @@
   <Navbar onOpenMore={() => (moreOpen = true)} />
 
   <div id="main-content" class="flex flex-1 flex-col min-h-0">
-    {@render children?.()}
+    {#if firstSync}
+      <FirstSync />
+    {:else}
+      {@render children?.()}
+    {/if}
   </div>
 </div>
 

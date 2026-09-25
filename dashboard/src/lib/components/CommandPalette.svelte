@@ -9,12 +9,18 @@
    * Routes are matched locally from the registry and always rank above archive hits: jumping to
    * a page you know exists should not wait on a query, and typing "notes" means the page far
    * more often than it means a note containing the word.
+   *
+   * Offline, the archive half searches this device's copy instead (OFFLINE_PLAN.md §13, H3), and
+   * says so: it matches plain text over the mirrored window, which is not what the server's
+   * ranked keyword search finds.
    */
   import { goto } from "$app/navigation";
   import { ROUTES } from "#lib/routes.js";
   import type { SearchHit } from "#lib/server/search.js";
   import Spinner from "#lib/components/Spinner.svelte";
-  import { net } from "#lib/offline/net.js";
+  import { net, NetError } from "#lib/offline/net.js";
+  import { searchMirror, type OfflineHit } from "#lib/offline/search.js";
+  import { offline } from "#lib/offline/state.svelte.js";
 
   interface Props {
     open: boolean;
@@ -25,6 +31,9 @@
 
   let query = $state("");
   let hits = $state<SearchHit[]>([]);
+  let mirrorHits = $state<OfflineHit[]>([]);
+  /** Which search answered the current query. */
+  let source = $state<"server" | "mirror">("server");
   let loading = $state(false);
   let cursor = $state(0);
   let input = $state<HTMLInputElement | null>(null);
@@ -37,9 +46,22 @@
     return ROUTES.filter((route) => route.label.toLowerCase().includes(q) || route.href.includes(q));
   });
 
-  const results = $derived([
-    ...routeHits.map((route) => ({ kind: "route" as const, label: route.label, href: route.href, meta: route.href })),
-    ...hits.map((hit) => ({ kind: hit.kind, label: hit.title, href: hit.href, meta: hit.meta, snippet: hit.snippet })),
+  interface Result {
+    kind: string;
+    label: string;
+    href: string;
+    meta?: string;
+    /** Server snippets: `ts_headline` output, sanitised down to `<mark>`. */
+    snippet?: string;
+    /** Mirror snippets: plain text, marked in the markup below. */
+    parts?: OfflineHit["snippet"];
+  }
+
+  const results: Result[] = $derived([
+    ...routeHits.map((route) => ({ kind: "route", label: route.label, href: route.href, meta: route.href })),
+    ...(source === "mirror"
+      ? mirrorHits.map((hit) => ({ kind: hit.kind, label: hit.title, href: hit.href, meta: hit.meta, parts: hit.snippet }))
+      : hits.map((hit) => ({ kind: hit.kind, label: hit.title, href: hit.href, meta: hit.meta, snippet: hit.snippet }))),
   ]);
 
   $effect(() => {
@@ -65,6 +87,7 @@
     const value = query.trim();
     if (value.length < 2) {
       hits = [];
+      mirrorHits = [];
       loading = false;
       return;
     }
@@ -73,12 +96,26 @@
     searchTimer = setTimeout(async () => {
       const id = ++requestId;
       try {
+        // Known offline, `net()` would refuse in the same frame; skip straight to the mirror.
+        if (offline.reachable === "offline") throw new NetError("offline", false);
         const res = await net(`/api/search?q=${encodeURIComponent(value)}`);
         const body = (await res.json()) as { hits: SearchHit[] };
         // A slower earlier request must not overwrite a newer result set.
-        if (id === requestId) hits = body.hits;
-      } catch {
-        if (id === requestId) hits = [];
+        if (id === requestId) {
+          hits = body.hits;
+          source = "server";
+        }
+      } catch (err) {
+        if (err instanceof NetError && err.kind === "offline") {
+          const found = await searchMirror(value).catch(() => []);
+          if (id === requestId) {
+            mirrorHits = found;
+            source = "mirror";
+          }
+        } else if (id === requestId) {
+          hits = [];
+          source = "server";
+        }
       } finally {
         if (id === requestId) loading = false;
       }
@@ -115,6 +152,7 @@
     extraction: "Item",
     note: "Note",
     entity: "Entity",
+    rule: "Rule",
   };
 </script>
 
@@ -144,6 +182,12 @@
         {#if loading}<Spinner label="Searching" />{/if}
       </div>
 
+      {#if source === "mirror" && query.trim().length >= 2}
+        <p class="border-b border-surface-800 px-4 py-2 text-xs text-warning-400">
+          Offline: searching the copy on this device, exact text only, newest {offline.mirroredReportCount} reports.
+        </p>
+      {/if}
+
       <ul class="max-h-[60dvh] overflow-y-auto py-1">
         {#if results.length === 0}
           <li class="px-4 py-6 text-center text-xs text-surface-400">
@@ -164,7 +208,11 @@
                   <span class="text-sm text-surface-100 truncate">{result.label}</span>
                   <span class="ml-auto shrink-0 text-xs text-surface-400">{KIND_LABEL[result.kind] ?? result.kind}</span>
                 </span>
-                {#if "snippet" in result && result.snippet}
+                {#if result.parts}
+                  <span class="text-xs text-surface-400 line-clamp-2">
+                    {result.parts.before}<mark class="bg-primary-900 text-primary-100 rounded-sm px-0.5">{result.parts.match}</mark>{result.parts.after}
+                  </span>
+                {:else if result.snippet}
                   <!-- ts_headline output, sanitised server-side down to <mark> and nothing else. -->
                   <span class="text-xs text-surface-400 line-clamp-2 [&_mark]:bg-primary-900 [&_mark]:text-primary-100 [&_mark]:rounded-sm [&_mark]:px-0.5">
                     {@html result.snippet}

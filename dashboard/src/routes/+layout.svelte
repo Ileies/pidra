@@ -13,6 +13,7 @@
   import { appUpdate } from "#lib/offline/update.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import { navigating } from "$app/state";
+  import { MIRRORED_ROUTES } from "#lib/routes.js";
 
   let { children } = $props();
 
@@ -64,8 +65,9 @@
 <!-- Navbar and shell live here, above the swapped-out page, so navigating never unmounts the
      header. Mounting it per page made every click rebuild the button row for a frame. -->
 <div bind:this={shell} class="flex flex-col {fullHeight ? 'h-dvh' : 'min-h-dvh'}">
-  <!-- E2: a navigation that has to hit the database should say so before the page swaps. -->
-  {#if navigating.to}
+  <!-- Only a server load is worth a bar: a mirrored page renders from IndexedDB in milliseconds,
+       and the bar only flashed there. Its first-sync wait has its own screen. -->
+  {#if navigating.to && !MIRRORED_ROUTES.has(navigating.to.route.id ?? "")}
     <div class="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden" role="status" aria-label="Loading">
       <div class="h-full w-1/3 animate-[loadbar_1.1s_ease-in-out_infinite] bg-primary-400"></div>
     </div>

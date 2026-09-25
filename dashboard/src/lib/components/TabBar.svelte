@@ -11,8 +11,9 @@
    * under it.
    */
   import { page } from "$app/state";
-  import { ROUTES, TABS, MORE_ICON, routeFor } from "#lib/routes.js";
+  import { ROUTES, TABS, MORE_ICON, needsConnection, routeFor } from "#lib/routes.js";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
+  import { offline } from "#lib/offline/state.svelte.js";
 
   interface Props {
     open: boolean;
@@ -24,6 +25,7 @@
   const current = $derived(routeFor(page.route.id));
   const badges = $derived((page.data.navBadges ?? {}) as Record<string, number>);
   const anyPending = $derived(Object.values(badges).some((count) => count > 0));
+  const isOffline = $derived(offline.reachable === "offline");
 
   /** Everything the tab bar does not already reach. */
   const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined));
@@ -62,19 +64,27 @@
 
     {#each sheetRoutes as entry (entry.href)}
       {@const badge = badges[entry.href] ?? 0}
+      {@const unavailable = isOffline && needsConnection(entry)}
+      <!-- Offline, a page that needs the connection stays tappable - it opens OfflineNotice in the
+           same frame - but it says so, and it no longer preloads on touch. -->
       <a
         href={entry.href}
         aria-current={current?.href === entry.href ? "page" : undefined}
+        data-sveltekit-preload-data={unavailable ? "off" : undefined}
         class="tap flex items-center gap-3 rounded-lg border px-4 py-3 no-underline text-sm transition-colors
           {current?.href === entry.href
             ? 'border-primary-800 bg-primary-950 text-primary-300'
-            : 'border-surface-700 bg-surface-950 text-surface-200 hover:bg-surface-800'}"
+            : unavailable
+              ? 'border-dashed border-surface-700 bg-surface-950 text-surface-400 hover:bg-surface-800'
+              : 'border-surface-700 bg-surface-950 text-surface-200 hover:bg-surface-800'}"
       >
         <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d={entry.icon} />
         </svg>
         <span class="flex-1">{entry.label}</span>
-        {#if badge > 0}
+        {#if unavailable}
+          <span class="text-xs text-surface-400">Needs the connection</span>
+        {:else if badge > 0}
           <span class="badge border border-warning-800 bg-warning-950 text-warning-400">{badge} pending</span>
         {/if}
       </a>
@@ -90,11 +100,14 @@
          pb-[var(--safe-b)] grid grid-cols-4"
 >
   {#each TABS as tab (tab.href)}
+    {@const unavailable = isOffline && needsConnection(tab)}
     <a
       href={tab.href}
       aria-current={current?.href === tab.href ? "page" : undefined}
+      data-sveltekit-preload-data={unavailable ? "off" : undefined}
+      aria-label={unavailable ? `${tab.label} (needs the connection)` : undefined}
       class="flex h-14 flex-col items-center justify-center gap-0.5 no-underline text-xs transition-colors
-        {current?.href === tab.href ? 'text-primary-300' : 'text-surface-400'}"
+        {current?.href === tab.href ? 'text-primary-300' : 'text-surface-400'} {unavailable ? 'opacity-70' : ''}"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d={tab.icon} />

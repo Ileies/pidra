@@ -18,9 +18,10 @@
    * controls that pushed the row over, and they belong next to the date they step.
    */
   import { page } from "$app/state";
-  import { ROUTES, NAV_GROUPS, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
+  import { ROUTES, NAV_GROUPS, needsConnection, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
   import SyncIndicator from "#lib/offline/SyncIndicator.svelte";
+  import { offline } from "#lib/offline/state.svelte.js";
 
   interface Props {
     /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
@@ -33,6 +34,7 @@
   const current = $derived(routeFor(routeId));
   /** Keyed by href, so the navbar renders a badge without knowing what it counts. */
   const badges = $derived((page.data.navBadges ?? {}) as Record<string, number>);
+  const isOffline = $derived(offline.reachable === "offline");
 
   /**
    * Two routes name the thing on screen better than a static label does: the report is its
@@ -84,18 +86,25 @@
         {/if}
         {#each group as entry (entry.href)}
           {@const badge = badges[entry.href] ?? 0}
+          {@const unavailable = isOffline && needsConnection(entry)}
+          <!-- Offline, a page that needs the connection stays tappable - it opens OfflineNotice in
+               the same frame - but it looks it, and it no longer preloads on hover or touch. -->
           <a
             href={entry.href}
             aria-current={isCurrentEntry(entry) ? "page" : undefined}
+            data-sveltekit-preload-data={unavailable ? "off" : undefined}
+            title={unavailable ? "Needs the connection" : undefined}
             class="nav-btn {isCurrentEntry(entry)
               ? 'nav-btn-active'
-              : badge > 0
-                ? 'border-warning-700 text-warning-400 hover:bg-surface-800'
-                : entry.secondary
-                  ? 'nav-btn-muted'
-                  : 'nav-btn-idle'}"
+              : unavailable
+                ? 'nav-btn-muted border-dashed'
+                : badge > 0
+                  ? 'border-warning-700 text-warning-400 hover:bg-surface-800'
+                  : entry.secondary
+                    ? 'nav-btn-muted'
+                    : 'nav-btn-idle'}"
           >
-            {entry.label}{#if badge > 0}<span class="ml-1 tabular-nums">({badge})</span><span class="sr-only"> waiting for you</span>{/if}
+            {entry.label}{#if badge > 0}<span class="ml-1 tabular-nums">({badge})</span><span class="sr-only"> waiting for you</span>{/if}{#if unavailable}<span class="sr-only"> (needs the connection)</span>{/if}
           </a>
         {/each}
       {/each}

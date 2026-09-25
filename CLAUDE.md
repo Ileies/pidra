@@ -29,6 +29,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 - **`gpt-5.6-luna` rejects `temperature` and `max_tokens` with a hard 400.** Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions), and control determinism with strict JSON schemas plus `reasoning.effort` instead of temperature.
 - **Go through `src/ai/openai.ts`.** `extractJson()`, `synthesize()` and `researchJson()` (the web-search call the news desks use) centralise the model IDs, the flex tier, `store: false`, and retries. Don't construct a second `new OpenAI(...)` client elsewhere.
 - **Prefer strict JSON schemas for extraction.** Pass `schema` to `extractJson()`; it removes both field drift and truncated-JSON parse failures.
+- **Never use OpenAI's hosted `web_search` tool** (owner's decision, 2026-09-25). All web search goes through the Brave Search API in `src/search/brave.ts`: the news desks, the Section 1 slots and the `run_web_search` skill. The desks still run on `researchJson()` until the Brave research build replaces it (`TODO.md`, Now); don't add another caller, and delete it once the desks have moved. Reasoning in `CONTEXT_AND_DECISIONS.md` §9.
 
 ## Architecture rules (non-negotiable)
 

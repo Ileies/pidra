@@ -4,6 +4,7 @@ import {
   failureLabel,
   ingestFailures,
   isMailbox,
+  isNewsDesk,
   withoutDetail,
   type StepAttempt,
 } from "../dashboard/src/lib/pipeline";
@@ -92,6 +93,33 @@ describe("ingestFailures", () => {
   test("no attempts, no warning", () => {
     expect(ingestFailures([])).toEqual([]);
     expect(ingestFailures(null)).toEqual([]);
+  });
+});
+
+describe("news desks", () => {
+  test("a failed desk is a source that did not deliver, read from the news step", () => {
+    const [failure] = ingestFailures([attempt("news:home: Request timed out.", "news")]);
+    expect(failure).toEqual({ source: "news:home", kind: "timeout", detail: "Request timed out." });
+    expect(isNewsDesk(failure)).toBe(true);
+    expect(isMailbox(failure)).toBe(false);
+    expect(failureLabel(failure)).toBe("the home news desk");
+  });
+
+  test("an unconfigured desk says so rather than calling itself failed", () => {
+    const [failure] = ingestFailures([
+      attempt("news:home: not configured: set NEWS_HOME_COUNTRY (and NEWS_HOME_CITY)", "news"),
+    ]);
+    expect(failure.kind).toBe("config");
+  });
+
+  test("every desk failing is one warning about the news as a whole", () => {
+    const [failure] = ingestFailures([attempt("news: every news desk failed - world: 500", "news")]);
+    expect(failure.source).toBe("news");
+    expect(failureLabel(failure)).toBe("every news desk");
+  });
+
+  test("a news-shaped message on another step is still not read", () => {
+    expect(ingestFailures([attempt("news:home: Request timed out.", "phase5-news")])).toEqual([]);
   });
 });
 

@@ -9,6 +9,7 @@
   import Spinner from "#lib/components/Spinner.svelte";
   import DayNav from "#lib/report/DayNav.svelte";
   import IngestWarning from "#lib/report/IngestWarning.svelte";
+  import NewsSection from "#lib/report/NewsSection.svelte";
   import ReportEntry from "#lib/report/ReportEntry.svelte";
   import SectionNav from "#lib/report/SectionNav.svelte";
   import { URGENCY_META, type NavTarget } from "#lib/report/types.js";
@@ -39,6 +40,7 @@
         data.report
           ? `${data.report.itemsIncluded ?? 0} of ${data.report.itemCount ?? 0} items in the report, ${data.report.itemsFiltered ?? 0} filtered out.`
           : "There is no report for this day yet.",
+        newsGroups.length > 0 ? `Its News section covers ${newsGroups.map((g) => g.group).join(", ")}.` : "",
         data.pipelineRun ? `Last run: ${data.pipelineRun.status}.` : "",
         // So the assistant does not reason about a briefing as if it were complete when it is not.
         data.ingestFailures.length > 0
@@ -86,16 +88,22 @@
     data.structured?.personal.reduce((sum, group) => sum + group.entries.length, 0) ?? 0,
   );
 
-  const domainTargets = $derived<NavTarget[]>(
-    (data.structured?.intel ?? []).map((group, index) => ({
+  // `?? []`: a report mirrored before the News section existed has no `news` at all.
+  const newsGroups = $derived(data.structured?.news ?? []);
+
+  // In reading order: the News groups come before the briefing's domains on the page.
+  const domainTargets = $derived<NavTarget[]>([
+    ...newsGroups.map((group, index) => ({ id: `news-${index}`, label: group.group })),
+    ...(data.structured?.intel ?? []).map((group, index) => ({
       id: `domain-${index}`,
       label: group.domain,
     })),
-  );
+  ]);
 
   const sectionTargets = $derived<NavTarget[]>(
     [
       personalEntries > 0 ? { id: "personal", label: "Personal" } : null,
+      newsGroups.length > 0 ? { id: "news", label: "News" } : null,
       (data.structured?.intel.length ?? 0) > 0 ? { id: "intel", label: "Briefing" } : null,
       (data.structured?.alsoNoted.length ?? 0) > 0 ? { id: "also-noted", label: "Also noted" } : null,
     ].filter((target): target is NavTarget => target !== null),
@@ -203,6 +211,9 @@
       <!-- An empty panel above the fold is worse than no panel. -->
       <p class="text-sm text-surface-300">Nothing needs action today.</p>
     {/if}
+
+    <!-- What happened, between what needs doing and the newsletters' depth. -->
+    <NewsSection groups={newsGroups} date={data.date} {ratings} {onRate} failures={data.ingestFailures} />
 
     {#if data.structured.intel.length > 0}
       <section id="intel" tabindex="-1" class="flex flex-col gap-6 scroll-mt-[calc(var(--header-h)+3.5rem)]">

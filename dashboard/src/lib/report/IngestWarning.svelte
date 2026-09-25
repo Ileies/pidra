@@ -11,7 +11,7 @@
    * So it sits above the report rather than beside it, and it says which account and how it failed,
    * because "could not connect" and "password rejected" send the reader to different places.
    */
-  import { failureLabel, isMailbox, type IngestFailure, type IngestFailureKind } from "#lib/pipeline.js";
+  import { failureLabel, isMailbox, isNewsDesk, type IngestFailure, type IngestFailureKind } from "#lib/pipeline.js";
 
   interface Props {
     failures: IngestFailure[];
@@ -27,11 +27,14 @@
     timeout: "never answered",
     auth: "rejected the login",
     connection: "could not be reached",
+    config: "is not configured",
     unknown: "failed",
   };
 
   const mailboxes = $derived(failures.filter(isMailbox));
   const others = $derived(failures.filter((f) => !isMailbox(f)));
+  /** The reader relies on the News section as their only news, so a gap there is said in its own words. */
+  const desks = $derived(failures.filter(isNewsDesk));
 
   /** The headline names the mail case when there is one, because that is the one with consequences
    *  the reader can act on - a missed calendar sync is visible, a missed mail is not. */
@@ -65,6 +68,10 @@
       {#if mailboxes.length > 0}
         Mail from {mailboxes.length === 1 ? "that account" : "those accounts"} was never fetched, so
         it is missing from this day's briefing rather than left out of it by choice.
+      {:else if desks.length === others.length}
+        The News section was written without {desks.length === 1 ? "that desk" : "those desks"}, so
+        whatever {desks.length === 1 ? "it" : "they"} would have found is missing from it, not absent
+        from the world.
       {:else}
         Nothing from {others.length === 1 ? "that source" : "those sources"} reached this run, so
         the briefing was written without it.

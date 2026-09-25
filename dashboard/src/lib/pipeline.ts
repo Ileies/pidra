@@ -21,10 +21,13 @@ export type RunStatus = "running" | "completed" | "failed";
  * 2026-09-11 run recorded a failed `INSERT INTO contacts` with its values inline. Reducing a
  * message to one of these four words carries the fact the reader needs without carrying the text.
  */
-export type IngestFailureKind = "timeout" | "auth" | "connection" | "unknown";
+export type IngestFailureKind = "timeout" | "auth" | "connection" | "config" | "unknown";
 
 export interface IngestFailure {
-  /** `imap:<account>`, `calendar`, `tasks`, `rss`, or `ingest` when Phase 1 failed as a whole. */
+  /**
+   * `imap:<account>`, `calendar`, `tasks`, `rss`, or `ingest` when Phase 1 failed as a whole; for
+   * the news desks `news:<desk>`, or `news` when every desk failed.
+   */
   source: string;
   kind: IngestFailureKind;
   /**
@@ -40,17 +43,27 @@ export function isMailbox(failure: IngestFailure): boolean {
   return failure.source.startsWith("imap:");
 }
 
-/** The account part of `imap:<account>`, or the source name unchanged for everything else. */
+/** True for a news desk, whose absence means world or local news is missing, not mail. */
+export function isNewsDesk(failure: IngestFailure): boolean {
+  return failure.source === "news" || failure.source.startsWith("news:");
+}
+
+/** The account part of `imap:<account>`, the desk for a news desk, or the source name unchanged. */
 export function failureLabel(failure: IngestFailure): string {
-  return failure.source.startsWith("imap:") ? failure.source.slice("imap:".length) : failure.source;
+  if (failure.source.startsWith("imap:")) return failure.source.slice("imap:".length);
+  if (failure.source === "news") return "every news desk";
+  if (failure.source.startsWith("news:")) return `the ${failure.source.slice("news:".length)} news desk`;
+  return failure.source;
 }
 
 /**
  * Timeout is tested before auth, and the order is the whole point: "Timed out while authenticating"
  * matches both, and it is a timeout - the server never answered. Calling that an auth failure would
- * send the reader to reset a password that was never wrong.
+ * send the reader to reset a password that was never wrong. "Not configured" goes first of all: a
+ * desk switched off by a missing setting has not failed, and saying so points at the fix.
  */
 const KINDS: [RegExp, IngestFailureKind][] = [
+  [/not configured/i, "config"],
   [/timed?\s?out|timeout|etimedout/i, "timeout"],
   [/invalid_grant|auth|credential|password|unauthoriz|login failed|invalid_client/i, "auth"],
   [/econnrefused|enotfound|ehostunreach|econnreset|epipe|socket|network|dns|certificate|tls/i, "connection"],
@@ -63,9 +76,9 @@ export function classifyFailure(message: string): IngestFailureKind {
 /**
  * The sources that did not deliver on one run.
  *
- * Only `phase1` attempts are read. Everything later in the chain failed *after* the mail was in
- * hand, so it is a different question with a different page (`/runs`), and a Phase 2 or Phase 6
- * message is exactly the kind that quotes content.
+ * Only `phase1` and `news` attempts are read: the two stages that fetch from outside. Everything
+ * later in the chain failed *after* the material was in hand, so it is a different question with a
+ * different page (`/runs`), and a Phase 2 or Phase 6 message is exactly the kind that quotes content.
  *
  * Deduplicated by source and kind, because `withRetry` records one attempt per try and three
  * identical timeouts are one dead mailbox, not three.
@@ -74,12 +87,14 @@ export function ingestFailures(attempts: StepAttempt[] | null | undefined): Inge
   const seen = new Map<string, IngestFailure>();
 
   for (const attempt of attempts ?? []) {
-    if (attempt.step !== "phase1" || !attempt.error) continue;
+    if ((attempt.step !== "phase1" && attempt.step !== "news") || !attempt.error) continue;
 
-    // Phase 1 formats a per-source failure as "<source>: <message>"; a run that threw outright
+    // Both stages format a per-source failure as "<source>: <message>"; a run that threw outright
     // records the bare message, and that is still worth showing under a generic source.
-    const split = attempt.error.match(/^(imap:\S+?|calendar|tasks|rss):\s*(.+)$/is);
-    const source = split ? split[1] : "ingest";
+    const split = attempt.step === "news"
+      ? attempt.error.match(/^(news(?::[a-z]+)?):\s*(.+)$/is)
+      : attempt.error.match(/^(imap:\S+?|calendar|tasks|rss):\s*(.+)$/is);
+    const source = split ? split[1] : attempt.step === "news" ? "news" : "ingest";
     const detail = (split ? split[2] : attempt.error).trim();
     const kind = classifyFailure(detail);
 

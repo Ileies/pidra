@@ -9,7 +9,7 @@
  * `version` exists so a future shape change can be detected rather than mis-rendered.
  */
 
-export const REPORT_JSON_VERSION = 1;
+export const REPORT_JSON_VERSION = 2;
 
 export type Urgency = "critical" | "high" | "normal" | "mentions";
 
@@ -22,6 +22,8 @@ export interface ReportJson {
   version: number;
   date: string;
   personal: { urgency: Urgency; entries: ReportEntry[] }[];
+  /** The News section, grouped under the editor's headings. Absent on a version-1 row. */
+  news?: { group: string; entries: ReportEntry[] }[];
   intel: { domain: string; entries: ReportEntry[] }[];
   alsoNoted: ReportEntry[];
 }

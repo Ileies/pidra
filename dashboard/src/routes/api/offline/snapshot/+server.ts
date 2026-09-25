@@ -161,6 +161,7 @@ function refIdsOf(report: MirroredReport): string[] {
   if (report.structured) {
     return [
       ...report.structured.personal.flatMap((g) => g.entries.flatMap((e) => e.refIds)),
+      ...(report.structured.news ?? []).flatMap((g) => g.entries.flatMap((e) => e.refIds)),
       ...report.structured.intel.flatMap((g) => g.entries.flatMap((e) => e.refIds)),
       ...report.structured.alsoNoted.flatMap((e) => e.refIds),
     ];

@@ -21,6 +21,16 @@ export interface ExtractedJson {
   urgency?: string;
   action_required?: string | null;
   deadline?: string | null;
+  // A news desk story (`source_type = 'web_news'`); see NewsExtraction in src/news/validate.ts.
+  desk?: string;
+  context?: string;
+  significance?: number;
+  status?: "new" | "update";
+  confidence?: "confirmed" | "reported" | "unconfirmed";
+  region?: string;
+  topic?: string;
+  happened_at?: string;
+  sources?: { publisher: string; title: string; url: string }[];
 }
 
 export interface ExtractionItem {

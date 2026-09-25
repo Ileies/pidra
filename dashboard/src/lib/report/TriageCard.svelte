@@ -71,6 +71,8 @@
     if (!detail || detail.relevanceScore === null) return null;
 
     const bar = detail.threshold === undefined ? "" : `, needed ${fmtScore(detail.threshold)}`;
+    // A news desk scores significance on its own scale, and nothing weights it.
+    if (item.sourceType === "web_news") return `Significance ${fmtScore(detail.relevanceScore)}${bar}`;
     const weighted = detail.trustScore !== 1 || detail.corroborationBonus > 0;
     if (!weighted) return `Relevance ${fmtScore(detail.relevanceScore)}${bar}`;
 
@@ -112,7 +114,10 @@
 <article class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex flex-col gap-2">
   <div class="flex flex-wrap items-center gap-2 text-xs">
     <Badge tone={meta.tone} solid title={meta.hint}>{meta.label}</Badge>
-    {#if item.sourceName}
+    {#if item.sourceType === "web_news"}
+      <!-- A desk is not a source with a quality history, so there is no /sources page to open. -->
+      <span class="text-surface-300 truncate max-w-[14rem]">{displayLabel(item.sourceName)}</span>
+    {:else if item.sourceName}
       <a href="/sources/{encodeURIComponent(item.sourceName)}" class="text-surface-300 no-underline hover:text-surface-100 truncate max-w-[14rem]">
         {item.sourceName}
       </a>

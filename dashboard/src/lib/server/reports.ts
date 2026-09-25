@@ -18,6 +18,11 @@ export interface RenderedEntry {
 
 export interface RenderedReport {
   personal: { urgency: Urgency; entries: RenderedEntry[] }[];
+  /**
+   * Optional, not because the server ever leaves it out, but because a report mirrored before the
+   * field existed can still be read offline until the next sync replaces it.
+   */
+  news?: { group: string; entries: RenderedEntry[] }[];
   intel: { domain: string; entries: RenderedEntry[] }[];
   alsoNoted: RenderedEntry[];
 }
@@ -48,6 +53,7 @@ export function collectRefIds(reportJson: ReportJson | null, fullReport: string 
     return [
       ...new Set([
         ...reportJson.personal.flatMap((group) => group.entries.flatMap((entry) => entry.refIds)),
+        ...(reportJson.news ?? []).flatMap((group) => group.entries.flatMap((entry) => entry.refIds)),
         ...reportJson.intel.flatMap((group) => group.entries.flatMap((entry) => entry.refIds)),
         ...reportJson.alsoNoted.flatMap((entry) => entry.refIds),
       ]),
@@ -84,6 +90,7 @@ export function renderReport(params: {
   const structured: RenderedReport | null = reportJson
     ? {
         personal: reportJson.personal.map((group) => ({ urgency: group.urgency, entries: group.entries.map(render) })),
+        news: (reportJson.news ?? []).map((group) => ({ group: group.group, entries: group.entries.map(render) })),
         intel: reportJson.intel.map((group) => ({ domain: group.domain, entries: group.entries.map(render) })),
         alsoNoted: reportJson.alsoNoted.map(render),
       }

@@ -59,7 +59,25 @@ const LABELS: Record<string, string> = {
   spam: "Classified as spam",
   general_news: "General news, not personal",
   automated_low_urgency: "Automated and not urgent",
+  unverified_source: "No source the search actually returned",
+  outside_window: "Happened before the news window",
+  duplicate: "Same story as another desk's",
+  already_reported: "Already reported on an earlier day",
   not_gated: "Not subject to the gate",
+
+  // news desks (src/news/desks.ts), as `raw_items.source_name` names them
+  "news:world": "World news desk",
+  "news:home": "Home news desk",
+  "news:beat": "Beat news desk",
+  "news:field": "Fields news desk",
+  "news:talk": "Talk of the day desk",
+  "news:serendipity": "Something different desk",
+  news: "News desks",
+
+  // news story confidence
+  confirmed: "Confirmed",
+  reported: "Reported",
+  unconfirmed: "Unconfirmed",
 
   // ingest drop reasons (src/ingest/imap.ts)
   substack_system: "Substack system notification",

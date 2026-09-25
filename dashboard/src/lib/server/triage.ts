@@ -36,6 +36,10 @@ export type GateReason =
   | "spam"
   | "general_news"
   | "automated_low_urgency"
+  | "unverified_source"
+  | "outside_window"
+  | "duplicate"
+  | "already_reported"
   | "not_gated";
 
 export interface GateDetail {
@@ -129,8 +133,11 @@ export interface TriageSummary {
   ingestFailures: IngestFailure[];
 }
 
-/** Only mail-shaped sources. Calendar entries and todos never pass through extraction at all. */
-const MAIL_TYPES = ["newsletter", "personal_email", "sms"];
+/**
+ * Mail-shaped sources, plus the news desks: each desk's delivery is one item with its stories under
+ * it, like a newsletter's. Calendar entries and todos never pass through extraction at all.
+ */
+const MAIL_TYPES = ["newsletter", "personal_email", "sms", "web_news"];
 
 type Row = {
   raw_item_id: string;

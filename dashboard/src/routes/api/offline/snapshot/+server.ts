@@ -1,6 +1,7 @@
+import type { RequestHandler } from "./$types";
 import { sql } from "#lib/db.js";
 import { parseJsonb } from "#lib/jsonb.js";
-import { version } from "$app/env";
+import { bodyFor, currentSnapshot, MIRROR_DAYS, requestedEtags, type SnapshotStores } from "#lib/server/snapshotCache.js";
 import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/reports.js";
 import { loadExtractions } from "#lib/server/extractions.js";
 import { loadHarvestDocument } from "#lib/server/contextBuilder.js";
@@ -12,12 +13,11 @@ import type { ReportJson } from "#lib/report/types.js";
  * semantics: every query here reuses the same server helpers the live pages call, so the mirror
  * never renders a report, a harvest document or a rule differently than the online path would.
  *
- * Simplified from the original design on purpose: no `since` delta and no explicit `deleted` list.
- * At the measured size (a 60-day window is 2-3 MB, OFFLINE_PLAN.md §4) a full pull on every sync is
- * cheap, and `sync.ts` does a full replace of each store against whatever this returns - which
- * handles deletions for free, since a row missing from the response is pruned from the mirror
- * without the server needing to track a tombstone list. Add `since` later if the archive ever grows
- * past the point where a full pull is worth avoiding; nothing else here would need to change shape.
+ * What goes over the wire is decided by `#lib/server/snapshotCache.ts`: a `304` when the client's
+ * ETag is still current, a delta of the rows that changed since a version this process built
+ * recently, or the whole thing. Every answer lists all ids per store, so deletions reach the mirror
+ * without a tombstone list: a row missing from `ids` is pruned. The builders below do not know
+ * about any of that; they assemble the full window, and the cache decides how much of it to send.
  *
  * Never in the payload: `raw_items.raw_content` (loadExtractions with withRawContent: false, same
  * as the inline expansion), and anything from chat_messages, skill_executions, push_subscriptions
@@ -29,8 +29,6 @@ import type { ReportJson } from "#lib/report/types.js";
  * page because this is the choke point - the report page reads only the mirror, so a consumer
  * cannot reach past this to the raw column even if it tried.
  */
-
-const MIRROR_DAYS = 60;
 
 interface MirroredReport {
   id: string; // == date
@@ -238,7 +236,7 @@ async function buildContextCounts() {
   return counts as { contacts: number; entities: number; standing_context: number; indexed_email: number; indexed_keep: number };
 }
 
-export const GET = async () => {
+async function assemble(): Promise<SnapshotStores> {
   const [{ reports, extractionIds }, notes, rules, corrections, counts, harvest] = await Promise.all([
     buildReports(),
     buildNotes(),
@@ -252,31 +250,31 @@ export const GET = async () => {
 
   const extractions = extractionIds.length > 0 ? await loadExtractions(extractionIds, { withRawContent: false }) : [];
 
-  return new Response(
-    JSON.stringify({
-      version,
-      generatedAt: new Date().toISOString(),
-      stores: {
-        reports,
-        extractions,
-        notes,
-        rules,
-        corrections,
-        contextDoc: {
-          id: "current",
-          run: harvest.run,
-          doc: harvest.doc,
-          docError: harvest.docError,
-          skipped: harvest.skipped,
-          // Same rows as stores.rules/stores.corrections - the /context-builder page shows both
-          // alongside the harvest, so its mirror entry carries its own copy rather than the page
-          // having to reach into two other stores to reassemble what it needs.
-          standing: rules,
-          corrections,
-          counts,
-        },
-      },
-    }),
-    { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
-  );
+  const contextDoc = {
+    id: "current",
+    run: harvest.run,
+    doc: harvest.doc,
+    docError: harvest.docError,
+    skipped: harvest.skipped,
+    // Same rows as stores.rules/stores.corrections - the /context-builder page shows both
+    // alongside the harvest, so its mirror entry carries its own copy rather than the page
+    // having to reach into two other stores to reassemble what it needs.
+    standing: rules,
+    corrections,
+    counts,
+  };
+
+  // `contextDoc` is a one-row store, so every store has the same shape and the cache can hash and
+  // diff them alike.
+  return { reports, extractions, notes, rules, corrections, contextDoc: [contextDoc] };
+}
+
+export const GET: RequestHandler = async ({ request }) => {
+  const built = await currentSnapshot(assemble);
+  // `no-store` keeps the browser's HTTP cache out of it: `sync.ts` sends `If-None-Match` itself
+  // and needs to see the 304, which a cache that answered on its behalf would turn into a 200.
+  const headers = { "Content-Type": "application/json", "Cache-Control": "no-store", ETag: `"${built.etag}"` };
+  const known = requestedEtags(request.headers.get("if-none-match"));
+  if (known.includes(built.etag)) return new Response(null, { status: 304, headers });
+  return new Response(JSON.stringify(bodyFor(built, known)), { headers });
 };

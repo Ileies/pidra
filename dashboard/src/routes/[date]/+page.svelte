@@ -9,9 +9,11 @@
   import DayNav from "#lib/report/DayNav.svelte";
   import IngestWarning from "#lib/report/IngestWarning.svelte";
   import NewsSection from "#lib/report/NewsSection.svelte";
+  import QuickActions from "#lib/report/QuickActions.svelte";
   import ReportEntry from "#lib/report/ReportEntry.svelte";
   import SectionNav from "#lib/report/SectionNav.svelte";
-  import { URGENCY_META, type NavTarget } from "#lib/report/types.js";
+  import { ACTION_META, URGENCY_META, type NavTarget, type QuickAction } from "#lib/report/types.js";
+  import type { RenderedEntry } from "#lib/server/reports.js";
   import { fmtCost, fmtDate, fmtNum } from "#lib/format.js";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
@@ -66,6 +68,11 @@
               .map((f) => `${f.source} (${f.kind})`)
               .join(", ")} never delivered, so anything from them is missing from this briefing.`
           : "",
+        openActions.length > 0
+          ? `The report offers quick-action buttons the user can tap: ${openActions
+              .map((a) => `${ACTION_META[a.preview.kind].verb} "${a.preview.title}"`)
+              .join(", ")}.`
+          : "",
       ].filter(Boolean).join(" "),
     });
   });
@@ -106,6 +113,28 @@
     data.structured?.personal.reduce((sum, group) => sum + group.entries.length, 0) ?? 0,
   );
 
+  // --- quick actions ---
+
+  /**
+   * Each action sits under the first personal entry that cites one of its mails, so the button is
+   * next to the text that explains it. One the report never mentions (an automated booking
+   * confirmation the gate kept out of Section 2, or a mail Section 2 left out) goes in its own
+   * block at the end of the section, with the agent's one line on what the mail asked.
+   */
+  const placement = $derived.by(() => {
+    const entries = data.structured?.personal.flatMap((group) => group.entries) ?? [];
+    const byEntry = new Map<RenderedEntry, QuickAction[]>();
+    const unplaced: QuickAction[] = [];
+    for (const action of data.actions) {
+      const entry = entries.find((e) => e.refIds.some((id) => action.sourceIds.includes(id)));
+      if (entry) byEntry.set(entry, [...(byEntry.get(entry) ?? []), action]);
+      else unplaced.push(action);
+    }
+    return { byEntry, unplaced };
+  });
+
+  const openActions = $derived(data.actions.filter((a) => a.status === "proposed" || a.status === "failed"));
+
   // `?? []`: a report mirrored before the News section existed has no `news` at all.
   const newsGroups = $derived(data.structured?.news ?? []);
 
@@ -120,7 +149,7 @@
 
   const sectionTargets = $derived<NavTarget[]>(
     [
-      personalEntries > 0 ? { id: "personal", label: "Personal" } : null,
+      personalEntries > 0 || placement.unplaced.length > 0 ? { id: "personal", label: "Personal" } : null,
       newsGroups.length > 0 ? { id: "news", label: "News" } : null,
       (data.structured?.intel.length ?? 0) > 0 ? { id: "intel", label: "Briefing" } : null,
       (data.structured?.alsoNoted.length ?? 0) > 0 ? { id: "also-noted", label: "Also noted" } : null,
@@ -207,7 +236,7 @@
 
     <!-- Section 2 leads, at every width. It is the actionable half; the briefing
          is the half you read when you have time. -->
-    {#if personalEntries > 0}
+    {#if personalEntries > 0 || placement.unplaced.length > 0}
       <section id="personal" tabindex="-1" class="flex flex-col gap-5 scroll-mt-[calc(var(--header-h)+3.5rem)]">
         <h2 class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2">Personal Action Center</h2>
 
@@ -222,10 +251,17 @@
               <span class="text-xs font-normal text-surface-400">{group.entries.length}</span>
             </h3>
             {#each group.entries as entry, index (index)}
-              <ReportEntry {entry} date={data.date} {ratings} {onRate} accent={meta.accent} />
+              <ReportEntry {entry} date={data.date} {ratings} {onRate} accent={meta.accent} actions={placement.byEntry.get(entry)} />
             {/each}
           </div>
         {/each}
+
+        {#if placement.unplaced.length > 0}
+          <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-surface-200">Quick actions</h3>
+            <QuickActions actions={placement.unplaced} showReason />
+          </div>
+        {/if}
       </section>
     {:else}
       <!-- An empty panel above the fold is worse than no panel. -->
@@ -264,6 +300,8 @@
     <!-- The parser found no section headings, or this row predates report_json. The markdown
          renders exactly as it always did, so a prompt drift degrades the layout rather than
          emptying the page (C1). -->
+    <!-- No entries to attach the actions to, so they lead, each with its reason. -->
+    <QuickActions actions={data.actions} showReason />
     <div class="report-body">
       {@html data.reportHtml}
     </div>

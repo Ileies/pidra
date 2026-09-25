@@ -89,13 +89,30 @@ function report(date: string, structured: MirroredReport["structured"]): Mirrore
   };
 }
 
+/** The quick action on today's personal entry: online-only, so offline it must say so. */
+export const ACTION = {
+  id: "00000000-0000-4000-8000-0000000000f1",
+  title: "Renew the example permit",
+} as const;
+
 const reports: MirroredReport[] = [
-  report(TODAY, {
-    personal: [{ urgency: "high", entries: [{ html: `<p>${TEXT.personal}</p>`, refIds: [EXTRACTION.personal] }] }],
-    news: [{ group: "World", entries: [{ html: `<p>${TEXT.news}</p>`, refIds: [EXTRACTION.news] }] }],
-    intel: [{ domain: "Technology", entries: [{ html: `<p>${TEXT.intel}</p>`, refIds: [EXTRACTION.intel] }] }],
-    alsoNoted: [],
-  }),
+  {
+    ...report(TODAY, {
+      personal: [{ urgency: "high", entries: [{ html: `<p>${TEXT.personal}</p>`, refIds: [EXTRACTION.personal] }] }],
+      news: [{ group: "World", entries: [{ html: `<p>${TEXT.news}</p>`, refIds: [EXTRACTION.news] }] }],
+      intel: [{ domain: "Technology", entries: [{ html: `<p>${TEXT.intel}</p>`, refIds: [EXTRACTION.intel] }] }],
+      alsoNoted: [],
+    }),
+    actions: [
+      {
+        id: ACTION.id,
+        status: "proposed",
+        preview: { kind: "add_todo", title: ACTION.title, due: TODAY, notes: null },
+        reason: "The example office asks for the renewal before Friday.",
+        sourceIds: [EXTRACTION.personal],
+      },
+    ],
+  },
   report(YESTERDAY, {
     personal: [],
     news: [],

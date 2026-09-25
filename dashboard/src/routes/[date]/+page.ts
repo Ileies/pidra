@@ -40,6 +40,7 @@ export const load: PageLoad = async ({ params, depends }) => {
     structured: data?.structured ?? null,
     reportHtml: data?.reportHtml ?? null,
     ratings: data?.ratings ?? {},
+    actions: data?.actions ?? [],
     // Newer dates sort first, so "next" (a later date) is the previous array entry.
     prevDate: sorted[index + 1] ?? null,
     nextDate: index > 0 ? sorted[index - 1] : null,

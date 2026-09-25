@@ -27,6 +27,7 @@ import type { ExtractedJson } from "#lib/server/extractions.js";
 import type { HarvestDoc, HarvestRun } from "#lib/server/contextBuilder.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
 import type { IngestFailure, StepAttempt } from "#lib/pipeline.js";
+import type { QuickAction } from "#lib/report/types.js";
 
 /**
  * A load's `depends`, or null for a read from a component (the inline source expansion, the
@@ -77,6 +78,8 @@ export interface MirroredReport {
   structured: RenderedReport | null;
   reportHtml: string | null;
   ratings: Record<string, string>;
+  /** The report's quick actions. Absent on a report mirrored before they existed. */
+  actions?: QuickAction[];
 }
 
 export async function report(depends: Depends, date: string): Promise<MirroredReport | null> {

@@ -12,7 +12,9 @@
    */
   import { extractionsFor, type MirroredExtraction } from "#lib/offline/repo.js";
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
+  import QuickActions from "#lib/report/QuickActions.svelte";
   import RateButtons from "#lib/report/RateButtons.svelte";
+  import type { QuickAction } from "#lib/report/types.js";
   import type { RenderedEntry } from "#lib/server/reports.js";
 
   interface Props {
@@ -22,9 +24,11 @@
     onRate: (extractionId: string, eventType: string | null) => void;
     /** A left accent bar, for the urgency groups in Section 2. */
     accent?: string;
+    /** The quick actions for the mails this entry cites. The page assigns each to one entry. */
+    actions?: QuickAction[];
   }
 
-  let { entry, date, ratings, onRate, accent }: Props = $props();
+  let { entry, date, ratings, onRate, accent, actions = [] }: Props = $props();
 
   let open = $state(false);
   let items = $state<MirroredExtraction[] | null>(null);
@@ -61,6 +65,8 @@
       </div>
     {/if}
   </div>
+
+  <QuickActions {actions} />
 
   {#if entry.refIds.length > 0}
     <div class="flex items-center gap-3">

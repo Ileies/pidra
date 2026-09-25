@@ -70,6 +70,32 @@ export function fmtTime(value: DateInput, withSeconds = true): string {
   });
 }
 
+/** "Tue 30 Sep", with the year only when it is not this one. */
+export function fmtDay(value: DateInput): string {
+  const date = toDate(value);
+  if (!date) return EMPTY;
+  return date.toLocaleDateString(LOCALE, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
+  });
+}
+
+/**
+ * When something happens: "Tue 30 Sep, 14:00–15:00", "Tue 30 Sep, 22:00 – Wed 1 Oct, 02:00", or
+ * for whole days "Tue 30 Sep" and "Tue 30 Sep – Thu 2 Oct". A whole-day `end` is the last day.
+ */
+export function fmtSpan(start: DateInput, end: DateInput, allDay: boolean): string {
+  if (!toDate(start)) return EMPTY;
+  if (allDay) {
+    return !toDate(end) || isoDay(end) === isoDay(start) ? fmtDay(start) : `${fmtDay(start)} – ${fmtDay(end)}`;
+  }
+  const from = `${fmtDay(start)}, ${fmtTime(start, false)}`;
+  if (!toDate(end)) return from;
+  return isoDay(end) === isoDay(start) ? `${from}–${fmtTime(end, false)}` : `${from} – ${fmtDay(end)}, ${fmtTime(end, false)}`;
+}
+
 /** Local calendar date as `YYYY-MM-DD`. `sv-SE` is the shortest way to get one without UTC drift. */
 export function isoDay(value: DateInput = new Date()): string {
   return (toDate(value) ?? new Date()).toLocaleDateString("sv-SE");

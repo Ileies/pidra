@@ -6,7 +6,7 @@ import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/report
 import { loadExtractions } from "#lib/server/extractions.js";
 import { loadHarvestDocument } from "#lib/server/contextBuilder.js";
 import { ingestFailures, withoutDetail, type IngestFailure, type StepAttempt } from "#lib/pipeline.js";
-import type { ReportJson } from "#lib/report/types.js";
+import type { ActionPreview, ActionStatus, QuickAction, ReportJson } from "#lib/report/types.js";
 
 /**
  * The one endpoint the offline mirror pulls from. Assembly, not new SQL
@@ -56,6 +56,8 @@ interface MirroredReport {
   structured: ReturnType<typeof renderReport>["structured"];
   reportHtml: string | null;
   ratings: Record<string, string>;
+  /** The quick actions still on offer or already done. Dismissed and discarded ones stay home. */
+  actions: QuickAction[];
 }
 
 async function buildReports(): Promise<{ reports: MirroredReport[]; extractionIds: string[] }> {
@@ -65,7 +67,7 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
   const dates = dateRows.map((row) => row.report_date as string);
   if (dates.length === 0) return { reports: [], extractionIds: [] };
 
-  const [reportRows, runRows] = await Promise.all([
+  const [reportRows, runRows, actionRows] = await Promise.all([
     db`
       SELECT report_date::text AS report_date, full_report, report_json, short_summary,
              item_count, items_included, items_filtered, tokens_in, tokens_out, ai_calls,
@@ -84,9 +86,31 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
       WHERE run_date::text = ANY(${dates})
       ORDER BY run_date, started_at DESC
     `,
+    // No `status_detail`: on a failed action it is an error message, which stays on the server
+    // like `step_errors` does.
+    db`
+      SELECT id, run_date::text AS run_date, status, preview, reason, source_extraction_ids::text[] AS source_ids
+      FROM report_actions
+      WHERE run_date::text = ANY(${dates}) AND status IN ('proposed', 'running', 'done', 'failed', 'queued')
+      ORDER BY created_at, id
+    `,
   ]);
 
   const runByDate = new Map(runRows.map((row) => [row.run_date as string, row]));
+  const actionsByDate = new Map<string, QuickAction[]>();
+  for (const row of actionRows) {
+    const date = row.run_date as string;
+    actionsByDate.set(date, [
+      ...(actionsByDate.get(date) ?? []),
+      {
+        id: row.id as string,
+        status: row.status as ActionStatus,
+        preview: parseJsonb<ActionPreview>(row.preview, { kind: "add_todo", title: "", due: null, notes: null }),
+        reason: (row.reason as string | null) ?? null,
+        sourceIds: (row.source_ids as string[] | null) ?? [],
+      },
+    ]);
+  }
 
   const parsed = reportRows.map((row) => {
     const date = row.report_date as string;
@@ -132,6 +156,7 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
       structured,
       reportHtml,
       ratings: {},
+      actions: actionsByDate.get(date) ?? [],
     };
   });
 

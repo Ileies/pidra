@@ -224,6 +224,16 @@ const CONTROLS: Record<string, Control[]> = {
       },
     },
     {
+      // Never queued: it writes to Google Calendar or Tasks. Offline it is disabled with the reason.
+      name: "a quick action says it needs the connection",
+      async run(page, deadline) {
+        const list = page.getByRole("list", { name: "Quick actions" });
+        await visible(list.getByText(F.ACTION.title), deadline);
+        await visible(list.getByText("Needs the connection"), deadline);
+        if (await list.getByRole("button", { name: "Add to to-do" }).isEnabled()) throw new Error("Add to to-do is enabled offline");
+      },
+    },
+    {
       name: "open the sync sheet",
       async run(page, deadline) {
         await INDICATOR(page).click({ timeout: remaining(deadline) });

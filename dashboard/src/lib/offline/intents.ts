@@ -31,6 +31,38 @@ export interface Intent {
   lastError: string | null;
 }
 
+export const INTENT_LABEL: Record<IntentKind, string> = {
+  "note.create": "New note",
+  "note.update": "Note edit",
+  "note.delete": "Note deleted",
+  "note.restore": "Note restored",
+  rate: "Rating",
+  "rule.create": "New rule",
+  "rule.update": "Rule edit",
+  "rule.delete": "Rule deleted",
+};
+
+/** The row an intent is about: a note, a rule (a queued create's temporary id), or an extraction. */
+export function intentTarget(intent: Intent): string {
+  const p = intent.payload as { id?: string; localId?: string; extractionId?: string };
+  return p.localId ?? p.id ?? p.extractionId ?? "";
+}
+
+/** Whether an intent writes a row of this kind with this id, which is where its state is shown. */
+export function intentIsFor(intent: Intent, row: "note" | "rule" | "rate", id: string): boolean {
+  const family = intent.kind === "rate" ? "rate" : intent.kind.split(".")[0];
+  return family === row && intentTarget(intent) === id;
+}
+
+/** Enough of the payload to say what changed, for a write whose row is not on screen. */
+export function intentSummary(intent: Intent): string {
+  const p = intent.payload as Record<string, unknown>;
+  if (intent.kind === "note.create") return String(p.content ?? "").slice(0, 60);
+  if (intent.kind === "rule.create") return String(p.key ?? "");
+  const target = intentTarget(intent);
+  return intent.kind === "rate" ? `extraction ${target.slice(0, 8)}…` : `${target.slice(0, 8)}…`;
+}
+
 /** How a request goes out: `net()` in a page, a bounded `fetch` in the worker. */
 export type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 

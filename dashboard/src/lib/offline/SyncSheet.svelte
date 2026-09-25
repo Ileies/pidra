@@ -8,39 +8,11 @@
   import { offline } from "#lib/offline/state.svelte.js";
   import { fmtDateTime, fmtElapsed } from "#lib/format.js";
   import { toasts } from "#lib/toast.svelte.js";
-  import type { Intent, IntentKind } from "#lib/offline/outbox.js";
+  import { INTENT_LABEL, intentSummary } from "#lib/offline/outbox.js";
+  import FailedWrite from "#lib/offline/FailedWrite.svelte";
 
   function onKeydown(event: KeyboardEvent) {
     if (event.key === "Escape" && offline.sheetOpen) offline.closeSheet();
-  }
-
-  const KIND_LABEL: Record<IntentKind, string> = {
-    "note.create": "New note",
-    "note.update": "Note edit",
-    "note.delete": "Note deleted",
-    "note.restore": "Note restored",
-    rate: "Rating",
-    "rule.create": "New rule",
-    "rule.update": "Rule edit",
-    "rule.delete": "Rule deleted",
-  };
-
-  /** Enough of the payload to say what changed, without reproducing the whole thing - the failed
-   *  list keeps the real payload for recovery; this is only the summary line. */
-  function targetOf(intent: Intent): string {
-    const p = intent.payload as Record<string, unknown>;
-    if (intent.kind === "note.create") return String(p.content ?? "").slice(0, 60);
-    if (intent.kind === "rate") return `extraction ${String(p.extractionId ?? "").slice(0, 8)}…`;
-    if (intent.kind === "rule.create") return String(p.key ?? "");
-    return String(p.id ?? "").slice(0, 8) + "…";
-  }
-
-  async function retry(id: string) {
-    await offline.retryFailed(id);
-  }
-
-  async function discard(id: string) {
-    await offline.discardFailed(id);
   }
 
   async function clearMirror() {
@@ -101,8 +73,8 @@
         <ul class="flex flex-col gap-1">
           {#each offline.pending as intent (intent.id)}
             <li class="rounded border border-surface-700 bg-surface-950 px-2.5 py-1.5 text-xs text-surface-300 flex items-center gap-2">
-              <span class="badge border border-warning-800 bg-warning-950 text-warning-400 shrink-0">{KIND_LABEL[intent.kind]}</span>
-              <span class="truncate min-w-0">{targetOf(intent)}</span>
+              <span class="badge border border-warning-800 bg-warning-950 text-warning-400 shrink-0">{INTENT_LABEL[intent.kind]}</span>
+              <span class="truncate min-w-0">{intentSummary(intent)}</span>
             </li>
           {/each}
         </ul>
@@ -114,25 +86,7 @@
         <p class="text-xs font-medium text-error-400">{offline.failed.length} failed</p>
         <ul class="flex flex-col gap-1">
           {#each offline.failed as intent (intent.id)}
-            <li class="rounded border border-error-800 bg-error-950/40 px-2.5 py-1.5 text-xs text-surface-300 flex flex-col gap-1">
-              <div class="flex items-center gap-2">
-                <span class="badge border border-error-800 bg-error-950 text-error-400 shrink-0">{KIND_LABEL[intent.kind]}</span>
-                <span class="truncate min-w-0">{targetOf(intent)}</span>
-              </div>
-              {#if intent.lastError}<p class="text-error-400/80 break-words">{intent.lastError}</p>{/if}
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  onclick={() => retry(intent.id)}
-                  class="tap px-2 py-0.5 rounded bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
-                >Retry</button>
-                <button
-                  type="button"
-                  onclick={() => discard(intent.id)}
-                  class="tap px-2 py-0.5 rounded bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
-                >Discard</button>
-              </div>
-            </li>
+            <li><FailedWrite {intent} showTarget /></li>
           {/each}
         </ul>
       </div>

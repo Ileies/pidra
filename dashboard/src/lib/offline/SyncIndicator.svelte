@@ -15,18 +15,21 @@
     offline.start();
   });
 
+  // Every part that applies, so a count never hides that the app is offline, or the other way round.
   const label = $derived(
-    offline.queuedCount > 0
-      ? `${offline.queuedCount} queued`
-      : offline.reachable === "offline"
-        ? "Offline"
-        : offline.reachable === "checking"
-          ? "Checking"
-          : "Online",
+    [
+      offline.reachable === "offline" ? "Offline" : offline.reachable === "checking" ? "Checking" : null,
+      offline.failed.length > 0 ? `${offline.failed.length} not saved` : null,
+      offline.queuedCount > 0 ? `${offline.queuedCount} queued` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "Online",
   );
 
   const dotClass = $derived(
-    offline.queuedCount > 0
+    offline.failed.length > 0
+      ? "bg-error-500"
+      : offline.queuedCount > 0
       ? "bg-warning-500"
       : offline.reachable === "online"
         ? "bg-success-500"

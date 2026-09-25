@@ -8,6 +8,8 @@
   import { label as displayLabel } from "#lib/labels.js";
   import Spinner from "#lib/components/Spinner.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
+  import { intentIsFor } from "#lib/offline/outbox.js";
+  import FailedWrite from "#lib/offline/FailedWrite.svelte";
   import type { NoteRow } from "#lib/notes/api.js";
 
   interface Props {
@@ -47,9 +49,8 @@
 
   /** OFFLINE_PLAN.md §9: a small "queued" chip rather than pretending an offline write already
    *  reached the server. */
-  const queued = $derived(
-    offline.pending.some((i) => i.kind.startsWith("note.") && (i.payload as { id?: string }).id === note.id),
-  );
+  const queued = $derived(offline.pending.some((i) => intentIsFor(i, "note", note.id)));
+  const failedWrites = $derived(offline.failed.filter((i) => intentIsFor(i, "note", note.id)));
 
   function startEdit() {
     if (deleted) return;
@@ -262,6 +263,10 @@
           <span class="badge border border-warning-800 bg-warning-950 text-warning-400">Queued</span>
         {/if}
       </p>
+
+      {#each failedWrites as intent (intent.id)}
+        <div class="mt-2"><FailedWrite {intent} /></div>
+      {/each}
 
       {#if note.conflicted}
         <p class="text-xs text-warning-400 mt-1">

@@ -38,13 +38,15 @@
 
   /** OFFLINE_PLAN.md §9: optimistic, but never pretending it is durable - a small dot rather than
    *  hiding the fact that this rating has not reached the server yet. */
-  const queued = $derived(
-    offline.pending.some((i) => i.kind === "rate" && (i.payload as { extractionId?: string }).extractionId === extractionId),
-  );
+  const queued = $derived(offline.pending.some((i) => outbox.intentIsFor(i, "rate", extractionId)));
+  /** A tap replaces it (`outbox.rate`), so a retry here is just rating again. */
+  const failed = $derived(offline.failed.find((i) => outbox.intentIsFor(i, "rate", extractionId)));
 </script>
 
 <div class="flex items-center gap-1">
-  {#if queued}
+  {#if failed}
+    <span class="text-xs text-error-400" title="{failed.lastError ?? 'Refused by the server'}. Tap again to retry.">Not saved</span>
+  {:else if queued}
     <span class="h-1.5 w-1.5 rounded-full bg-warning-500" title="Rating queued, not yet synced" aria-hidden="true"></span>
   {/if}
   {#each BUTTONS as button (button.signal)}

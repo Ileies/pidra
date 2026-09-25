@@ -185,8 +185,11 @@ class OfflineState {
     await outbox.retryFailed(id);
   }
 
+  /** The discarded write's effect can still be in the mirror, so the row is put back to what the
+   *  server has; `drain` already dropped the ETag, so this pull is a full one. */
   async discardFailed(id: string): Promise<void> {
     await outbox.discardFailed(id);
+    void sync({ force: true });
   }
 
   /** Refuses while anything is queued (§9): wiping a queue that still holds a write nothing else

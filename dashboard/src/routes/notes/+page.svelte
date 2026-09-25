@@ -11,6 +11,9 @@
   import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "#lib/notes/api.js";
   import { filterNotes, type NotesFilter } from "#lib/offline/repo.js";
   import { sync } from "#lib/offline/sync.js";
+  import { offline } from "#lib/offline/state.svelte.js";
+  import { intentIsFor } from "#lib/offline/outbox.js";
+  import FailedWrite from "#lib/offline/FailedWrite.svelte";
   import type { PageData } from "./$types";
   import type { NoteRow } from "#lib/notes/api.js";
 
@@ -80,6 +83,12 @@
   }
 
   const shown = $derived(filterNotes(data.notes, filter));
+
+  // A failed create has no row once a pull has put the mirror back to the server's state; it is
+  // listed here instead, so it is still seen where it was made.
+  const orphanedFailures = $derived(
+    offline.failed.filter((i) => i.kind.startsWith("note.") && !data.notes.some((note) => intentIsFor(i, "note", note.id))),
+  );
   const counts = $derived({
     active: data.notes.filter((note) => !note.deleted_at).length,
     deleted: data.notes.filter((note) => !!note.deleted_at).length,
@@ -296,6 +305,10 @@
       </div>
     </div>
   {/if}
+
+  {#each orphanedFailures as intent (intent.id)}
+    <FailedWrite {intent} showTarget />
+  {/each}
 
   {#if shown.length === 0}
     <EmptyState

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import * as outbox from "#lib/offline/outbox.js";
+  import { intentIsFor } from "#lib/offline/outbox.js";
   import { offline } from "#lib/offline/state.svelte.js";
+  import FailedWrite from "#lib/offline/FailedWrite.svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
@@ -38,11 +40,18 @@
    *  (`applyOptimistic`'s temporary row, OFFLINE_PLAN.md O3), so one check covers a queued create
    *  as well as a queued edit or delete against a rule already synced from the server. */
   function queuedFor(id: string): boolean {
-    return offline.pending.some((i) => {
-      const p = i.payload as { id?: string; localId?: string };
-      return (i.kind === "rule.create" && p.localId === id) || (i.kind !== "rule.create" && p.id === id);
-    });
+    return offline.pending.some((i) => intentIsFor(i, "rule", id));
   }
+
+  function failedFor(id: string) {
+    return offline.failed.filter((i) => intentIsFor(i, "rule", id));
+  }
+
+  // A failed create loses its temporary row on the next pull, and a failed delete took its row
+  // away optimistically; both are listed on their own so they are still seen here.
+  const orphanedFailures = $derived(
+    offline.failed.filter((i) => i.kind.startsWith("rule.") && !data.rules.some((rule) => intentIsFor(i, "rule", rule.id))),
+  );
 
   /** Exactly what the block looks like where it lands in the Section 2 prompt. */
   const preview = $derived(
@@ -110,6 +119,10 @@
       >Add rule</button>
     </form>
   {/if}
+
+  {#each orphanedFailures as intent (intent.id)}
+    <FailedWrite {intent} showTarget />
+  {/each}
 
   {#if data.rules.length === 0}
     <EmptyState
@@ -179,6 +192,10 @@
               >✕</button>
             </form>
           </div>
+
+          {#each failedFor(rule.id) as intent (intent.id)}
+            <FailedWrite {intent} />
+          {/each}
         </li>
       {/each}
     </ul>

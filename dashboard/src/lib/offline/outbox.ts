@@ -17,7 +17,7 @@ import { applyOptimistic, drain, sortedOutbox, storesOf, type Intent, type Inten
 import type { NoteRow } from "#lib/notes/api.js";
 
 export type { Intent, IntentKind } from "./intents.js";
-export { reapplyPending } from "./intents.js";
+export { reapplyPending, INTENT_LABEL, intentIsFor, intentSummary } from "./intents.js";
 
 /** Monotonic within one tab session, which is all ordering needs to guarantee here: intents from
  *  the same tab flush in the order they were queued. Seeded from whatever is already queued so a
@@ -123,9 +123,11 @@ export async function restoreNote(id: string): Promise<void> {
  *  extraction id") - a re-tap before the first tap has flushed replaces the queued intent rather
  *  than piling up a second one behind it. */
 export async function rate(extractionId: string, signal: "1" | "-1"): Promise<void> {
-  for (const intent of await db.getAll<Intent>("outbox")) {
-    if (intent.kind === "rate" && (intent.payload as { extractionId: string }).extractionId === extractionId) {
-      await db.del("outbox", intent.id);
+  for (const store of ["outbox", "failed"] as const) {
+    for (const intent of await db.getAll<Intent>(store)) {
+      if (intent.kind === "rate" && (intent.payload as { extractionId: string }).extractionId === extractionId) {
+        await db.del(store, intent.id);
+      }
     }
   }
   await enqueue("rate", { extractionId, signal });
@@ -175,14 +177,18 @@ export async function failed(): Promise<Intent[]> {
 }
 
 /** Re-queues a failed intent at the tail - not back in its original position, because whatever
- *  was behind it has long since flushed - and tries again immediately. */
+ *  was behind it has long since flushed - and tries again immediately. Re-applied to the mirror
+ *  first: a full pull since the failure has usually taken its effect out of the row. */
 export async function retryFailed(id: string): Promise<void> {
   const intent = await db.get<Intent>("failed", id);
   if (!intent) return;
   await db.del("failed", id);
-  await db.put("outbox", { ...intent, seq: await nextSeq(), attempts: 0, lastError: null });
+  const requeued = { ...intent, seq: await nextSeq(), attempts: 0, lastError: null };
+  await applyOptimistic(requeued);
+  await db.put("outbox", requeued);
   notify();
   flush().catch(() => {});
+  await invalidateMirror(storesOf(intent.kind));
 }
 
 export async function discardFailed(id: string): Promise<void> {

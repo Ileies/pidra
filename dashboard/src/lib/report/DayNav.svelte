@@ -6,12 +6,11 @@
    * made the mobile header six rows tall, and they were only ever on this one route. They are
    * here now, as two large targets beside the date, with the archive behind the date itself.
    *
-   * The archive list is fetched when the picker opens rather than serialised into every page
-   * load - all 60 dates used to ship with every report and nothing on the client read them (X3).
+   * The archive list is read when the picker opens, from the mirror (OFFLINE_PLAN.md H3): it is
+   * the list of reports this device can actually open, online or not, and it costs no request.
    */
   import { goto } from "$app/navigation";
-  import Spinner from "#lib/components/Spinner.svelte";
-  import { net } from "#lib/offline/net.js";
+  import { archive, type ArchiveDay } from "#lib/offline/repo.js";
   import { fmtDate } from "#lib/format.js";
 
   interface Props {
@@ -23,32 +22,13 @@
 
   let { date, today, prevDate, nextDate }: Props = $props();
 
-  interface ArchiveDay {
-    date: string;
-    summary: string | null;
-    itemsIncluded: number | null;
-  }
-
   let open = $state(false);
   let days = $state<ArchiveDay[] | null>(null);
-  let loading = $state(false);
-  let loadError = $state<string | null>(null);
 
   async function openPicker() {
     open = !open;
-    if (!open || days || loading) return;
-
-    loading = true;
-    loadError = null;
-    try {
-      const res = await net("/api/reports/archive?limit=30");
-      if (!res.ok) throw new Error(`Could not load the archive (${res.status})`);
-      days = (await res.json()).days as ArchiveDay[];
-    } catch (err) {
-      loadError = err instanceof Error ? err.message : String(err);
-    } finally {
-      loading = false;
-    }
+    // Read on every open: a sync since the last one may have brought a day.
+    if (open) days = await archive(null);
   }
 
   /** j and k step days, which is the one keyboard shortcut this page really wants (E1). */
@@ -105,11 +85,7 @@
         </div>
 
         <ul class="max-h-[50dvh] overflow-y-auto py-1">
-          {#if loading}
-            <li class="px-3 py-3 text-xs text-surface-400"><Spinner label="Loading the archive" /> Loading…</li>
-          {:else if loadError}
-            <li class="px-3 py-3 text-xs text-error-400">{loadError}</li>
-          {:else if days && days.length === 0}
+          {#if days && days.length === 0}
             <li class="px-3 py-3 text-xs text-surface-400">No reports yet.</li>
           {:else}
             {#each days ?? [] as day (day.date)}

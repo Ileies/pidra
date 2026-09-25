@@ -28,11 +28,14 @@ import type { HarvestDoc, HarvestRun } from "#lib/server/contextBuilder.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
 import type { IngestFailure, StepAttempt } from "#lib/pipeline.js";
 
-/** A load's `depends`. */
-export type Depends = (...deps: MirrorKey[]) => void;
+/**
+ * A load's `depends`, or null for a read from a component (the inline source expansion, the
+ * archive picker), which has no load to re-run and simply reads again when it next opens.
+ */
+export type Depends = ((...deps: MirrorKey[]) => void) | null;
 
 function watch(depends: Depends, ...stores: MirrorStore[]): void {
-  depends(mirrorKey("status"), ...stores.map(mirrorKey));
+  depends?.(mirrorKey("status"), ...stores.map(mirrorKey));
   void sync();
 }
 
@@ -87,6 +90,27 @@ export async function reportDates(depends: Depends): Promise<string[]> {
   watch(depends, "reports");
   const rows = await db.getAll<MirroredReport>("reports");
   return rows.map((r) => r.date).sort((a, b) => b.localeCompare(a));
+}
+
+export interface ArchiveDay {
+  date: string;
+  summary: string | null;
+  itemsIncluded: number | null;
+}
+
+/** What the date picker lists: every mirrored day, newest first, with a one-line preview. */
+export async function archive(depends: Depends): Promise<ArchiveDay[]> {
+  watch(depends, "reports");
+  const rows = await db.getAll<MirroredReport>("reports");
+  return rows
+    .map((r) => ({
+      date: r.date,
+      // The stored summary is the first few lines of Section 1 verbatim, markdown and all. One
+      // trimmed line is what a picker row has space for.
+      summary: (r.report?.shortSummary ?? "").replace(/[#*_`>]/g, "").replace(/\s+/g, " ").trim().slice(0, 120) || null,
+      itemsIncluded: r.report?.itemsIncluded ?? null,
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export interface MirroredExtraction {

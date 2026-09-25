@@ -5,12 +5,14 @@
    * "More on this" used to navigate to `/[date]/detail/[ids]`, which lost the reader's place in
    * a report several screens long. It expands the same extraction cards in place now; the deep
    * link stays as the shareable form and as the fallback for a browser with no JS.
+   *
+   * The cards come from the mirror (OFFLINE_PLAN.md H3), which holds every extraction a mirrored
+   * report cites, so they open in the same frame online or not. This used to be a request per
+   * tap, which offline meant a spinner and then an error under a report that was otherwise fine.
    */
-  import Spinner from "#lib/components/Spinner.svelte";
-  import { net } from "#lib/offline/net.js";
+  import { extractionsFor, type MirroredExtraction } from "#lib/offline/repo.js";
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
   import RateButtons from "#lib/report/RateButtons.svelte";
-  import type { ExtractionItem } from "#lib/server/extractions.js";
   import type { RenderedEntry } from "#lib/server/reports.js";
 
   interface Props {
@@ -25,11 +27,10 @@
   let { entry, date, ratings, onRate, accent }: Props = $props();
 
   let open = $state(false);
-  let items = $state<ExtractionItem[] | null>(null);
-  let loading = $state(false);
-  let loadError = $state<string | null>(null);
+  let items = $state<MirroredExtraction[] | null>(null);
 
   const href = $derived(`/${date}/detail/${entry.refIds.join(",")}`);
+  const missing = $derived(items ? entry.refIds.length - items.length : 0);
 
   async function toggle(event: MouseEvent) {
     // Modifier-clicks and middle clicks stay navigations: the deep link is real and shareable.
@@ -37,19 +38,8 @@
     event.preventDefault();
 
     open = !open;
-    if (!open || items || loading) return;
-
-    loading = true;
-    loadError = null;
-    try {
-      const res = await net(`/api/extractions?ids=${entry.refIds.join(",")}`);
-      if (!res.ok) throw new Error(`Could not load the sources (${res.status})`);
-      items = (await res.json()).items as ExtractionItem[];
-    } catch (err) {
-      loadError = err instanceof Error ? err.message : String(err);
-    } finally {
-      loading = false;
-    }
+    // Read on every open rather than once: a rating given since, or a sync, is in the mirror.
+    if (open) items = await extractionsFor(null, entry.refIds);
   }
 </script>
 
@@ -85,14 +75,18 @@
         </svg>
         {open ? "Hide sources" : entry.refIds.length === 1 ? "More on this" : `More on this (${entry.refIds.length})`}
       </a>
-      {#if loading}<Spinner label="Loading sources" />{/if}
     </div>
   {/if}
 
   {#if open}
     <div class="flex flex-col gap-2 pl-1">
-      {#if loadError}
-        <p class="text-error-400 text-xs">{loadError} <a href={href} class="underline">Open the detail page</a></p>
+      {#if missing > 0}
+        <!-- Should not happen: the snapshot mirrors every extraction a mirrored report cites. If it
+             does, say so rather than show fewer cards than the button promised. -->
+        <p class="text-surface-400 text-xs">
+          {missing === 1 ? "One source is" : `${missing} sources are`} not in the offline copy yet; the next sync brings
+          {missing === 1 ? "it" : "them"}.
+        </p>
       {/if}
       {#each items ?? [] as item (item.id)}
         <ExtractionCard {item} compact />

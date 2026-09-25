@@ -230,7 +230,7 @@ Each phase is independently shippable and leaves the app better than it found it
 **O4 - status, conflicts and honesty.** `state.svelte.ts`, the header indicator, the sync sheet, pending chips, the stale banner, `OfflineNotice` on Tier B, the changed-on-the-server flag, clear offline data.
 *Done when:* every offline state on every route is a designed state.
 
-**O5 - the device pass and the deploy.** The 390x844 checklist with the VPN genuinely off: cold start, navigate all of Tier A, write in every allowed way, force-quit, reopen still offline (the queue survives), reconnect, watch it flush, verify the rows in Postgres. Then `bun run deploy`, with the pronix `nixos-rebuild` for the nginx header done separately and first.
+**O5 - the device pass and the deploy.** Now runs after H1 to H4 and as part of H5 (§14), with the three failure modes listed there. The 390x844 checklist with the VPN genuinely off: cold start, navigate all of Tier A, write in every allowed way, force-quit, reopen still offline (the queue survives), reconnect, watch it flush, verify the rows in Postgres. Then `bun run deploy`, with the pronix `nixos-rebuild` for the nginx header done separately and first.
 
 ---
 
@@ -255,11 +255,123 @@ Each phase is independently shippable and leaves the app better than it found it
 
 ---
 
-## 14. When this lands
+## 14. Field report 2026-09-25 and the hardening phases (H1-H5)
+
+O1 to O4 shipped; the first real use on the installed PWA failed in exactly the case this plan exists for. Observed on the phone: VPN app on, app opened, **initial load much slower than it should be**. Mobile data then switched off, **Questions** tapped: a spinner for a long time, then a timeout, then the app chrome with **"500 Internal Error"** in the page slot.
+
+**The rule that was missing, stated so it can be checked:**
+
+> **No screen ever waits on the network when a local answer exists, and no request, of any kind, from any caller, can outlive a fixed budget.** A timeout is not an error state the UI handles; it is a state the architecture makes unreachable.
+
+O1 to O4 treated "offline" as fail-fast (a `TypeError` from `fetch`). The real failure mode is a **blackhole**: the VPN app is still up with no network underneath, or wg0 is down and `pidra.ileies.de` resolves to `10.200.200.1`, which on a foreign network is usually nobody. Packets leave and nothing ever answers, so every request waits for the OS connect timeout. Reproduced from the workstation off-VPN on 2026-09-25: `/api/health`, `/api/nav-badges`, `/api/offline/snapshot` and `/` each hung the full 30 s curl budget with no response at all (status `000`), none of them failed early. DevTools' offline mode is fail-fast and therefore **cannot** reproduce this; it is why the bug survived O4.
+
+### 14.1 Root causes
+
+**The Questions timeout.** `/questions` is Tier B and still has a server `load`. A client-side navigation fetches `/questions/__data.json` through SvelteKit's own `window.fetch(data_url.href, {})`, with no signal and no timeout (`node_modules/@sveltejs/kit/src/runtime/client/client.js:3640`). The service worker does not intercept it (`service-worker.ts` only handles `/_app/immutable/`, fonts, icons and `mode === "navigate"`), so nothing anywhere bounds it. `data-sveltekit-preload-data="hover"` in `app.html` fires the same request on touchstart, so the hang starts even before the tap completes. Every other Tier B route (`/sources`, `/sources/[name]`, `/feedback`, `/skills`, `/prompts`, `/runs`, `/chat`, `/[date]/triage`) and the three Tier A routes that were never converted (`/entities`, `/entities/[id]`, `/contacts`, `/topics`) have the same hole.
+
+**The "500 Internal Error".** When that fetch finally throws, SvelteKit maps an unknown error to `{ status: 500, message: "Internal Error" }` (`client.js:2503`). `+error.svelte` only swaps in `OfflineNotice` when `offline.reachable !== "online"`, but that state is only moved by `/api/health` probes on start, on `online`, and on `visibilitychange`. Switching mobile data off with the VPN app still up fires none of those, and the failed `__data.json` fetch and every failed `pull()` never report back to the state. So the state still said online and the plain error page rendered. The design decided connectivity from a separate probe instead of from the request that actually failed.
+
+**The slow start, online.** Every `repo` read is network-first in disguise. `withMirror()` (`repo.ts`) awaits `pull()` before it reads the mirror, and `pull()` awaits `outbox.flush()` before it fetches the **full** snapshot: 645,254 bytes, 0.25 to 0.28 s of server time measured on pronix, served uncompressed by the Node process (whether nginx compresses it on the wire is unverified), then a full replace of every IndexedDB store. Cold start runs this twice in series: `/` awaits `pull()` to decide where to redirect, then `/[date]` awaits `report()`, which pulls again. The same full pull runs on every day step, every tap-preload of a Tier A link, every `invalidateAll()` after an outbox write, and **every keystroke in the notes search**, because `notes/+page.svelte:61` drives the filter through `goto()` and so through the load. Nothing is single-flight, so overlapping calls download the snapshot in parallel.
+
+**The slow start, offline.** The same chain with the 8 s abort on each step: up to 8 s for `flush()` when anything is queued, 8 s for the snapshot, twice for `/` then `/[date]`, with the root layout's 4 s `nav-badges` budget beside it. A cold start offline can sit behind 16 to 32 s of timers before the mirror is read, and in the blackhole case every one of them is actually used. "Local-first" in O2 was local-last.
+
+### 14.2 Everything else found in the same pass
+
+Service worker (`dashboard/src/service-worker.ts`):
+
+1. **No shell fallback.** O1 and O2 described a route-agnostic `shell.html`; the worker still caches navigations one per path (its own header comment says so). A Tier A path never visited while online shows the browser's offline page.
+2. **Navigations are network-first without a budget.** `networkFirstNavigation()` awaits `fetch(request)` with no timeout, so a reload or a cold start in the blackhole case hangs for the OS timeout before it even looks at the cache.
+3. **A non-OK navigation is returned as-is.** VPN off with DNS still answering the public wildcard gives nginx's 403 page, and the worker hands it to the app as the document.
+4. **`cacheFirst()` falls through to an unbounded `fetch()`** on a cache miss.
+5. **`skipWaiting()` plus deleting every other version's cache on activate** pulls the chunks out from under a page that is still running the previous build. The next lazy route chunk that page asks for misses the cache, goes to the network, and either 404s (online, after a deploy) or hangs (offline).
+6. **The `push` handler does not sync.** §6 trigger 4 (pull on the 06:30 notification so the briefing is in the mirror before the train) was never built, and neither was Background Sync (§6 trigger 3).
+7. **No navigation preload** (`registration.navigationPreload`), so the online network-first path for Tier B pays worker boot plus request serially.
+8. **Install precaches all 186 build files at once**, competing with the app's own first requests on the same VPN link.
+
+Client fetches with no budget, each one a possible hang:
+
+| Caller | Request | What it should do instead |
+|---|---|---|
+| `[date]/detail/[ids]`, every Tier B route | SvelteKit's `__data.json` | bounded by the worker (H1) |
+| `ReportEntry.svelte:44` (inline source expansion) | `/api/extractions` | read the mirror, which already holds these extractions |
+| `DayNav.svelte:43` (archive picker) | `/api/reports/archive` | read `repo.reportDates()` |
+| `CommandPalette.svelte:75` | `/api/search` | mirror substring search offline, as §13 promised |
+| `notes/api.ts` `call()` | `/api/notes/*` (history panel, revert) | budget, and a designed offline state |
+| `assistant/state.svelte.ts` | `/api/assistant/surfaces`, `/api/assistant/chat` | budget on connect; hidden offline already |
+| `NotifyButton.svelte` | `/api/push/subscribe` | budget, disabled offline |
+| `[date]/+page.svelte:116` | `/api/pipeline/status` every 5 s via `setInterval` | self-scheduling `setTimeout` after completion, paused offline and hidden; `setInterval` over a blackhole piles up a new hung request every tick |
+| `context-builder/+page.svelte:84` | `/api/context-builder/status` every 2 s | same |
+| every `use:enhance` form on a server-action page | form action POST | disabled offline with a reason; budgeted when online |
+
+Plan items O2 promised that did not land: `/entities`, `/entities/[id]`, `/contacts` and `/topics` are Tier A in §1 but still `+page.server.ts` and absent from the snapshot; offline search (§13) does not exist; the §5 `since` delta was dropped in favour of a full pull on every sync, which is only cheap while syncs are rare, and the read path made them constant.
+
+### 14.3 Phases
+
+Ordered so the reported bug is gone after H1 alone. Each phase is shippable on its own.
+
+**H1 - no request can hang.** Fixes the Questions timeout and the 500. *Built 2026-09-25; what follows is what shipped, which differs from the first draft of this section where noted.*
+
+- **`$lib/offline/net.ts`, the one client-side `fetch`, and the one owner of reachability.** Every request has a hard ceiling (3 s probe, 15 s interactive, 30 s page data, 60 s sync) and its body is read inside it. Slow is told apart from gone **by asking**: a request still waiting after 500 ms starts one shared probe of `/api/health`; if the probe fails, the state flips to offline and every request in flight is aborted at once, if it answers, the request keeps its budget and ends as `NetError("slow")` at worst, never as "offline". Known offline, every non-probe request fails in the same frame with `NetError("offline", sent: false)`. A response without the `x-pidra` stamp that `hooks.server.ts` now puts on every response (nginx's 403, a captive portal) counts as offline. The first draft had fixed short timeouts decide offline on their own; that would have called a slow `/runs` query "offline".
+- **SvelteKit's own requests go through it too**, by the client, not the worker (first draft: a worker intercept). `load_data` and `enhance` read `window.fetch` at call time, which SvelteKit documents as the hook for a patched fetch, so `guardKitFetch()` in `hooks.client.ts` routes exactly `__data.json` and form-action requests through `net()`. Page data that cannot arrive becomes a `503` whose JSON body carries `offline: true`, which SvelteKit spreads into `page.error`. A form action that cannot arrive answers as a `failure` with `form.error` set, so every page's existing error display shows "Not sent: needs the connection. What you entered is still here." and the typed input survives, where the first draft wanted every such form disabled offline one by one.
+- **`state.svelte.ts` mirrors `net.ts`** instead of running its own probe schedule. It only owns the way back: probe every 20 s while offline and visible (60 s after ten failures), on `online`, and on foregrounding. The worker and the page share one belief: `net.ts` posts every change to the worker, and `hooks.client.ts` asks the worker at start, so a page booted from the shell after a failed navigation renders from the mirror without waiting on a probe.
+- **The worker bounds navigations.** Network against a 3 s budget, then the cached shell, then a static "nothing stored yet" page, never the browser's error page. The shell is any response stamped `x-pidra-shell` (mirrored routes only, `ssr = false`), plus one fetched at install so the first offline start after a deploy has one. Server-rendered pages are no longer cached per path at all. A response without `x-pidra` is never used as the document. This pulls the H2 fallback item forward; cache-first shell stays in H2.
+- **`+error.svelte` decides from `page.error.offline`**, set by `net.ts` or by `handleError` in `hooks.client.ts`, never from the header dot. A connectivity failure renders `OfflineNotice` with the page's name and reason, resolved from the URL because SvelteKit leaves `page.route.id` null when the data never arrived; it retries by itself when reachability returns. A real error keeps its status and gains Try again. The "500 between the logo and the navigation" was simply the error page in the page slot between the header and the tab bar, not a layout bug.
+- **The tiers live in `routes.ts`** (`MIRRORED_ROUTES`, `ONLINE_ONLY` per route id). `/entities`, `/entities/[id]`, `/contacts` and `/topics` are online-only until H3 mirrors them. Offline, those entries in the navbar and the More sheet are marked "Needs the connection" and do not preload on touch.
+- **Polling** (`/[date]` pipeline status, `/context-builder` status) goes through `$lib/offline/poll.ts`: next tick only after the last one settled, paused while hidden or offline.
+- **`dashboard/scripts/check-offline.ts`** in the dashboard's `bun run check`: fails on a bare `fetch(` in client code, on a page in no tier or in both, and on a mirrored page that is not `ssr = false` or still has a server load.
+
+*Measured* against a local production build in headless Chrome, with requests swallowed rather than failed: tap Questions while the app still believes it is online, notice in **3.9 s**, no "Internal Error", dot offline; any online-only tap after that **~50 ms**; Notes from the mirror **~50 ms**; Try again after reconnecting **65 ms**, and foregrounding brings the page back by itself; a full reload of `/questions` into the blackhole reaches the notice in **3.1 s** via the shell, and the next reload of a mirrored page renders in **~65 ms**; nginx-style 403 answers are recognised in **~55 ms**. Still open for H1's claim: the phone itself (H5).
+
+**H2 - local-first for real.** Fixes the slow start.
+
+- **Stale-while-revalidate in `repo.ts`.** `withMirror()` reads the mirror and returns immediately. Only when the mirror is empty (first launch on a device, or right after "Clear offline data") does a load await a pull, and then under the background budget with an explicit empty state if it fails. Every other read schedules a background sync and never awaits it.
+- **`sync.ts` becomes single-flight and throttled.** One pull in flight at a time; concurrent callers share its promise; a pull at most every 60 s unless forced ("Sync now", app start, becoming visible after more than 5 minutes hidden, the push event). A pull that changed something calls `invalidate("mirror:<store>")` for the stores it touched, and each Tier A load declares `depends("mirror:<store>")`, so a finished sync re-renders exactly the pages that read what changed. `invalidateAll()` is retired from the offline paths, since it also re-runs the root layout.
+- **Outbox writes re-render from the mirror, not the network.** After `enqueue()` the page invalidates the mirror dependency; `flush()` runs in the background and never sits between the tap and the re-render.
+- **Notes search filters in the component.** The load returns the notes; the query, scope, sort and view filter in a `$derived` over them, and the URL is updated with `replaceState` for shareability without re-running the load. Same for any other filter that is currently a `goto()`.
+- **`/` never waits.** It redirects to today when today is mirrored, otherwise to the newest mirrored date, with the date and the sync age explicit (§7). When a background sync then brings today's report, the page offers it ("Today's briefing is here") rather than silently swapping the text under the reader. First launch with an empty mirror is the one case that waits, and it shows a designed "first sync" state rather than a blank loading bar.
+- **The shell, finally.** Every Tier A route is `ssr = false`, so its HTML is route-agnostic. The worker serves a cached `shell.html` **cache-first** for every Tier A navigation, including cold start online, and refreshes it in the background. That removes a network round trip from every launch, online or not. If runtime capture of the shell proves unreliable, fall back to a prerendered `ssr = false` route as §7 already describes.
+- **Root layout load stops blocking.** `+layout.ts` currently awaits `/api/nav-badges` (4 s budget) on every cold start. Badges become a component-level background fetch in `Navbar`/`TabBar` through `net()`, rendering none until they arrive.
+- **Cheaper syncs.**
+  - `ETag` on the snapshot: the server derives a version from `max(updated_at)`/`count` over the mirrored tables plus the build version and answers `304 Not Modified` on a match. The typical sync on a day with no change becomes a few hundred bytes.
+  - Restore the `since` delta from §5 once the 304 path exists, so a sync on a day with a new report ships that report, not all 60.
+  - Cache the assembled snapshot in the dashboard process keyed on that version, so 60 `renderReport()` calls do not run on every request.
+  - Confirm on the wire that nginx gzips or brotlis the proxied JSON (`recommendedGzipSettings` should cover `application/json` with `gzip_proxied any`), measured from the phone, not assumed.
+  - Apply a snapshot in one IndexedDB transaction and skip rows whose content hash is unchanged, instead of rewriting every store on every pull.
+- **Deploys stop breaking open pages.** No automatic `skipWaiting()`; the new worker waits, the app shows "New version, tap to reload" and activates it on tap or on the next cold start. Keep the previous version's cache one generation longer so a page that is still running can load its chunks.
+- **Install stops competing.** Precache with a small concurrency limit, and let the app's own first requests go first.
+- **`navigator.storage.persist()`** once, on the first successful sync, so the browser does not evict the mirror or the outbox under storage pressure (§12 risk). The sync sheet shows whether persistence was granted.
+
+*Done when:* online, a cold start of the installed app paints the newest mirrored report from cache before any network request completes, and a measured cold start on the phone over the VPN is under 1 s to first report text. Offline, the same start is indistinguishable in speed.
+
+**H3 - close the gaps O2 left.**
+
+- `ReportEntry` inline expansion and `DayNav` archive read the mirror (`repo.extractionsFor`, `repo.reportDates`), with the network as the refresh, not the source.
+- `/entities`, `/entities/[id]`, `/contacts`, `/topics` move to `ssr = false` and the mirror, list fields only, as §1 and §4 already specify. Their writes (corrections, topic status) stay online-only per §1 and are disabled offline with the reason.
+- Offline search in `CommandPalette`: when offline, a substring search over mirrored reports, notes and rules, labelled as such (§13).
+- The `push` handler runs the same single-flight sync inside `event.waitUntil`, so the 06:30 briefing is in the mirror before the notification is tapped. Where `periodicSync` exists (Chrome on Android for an installed PWA), register it for a daily refresh; where `sync` exists, register `pidra-outbox` so queued writes flush without the app being opened.
+- Optional, owner's call: a **read-only "last seen" copy** of `/runs` and `/sources`, labelled with its age, since neither page acts on what it shows. `/questions`, `/skills`, `/prompts` and `/chat` stay online-only, because acting on a stale gate or approval is the harm §1 names.
+
+**H4 - honesty where it is still missing.**
+
+- The header dot starts as "checking", never as "online", and changes on the first real request's outcome.
+- A pending row that failed terminally is visible in place, not only in the sync sheet.
+- Every Tier A page reads "synced 2 h ago" from the mirror's own timestamp, including after a successful background refresh that changed nothing.
+- The loading bar (`navigating.to`) only ever reflects work the user is actually waiting for; after H2 that is the first-launch case alone.
+
+**H5 - make "no timeout" provable, then do the device pass (O5).**
+
+- **A blackhole test**, which is the one DevTools cannot give: Playwright against a production build, with a route handler that never fulfils any request to the origin (`page.route("**", () => {})`). For every entry in `routes.ts`: cold start, client-side navigation to it, and a tap on each primary control, asserting a designed state within 4 s and no request left pending past its budget. The same suite runs in two more modes: fail-fast (`context.setOffline(true)`) and gated (every request answered with nginx's 403 HTML).
+- `check-offline.ts` from H1 stays in `bun run check`; the blackhole suite joins it.
+- Then O5 on the actual phone at 390×844, in all three real modes: VPN app on with mobile data off (blackhole), VPN off on WiFi (the `10.200.200.1` blackhole), VPN off with DNS returning the public address (gated). Cold start, every route, every allowed write, force-quit, reopen offline, reconnect, watch the flush, check the rows in Postgres.
+
+---
+
+## 15. When this lands
 
 Per the project's convention, this file is deleted on completion and anything still open moves to `TODO.md`. What outlives it:
 
 - **CLAUDE.md**, Dashboard conventions: Tier A pages are `ssr = false` and read through `$lib/offline/repo.ts`; the mirror is a cache and a queue, never a source of truth; no page writes the mirror directly; `renderMarkdown()` stays server-side and the snapshot ships rendered HTML.
+- **CLAUDE.md**, Dashboard conventions: client code never calls `fetch` directly; `$lib/offline/net.ts` is the one caller and owns the budgets, and `dashboard/scripts/check-offline.ts` enforces it. No load awaits the network when the mirror has an answer.
 - **CLAUDE.md**, Deployment: `/service-worker.js` needs the nginx `no-cache` header, which is a `nixos-rebuild` on pronix and not part of a deploy.
 - **CONTEXT_AND_DECISIONS.md**: the dated decision from §10.
 - Code comments carry the rest, as they do everywhere else here.

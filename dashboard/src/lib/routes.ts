@@ -233,6 +233,63 @@ export function isCurrent(entry: RouteDef, routeId: string | null | undefined): 
 }
 
 /**
+ * The offline tiers (OFFLINE_PLAN.md §1, §14), per SvelteKit route id rather than per nav entry:
+ * `/[date]` reads the mirror while its child `/[date]/triage` is live, so the entry is the wrong
+ * grain. `dashboard/scripts/check-offline.ts` fails the build when a page is in neither list, and
+ * when a mirrored page still has a server load or is not `ssr = false`.
+ *
+ * Mirrored routes are client-rendered, so the HTML the server returns for any of them is the same
+ * route-agnostic shell. `hooks.server.ts` marks those responses and the service worker keeps the
+ * newest one as the document it boots any path from when the network cannot answer.
+ */
+export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
+  "/",
+  "/[date]",
+  "/[date]/detail/[ids]",
+  "/notes",
+  "/rules",
+  "/context-builder",
+]);
+
+const NOT_MIRRORED_YET = "This page still reads the database directly; it joins the offline copy in a later phase.";
+
+/** Pages that need the connection, with the one line `OfflineNotice` says about why. */
+export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: string }>> = {
+  "/sources": { label: "Sources", reason: "Source trust scores are a live query against the pipeline's own tables." },
+  "/sources/[name]": { label: "Sources", reason: "A source's delivery history is a live query against the pipeline's own tables." },
+  "/feedback": { label: "Feedback", reason: "The rating log is a live query against the pipeline's own tables." },
+  "/skills": { label: "Skills", reason: "The approval queue and execution log are live state, not something a cache can represent honestly." },
+  "/prompts": { label: "Prompts", reason: "Prompt versions are a live query against the pipeline's own tables." },
+  "/runs": { label: "Runs", reason: "Pipeline run history is a live query against the pipeline's own tables." },
+  "/questions": { label: "Questions", reason: "A pending question gate is live state, not something a cache can represent honestly." },
+  "/chat": { label: "Chat", reason: "The assistant needs a live connection to the model." },
+  "/[date]/triage": { label: "Triage", reason: "Triage is a live query against the pipeline's own tables." },
+  "/entities": { label: "Entities", reason: NOT_MIRRORED_YET },
+  "/entities/[id]": { label: "Entities", reason: NOT_MIRRORED_YET },
+  "/contacts": { label: "Contacts", reason: NOT_MIRRORED_YET },
+  "/topics": { label: "Topics", reason: NOT_MIRRORED_YET },
+};
+
+const ONLINE_ONLY_PATTERNS = Object.entries(ONLINE_ONLY).map(([id, notice]) => ({
+  pattern: new RegExp(`^${id.replace(/\[[^\]]+\]/g, "[^/]+")}/?$`),
+  notice,
+}));
+
+/**
+ * The `ONLINE_ONLY` entry for a pathname. By path, not by route id: when a page's server data
+ * never arrives, SvelteKit renders the error boundary with `page.route.id` still null, and that is
+ * exactly the moment `OfflineNotice` needs the page's name.
+ */
+export function onlineOnlyFor(pathname: string): { label: string; reason: string } | undefined {
+  return ONLINE_ONLY_PATTERNS.find(({ pattern }) => pattern.test(pathname))?.notice;
+}
+
+/** True when a nav entry's own page cannot open offline. Its children are judged separately. */
+export function needsConnection(entry: RouteDef): boolean {
+  return entry.id in ONLINE_ONLY;
+}
+
+/**
  * Surface for a pathname, for the assistant's client-side fallback before a page declares its own
  * context. The server resolves this again from the route and its answer wins.
  */

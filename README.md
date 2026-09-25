@@ -18,7 +18,7 @@ World-facing intelligence from the newsletters, organized by topic domain (AI, C
 | Layer | Technology |
 |---|---|
 | Runtime | Bun |
-| Frontend | SvelteKit (dashboard + PWA) |
+| Frontend | SvelteKit (dashboard + installable PWA that works offline) |
 | AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. |
 | Database | Postgres + DrizzleORM |
 | Email | IMAP (Netcup) |
@@ -44,6 +44,7 @@ Plus a **compounding intelligence layer**: feedback loops, source trust scoring,
 - **No vector stores yet.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction wins. A vector store is planned, but as its own far-future project, not an incremental pipeline addition.
 - **Credentials never reach any cloud API.** Diary and other intimate personal content is deliberately in scope for the Context Builder - it's some of the richest signal available. Only credentials (passwords, card/bank details, ID numbers) are filtered before any consumer sees them.
 - **No prompt changes without human approval.** System proposes weekly, user approves each change individually.
+- **The briefing works without the VPN.** The dashboard is reachable only over WireGuard, and the briefing is read on a train. The phone keeps a local copy (IndexedDB) of the last 60 briefings, the notes, the rules, the context document and the reference tables, and every mirrored page opens from it without waiting on the network, online or not, then refreshes in the background. Notes, rule edits and ratings made offline are queued and delivered in order when the connection is back; anything that acts on live state (corrections, runs, approvals, the chat) says it needs the connection instead. A copy, never a second source of truth: raw mail bodies never leave the server. No request can hang: every one has a hard budget and an unreachable server is detected within about 3.5 s even when packets vanish without an error, which `bun run check` proves in headless Chrome against four failure modes. Details in `CLAUDE.md`, Offline mode.
 
 ## Tools
 
@@ -87,7 +88,7 @@ All architecture decisions, prompts, schema, and build rationale are in the plan
 
 Phases 0-6 of the daily pipeline are complete and the whole chain runs unattended: as of 2026-09-12 a run ingests all 16 sources, synthesises both sections and delivers the push notification without intervention.
 
-The dashboard redesign is finished, device pass on iOS and Android included; its plan document was deleted once it shipped, and the conventions that outlived it are in `CLAUDE.md`. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline.
+The dashboard redesign is finished, device pass on iOS and Android included; its plan document was deleted once it shipped, and the conventions that outlived it are in `CLAUDE.md`. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline. Offline mode is built and proven in headless Chrome; the pass on the phone itself is in `TODO.md`.
 
 See [`TODO.md`](./TODO.md) for open items.
 

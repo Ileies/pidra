@@ -194,10 +194,10 @@ While extraction runs, simultaneously:
 - Compute volume signal: count items with effective relevance ≥ 3
 
 ### Phase 4 - Question Gate (T+42s, conditional)
-If any item has `unknown_context: true`:
-- Batch all questions into one persisted question-gate session for the dashboard
+Items with `unknown_context: true` become candidates for the standing question queue (§16):
+- One reconcile call merges them into the open questions, without repeats
 - Section 1 synthesis begins immediately (unblocked)
-- Section 2 synthesis blocks until answers received or 45-minute timeout
+- Section 2 synthesis blocks until this run's questions are answered or 45-minute timeout
 
 ### Phase 5 - Synthesis (T+42s for S1, T+answer for S2)
 Two separate calls through the configured OpenAI synthesis model (see §17 for full prompts).
@@ -674,7 +674,7 @@ Once per week (Sunday evening or Monday morning), system sends 3 questions:
 2. "What did you consistently find irrelevant?"
 3. "Any new topics, people, or companies to start tracking?"
 
-Answers parsed by synthesis → written to `notes` table → injected into next week's synthesis prompts.
+The questions join the standing question queue (§16), where last week's unanswered ones are rephrased, merged or closed rather than piling up. Each answer, whenever it is given, is parsed by synthesis in the next run's Phase 4 → written to `notes` table → injected into the following synthesis prompts.
 
 ### Calibration effect
 ```
@@ -797,38 +797,20 @@ Any item with `unknown_context: true` after personal-email classification:
 - SMS from unknown number with action-implied content
 - Email with ambiguous action where context determines urgency (e.g., reply that references a prior conversation the system has no record of)
 
-### Batching
-All questions for a single run are batched into one API call. Never send one question at a time.
+### The standing queue (since 2026-09-28)
+Questions live in one table, `questions`, one row per question, open until the reader answers or dismisses it on `/questions`. There is no per-run session: a run's candidates and the weekly review's questions join the same queue, and each answer is sent on its own and counts immediately. `src/questions/store.ts` is the only writer; the dashboard writes through the bridge (`POST /api/questions/:id/answer|dismiss|reopen`).
 
-### Question-gate contract
-```
-POST {QUESTION_API_ENDPOINT}/questions
-{
-  "run_id": "2025-05-06-0630",
-  "timeout_minutes": 45,
-  "questions": [
-    {
-      "id": "q_001",
-      "item_type": "email",
-      "from": "alex@neuralbridge.io",
-      "subject": "Following up on our conversation",
-      "question": "Who is Alex from NeuralBridge? Treat as: lead | partner | personal | unknown?"
-    }
-  ]
-}
+### Reconcile, not batch
+One `extractJson()` call per run (prompt section `questions`, `src/questions/reconcile.ts`) sees the open questions, the run's candidates, the answers of the last 30 days, the notes, the standing rules, the corrections and the personal sections of the context document, and decides:
+- per open question: keep, rephrase (more general, or with the new detail, so one answer settles both), merge into another, or resolve because the answer is already known
+- per candidate: attach to an open question, ask it new, or drop it because the answer is known
 
-Expected response:
-{
-  "run_id": "2025-05-06-0630",
-  "answers": [
-    { "id": "q_001", "answer": "potential investor, met at ETH Zurich event" }
-  ]
-}
-```
+It runs even without candidates, since a note written yesterday may settle an open question. Code maps short ids back and fails open: a candidate the model skips or mishandles is asked as it stands. A closed row keeps `status_detail`, rephrased wordings stay on `history`, and a resolved, merged or dismissed question can be reopened. When the call fails, `mechanicalPlan` attaches a candidate to an open question about the same sender.
 
 ### Parallelization during wait
-- Section 1 synthesis begins immediately - never waits for question gate
-- Section 2 synthesis blocks until gate resolves or timeout
+- The reconcile call and the wait run alongside Section 1, which never waits
+- Section 2 synthesis blocks until the questions this run's mail landed on are settled, or timeout; older open questions never hold it up
+- Section 2 receives every item answer of the last 7 days as `question_answers`
 - Final delivery: both sections merged and delivered together
 
 ### Timeout behavior (45 minutes)
@@ -838,8 +820,10 @@ Section 2 proceeds with unresolved items marked:
 Action required: answer pending question to update contact profile.
 ```
 
+An unanswered question stays in the queue after the timeout; only that morning stops waiting.
+
 ### Contact learning
-Every answered question writes to `contacts`:
+An answered mail question about exactly one sender writes to `contacts` (a row locked by a correction is left alone):
 ```json
 {
   "identifier": "alex@neuralbridge.io",

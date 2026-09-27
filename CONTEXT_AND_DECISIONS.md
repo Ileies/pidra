@@ -324,6 +324,9 @@ The shape, and why:
 ### Question gate timeout: 45 minutes
 Section 1 never waits. Section 2 blocks. After 45 min, Section 2 proceeds with unresolved items flagged.
 
+### Questions: one standing queue, answered one at a time
+**Asked for by the owner, 2026-09-28**: answer and send each question on its own, add new questions regardless of whether the old ones are answered, avoid repeats, and let an old question be rephrased (more general, or extended) or closed when new context has settled it. The per-run session it replaced showed only the newest pending session on `/questions`: a weekly review session whose job had died stayed there for good, each morning's sender questions timed out after 45 minutes without ever being seen, and the same sender was asked again the next time (three times each for two senders in September). Now `questions` holds one row per question, open until the reader answers or dismisses it, and one `extractJson()` call per run (prompt section `questions`, `src/questions/reconcile.ts`) reconciles the run's candidates against the open queue and what the system knows: attach to an open question, rephrase it so one answer settles both, merge, close with the reason, or drop a candidate whose answer is already in the notes, corrections or context. It fails open - a candidate the model mishandles is asked as it stands - and a closed question keeps its reason and can be reopened. The 45-minute wait stays, but only for the questions this run's mail landed on. The weekly review no longer polls: it adds its questions through the same reconcile and exits, and Phase 4 turns answered review questions into notes the next morning.
+
 ### Prompt self-evolution: human approval always required
 Weekly meta-run generates diff. Never auto-applied. Each change approved/rejected individually.
 

@@ -3,95 +3,131 @@ import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/db.js";
 import { parseJsonb } from "#lib/jsonb.js";
 
-interface GateQuestion {
-  id: string;
-  item_type: string;
+/**
+ * The question queue, one question at a time.
+ *
+ * Reads straight from Postgres; every write goes through the bridge, where `src/questions/store.ts`
+ * is the only writer, so an answer here and the pipeline's reconcile cannot overwrite each other.
+ * Online-only: a queued answer replayed after the gate has timed out would arrive too late for the
+ * briefing it was for, and a question the pipeline has since merged or closed is not there to take it.
+ */
+
+const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+
+/** How many closed questions the page lists: enough to see what the assistant did lately. */
+const CLOSED_LIMIT = 30;
+
+interface Source {
+  extraction_id: string | null;
   from: string;
-  subject?: string;
-  question: string;
-}
-
-interface GateAnswer {
-  id: string;
-  answer: string;
-}
-
-interface GateSession {
-  id: string;
-  run_id: string;
+  subject: string | null;
+  source_type: string;
   run_date: string;
-  questions: GateQuestion[];
-  status: string;
-  timeout_at: string;
-  created_at: string;
 }
+
+interface Revision {
+  question: string;
+  at: string;
+  by: "model" | "user";
+  reason: string | null;
+}
+
+interface Row {
+  id: string;
+  kind: string;
+  question: string;
+  status: string;
+  status_detail: string | null;
+  merged_into: string | null;
+  answer: string | null;
+  sources: unknown;
+  history: unknown;
+  first_asked: string;
+  last_asked: string;
+  times_asked: number;
+  blocks_until: Date | null;
+  answered_at: Date | null;
+  updated_at: Date;
+}
+
+function shape(row: Row) {
+  const blocksUntil = row.blocks_until ? new Date(row.blocks_until) : null;
+  const minutesLeft = blocksUntil ? Math.round((blocksUntil.getTime() - Date.now()) / 60_000) : null;
+  return {
+    id: row.id,
+    kind: row.kind,
+    question: row.question,
+    status: row.status,
+    statusDetail: row.status_detail,
+    mergedInto: row.merged_into,
+    answer: row.answer,
+    sources: parseJsonb<Source[]>(row.sources, []),
+    history: parseJsonb<Revision[]>(row.history, []),
+    firstAsked: row.first_asked,
+    lastAsked: row.last_asked,
+    timesAsked: row.times_asked,
+    // Only while a run is actually waiting: a stale value from a run that died means nothing.
+    blockingMinutesLeft: minutesLeft !== null && minutesLeft > 0 ? minutesLeft : null,
+    answeredAt: row.answered_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export type QuestionView = ReturnType<typeof shape>;
 
 export const load: PageServerLoad = async () => {
-  const rows = await sql()<GateSession[]>`
-    SELECT id, run_id, run_date, questions, status, timeout_at, created_at
-    FROM question_gate_sessions
-    WHERE status = 'pending'
-    ORDER BY created_at DESC
-    LIMIT 1
+  const db = sql();
+  const columns = () => db`
+    id, kind, question, status, status_detail, merged_into, answer, sources, history,
+    first_asked::text AS first_asked, last_asked::text AS last_asked, times_asked,
+    blocks_until, answered_at, updated_at
   `;
+  const [open, closed] = await Promise.all([
+    db<Row[]>`
+      SELECT ${columns()} FROM questions
+      WHERE status = 'open'
+      ORDER BY (blocks_until > now()) IS TRUE DESC, (kind = 'item') DESC, last_asked DESC, created_at
+    `,
+    db<Row[]>`
+      SELECT ${columns()} FROM questions
+      WHERE status <> 'open'
+      ORDER BY updated_at DESC
+      LIMIT ${CLOSED_LIMIT}
+    `,
+  ]);
 
-  if (rows.length === 0) return { session: null };
+  const openViews = open.map(shape);
+  // A merged question points at its target by id; the page names the target instead.
+  const targets = new Map([...open, ...closed].map((r) => [r.id, r.question]));
+  const closedViews = closed.map((r) => ({ ...shape(r), mergedIntoText: r.merged_into ? targets.get(r.merged_into) ?? null : null }));
 
-  const session = rows[0];
-  const timeoutAt = new Date(session.timeout_at);
-  const minutesLeft = Math.max(0, Math.round((timeoutAt.getTime() - Date.now()) / 60_000));
-
-  return {
-    session: {
-      runId: session.run_id,
-      runDate: session.run_date,
-      questions: parseJsonb<GateQuestion[]>(session.questions, []),
-      minutesLeft,
-      createdAt: session.created_at,
-    },
-  };
+  return { open: openViews, closed: closedViews };
 };
+
+async function bridge(id: string, op: string, body?: unknown) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { id, error: "Invalid question id" });
+  try {
+    const res = await fetch(`${API}/api/questions/${id}/${op}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return fail(res.status, { id, error: json.error ?? "The skills bridge returned an error." });
+    return { id, op };
+  } catch {
+    return fail(503, { id, error: `The skills bridge is not reachable (${API}).` });
+  }
+}
 
 export const actions: Actions = {
   answer: async ({ request }) => {
     const data = await request.formData();
-    const runId = data.get("run_id") as string;
-
-    if (!runId) return fail(400, { error: "Missing run_id" });
-
-    const [session] = await sql()<{ run_id: string; questions: GateQuestion[]; run_date: string; status: string }[]>`
-      SELECT run_id, questions, run_date, status FROM question_gate_sessions WHERE run_id = ${runId} LIMIT 1
-    `;
-
-    if (!session) return fail(404, { error: "Session not found" });
-    if (session.status !== "pending") return fail(409, { error: "Session already resolved" });
-
-    const questions = parseJsonb<GateQuestion[]>(session.questions, []);
-    const answers: GateAnswer[] = questions
-      .map((q) => ({ id: q.id, answer: (data.get(`answer_${q.id}`) as string | null)?.trim() ?? "" }))
-      .filter((a) => a.answer.length > 0);
-
-    if (answers.length === 0) return fail(400, { error: "No answers provided" });
-
-    const now = new Date().toISOString();
-    await sql()`
-      UPDATE question_gate_sessions
-      SET status = 'answered', answers = ${sql().json(answers as never)}, answered_at = ${now}
-      WHERE run_id = ${runId}
-    `;
-
-    // Contact learning
-    for (const answer of answers) {
-      const question = questions.find((q) => q.id === answer.id);
-      if (!question) continue;
-      await sql()`
-        INSERT INTO contacts (identifier, relationship, first_seen)
-        VALUES (${question.from}, ${answer.answer}, ${session.run_date})
-        ON CONFLICT (identifier) DO UPDATE
-          SET relationship = excluded.relationship, updated_at = now()
-      `;
-    }
-
-    return { success: true, answeredCount: answers.length };
+    const id = String(data.get("id") ?? "");
+    const answer = String(data.get("answer") ?? "").trim();
+    if (!answer) return fail(400, { id, error: "Write an answer first, or dismiss the question." });
+    return bridge(id, "answer", { answer });
   },
+  dismiss: async ({ request }) => bridge(String((await request.formData()).get("id") ?? ""), "dismiss"),
+  reopen: async ({ request }) => bridge(String((await request.formData()).get("id") ?? ""), "reopen"),
 };

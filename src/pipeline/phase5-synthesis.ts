@@ -2,6 +2,7 @@ import { activePrompt, type PromptSection } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
 import type { ContextPayload, ExtractionWithSource } from "./phase3-context";
+import type { QuestionAnswer } from "./phase4-questiongate";
 import { editorPayload, finishNewsSection, type NewsItem } from "../news/format";
 import type { NewsExtraction } from "../news/validate";
 
@@ -77,7 +78,7 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
 function buildSection2Payload(
   ctx: ContextPayload,
   runDate: string,
-  questionAnswers: Record<string, string> = {},
+  questionAnswers: QuestionAnswer[] = [],
 ): string {
   const slot3 = ctx.webSearchResults.find((r) => r.slot === 3);
 
@@ -89,7 +90,7 @@ function buildSection2Payload(
       source: i.sourceName,
       ...(i.extraction.extractedJson as object),
     })),
-    question_answers: Object.keys(questionAnswers).length > 0 ? questionAnswers : null,
+    question_answers: questionAnswers.length > 0 ? questionAnswers : null,
     calendar_next_7_days: ctx.calendarItems,
     active_todos: ctx.todoItems,
     known_contacts: ctx.knownContacts.map((c) => ({
@@ -126,7 +127,7 @@ export function runSection1(ctx: ContextPayload, runDate: string) {
   return synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate));
 }
 
-export function runSection2(ctx: ContextPayload, runDate: string, questionAnswers: Record<string, string> = {}) {
+export function runSection2(ctx: ContextPayload, runDate: string, questionAnswers: QuestionAnswer[] = []) {
   return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, runDate, questionAnswers));
 }
 

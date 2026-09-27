@@ -3,7 +3,7 @@ import { db, pipelineRuns } from "../db";
 import { runPhase1 } from "./phase1-ingest";
 import { runPhase2 } from "./phase2-extract";
 import { runPhase3 } from "./phase3-context";
-import { runPhase4 } from "./phase4-questiongate";
+import { runQuestionGate } from "./phase4-questiongate";
 import { newsItemsOf, runNewsSection, runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
 import { withRetry, StepError } from "./withRetry";
@@ -91,13 +91,13 @@ export async function runPipeline(runDate?: string): Promise<string> {
     await withRetry("phase2", () => runPhase2(date));
     const news = await newsDesk;
     const ctx = await withRetry("phase3", () => runPhase3(date, news));
-    const gate = await withRetry("phase4", () => runPhase4(date));
 
-    // Section 1, the News section, the quick actions and the question gate wait run in parallel.
-    // Section 2 blocks until the gate resolves or times out.
+    // Section 1, the News section, the quick actions and the question gate run in parallel.
+    // Section 2 blocks until this run's questions are answered or the gate times out.
     const editorErrors: StepAttemptError[] = [];
     const actionErrors: StepAttemptError[] = [];
-    const [s1, newsSection, questionAnswers, actions] = await Promise.all([
+    const questionErrors: StepAttemptError[] = [];
+    const [s1, newsSection, gate, actions] = await Promise.all([
       withRetry("phase5-section1", () => runSection1(ctx, date)),
       // The editor is the one step here with a fallback that loses nothing but polish: the
       // stories are checked and stored already, so they are written out as they stand.
@@ -106,18 +106,18 @@ export async function runPipeline(runDate?: string): Promise<string> {
         console.error("[Phase 5] News editor failed, writing the section from the stories directly:", err);
         return { text: renderNewsFallback(newsItemsOf(ctx.newsItems), ctx.newsDesk.home), tokensIn: 0, tokensOut: 0, aiCalls: 0 };
       }),
-      gate.waitForAnswers(),
+      runQuestionGate(ctx, date, questionErrors),
       tolerantQuickActions(ctx, date, actionErrors),
     ]);
-    const s2 = await withRetry("phase5-section2", () => runSection2(ctx, date, questionAnswers));
+    const s2 = await withRetry("phase5-section2", () => runSection2(ctx, date, gate.answers));
 
     const synthesis = {
       section1: s1.text,
       section2: s2.text,
       news: newsSection.text,
-      tokensIn: s1.tokensIn + s2.tokensIn + newsSection.tokensIn + news.tokensIn + actions.tokensIn,
-      tokensOut: s1.tokensOut + s2.tokensOut + newsSection.tokensOut + news.tokensOut + actions.tokensOut,
-      aiCalls: 2 + newsSection.aiCalls + news.aiCalls + actions.aiCalls,
+      tokensIn: s1.tokensIn + s2.tokensIn + newsSection.tokensIn + news.tokensIn + actions.tokensIn + gate.tokensIn,
+      tokensOut: s1.tokensOut + s2.tokensOut + newsSection.tokensOut + news.tokensOut + actions.tokensOut + gate.tokensOut,
+      aiCalls: 2 + newsSection.aiCalls + news.aiCalls + actions.aiCalls + gate.aiCalls,
     };
 
     const report = await withRetry("phase6", () =>
@@ -149,6 +149,7 @@ export async function runPipeline(runDate?: string): Promise<string> {
           ...news.failures.map((f) => ({ step: "news", attempt: 1, error: `${f.source}: ${f.error}`, ts })),
           ...editorErrors,
           ...actionErrors,
+          ...questionErrors,
         ],
       })
       .where(eq(pipelineRuns.id, run.id));

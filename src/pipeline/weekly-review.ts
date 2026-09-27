@@ -1,10 +1,9 @@
-import { db, questionGateSessions, notes, dailyReports, activeTopics } from "../db";
+import { db, dailyReports, activeTopics } from "../db";
 import { eq, desc, gte } from "drizzle-orm";
 import { synthesize } from "../ai/openai";
-import type { GateQuestion, GateAnswer } from "../db/schema";
-
-const POLL_INTERVAL_MS = 15_000;
-const TIMEOUT_MINUTES = 120;
+import { createNote } from "../notes/store";
+import { mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
+import { applyPlan, listOpen, markAbsorbed, unabsorbedReviewAnswers } from "../questions/store";
 
 const WEEKLY_REVIEW_PROMPT = `You are a personal assistant helping the user reflect on their week.
 Based on the weekly context provided, generate exactly 3 short, thoughtful reflection questions.
@@ -13,20 +12,30 @@ Keep questions concrete and personal. Max 20 words each.
 Return ONLY a JSON array of 3 strings: ["question1", "question2", "question3"]`;
 
 const SYNTHESIS_PROMPT = `You are a personal assistant helping the user reflect on their week.
-Given the user's answers to three reflection questions, write 2-3 short insight notes (1-2 sentences each).
+Given the user's answers to reflection questions, write 2-3 short insight notes (1-2 sentences each).
 These will be saved as standing context notes for future briefings.
 Focus on actionable insights, patterns, or preferences revealed by the answers.
 Return ONLY a JSON array of strings: ["insight1", "insight2", ...]`;
 
+/**
+ * Adds this week's reflection questions to the question queue and exits.
+ *
+ * It used to open a session and poll it for two hours, and the unit was gone long before that:
+ * every session since 2026-09-20 stayed pending for good, and the one that was answered was
+ * answered five days late, after the job had stopped listening. Now the questions go through the
+ * same reconcile as the pipeline's, so last week's unanswered ones are rephrased, merged or closed
+ * instead of piling up, and `absorbReviewAnswers` turns whatever the reader answers into notes on
+ * the next pipeline run.
+ */
 export async function runWeeklyReview(): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0]!;
   const weekStart = new Date(Date.now() - 6 * 86400_000).toISOString().split("T")[0];
 
   // Gather week context for generating good questions
   const recentReports = await db
     .select({ reportDate: dailyReports.reportDate, itemCount: dailyReports.itemCount, itemsIncluded: dailyReports.itemsIncluded })
     .from(dailyReports)
-    .where(gte(dailyReports.reportDate, weekStart))
+    .where(gte(dailyReports.reportDate, weekStart!))
     .orderBy(desc(dailyReports.reportDate));
 
   const topTopics = await db
@@ -53,75 +62,50 @@ Week ${weekStart} to ${today}:
     return;
   }
 
-  const runId = `weekly-review-${today}`;
+  const candidates: CandidateInput[] = questionTexts
+    .slice(0, 3)
+    .filter((q) => typeof q === "string" && q.trim())
+    .map((q) => ({ kind: "review", question: q.trim(), source: null }));
 
-  const questions: GateQuestion[] = questionTexts.slice(0, 3).map((q, i) => ({
-    id: `${runId}-q${i}`,
-    item_type: "review",
-    from: "system",
-    question: q,
-  }));
-
-  const timeoutAt = new Date(Date.now() + TIMEOUT_MINUTES * 60 * 1000).toISOString();
-
-  await db
-    .insert(questionGateSessions)
-    .values({ runId, runDate: today, questions, status: "pending", timeoutAt })
-    .onConflictDoNothing();
-
-  console.log(`[weekly-review] Gate fired with ${questions.length} review questions`);
-
-  // Poll for answers
-  const deadline = Date.now() + TIMEOUT_MINUTES * 60 * 1000;
-  let answers: GateAnswer[] = [];
-
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-
-    const [session] = await db
-      .select({ status: questionGateSessions.status, answers: questionGateSessions.answers })
-      .from(questionGateSessions)
-      .where(eq(questionGateSessions.runId, runId))
-      .limit(1);
-
-    if (session?.status === "answered" && session.answers) {
-      answers = session.answers as GateAnswer[];
-      break;
-    }
+  let plan;
+  try {
+    plan = (await reconcileQueue(candidates, today)).plan;
+  } catch (err) {
+    console.error("[weekly-review] Question reconcile failed, adding the questions as they are:", err);
+    plan = mechanicalPlan(candidates, await listOpen());
   }
+  await applyPlan(plan, today);
+  console.log(`[weekly-review] ${candidates.length} review question(s) through the queue`);
+}
 
-  if (answers.length === 0) {
-    console.log("[weekly-review] No answers received, skipping synthesis");
-    await db.update(questionGateSessions).set({ status: "timed_out" }).where(eq(questionGateSessions.runId, runId));
-    return;
-  }
+/**
+ * Turns answered review questions into insight notes, once each. Called by Phase 4 of the daily
+ * pipeline, so an answer given on Wednesday is a note by Thursday morning. Makes no call when
+ * nothing is waiting.
+ */
+export async function absorbReviewAnswers(): Promise<{ tokensIn: number; tokensOut: number; aiCalls: number }> {
+  const answered = await unabsorbedReviewAnswers();
+  if (answered.length === 0) return { tokensIn: 0, tokensOut: 0, aiCalls: 0 };
 
-  // Synthesize insights from answers
-  const answersText = answers
-    .map((a) => {
-      const q = questions.find((q) => q.id === a.id);
-      return `Q: ${q?.question ?? a.id}\nA: ${a.answer}`;
-    })
-    .join("\n\n");
-
-  const { text: insightsRaw } = await synthesize(SYNTHESIS_PROMPT, answersText);
+  const answersText = answered.map((q) => `Q: ${q.question}\nA: ${q.answer}`).join("\n\n");
+  const result = await synthesize(SYNTHESIS_PROMPT, answersText);
 
   let insights: string[];
   try {
-    insights = JSON.parse(insightsRaw.match(/\[[\s\S]*\]/)?.[0] ?? "[]");
+    insights = JSON.parse(result.text.match(/\[[\s\S]*\]/)?.[0] ?? "[]");
     if (!Array.isArray(insights)) throw new Error("not array");
   } catch {
-    insights = [insightsRaw.slice(0, 500)];
+    insights = [result.text.slice(0, 500)];
   }
 
+  let written = 0;
   for (const insight of insights) {
-    if (!insight?.trim()) continue;
-    await db.insert(notes).values({
-      content: insight.trim(),
-      scope: "personal",
-      createdBy: "system",
-    });
+    if (typeof insight !== "string" || !insight.trim()) continue;
+    await createNote({ content: insight.trim(), scope: "personal" }, { by: "system" });
+    written++;
   }
+  await markAbsorbed(answered.map((q) => q.id));
 
-  console.log(`[weekly-review] Saved ${insights.length} insight note(s)`);
+  console.log(`[weekly-review] ${answered.length} review answer(s) absorbed into ${written} note(s)`);
+  return { tokensIn: result.tokensIn, tokensOut: result.tokensOut, aiCalls: 1 };
 }

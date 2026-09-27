@@ -1,10 +1,10 @@
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
-import { inArray, eq, desc, gte, and, sql as drizzleSql } from "drizzle-orm";
+import { inArray, eq, desc, gte, and } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
-import { db, extractions, rawItems, sourceQuality, sourceDailyScores, questionGateSessions, contacts, skillExecutions, rawItemExists, promptVersions } from "../db";
-import type { GateAnswer, GateQuestion } from "../db/schema";
+import { db, extractions, rawItems, sourceQuality, sourceDailyScores, skillExecutions, rawItemExists, promptVersions } from "../db";
+import { answerQuestion, dismissQuestion, reopenQuestion, QuestionError } from "../questions/store";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
@@ -248,63 +248,34 @@ app.patch("/api/sources/:name", async (c) => {
   return c.json({ ok: true, sourceName, isActive: body.isActive });
 });
 
-// GET /api/questions/pending - dashboard polls for the most recent pending gate session
-app.get("/api/questions/pending", async (c) => {
-  const rows = await db
-    .select()
-    .from(questionGateSessions)
-    .where(eq(questionGateSessions.status, "pending"))
-    .orderBy(desc(questionGateSessions.createdAt))
-    .limit(1);
+// POST /api/questions/:id/:op - one question at a time from /questions: answer, dismiss, reopen.
+// `src/questions/store.ts` is the only writer of the queue; the dashboard only proxies.
+app.post("/api/questions/:id/:op", async (c) => {
+  const id = c.req.param("id");
+  const op = c.req.param("op");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
 
-  if (rows.length === 0) return c.json({ pending: false });
-  return c.json({ pending: true, session: rows[0] });
-});
-
-// POST /api/questions/:runId/answers - user submits answers from the dashboard
-app.post("/api/questions/:runId/answers", async (c) => {
-  const runId = c.req.param("runId");
-  const body = await c.req.json() as { answers: GateAnswer[] };
-
-  if (!Array.isArray(body.answers) || body.answers.length === 0) {
-    return c.json({ error: "answers array is required" }, 400);
+  try {
+    if (op === "answer") {
+      const body = await c.req.json().catch(() => ({})) as { answer?: unknown };
+      const question = await answerQuestion(id, typeof body.answer === "string" ? body.answer : "");
+      return c.json({ id: question.id, status: question.status });
+    }
+    if (op === "dismiss") {
+      const question = await dismissQuestion(id);
+      return c.json({ id: question.id, status: question.status });
+    }
+    if (op === "reopen") {
+      const question = await reopenQuestion(id);
+      return c.json({ id: question.id, status: question.status });
+    }
+    return c.json({ error: "op must be answer, dismiss or reopen" }, 400);
+  } catch (err) {
+    if (err instanceof QuestionError) {
+      return c.json({ error: err.message }, err.kind === "not_found" ? 404 : err.kind === "invalid" ? 400 : 409);
+    }
+    throw err;
   }
-
-  const [session] = await db
-    .select()
-    .from(questionGateSessions)
-    .where(eq(questionGateSessions.runId, runId))
-    .limit(1);
-
-  if (!session) return c.json({ error: "session not found" }, 404);
-  if (session.status !== "pending") return c.json({ error: "session already resolved" }, 409);
-
-  const now = new Date().toISOString();
-  await db
-    .update(questionGateSessions)
-    .set({ status: "answered", answers: body.answers, answeredAt: now })
-    .where(eq(questionGateSessions.runId, runId));
-
-  // Contact learning: upsert each answered question's sender into contacts
-  const questions = session.questions as GateQuestion[];
-  for (const answer of body.answers) {
-    if (!answer.answer?.trim()) continue;
-    const question = questions.find((q) => q.id === answer.id);
-    if (!question) continue;
-    await db
-      .insert(contacts)
-      .values({
-        identifier: question.from,
-        relationship: answer.answer.trim(),
-        firstSeen: session.runDate,
-      })
-      .onConflictDoUpdate({
-        target: contacts.identifier,
-        set: { relationship: answer.answer.trim(), updatedAt: drizzleSql`now()` },
-      });
-  }
-
-  return c.json({ ok: true });
 });
 
 async function braveSearch(query: string): Promise<string> {

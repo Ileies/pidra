@@ -315,29 +315,57 @@ export const skillExecutions = pgTable("skill_executions", {
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
-export interface GateQuestion {
-  id: string;
-  item_type: string; // email | sms
+/** One mail behind a question: what the dashboard shows as "about" and what contact learning reads. */
+export interface QuestionSource {
+  extraction_id: string | null;
   from: string;
-  subject?: string;
+  subject: string | null;
+  source_type: string;
+  run_date: string;
+}
+
+/** A wording a question had before it was rephrased, and why it changed. */
+export interface QuestionRevision {
   question: string;
+  at: string;
+  by: "model" | "user";
+  reason: string | null;
 }
 
-export interface GateAnswer {
-  id: string;
-  answer: string;
-}
-
-export const questionGateSessions = pgTable("question_gate_sessions", {
+/**
+ * The question queue: what the pipeline could not work out on its own and asks the reader.
+ *
+ * One standing queue rather than a session per run. A question stays open until it is answered,
+ * dismissed, or closed by the reconcile call (`src/questions/reconcile.ts`), which also keeps it
+ * free of duplicates: a new candidate is attached to an open question about the same thing, which
+ * may be rephrased to cover both, and a question that notes, corrections or an answer have
+ * settled in the meantime is closed with the reason. Nothing is deleted: a closed row keeps its
+ * status and `status_detail`, and every earlier wording is on `history`. `src/questions/store.ts`
+ * is the only writer.
+ */
+export const questions = pgTable("questions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  runId: text("run_id").unique().notNull(),
-  runDate: dateStr("run_date").notNull(),
-  questions: jsonb("questions").notNull().$type<GateQuestion[]>(),
-  answers: jsonb("answers").$type<GateAnswer[]>(),
-  status: text("status").default("pending"), // pending | answered | timed_out
-  timeoutAt: timestamptz("timeout_at").notNull(),
-  createdAt: timestamptz("created_at").default(sql`now()`),
+  kind: text("kind").notNull(), // item | review
+  question: text("question").notNull(),
+  // open | answered | dismissed | resolved | merged
+  status: text("status").notNull().default("open"),
+  /** Why it was resolved or merged, in the reconcile call's words. */
+  statusDetail: text("status_detail"),
+  mergedInto: uuid("merged_into"),
+  answer: text("answer"),
+  sources: jsonb("sources").notNull().default(sql`'[]'::jsonb`).$type<QuestionSource[]>(),
+  history: jsonb("history").notNull().default(sql`'[]'::jsonb`).$type<QuestionRevision[]>(),
+  firstAsked: dateStr("first_asked").notNull(),
+  lastAsked: dateStr("last_asked").notNull(),
+  /** How many runs raised it: a question asked every morning is worth answering first. */
+  timesAsked: integer("times_asked").notNull().default(1),
+  /** Set while a run's Section 2 waits on this question. */
+  blocksUntil: timestamptz("blocks_until"),
+  /** A review answer turned into insight notes (`absorbReviewAnswers`). */
+  absorbedAt: timestamptz("absorbed_at"),
   answeredAt: timestamptz("answered_at"),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
 
 export interface StepAttemptError {

@@ -44,7 +44,7 @@
   onclick={() => offline.toggleSheet()}
   aria-haspopup="dialog"
   aria-expanded={offline.sheetOpen}
-  class="tap flex items-center justify-center gap-1.5 rounded-full border border-surface-700 bg-surface-950 px-2 py-1 text-xs text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors shrink-0"
+  class="tap flex items-center justify-center gap-1.5 rounded-full md:border md:border-surface-700 md:bg-surface-950 md:px-2 md:py-1 text-xs text-surface-300 md:hover:bg-surface-800 cursor-pointer transition-colors shrink-0"
 >
   <span class="h-2 w-2 rounded-full {dotClass}" aria-hidden="true"></span>
   <span class="hidden md:inline">{label}</span>

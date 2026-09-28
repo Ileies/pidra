@@ -67,6 +67,7 @@ const ICON = {
   context: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5",
   feedback: "M7 10l-3 3v-9h16v9H10l-3 3v-3M8.5 8.5h7",
   more: "M5 12h.01M12 12h.01M19 12h.01",
+  auth: "M6 10V8a6 6 0 1 1 12 0v2M5 10h14v10H5zM12 14v3",
 } as const;
 
 /**
@@ -228,6 +229,15 @@ export const ROUTES: RouteDef[] = [
     icon: ICON.legal,
     secondary: true,
   },
+  {
+    href: "/setup",
+    id: "/setup",
+    label: "Passkey",
+    surface: "global",
+    group: "system",
+    icon: ICON.auth,
+    secondary: true,
+  },
 ];
 
 export const MORE_ICON = ICON.more;
@@ -295,6 +305,8 @@ export const STATIC_OFFLINE_ROUTES: ReadonlySet<string> = new Set(["/privacy", "
 
 /** Pages that need the connection, with the one line `OfflineNotice` says about why. */
 export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: string }>> = {
+  "/login": { label: "Login", reason: "Signing in needs a live connection to verify the passkey and PIN." },
+  "/setup": { label: "Passkey", reason: "Registering a passkey or changing the PIN needs a live connection." },
   "/sources": { label: "Sources", reason: "Source trust scores are a live query against the pipeline's own tables." },
   "/sources/[name]": { label: "Sources", reason: "A source's delivery history is a live query against the pipeline's own tables." },
   "/feedback": { label: "Feedback", reason: "The rating log is a live query against the pipeline's own tables." },

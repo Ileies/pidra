@@ -18,11 +18,13 @@
    * controls that pushed the row over, and they belong next to the date they step.
    */
   import { page } from "$app/state";
+  import { goto } from "$app/navigation";
   import { ROUTES, NAV_GROUPS, needsConnection, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
   import SyncIndicator from "#lib/offline/SyncIndicator.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
+  import { netJson } from "#lib/offline/net.js";
 
   interface Props {
     /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
@@ -58,6 +60,11 @@
 
   function isCurrentEntry(entry: RouteDef): boolean {
     return current?.href === entry.href;
+  }
+
+  async function logOut() {
+    await netJson("/api/auth/logout", { method: "POST" }).catch(() => {});
+    await goto("/login", { invalidateAll: true });
   }
 </script>
 
@@ -111,6 +118,7 @@
       {/each}
       <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
       <NotifyButton />
+      <button type="button" onclick={logOut} class="nav-btn nav-btn-muted">Log out</button>
     </nav>
 
     <!-- Mobile: one control. Everything else is in the tab bar. -->

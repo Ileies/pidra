@@ -10,6 +10,7 @@
   import { toasts } from "#lib/toast.svelte.js";
   import { INTENT_LABEL, intentSummary } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
+  import Badge from "#lib/components/Badge.svelte";
 
   function onKeydown(event: KeyboardEvent) {
     if (event.key === "Escape" && offline.sheetOpen) offline.closeSheet();
@@ -73,7 +74,7 @@
         <ul class="flex flex-col gap-1">
           {#each offline.pending as intent (intent.id)}
             <li class="rounded border border-surface-700 bg-surface-950 px-2.5 py-1.5 text-xs text-surface-300 flex items-center gap-2">
-              <span class="badge border border-warning-800 bg-warning-950 text-warning-400 shrink-0">{INTENT_LABEL[intent.kind]}</span>
+              <Badge tone="warning" class="shrink-0">{INTENT_LABEL[intent.kind]}</Badge>
               <span class="truncate min-w-0">{intentSummary(intent)}</span>
             </li>
           {/each}

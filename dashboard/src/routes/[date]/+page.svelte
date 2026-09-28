@@ -6,7 +6,9 @@
 	import StatBar from '#lib/components/StatBar.svelte';
 	import ErrorCard from '#lib/components/ErrorCard.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import Badge from '#lib/components/Badge.svelte';
 	import DayNav from '#lib/report/DayNav.svelte';
+	import EntryGroup from '#lib/report/EntryGroup.svelte';
 	import IngestWarning from '#lib/report/IngestWarning.svelte';
 	import NewsSection from '#lib/report/NewsSection.svelte';
 	import QuickActions from '#lib/report/QuickActions.svelte';
@@ -328,59 +330,46 @@
 			<!-- Section 2 leads, at every width. It is the actionable half; the briefing
          is the half you read when you have time. -->
 			{#if personalEntries > 0 || placement.unplaced.length > 0}
-				<section
+				<EntryGroup
 					id="personal"
-					tabindex="-1"
-					class="flex flex-col gap-5 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+					title="Personal Action Center"
+					groups={data.structured.personal}
+					groupKey={(group) => group.urgency}
 				>
-					<h2
-						class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2"
-					>
-						Personal Action Center
-					</h2>
-
-					{#each data.structured.personal as group (group.urgency)}
+					{#snippet header(group)}
 						{@const meta = URGENCY_META[group.urgency]}
-						<div class="flex flex-col gap-3">
-							<!-- The chip carries the meaning; the hue only reinforces it (A4, P7). -->
-							<h3
-								class="flex items-center gap-2 text-sm font-semibold text-surface-200"
+						<!-- The chip carries the meaning; the hue only reinforces it (A4, P7). -->
+						<h3
+							class="flex items-center gap-2 text-sm font-semibold text-surface-200"
+						>
+							<Badge tone={meta.tone}>{meta.label}</Badge>
+							<span class="text-xs font-normal text-surface-400"
+								>{group.entries.length}</span
 							>
-								<span
-									class="badge border {meta.tone === 'error'
-										? 'bg-error-950 border-error-800 text-error-400'
-										: meta.tone === 'warning'
-											? 'bg-warning-950 border-warning-800 text-warning-400'
-											: 'bg-surface-900 border-surface-700 text-surface-300'}"
-								>
-									{meta.label}
-								</span>
-								<span class="text-xs font-normal text-surface-400"
-									>{group.entries.length}</span
-								>
-							</h3>
-							{#each group.entries as entry, index (index)}
-								<ReportEntry
-									{entry}
-									date={data.date}
-									{ratings}
-									{onRate}
-									accent={meta.accent}
-									actions={placement.byEntry.get(entry)}
-								/>
-							{/each}
-						</div>
-					{/each}
-
-					{#if placement.unplaced.length > 0}
-						<div class="flex flex-col gap-3">
-							<h3 class="text-sm font-semibold text-surface-200">
-								Quick actions
-							</h3>
-							<QuickActions actions={placement.unplaced} showReason />
-						</div>
-					{/if}
-				</section>
+						</h3>
+					{/snippet}
+					{#snippet entry(entry, index, group)}
+						{@const meta = URGENCY_META[group.urgency]}
+						<ReportEntry
+							{entry}
+							date={data.date}
+							{ratings}
+							{onRate}
+							accent={meta.accent}
+							actions={placement.byEntry.get(entry)}
+						/>
+					{/snippet}
+					{#snippet footer()}
+						{#if placement.unplaced.length > 0}
+							<div class="flex flex-col gap-3">
+								<h3 class="text-sm font-semibold text-surface-200">
+									Quick actions
+								</h3>
+								<QuickActions actions={placement.unplaced} showReason />
+							</div>
+						{/if}
+					{/snippet}
+				</EntryGroup>
 			{:else}
 				<!-- An empty panel above the fold is worse than no panel. -->
 				<p class="text-sm text-surface-300">Nothing needs action today.</p>
@@ -396,34 +385,25 @@
 			/>
 
 			{#if data.structured.intel.length > 0}
-				<section
+				<EntryGroup
 					id="intel"
-					tabindex="-1"
-					class="flex flex-col gap-6 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+					title="Intelligence Briefing"
+					gapClass="gap-6"
+					groups={data.structured.intel}
+					groupKey={(group) => group.domain}
+					groupWrapper={(group, index) => ({ id: `domain-${index}` })}
 				>
-					<h2
-						class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2"
-					>
-						Intelligence Briefing
-					</h2>
-
-					{#each data.structured.intel as group, index (group.domain)}
-						<div
-							id="domain-{index}"
-							tabindex="-1"
-							class="flex flex-col gap-3 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+					{#snippet header(group)}
+						<h3
+							class="text-sm font-semibold uppercase tracking-wider text-surface-300"
 						>
-							<h3
-								class="text-sm font-semibold uppercase tracking-wider text-surface-300"
-							>
-								{group.domain}
-							</h3>
-							{#each group.entries as entry, entryIndex (entryIndex)}
-								<ReportEntry {entry} date={data.date} {ratings} {onRate} />
-							{/each}
-						</div>
-					{/each}
-				</section>
+							{group.domain}
+						</h3>
+					{/snippet}
+					{#snippet entry(entry)}
+						<ReportEntry {entry} date={data.date} {ratings} {onRate} />
+					{/snippet}
+				</EntryGroup>
 			{/if}
 
 			{#if data.structured.alsoNoted.length > 0}

@@ -10,6 +10,7 @@
   import { offline } from "#lib/offline/state.svelte.js";
   import { intentIsFor } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
+  import Badge from "#lib/components/Badge.svelte";
   import type { NoteRow } from "#lib/notes/api.js";
 
   interface Props {
@@ -260,7 +261,7 @@
           {/if}
         </span>
         {#if queued}
-          <span class="badge border border-warning-800 bg-warning-950 text-warning-400">Queued</span>
+          <Badge tone="warning">Queued</Badge>
         {/if}
       </p>
 

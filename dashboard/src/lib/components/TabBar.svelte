@@ -14,6 +14,7 @@
   import { ROUTES, TABS, MORE_ICON, needsConnection, routeFor } from "#lib/routes.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
+  import Badge from "#lib/components/Badge.svelte";
 
   interface Props {
     open: boolean;
@@ -85,7 +86,7 @@
         {#if unavailable}
           <span class="text-xs text-surface-400">Needs the connection</span>
         {:else if badge > 0}
-          <span class="badge border border-warning-800 bg-warning-950 text-warning-400">{badge} pending</span>
+          <Badge tone="warning">{badge} pending</Badge>
         {/if}
       </a>
     {/each}

@@ -7,6 +7,21 @@ import {
 } from "./checkpoint";
 import { loadErrors, logError, getErrors } from "./errors";
 import { startProgress, updateProgress, stopProgress, pauseProgress, resumeProgress, getSonnetTokens } from "./progress";
+import { startMemoryWatchdog, setWatchdogRunId, setWatchdogState } from "./watchdog";
+import { printInventory } from "./inventory";
+import {
+  detectMode,
+  getSkipSet,
+  getResumableRun,
+  markStaleRunningAsFailed,
+  createRun,
+  finalizeRun,
+  getPriorResults,
+  loadStoredExtractions,
+  loadPreviousDocument,
+  getTotalIndexedCount,
+  missingSections,
+} from "./run-tracking";
 import { fetchEmailItems, type EmailItem } from "./sources/email";
 import { fetchTaskItems } from "./sources/tasks";
 import { fetchKeepNotes } from "./sources/keep";
@@ -26,10 +41,6 @@ import {
 import { listActiveCorrections, formatForPrompt } from "../src/context/corrections";
 import { seedContacts, seedEntities, seedStandingContext } from "./output/db-writer";
 import { writeOutputFiles } from "./output/builder";
-import { db } from "../src/db";
-import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
-import { eq, and, count, desc } from "drizzle-orm";
-import { pickSections, readDocument } from "../src/pipeline/long-term-context";
 
 export interface ContextBuilderOptions {
   /** Rebuild from every source, ignoring the index and any previous document. */
@@ -53,85 +64,6 @@ export interface ContextBuilderOptions {
   fromIndex?: boolean;
 }
 
-// Self-exit cleanly on runaway memory instead of waiting for the OS OOM-killer, which reaps
-// the whole cgroup (took the launching terminal down with it - see incident 2026-09-15).
-const MAX_RSS_MB = Number(process.env.CONTEXT_BUILDER_MAX_RSS_MB ?? 4096);
-let watchdogRunId: string | undefined;
-let watchdogState: CheckpointState | undefined;
-
-function startMemoryWatchdog(): Timer {
-  return setInterval(() => {
-    const rssMb = process.memoryUsage().rss / 1024 / 1024;
-    if (rssMb < MAX_RSS_MB) return;
-    console.error(`\n[watchdog] RSS ${rssMb.toFixed(0)}MB exceeded safety limit (${MAX_RSS_MB}MB) - aborting before the OS OOM-killer has to\n`);
-    void (async () => {
-      try {
-        if (watchdogState) await saveCheckpoint(watchdogState);
-        if (watchdogRunId) {
-          await db.update(contextBuilderRuns)
-            .set({ status: "failed", completedAt: new Date().toISOString() })
-            .where(eq(contextBuilderRuns.id, watchdogRunId));
-        }
-      } finally {
-        process.exit(1);
-      }
-    })();
-  }, 5000);
-}
-
-async function detectMode(forceFull: boolean, forceUpdate: boolean): Promise<"full" | "update"> {
-  if (forceFull) return "full";
-
-  const [lastRun] = await db
-    .select()
-    .from(contextBuilderRuns)
-    .where(eq(contextBuilderRuns.status, "completed"))
-    .orderBy(desc(contextBuilderRuns.startedAt))
-    .limit(1);
-
-  return (lastRun || forceUpdate) ? "update" : "full";
-}
-
-async function getSkipSet(source: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ itemId: contextBuilderIndexedItems.itemId })
-    .from(contextBuilderIndexedItems)
-    .where(eq(contextBuilderIndexedItems.source, source));
-  return new Set(rows.map((r) => r.itemId));
-}
-
-// A run that died mid-way (crash, OOM-kill, watchdog trip) leaves its row status="running"
-// forever - find it so we can continue it instead of starting over from scratch.
-async function getResumableRun(): Promise<{ id: string; mode: "full" | "update" } | null> {
-  const [row] = await db
-    .select({ id: contextBuilderRuns.id, mode: contextBuilderRuns.mode })
-    .from(contextBuilderRuns)
-    .where(eq(contextBuilderRuns.status, "running"))
-    .orderBy(desc(contextBuilderRuns.startedAt))
-    .limit(1);
-  if (!row) return null;
-  return { id: row.id, mode: row.mode === "update" ? "update" : "full" };
-}
-
-// Items already extracted during the interrupted run are stored with their full result -
-// reuse them instead of paying for extraction on the same items a second time.
-async function getPriorResults<T>(dbRunId: string, source: string): Promise<{ skipIds: Set<string>; results: T[] }> {
-  const rows = await db
-    .select({ itemId: contextBuilderIndexedItems.itemId, data: contextBuilderIndexedItems.data })
-    .from(contextBuilderIndexedItems)
-    .where(and(eq(contextBuilderIndexedItems.runId, dbRunId), eq(contextBuilderIndexedItems.source, source)));
-
-  const skipIds = new Set<string>();
-  const results: T[] = [];
-  for (const r of rows) {
-    if (r.data) {
-      skipIds.add(r.itemId);
-      results.push(r.data as T);
-    }
-  }
-  return { skipIds, results };
-}
-
 /**
  * Seeds each target table independently: these three are the whole point of the run, and a
  * failure writing one must not silently skip the others (a transient error during the entity
@@ -153,97 +85,6 @@ async function runDbSeeding(
       await logError(`phase:${label}`, err);
     }
   }
-}
-
-async function loadStoredExtractions(): Promise<{ emails: EmailExtraction[]; notes: NoteExtraction[] }> {
-  const rows = await db
-    .select({ source: contextBuilderIndexedItems.source, data: contextBuilderIndexedItems.data })
-    .from(contextBuilderIndexedItems);
-
-  const emails: EmailExtraction[] = [];
-  const notes: NoteExtraction[] = [];
-  for (const row of rows) {
-    if (!row.data) continue;
-    if (row.source === "email") emails.push(row.data as EmailExtraction);
-    else if (row.source === "keep") notes.push(row.data as NoteExtraction);
-  }
-  return { emails, notes };
-}
-
-/**
- * The five numbered sections the daily pipeline routes the document by. `pickSections` splits on
- * `# N.` headings, so a document that answers with anything else reaches synthesis as an empty
- * string - which is exactly what the 2026-09-11 update run produced, and what made every briefing
- * after it run with `context doc 0 chars` while the run was recorded as completed.
- */
-const REQUIRED_SECTIONS = ["1", "2", "3", "4", "5"];
-
-function missingSections(doc: string): string[] {
-  return REQUIRED_SECTIONS.filter((n) => !pickSections(doc, n));
-}
-
-/** How far back to look for a previous document worth patching before rebuilding from scratch. */
-const PREVIOUS_RUN_CANDIDATES = 5;
-
-/**
- * The document this run updates, and the item count it was built from.
- *
- * Not simply the newest completed run. That row may be an earlier update whose output missed the
- * heading contract, and patching a broken document forward only entrenches it: the run would be
- * recorded as completed, the pipeline would still find nothing, and each month would compound it.
- * So walk back until a run yields a document that parses, which is the same choice the daily
- * pipeline makes. Nothing usable in the window means a full rebuild, which is expensive but right.
- */
-async function loadPreviousDocument(): Promise<{ context: string; itemsIndexed: number }> {
-  const runs = await db
-    .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
-    .from(contextBuilderRuns)
-    .where(eq(contextBuilderRuns.status, "completed"))
-    .orderBy(desc(contextBuilderRuns.startedAt))
-    .limit(PREVIOUS_RUN_CANDIDATES);
-
-  for (const run of runs) {
-    if (!run.outputPath) continue;
-    try {
-      // readDocument, not readFile: output_path holds whichever machine's absolute path ran the
-      // build, so a workstation harvest is unopenable from the server and vice versa.
-      const parsed = JSON.parse(await readDocument(run.outputPath)) as { fullContext?: string };
-      const doc = parsed.fullContext ?? "";
-      const missing = missingSections(doc);
-      if (missing.length === 0) return { context: doc, itemsIndexed: run.itemsIndexed ?? 0 };
-      console.warn(`[Synthesis] ${run.outputPath} is missing section(s) ${missing.join(", ")} - looking further back`);
-    } catch (err) {
-      console.warn(`[Synthesis] ${run.outputPath} unreadable (${err instanceof Error ? err.message : String(err)}) - looking further back`);
-    }
-  }
-  return { context: "", itemsIndexed: 0 };
-}
-
-async function getTotalIndexedCount(): Promise<number> {
-  const [row] = await db.select({ n: count() }).from(contextBuilderIndexedItems);
-  return Number(row?.n ?? 0);
-}
-
-function printInventory(info: {
-  emailNew: number; emailSkipped: number;
-  tasks: number;
-  keepNew: number; keepSkipped: number;
-  github: number;
-  mode: string;
-}): void {
-  const col = (s: string, w: number) => s.padEnd(w);
-  console.log("\n=== Source Inventory ===");
-  if (info.mode === "update") {
-    console.log(`  ${col("Email", 10)} ${info.emailNew} new  (${info.emailSkipped} already indexed)`);
-    console.log(`  ${col("Tasks", 10)} ${info.tasks} (always re-fetched)`);
-    console.log(`  ${col("Keep", 10)} ${info.keepNew} new  (${info.keepSkipped} already indexed)`);
-  } else {
-    console.log(`  ${col("Email", 10)} ${info.emailNew}`);
-    console.log(`  ${col("Tasks", 10)} ${info.tasks}`);
-    console.log(`  ${col("Keep", 10)} ${info.keepNew}`);
-  }
-  console.log(`  ${col("GitHub", 10)} ${info.github} repos (always re-fetched)`);
-  console.log("========================\n");
 }
 
 export async function runContextBuilder(options: ContextBuilderOptions = {}): Promise<void> {
@@ -274,10 +115,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   // A dry run must leave every bit of run state alone, so it never adopts a resumable run.
   const resumable = forceFull || forceUpdate || dryRun || fromIndex ? null : await getResumableRun();
   if (!resumable && (forceFull || forceUpdate) && !dryRun) {
-    const stale = await db.select({ id: contextBuilderRuns.id }).from(contextBuilderRuns).where(eq(contextBuilderRuns.status, "running"));
-    for (const s of stale) {
-      await db.update(contextBuilderRuns).set({ status: "failed", completedAt: new Date().toISOString() }).where(eq(contextBuilderRuns.id, s.id));
-    }
+    await markStaleRunningAsFailed();
   }
 
   // --from-index rebuilds the document from scratch out of the stored extractions, so it wants
@@ -287,14 +125,8 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   console.log(`\n=== Context Builder - ${mode} mode${dryRun ? " (dry run)" : ""}${resumable ? " (resuming)" : ""} ===\n`);
 
   let dbRunId: string | undefined = resumable?.id;
-  if (!dryRun && !dbRunId) {
-    const [runRow] = await db
-      .insert(contextBuilderRuns)
-      .values({ mode, status: "running" })
-      .returning({ id: contextBuilderRuns.id });
-    dbRunId = runRow.id;
-  }
-  watchdogRunId = dbRunId;
+  if (!dryRun && !dbRunId) dbRunId = await createRun(mode);
+  setWatchdogRunId(dbRunId);
 
   let priorEmailResults: EmailExtraction[] = [];
   let priorNoteResults: NoteExtraction[] = [];
@@ -317,7 +149,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   }
 
   const state: CheckpointState = makeInitialCheckpoint(runId, mode);
-  watchdogState = state;
+  setWatchdogState(state);
   if (!dryRun) await saveCheckpoint(state);
   startProgress(state);
 
@@ -629,18 +461,10 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   const totalIndexed = emailExtractions.length + noteExtractions.length + githubRepos.length + taskItems.length;
 
   if (dbRunId) {
-    await db
-      .update(contextBuilderRuns)
-      .set({
-        status: "completed",
-        completedAt: new Date().toISOString(),
-        itemsIndexed: totalIndexed,
-        // No path unless the document in that file is one the pipeline can actually read. The
-        // column is how every downstream reader finds the harvest, so pointing it at a failed
-        // synthesis is worse than pointing it nowhere.
-        outputPath: fullContext && jsonPath ? jsonPath : null,
-      })
-      .where(eq(contextBuilderRuns.id, dbRunId));
+    // No path unless the document in that file is one the pipeline can actually read. The
+    // column is how every downstream reader finds the harvest, so pointing it at a failed
+    // synthesis is worse than pointing it nowhere.
+    await finalizeRun(dbRunId, { itemsIndexed: totalIndexed, outputPath: fullContext && jsonPath ? jsonPath : null });
   }
 
   await clearCheckpoint();

@@ -1,0 +1,79 @@
+import type { PageContextSnapshot } from "../../db";
+import { SURFACES, resolveSurface, type Surface } from "../surfaces";
+
+const BASE_PROMPT = `You are PIDRA's assistant, embedded in the user's own dashboard. You help them
+change the system's content: notes, the harvested long-term context, entities, todos and calendar
+entries. You act through skills, and the page the user is on decides which skills you have.
+
+How to work:
+- Look before you write. Read the thing you are about to change, so ids and quotes are real
+  rather than guessed.
+- One fact per call. Three wrong things about a person are three calls.
+- Do what was asked and say what you did, in one or two plain sentences. Do not restate the whole
+  note or the whole context back at the user.
+- If the instruction is ambiguous about which item or which person, ask before writing.
+- If something you need is not available on this page, say which page it belongs to instead of
+  pretending or working around it.
+- Never claim a change you did not make. A rejected or failed skill call is information the user
+  needs, not something to paper over.
+- Answer in the user's language, which is usually German.
+- Answer in plain prose. The panel renders your text verbatim rather than as HTML, so markdown
+  syntax would show up as literal asterisks.`;
+
+/** What the client says the user is looking at. Untrusted, so everything here is capped. */
+export interface TurnContextInput {
+  surface?: unknown;
+  route?: string;
+  digest?: string;
+  focus?: { kind?: string; id?: string; label?: string }[];
+}
+
+export interface TurnContext extends PageContextSnapshot {
+  surface: Surface;
+}
+
+const MAX_DIGEST_CHARS = 2000;
+const MAX_FOCUS_ITEMS = 30;
+const MAX_FOCUS_LABEL = 80;
+
+export function normaliseContext(input: TurnContextInput = {}): TurnContext {
+  const route = typeof input.route === "string" && input.route.startsWith("/") ? input.route : "/";
+
+  return {
+    // The route decides. A claimed surface is only ever a cross-check, never a way for a client
+    // to widen its own capabilities.
+    surface: resolveSurface(input.surface, route),
+    route,
+    digest: typeof input.digest === "string" ? input.digest.slice(0, MAX_DIGEST_CHARS) : undefined,
+    focus: Array.isArray(input.focus)
+      ? input.focus
+          .filter((item) => item && typeof item.id === "string")
+          .slice(0, MAX_FOCUS_ITEMS)
+          .map((item) => ({
+            kind: String(item.kind ?? "item"),
+            id: String(item.id),
+            label: item.label ? String(item.label).slice(0, MAX_FOCUS_LABEL) : undefined,
+          }))
+      : undefined,
+  };
+}
+
+/**
+ * The page, rendered for the model. The `focus` list is what makes "delete the second note about
+ * the newsletter" work: real ids for what is actually on screen.
+ */
+function renderContext(ctx: TurnContext): string {
+  const lines = [`The user is on ${ctx.route} (${SURFACES[ctx.surface].label}).`];
+  if (ctx.digest) lines.push(ctx.digest);
+  if (ctx.focus?.length) {
+    lines.push("", "Visible on the page right now:");
+    for (const item of ctx.focus) {
+      lines.push(`- ${item.kind} ${item.id}${item.label ? `: ${item.label}` : ""}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+export function systemPrompt(ctx: TurnContext): string {
+  return [BASE_PROMPT, SURFACES[ctx.surface].prompt, renderContext(ctx)].join("\n\n");
+}

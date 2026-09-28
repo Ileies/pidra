@@ -230,6 +230,19 @@ async function fallbackDocument(): Promise<Response> {
   return (await cachedShell()) ?? offlineDocument();
 }
 
+/**
+ * Same redirect the auth gate itself would have sent, reconstructed rather than read: an
+ * opaque-redirect response carries no readable Location (the whole point of "opaque"), but a
+ * mirrored path's server only ever answers with a redirect for this one reason. `navigate()` is a
+ * real top-level navigation, so it re-enters `hooks.server.ts` and gets the live answer, cookie and
+ * all - this is a best-effort push, not the source of truth.
+ */
+async function forceReauth(pathname: string): Promise<void> {
+  const target = `/login?redirect=${encodeURIComponent(pathname)}`;
+  const windows = await self.clients.matchAll({ type: "window" });
+  await Promise.all(windows.map((client) => ("navigate" in client ? (client as WindowClient).navigate(target).catch(() => {}) : undefined)));
+}
+
 async function navigation(event: FetchEvent): Promise<Response> {
   const { pathname } = new URL(event.request.url);
 
@@ -238,11 +251,19 @@ async function navigation(event: FetchEvent): Promise<Response> {
     if (shell) {
       // Refreshed behind the page, bounded like everything else, so a blackhole cannot keep the
       // worker alive until the OS gives up. A late or missing answer says nothing the page's own
-      // requests will not say sooner.
+      // requests will not say sooner - except a session that expired since the shell was cached: the
+      // mirror answers from IndexedDB with no auth check of its own (by design, so a genuinely
+      // offline device keeps reading it), so the tab would otherwise sit on stale, possibly private
+      // report content until some unrelated request happened to surface a 401. An opaque redirect
+      // here is that gate firing, and the open tab is sent to `/login` directly instead of waiting.
       event.waitUntil(
-        fromNetwork(event.request).catch(() => {
-          offline = true;
-        }),
+        fromNetwork(event.request)
+          .then((response) => {
+            if (response.type === "opaqueredirect") return forceReauth(pathname);
+          })
+          .catch(() => {
+            offline = true;
+          }),
       );
       return shell;
     }

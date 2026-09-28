@@ -22,7 +22,7 @@
   </svg>
   <h1 class="text-lg font-semibold text-surface-100">{label} needs the connection</h1>
   <p class="text-sm text-surface-400 max-w-prose">{reason}</p>
-  <p class="text-xs text-surface-500">It opens by itself once the VPN is back.</p>
+  <p class="text-xs text-surface-500">It opens by itself once the connection is back.</p>
   {#if onRetry}
     <button
       type="button"

@@ -29,8 +29,8 @@ function isPublic(pathname: string): boolean {
 /**
  * Two stamps, both for the offline layer (CLAUDE.md, Offline mode):
  *
- * - `x-pidra` on every response this process serves. Without the VPN, the answer to a request
- *   can come from someone else - nginx's 403 on the public path, a captive portal - and the
+ * - `x-pidra` on every response this process serves. When pronix does not answer, the answer to a
+ *   request can come from someone else - nginx's 403 on the public path, a captive portal - and the
  *   client and the worker treat a response without the stamp as "pronix was not reached".
  * - `x-pidra-shell` on the HTML of a mirrored route. Those are `ssr = false`, so the document is
  *   the same route-agnostic shell for all of them, and the worker keeps the newest one to boot any

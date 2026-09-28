@@ -21,9 +21,10 @@
  * and the page reads the mirror. That takes the network out of every launch. Only a device with no
  * shell yet goes to the network first.
  *
- * **Everything else is bounded**. Offline is usually a blackhole, not an error: with the VPN
- * app up and no network beneath it, a request neither succeeds nor fails, it waits for the OS
- * connect timeout. So a live page's navigation races the network against `NAV_BUDGET_MS` and then
+ * **Everything else is bounded**. Offline is usually a blackhole, not an error: a weak signal, a
+ * captive portal, or pronix simply not answering behind an address that still resolves, and a
+ * request neither succeeds nor fails, it waits for the OS connect timeout. So a live page's
+ * navigation races the network against `NAV_BUDGET_MS` and then
  * boots the cached shell (its load then fails into `OfflineNotice`), and an asset missing from the
  * precache gets `ASSET_BUDGET_MS`. Every request the worker makes is *aborted* at its budget
  * (`send`), not just stopped being waited for. `/api/**` and `__data.json` are not touched here:
@@ -44,7 +45,7 @@
  *
  * **The worker syncs, too**. The 06:30 push pulls the snapshot while the notification is
  * shown, so the morning briefing is in the mirror before it is tapped, including on a phone that
- * then goes on a train without the VPN. Queued writes flush from here on Background Sync
+ * then goes on a train and loses signal. Queued writes flush from here on Background Sync
  * (`pidra-outbox`, registered by `outbox.ts` when a write could not go out) and on the push, and a
  * periodic sync refreshes the mirror where the browser grants one. All of it is the same code the
  * pages run (`intents.ts`, `snapshot.ts`), under the same Web Locks, with this worker's own bounded
@@ -82,7 +83,7 @@ const ASSET_BUDGET_MS = 10_000;
  * compressed, well inside this over a working link.
  */
 const SYNC_BUDGET_MS = 20_000;
-/** Parallel precache requests, so an install does not saturate the same VPN link the app uses. */
+/** Parallel precache requests, so an install does not saturate the same link the app uses. */
 const PRECACHE_CONCURRENCY = 3;
 /** On a device's first install the page is loading right now; its own requests go first. */
 const FIRST_INSTALL_DELAY_MS = 1_500;
@@ -217,7 +218,7 @@ async function rememberGeneration(): Promise<string[]> {
 function offlineDocument(): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111214"><title>PIDRA</title>
 <style>body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#111214;color:#d4d6db;font:15px/1.5 system-ui,sans-serif;text-align:center;padding:16px}h1{color:#f0f2f5;font-size:18px;margin:0 0 8px}p{margin:0 0 16px;color:#b8bac0}button{font:inherit;padding:10px 20px;border-radius:8px;border:1px solid #24467f;background:#1e3a6e;color:#f0f2f5}</style></head>
-<body><main><h1>PIDRA is offline</h1><p>Nothing is stored on this device yet. Open the app once with the VPN on and it will work offline from then on.</p><button onclick="location.reload()">Try again</button></main></body></html>`;
+<body><main><h1>PIDRA is offline</h1><p>Nothing is stored on this device yet. Open the app once with a connection and it will work offline from then on.</p><button onclick="location.reload()">Try again</button></main></body></html>`;
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
@@ -420,7 +421,7 @@ const NOTIFICATION_ICON = "/icons/icon-192.png";
 /**
  * The notification icon as a `data:` URL read from the precache. Given a path, the browser fetches
  * the icon from the origin before it shows anything, outside this worker and without its budgets,
- * so with the VPN off and the icon not in the HTTP cache a push showed nothing for over 40 s in
+ * so offline, with the icon not in the HTTP cache, a push showed nothing for over 40 s in
  * testing (2026-09-25) - the 06:30 briefing on a train, exactly. Without a cached copy the icon is
  * left out rather than risk that wait; the browser's default is shown instead.
  */

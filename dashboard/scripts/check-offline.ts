@@ -1,7 +1,7 @@
 /**
  * The offline layer's two structural rules, checked on every `bun run check`
  * because both regress silently: nothing about a hang or a missing tier looks broken on a desktop
- * with the VPN up.
+ * with a good connection.
  *
  * 1. **No bare `fetch` in client code.** `$lib/offline/net.ts` is the one caller: it owns the
  *    budgets, tells slow from gone, and keeps the reachability state honest. A `fetch(` anywhere

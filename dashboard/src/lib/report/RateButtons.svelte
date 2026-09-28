@@ -12,7 +12,7 @@
    *
    * Online, with JS: `use:enhance` cancels the form's own network submission and hands the tap to
    * the offline outbox instead, which applies it to the mirror and queues the
-   * real write - the same code path whether the VPN is up or not. No JS: the form still posts to
+   * real write - the same code path whether the connection is up or not. No JS: the form still posts to
    * `action` directly, which is why it and its hidden fields stay in the markup rather than being
    * replaced by a plain button.
    */

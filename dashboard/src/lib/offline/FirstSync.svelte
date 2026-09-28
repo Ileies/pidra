@@ -21,7 +21,7 @@
       <h1 class="text-lg font-semibold text-surface-100">Nothing stored on this device yet</h1>
       <p class="text-sm text-surface-400 max-w-prose">
         {offline.reachable === "offline"
-          ? "The dashboard server is not reachable. Open the app once with the VPN on and it works offline from then on."
+          ? "The dashboard server is not reachable. Open the app once with a connection and it works offline from then on."
           : "The offline copy could not be downloaded. The server answered, so trying again usually works."}
       </p>
       <button
@@ -36,7 +36,7 @@
       <h1 class="text-lg font-semibold text-surface-100">Downloading the offline copy</h1>
       <p class="text-sm text-surface-400 max-w-prose">
         The last 60 briefings, your notes, the rules and the context document, once. After this the
-        app opens from this device, with or without the VPN.
+        app opens from this device, with or without a connection.
       </p>
     {/if}
   </div>

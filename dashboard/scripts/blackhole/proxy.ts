@@ -4,7 +4,7 @@
  *
  * - `forward`: pronix reachable. The snapshot is the fixture and every write is a recorded
  *   stand-in, so no request of the suite reaches a database or the skills bridge.
- * - `blackhole`: every request is accepted and never answered - the VPN app up with no network
+ * - `blackhole`: every request is accepted and never answered - a weak signal with no real network
  *   under it, or `10.200.200.1` on a network where nobody answers for it. What DevTools' offline
  *   mode cannot give, and the case the whole offline layer is built for.
  * - `gated`: every request answered by something that is not the app - nginx's 403 from the

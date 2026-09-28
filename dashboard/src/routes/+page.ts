@@ -4,7 +4,7 @@ import { mirrorEmpty, reportDates } from "#lib/offline/repo.js";
 
 /**
  * `/` never waits. Today when today is mirrored, otherwise the newest
- * mirrored date: with the VPN off overnight today's briefing was never fetched, and an empty "no
+ * mirrored date: offline overnight today's briefing was never fetched, and an empty "no
  * report yet" page when yesterday's is in the mirror is the wrong answer. The first version pulled
  * the whole snapshot here before deciding, which is half of what made a cold start slow. If a
  * background sync brings today's report while yesterday's is open, that page offers it.

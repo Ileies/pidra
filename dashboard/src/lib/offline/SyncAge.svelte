@@ -12,7 +12,7 @@
   {#if age > STALE_MS}
     <p role="status" class="rounded-lg border border-warning-800 bg-warning-950 px-3 py-2 text-xs text-warning-400">
       Offline copy, synced {fmtAge(age)} ({fmtDateTime(offline.lastSyncedAt)}).
-      {offline.reachable === "offline" ? "Reconnect to the VPN to refresh it." : offline.syncing ? "Refreshing…" : ""}
+      {offline.reachable === "offline" ? "Reconnect to refresh it." : offline.syncing ? "Refreshing…" : ""}
     </p>
   {:else}
     <p class="text-xs text-surface-400 text-right" title={fmtDateTime(offline.lastSyncedAt)}>

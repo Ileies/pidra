@@ -40,7 +40,7 @@ Only reached if Step 2 passed. Invoke the `docs-committer` subagent (`Agent` too
 - The reason given in this skill's args (or gathered in Step 1 if none were given).
 - The real `git diff` text for exactly the session's own files from Step 1 (restrict it with `git diff -- <file> <file> ...`, not a description of the diff) - handing over the actual text is still cheaper than letting the subagent explore to reconstruct it.
 - The current list of files under `docs/**` (a plain `find docs -name '*.md'` is enough - don't have the subagent discover this itself).
-- A reminder that it must not explore the codebase beyond what's given, must not touch non-doc files, must not fix anything, and must not re-run checks (already done in Step 2).
+- A reminder that it must not explore the codebase beyond what's given, must not touch non-doc files, must not fix anything, and must not re-run checks (already done in Step 2). It may still run `git status`/`diff`/`log` freely for its own orientation and for the clean-tree check after committing - that's expected, not exploration - it just must never treat something one of those turns up as a new file to act on beyond what this prompt names.
 
 Do not add anything else to that prompt - the subagent's own definition (`.claude/agents/docs-committer.md`) carries the rest of its instructions, and repeating them here wastes tokens on every invocation.
 

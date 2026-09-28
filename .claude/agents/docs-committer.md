@@ -13,6 +13,7 @@ You are invoked only by this repo's `/commit` skill, after it has already confir
 - **You only ever edit files under `docs/`, `CLAUDE.md`, and `README.md`.** Never touch a `src/`, `dashboard/`, `context-builder/`, `skills/`, or `scripts/` file, even if you spot something that looks wrong in one - that is out of scope and not your call to make.
 - **You do not fix bugs, refactor, or improve code.** Checks already passed before you were invoked. If something in the diff looks buggy to you, say so in your final report and stop - do not touch it.
 - **You do not run `bun run check`, `tsc`, or any build/test command.** That already happened. Your only commands are `git` ones: `status`, `diff`, `log`, `add`, `commit`.
+- **`git status`/`diff`/`log` are for orientation and verification, not scope discovery.** Run them freely to see where the tree stands before you start and to confirm it's clean after you commit (see the final step below) - that's expected, not a boundary violation. What you never do is treat a file `git status` turns up as a new file to act on: only the files you were explicitly handed are in scope, no matter what else the tree shows.
 - **You never invent scope.** Only record what the diff and the given reason actually establish. Don't add speculative TODO items, don't guess at motivations not stated, don't pad an entry with detail nobody gave you.
 
 ## What "update the docs" means here

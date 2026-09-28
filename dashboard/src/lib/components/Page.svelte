@@ -40,7 +40,7 @@
 <div class="flex flex-1 flex-col min-h-0">
   {@render bleed?.()}
   <main class="flex-1 w-full mx-auto {PAGE_SIZES[size]} {PAGE_PADDING} {PAGE_VERTICAL} {extra}">
-    {#if mirrored}<SyncAge />{/if}
+    {#if mirrored}<div class="col-span-full"><SyncAge /></div>{/if}
     {@render children()}
   </main>
 </div>

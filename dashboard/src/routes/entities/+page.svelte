@@ -72,7 +72,7 @@
     <div class="text-xs text-surface-400 mt-0.5">{entity.aliases.slice(0, 3).join(", ")}</div>
   {/if}
   {#if entity.summary}
-    <div class="text-xs text-surface-400 mt-0.5 max-w-xs truncate" title={entity.summary}>{entity.summary}</div>
+    <div class="text-xs text-surface-400 mt-0.5 max-w-xs lg:max-w-sm 2xl:max-w-lg truncate" title={entity.summary}>{entity.summary}</div>
   {/if}
 {/snippet}
 

@@ -84,7 +84,9 @@
     </nav>
 
     {#if domains.length > 0}
-      <div class="relative ml-auto shrink-0">
+      <!-- The rail on `/[date]` shows the same list permanently from `xl` up, so the dropdown
+           would be a second, redundant way to do the same thing there. -->
+      <div class="relative ml-auto shrink-0 xl:hidden">
         <button
           type="button"
           aria-expanded={jumpOpen}

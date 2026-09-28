@@ -24,7 +24,7 @@ export const PAGE_SIZES = {
 export type PageSize = keyof typeof PAGE_SIZES;
 
 /** One padding rule for every page. 16px on a phone, where 64px cost a sixth of the screen. */
-export const PAGE_PADDING = "px-4 sm:px-6 lg:px-8";
+export const PAGE_PADDING = "px-4 sm:px-6 lg:px-8 2xl:px-12";
 
 /** Vertical rhythm. The extra bottom padding clears the mobile tab bar and the safe area. */
 export const PAGE_VERTICAL = "py-6 pb-[calc(5rem+var(--safe-b))] sm:pb-16";

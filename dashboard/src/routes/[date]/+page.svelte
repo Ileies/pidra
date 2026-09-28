@@ -1,357 +1,599 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
-  import { onDestroy, untrack } from "svelte";
-  import { setPageContext } from "#lib/assistant/state.svelte.js";
-  import Page from "#lib/components/Page.svelte";
-  import StatBar from "#lib/components/StatBar.svelte";
-  import ErrorCard from "#lib/components/ErrorCard.svelte";
-  import Spinner from "#lib/components/Spinner.svelte";
-  import DayNav from "#lib/report/DayNav.svelte";
-  import IngestWarning from "#lib/report/IngestWarning.svelte";
-  import NewsSection from "#lib/report/NewsSection.svelte";
-  import QuickActions from "#lib/report/QuickActions.svelte";
-  import ReportEntry from "#lib/report/ReportEntry.svelte";
-  import SectionNav from "#lib/report/SectionNav.svelte";
-  import { ACTION_META, URGENCY_META, type NavTarget, type QuickAction } from "#lib/report/types.js";
-  import type { RenderedEntry } from "#lib/server/reports.js";
-  import { fmtCost, fmtDate, fmtNum } from "#lib/format.js";
-  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
-  import { toastFormResult } from "#lib/toast.svelte.js";
-  import { netJson } from "#lib/offline/net.js";
-  import { poll } from "#lib/offline/poll.js";
-  import { sync } from "#lib/offline/sync.js";
-  import { offline } from "#lib/offline/state.svelte.js";
-  import type { PageData, ActionData } from "./$types";
+	import { enhance } from '$app/forms';
+	import { onDestroy, untrack } from 'svelte';
+	import { setPageContext } from '#lib/assistant/state.svelte.js';
+	import Page from '#lib/components/Page.svelte';
+	import StatBar from '#lib/components/StatBar.svelte';
+	import ErrorCard from '#lib/components/ErrorCard.svelte';
+	import Spinner from '#lib/components/Spinner.svelte';
+	import DayNav from '#lib/report/DayNav.svelte';
+	import IngestWarning from '#lib/report/IngestWarning.svelte';
+	import NewsSection from '#lib/report/NewsSection.svelte';
+	import QuickActions from '#lib/report/QuickActions.svelte';
+	import ReportEntry from '#lib/report/ReportEntry.svelte';
+	import SectionNav from '#lib/report/SectionNav.svelte';
+	import {
+		ACTION_META,
+		URGENCY_META,
+		type NavTarget,
+		type QuickAction
+	} from '#lib/report/types.js';
+	import type { RenderedEntry } from '#lib/server/reports.js';
+	import { fmtCost, fmtDate, fmtNum } from '#lib/format.js';
+	import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from '#lib/pricing.js';
+	import { toastFormResult } from '#lib/toast.svelte.js';
+	import { netJson } from '#lib/offline/net.js';
+	import { poll } from '#lib/offline/poll.js';
+	import { sync } from '#lib/offline/sync.js';
+	import { offline } from '#lib/offline/state.svelte.js';
+	import type { PageData, ActionData } from './$types';
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // A pipeline trigger is online-only (it needs the server); said before the tap, not after it.
-  const isOffline = $derived(offline.reachable === "offline");
+	// A pipeline trigger is online-only (it needs the server); said before the tap, not after it.
+	const isOffline = $derived(offline.reachable === 'offline');
 
-  $effect(() => toastFormResult(form));
+	$effect(() => toastFormResult(form));
 
-  /**
-   * `/` lands on the newest mirrored day when today's is not mirrored yet. When a background
-   * sync then brings today's, the page offers it rather than swapping the text under the reader.
-   * Only on the arrival itself: a day opened on purpose while today's was already there says nothing.
-   */
-  let todayArrived = $state(false);
-  let hadToday = untrack(() => data.hasToday);
-  let seenDate = untrack(() => data.date);
-  $effect(() => {
-    if (data.date !== seenDate) {
-      seenDate = data.date;
-      hadToday = data.hasToday;
-      todayArrived = false;
-    } else if (!hadToday && data.hasToday) {
-      hadToday = true;
-      todayArrived = data.date !== data.today;
-    }
-  });
+	/**
+	 * `/` lands on the newest mirrored day when today's is not mirrored yet. When a background
+	 * sync then brings today's, the page offers it rather than swapping the text under the reader.
+	 * Only on the arrival itself: a day opened on purpose while today's was already there says nothing.
+	 */
+	let todayArrived = $state(false);
+	let hadToday = untrack(() => data.hasToday);
+	let seenDate = untrack(() => data.date);
+	$effect(() => {
+		if (data.date !== seenDate) {
+			seenDate = data.date;
+			hadToday = data.hasToday;
+			todayArrived = false;
+		} else if (!hadToday && data.hasToday) {
+			hadToday = true;
+			todayArrived = data.date !== data.today;
+		}
+	});
 
-  // The report surface: the assistant can read this briefing and act on notes, todos, the
-  // calendar or the long-term context, but never edit the report. Reports are final.
-  $effect(() => {
-    setPageContext({
-      surface: "report",
-      route: `/${data.date}`,
-      digest: [
-        `Daily briefing for ${data.date}${data.date === data.today ? " (today)" : ""}.`,
-        data.report
-          ? `${data.report.itemsIncluded ?? 0} of ${data.report.itemCount ?? 0} items in the report, ${data.report.itemsFiltered ?? 0} filtered out.`
-          : "There is no report for this day yet.",
-        newsGroups.length > 0 ? `Its News section covers ${newsGroups.map((g) => g.group).join(", ")}.` : "",
-        data.pipelineRun ? `Last run: ${data.pipelineRun.status}.` : "",
-        // So the assistant does not reason about a briefing as if it were complete when it is not.
-        data.ingestFailures.length > 0
-          ? `Ingest was incomplete: ${data.ingestFailures
-              .map((f) => `${f.source} (${f.kind})`)
-              .join(", ")} never delivered, so anything from them is missing from this briefing.`
-          : "",
-        openActions.length > 0
-          ? `The report offers quick-action buttons the user can tap: ${openActions
-              .map((a) => `${ACTION_META[a.preview.kind].verb} "${a.preview.title}"`)
-              .join(", ")}.`
-          : "",
-      ].filter(Boolean).join(" "),
-    });
-  });
+	// The report surface: the assistant can read this briefing and act on notes, todos, the
+	// calendar or the long-term context, but never edit the report. Reports are final.
+	$effect(() => {
+		setPageContext({
+			surface: 'report',
+			route: `/${data.date}`,
+			digest: [
+				`Daily briefing for ${data.date}${data.date === data.today ? ' (today)' : ''}.`,
+				data.report
+					? `${data.report.itemsIncluded ?? 0} of ${data.report.itemCount ?? 0} items in the report, ${data.report.itemsFiltered ?? 0} filtered out.`
+					: 'There is no report for this day yet.',
+				newsGroups.length > 0
+					? `Its News section covers ${newsGroups.map((g) => g.group).join(', ')}.`
+					: '',
+				data.pipelineRun ? `Last run: ${data.pipelineRun.status}.` : '',
+				// So the assistant does not reason about a briefing as if it were complete when it is not.
+				data.ingestFailures.length > 0
+					? `Ingest was incomplete: ${data.ingestFailures
+							.map((f) => `${f.source} (${f.kind})`)
+							.join(
+								', '
+							)} never delivered, so anything from them is missing from this briefing.`
+					: '',
+				openActions.length > 0
+					? `The report offers quick-action buttons the user can tap: ${openActions
+							.map(
+								(a) =>
+									`${ACTION_META[a.preview.kind].verb} "${a.preview.title}"`
+							)
+							.join(', ')}.`
+					: ''
+			]
+				.filter(Boolean)
+				.join(' ')
+		});
+	});
 
-  // --- ratings: optimistic, re-synced whenever the load function returns ---
+	// --- ratings: optimistic, re-synced whenever the load function returns ---
 
-  let ratings = $state<Record<string, string | null>>({});
-  $effect(() => {
-    ratings = { ...data.ratings };
-  });
+	let ratings = $state<Record<string, string | null>>({});
+	$effect(() => {
+		ratings = { ...data.ratings };
+	});
 
-  function onRate(extractionId: string, eventType: string | null) {
-    ratings[extractionId] = eventType;
-  }
+	function onRate(extractionId: string, eventType: string | null) {
+		ratings[extractionId] = eventType;
+	}
 
-  // --- stats ---
+	// --- stats ---
 
-  const cost = $derived(costUsd(data.report?.tokensIn, data.report?.tokensOut));
-  const costTitle = $derived(PRICING_CONFIGURED ? `Run cost: ${fmtCost(cost)}` : PRICING_HINT);
+	const cost = $derived(costUsd(data.report?.tokensIn, data.report?.tokensOut));
+	const costTitle = $derived(
+		PRICING_CONFIGURED ? `Run cost: ${fmtCost(cost)}` : PRICING_HINT
+	);
 
-  const stats = $derived(
-    data.report
-      ? [
-          { label: "ingested", value: fmtNum(data.report.itemCount) },
-          { label: "included", value: fmtNum(data.report.itemsIncluded) },
-          { label: "tokens in", value: fmtNum(data.report.tokensIn), title: costTitle },
-          { label: "tokens out", value: fmtNum(data.report.tokensOut), title: costTitle },
-          ...(data.report.aiCalls != null ? [{ label: "AI calls", value: fmtNum(data.report.aiCalls) }] : []),
-          ...(data.report.webSearchesRun ? [{ label: "web searches", value: fmtNum(data.report.webSearchesRun) }] : []),
-          ...(cost != null ? [{ label: "cost", value: fmtCost(cost) }] : []),
-        ]
-      : [],
-  );
+	const stats = $derived(
+		data.report
+			? [
+					{ label: 'ingested', value: fmtNum(data.report.itemCount) },
+					{ label: 'included', value: fmtNum(data.report.itemsIncluded) },
+					{
+						label: 'tokens in',
+						value: fmtNum(data.report.tokensIn),
+						title: costTitle
+					},
+					{
+						label: 'tokens out',
+						value: fmtNum(data.report.tokensOut),
+						title: costTitle
+					},
+					...(data.report.aiCalls != null
+						? [{ label: 'AI calls', value: fmtNum(data.report.aiCalls) }]
+						: []),
+					...(data.report.webSearchesRun
+						? [
+								{
+									label: 'web searches',
+									value: fmtNum(data.report.webSearchesRun)
+								}
+							]
+						: []),
+					...(cost != null ? [{ label: 'cost', value: fmtCost(cost) }] : [])
+				]
+			: []
+	);
 
-  // --- section order and navigation (C3, C6) ---
+	// --- section order and navigation (C3, C6) ---
 
-  const personalEntries = $derived(
-    data.structured?.personal.reduce((sum, group) => sum + group.entries.length, 0) ?? 0,
-  );
+	const personalEntries = $derived(
+		data.structured?.personal.reduce(
+			(sum, group) => sum + group.entries.length,
+			0
+		) ?? 0
+	);
 
-  // --- quick actions ---
+	// --- quick actions ---
 
-  /**
-   * Each action sits under the first personal entry that cites one of its mails, so the button is
-   * next to the text that explains it. One the report never mentions (an automated booking
-   * confirmation the gate kept out of Section 2, or a mail Section 2 left out) goes in its own
-   * block at the end of the section, with the agent's one line on what the mail asked.
-   */
-  const placement = $derived.by(() => {
-    const entries = data.structured?.personal.flatMap((group) => group.entries) ?? [];
-    const byEntry = new Map<RenderedEntry, QuickAction[]>();
-    const unplaced: QuickAction[] = [];
-    for (const action of data.actions) {
-      const entry = entries.find((e) => e.refIds.some((id) => action.sourceIds.includes(id)));
-      if (entry) byEntry.set(entry, [...(byEntry.get(entry) ?? []), action]);
-      else unplaced.push(action);
-    }
-    return { byEntry, unplaced };
-  });
+	/**
+	 * Each action sits under the first personal entry that cites one of its mails, so the button is
+	 * next to the text that explains it. One the report never mentions (an automated booking
+	 * confirmation the gate kept out of Section 2, or a mail Section 2 left out) goes in its own
+	 * block at the end of the section, with the agent's one line on what the mail asked.
+	 */
+	const placement = $derived.by(() => {
+		const entries =
+			data.structured?.personal.flatMap((group) => group.entries) ?? [];
+		const byEntry = new Map<RenderedEntry, QuickAction[]>();
+		const unplaced: QuickAction[] = [];
+		for (const action of data.actions) {
+			const entry = entries.find((e) =>
+				e.refIds.some((id) => action.sourceIds.includes(id))
+			);
+			if (entry) byEntry.set(entry, [...(byEntry.get(entry) ?? []), action]);
+			else unplaced.push(action);
+		}
+		return { byEntry, unplaced };
+	});
 
-  const openActions = $derived(data.actions.filter((a) => a.status === "proposed" || a.status === "failed"));
+	const openActions = $derived(
+		data.actions.filter((a) => a.status === 'proposed' || a.status === 'failed')
+	);
 
-  // `?? []`: a report mirrored before the News section existed has no `news` at all.
-  const newsGroups = $derived(data.structured?.news ?? []);
+	// `?? []`: a report mirrored before the News section existed has no `news` at all.
+	const newsGroups = $derived(data.structured?.news ?? []);
 
-  // In reading order: the News groups come before the briefing's domains on the page.
-  const domainTargets = $derived<NavTarget[]>([
-    ...newsGroups.map((group, index) => ({ id: `news-${index}`, label: group.group })),
-    ...(data.structured?.intel ?? []).map((group, index) => ({
-      id: `domain-${index}`,
-      label: group.domain,
-    })),
-  ]);
+	// In reading order: the News groups come before the briefing's domains on the page.
+	const domainTargets = $derived<NavTarget[]>([
+		...newsGroups.map((group, index) => ({
+			id: `news-${index}`,
+			label: group.group
+		})),
+		...(data.structured?.intel ?? []).map((group, index) => ({
+			id: `domain-${index}`,
+			label: group.domain
+		}))
+	]);
 
-  const sectionTargets = $derived<NavTarget[]>(
-    [
-      personalEntries > 0 || placement.unplaced.length > 0 ? { id: "personal", label: "Personal" } : null,
-      newsGroups.length > 0 ? { id: "news", label: "News" } : null,
-      (data.structured?.intel.length ?? 0) > 0 ? { id: "intel", label: "Briefing" } : null,
-      (data.structured?.alsoNoted.length ?? 0) > 0 ? { id: "also-noted", label: "Also noted" } : null,
-    ].filter((target): target is NavTarget => target !== null),
-  );
+	const sectionTargets = $derived<NavTarget[]>(
+		[
+			personalEntries > 0 || placement.unplaced.length > 0
+				? { id: 'personal', label: 'Personal' }
+				: null,
+			newsGroups.length > 0 ? { id: 'news', label: 'News' } : null,
+			(data.structured?.intel.length ?? 0) > 0
+				? { id: 'intel', label: 'Briefing' }
+				: null,
+			(data.structured?.alsoNoted.length ?? 0) > 0
+				? { id: 'also-noted', label: 'Also noted' }
+				: null
+		].filter((target): target is NavTarget => target !== null)
+	);
 
-  // --- live pipeline status (C7) ---
+	// --- live pipeline status (C7) ---
 
-  let triggering = $state(false);
-  let polling = $state(false);
-  let stopPoll: (() => void) | undefined;
-  let liveStatus = $state<string | null>(null);
+	let triggering = $state(false);
+	let polling = $state(false);
+	let stopPoll: (() => void) | undefined;
+	let liveStatus = $state<string | null>(null);
 
-  /**
-   * Replaces "reload the page in ~5 min". /context-builder in this same codebase already polled
-   * and drew progress bars; the report just told the reader to come back later.
-   */
-  function startPolling() {
-    if (stopPoll) return;
-    polling = true;
-    stopPoll = poll(async () => {
-      const body = await netJson<{ hasReport: boolean; run: { status: string } | null }>(`/api/pipeline/status?date=${data.date}`);
-      liveStatus = body.run?.status ?? null;
+	/**
+	 * Replaces "reload the page in ~5 min". /context-builder in this same codebase already polled
+	 * and drew progress bars; the report just told the reader to come back later.
+	 */
+	function startPolling() {
+		if (stopPoll) return;
+		polling = true;
+		stopPoll = poll(async () => {
+			const body = await netJson<{
+				hasReport: boolean;
+				run: { status: string } | null;
+			}>(`/api/pipeline/status?date=${data.date}`);
+			liveStatus = body.run?.status ?? null;
 
-      if (body.hasReport || body.run?.status === "failed") {
-        stopPolling();
-        // The report reaches this page through the mirror like any other; the sync re-runs the load.
-        await sync({ force: true });
-      }
-    }, 5000);
-  }
+			if (body.hasReport || body.run?.status === 'failed') {
+				stopPolling();
+				// The report reaches this page through the mirror like any other; the sync re-runs the load.
+				await sync({ force: true });
+			}
+		}, 5000);
+	}
 
-  function stopPolling() {
-    stopPoll?.();
-    stopPoll = undefined;
-    polling = false;
-  }
+	function stopPolling() {
+		stopPoll?.();
+		stopPoll = undefined;
+		polling = false;
+	}
 
-  $effect(() => {
-    if (!data.report && (data.pipelineRun?.status === "running" || triggering || form?.triggered)) startPolling();
-    else stopPolling();
-  });
+	$effect(() => {
+		if (
+			!data.report &&
+			(data.pipelineRun?.status === 'running' || triggering || form?.triggered)
+		)
+			startPolling();
+		else stopPolling();
+	});
 
-  onDestroy(stopPolling);
+	onDestroy(stopPolling);
+
+	// Duplicates the scroll-and-focus behaviour `SectionNav` uses for its own jump list, for the
+	// rail's copy of it: two callers, not worth lifting into a shared helper for two lines.
+	function jumpTo(id: string) {
+		document
+			.getElementById(id)
+			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		document.getElementById(id)?.focus({ preventScroll: true });
+	}
 </script>
 
 {#snippet statsBar()}
-  {#if data.report}
-    <!-- The bar says how much was ingested and how much made it. The question that leaves - which
+	{#if data.report}
+		<!-- The bar says how much was ingested and how much made it. The question that leaves - which
          items, and why not - is the one thing the report itself can never answer, so the link to
          the page that can belongs right here. Its label does not lean on `itemsFiltered`: that is
          a subtraction over what synthesis was handed, not over what arrived, and it reads as
-         "0 filtered" on a day where plenty was. -->
-    <StatBar {stats}>
-      <a
-        href="/{data.date}/triage"
-        class="text-xs text-primary-400 no-underline hover:text-primary-300 sm:ml-auto"
-        title="Every mail of this run and where it stopped"
-      >
-        What was left out? →
-      </a>
-    </StatBar>
-  {/if}
+         "0 filtered" on a day where plenty was. Hidden from `xl` up: the rail's "Run stats" card
+         says the same thing without needing the reader to scroll back to the top of the page. -->
+		<div class="xl:hidden">
+			<StatBar {stats}>
+				<a
+					href="/{data.date}/triage"
+					class="text-xs text-primary-400 no-underline hover:text-primary-300 sm:ml-auto"
+					title="Every mail of this run and where it stopped"
+				>
+					What was left out? →
+				</a>
+			</StatBar>
+		</div>
+	{/if}
 {/snippet}
 
-<Page title={data.date} size="read" bleed={statsBar} class="flex flex-col gap-5">
-  <DayNav date={data.date} today={data.today} prevDate={data.prevDate} nextDate={data.nextDate} />
+<!-- `size="app"` rather than `read`: the frame needs to be wide enough to hold the rail beside
+     the article, so the 68ch prose measure is enforced on the inner div instead of on `<main>`
+     itself. Below `xl` there is no grid and no rail, and the article alone reads exactly as the
+     `read` frame always did. -->
+<Page
+	title={data.date}
+	size="app"
+	bleed={statsBar}
+	class="xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start xl:gap-10"
+>
+	<div class="flex flex-col gap-5 xl:max-w-read">
+		<DayNav
+			date={data.date}
+			today={data.today}
+			prevDate={data.prevDate}
+			nextDate={data.nextDate}
+		/>
 
-  <!-- Above the briefing, and above the "no report" state too: what a dead mailbox means is that
+		<!-- Above the briefing, and above the "no report" state too: what a dead mailbox means is that
        the text below is incomplete, which has to be read before the text, not after it. -->
-  <IngestWarning failures={data.ingestFailures} date={data.date} />
+		<IngestWarning failures={data.ingestFailures} date={data.date} />
 
-  {#if todayArrived}
-    <p role="status" class="flex items-center gap-3 rounded-lg border border-primary-800 bg-primary-950 px-3 py-2 text-sm text-primary-200">
-      Today's briefing is here.
-      <a href="/{data.today}" class="ml-auto text-primary-300 no-underline hover:text-primary-200">Read it →</a>
-    </p>
-  {/if}
+		{#if todayArrived}
+			<p
+				role="status"
+				class="flex items-center gap-3 rounded-lg border border-primary-800 bg-primary-950 px-3 py-2 text-sm text-primary-200"
+			>
+				Today's briefing is here.
+				<a
+					href="/{data.today}"
+					class="ml-auto text-primary-300 no-underline hover:text-primary-200"
+					>Read it →</a
+				>
+			</p>
+		{/if}
 
-  {#if data.structured}
-    {#if sectionTargets.length > 1}
-      <SectionNav sections={sectionTargets} domains={domainTargets} />
-    {/if}
+		{#if data.structured}
+			{#if sectionTargets.length > 1}
+				<SectionNav sections={sectionTargets} domains={domainTargets} />
+			{/if}
 
-    <!-- Section 2 leads, at every width. It is the actionable half; the briefing
+			<!-- Section 2 leads, at every width. It is the actionable half; the briefing
          is the half you read when you have time. -->
-    {#if personalEntries > 0 || placement.unplaced.length > 0}
-      <section id="personal" tabindex="-1" class="flex flex-col gap-5 scroll-mt-[calc(var(--header-h)+3.5rem)]">
-        <h2 class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2">Personal Action Center</h2>
+			{#if personalEntries > 0 || placement.unplaced.length > 0}
+				<section
+					id="personal"
+					tabindex="-1"
+					class="flex flex-col gap-5 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+				>
+					<h2
+						class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2"
+					>
+						Personal Action Center
+					</h2>
 
-        {#each data.structured.personal as group (group.urgency)}
-          {@const meta = URGENCY_META[group.urgency]}
-          <div class="flex flex-col gap-3">
-            <!-- The chip carries the meaning; the hue only reinforces it (A4, P7). -->
-            <h3 class="flex items-center gap-2 text-sm font-semibold text-surface-200">
-              <span class="badge border {meta.tone === 'error' ? 'bg-error-950 border-error-800 text-error-400' : meta.tone === 'warning' ? 'bg-warning-950 border-warning-800 text-warning-400' : 'bg-surface-900 border-surface-700 text-surface-300'}">
-                {meta.label}
-              </span>
-              <span class="text-xs font-normal text-surface-400">{group.entries.length}</span>
-            </h3>
-            {#each group.entries as entry, index (index)}
-              <ReportEntry {entry} date={data.date} {ratings} {onRate} accent={meta.accent} actions={placement.byEntry.get(entry)} />
-            {/each}
-          </div>
-        {/each}
+					{#each data.structured.personal as group (group.urgency)}
+						{@const meta = URGENCY_META[group.urgency]}
+						<div class="flex flex-col gap-3">
+							<!-- The chip carries the meaning; the hue only reinforces it (A4, P7). -->
+							<h3
+								class="flex items-center gap-2 text-sm font-semibold text-surface-200"
+							>
+								<span
+									class="badge border {meta.tone === 'error'
+										? 'bg-error-950 border-error-800 text-error-400'
+										: meta.tone === 'warning'
+											? 'bg-warning-950 border-warning-800 text-warning-400'
+											: 'bg-surface-900 border-surface-700 text-surface-300'}"
+								>
+									{meta.label}
+								</span>
+								<span class="text-xs font-normal text-surface-400"
+									>{group.entries.length}</span
+								>
+							</h3>
+							{#each group.entries as entry, index (index)}
+								<ReportEntry
+									{entry}
+									date={data.date}
+									{ratings}
+									{onRate}
+									accent={meta.accent}
+									actions={placement.byEntry.get(entry)}
+								/>
+							{/each}
+						</div>
+					{/each}
 
-        {#if placement.unplaced.length > 0}
-          <div class="flex flex-col gap-3">
-            <h3 class="text-sm font-semibold text-surface-200">Quick actions</h3>
-            <QuickActions actions={placement.unplaced} showReason />
-          </div>
-        {/if}
-      </section>
-    {:else}
-      <!-- An empty panel above the fold is worse than no panel. -->
-      <p class="text-sm text-surface-300">Nothing needs action today.</p>
-    {/if}
+					{#if placement.unplaced.length > 0}
+						<div class="flex flex-col gap-3">
+							<h3 class="text-sm font-semibold text-surface-200">
+								Quick actions
+							</h3>
+							<QuickActions actions={placement.unplaced} showReason />
+						</div>
+					{/if}
+				</section>
+			{:else}
+				<!-- An empty panel above the fold is worse than no panel. -->
+				<p class="text-sm text-surface-300">Nothing needs action today.</p>
+			{/if}
 
-    <!-- What happened, between what needs doing and the newsletters' depth. -->
-    <NewsSection groups={newsGroups} date={data.date} {ratings} {onRate} failures={data.ingestFailures} />
+			<!-- What happened, between what needs doing and the newsletters' depth. -->
+			<NewsSection
+				groups={newsGroups}
+				date={data.date}
+				{ratings}
+				{onRate}
+				failures={data.ingestFailures}
+			/>
 
-    {#if data.structured.intel.length > 0}
-      <section id="intel" tabindex="-1" class="flex flex-col gap-6 scroll-mt-[calc(var(--header-h)+3.5rem)]">
-        <h2 class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2">Intelligence Briefing</h2>
+			{#if data.structured.intel.length > 0}
+				<section
+					id="intel"
+					tabindex="-1"
+					class="flex flex-col gap-6 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+				>
+					<h2
+						class="text-lg font-semibold text-surface-50 border-b border-surface-700 pb-2"
+					>
+						Intelligence Briefing
+					</h2>
 
-        {#each data.structured.intel as group, index (group.domain)}
-          <div id="domain-{index}" tabindex="-1" class="flex flex-col gap-3 scroll-mt-[calc(var(--header-h)+3.5rem)]">
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-surface-300">{group.domain}</h3>
-            {#each group.entries as entry, entryIndex (entryIndex)}
-              <ReportEntry {entry} date={data.date} {ratings} {onRate} />
-            {/each}
-          </div>
-        {/each}
-      </section>
-    {/if}
+					{#each data.structured.intel as group, index (group.domain)}
+						<div
+							id="domain-{index}"
+							tabindex="-1"
+							class="flex flex-col gap-3 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+						>
+							<h3
+								class="text-sm font-semibold uppercase tracking-wider text-surface-300"
+							>
+								{group.domain}
+							</h3>
+							{#each group.entries as entry, entryIndex (entryIndex)}
+								<ReportEntry {entry} date={data.date} {ratings} {onRate} />
+							{/each}
+						</div>
+					{/each}
+				</section>
+			{/if}
 
-    {#if data.structured.alsoNoted.length > 0}
-      <section id="also-noted" tabindex="-1" class="flex flex-col gap-3 scroll-mt-[calc(var(--header-h)+3.5rem)]">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-surface-300 border-b border-surface-800 pb-2">
-          Also noted
-        </h2>
-        {#each data.structured.alsoNoted as entry, index (index)}
-          <ReportEntry {entry} date={data.date} {ratings} {onRate} />
-        {/each}
-      </section>
-    {/if}
-  {:else if data.reportHtml}
-    <!-- The parser found no section headings, or this row predates report_json. The markdown
+			{#if data.structured.alsoNoted.length > 0}
+				<section
+					id="also-noted"
+					tabindex="-1"
+					class="flex flex-col gap-3 scroll-mt-[calc(var(--header-h)+3.5rem)]"
+				>
+					<h2
+						class="text-sm font-semibold uppercase tracking-wider text-surface-300 border-b border-surface-800 pb-2"
+					>
+						Also noted
+					</h2>
+					{#each data.structured.alsoNoted as entry, index (index)}
+						<ReportEntry {entry} date={data.date} {ratings} {onRate} />
+					{/each}
+				</section>
+			{/if}
+		{:else if data.reportHtml}
+			<!-- The parser found no section headings, or this row predates report_json. The markdown
          renders exactly as it always did, so a prompt drift degrades the layout rather than
          emptying the page (C1). -->
-    <!-- No entries to attach the actions to, so they lead, each with its reason. -->
-    <QuickActions actions={data.actions} showReason />
-    <div class="report-body">
-      {@html data.reportHtml}
-    </div>
-  {:else}
-    <div class="flex flex-col items-center gap-5 pt-10 text-center text-surface-300">
-      {#if polling || data.pipelineRun?.status === "running"}
-        <p class="text-primary-400 text-sm inline-flex items-center gap-2">
-          <Spinner label="Pipeline running" />
-          The pipeline is running{liveStatus && liveStatus !== "running" ? ` (${liveStatus})` : ""}. This page updates itself.
-        </p>
-      {:else if data.pipelineRun?.status === "failed"}
-        <ErrorCard
-          step={data.pipelineRun.failedStep}
-          durationMs={data.pipelineRun.durationMs}
-          attempts={data.pipelineRun.stepErrors}
-        />
-      {:else}
-        <p>No report for {fmtDate(data.date)}.</p>
-      {/if}
+			<!-- No entries to attach the actions to, so they lead, each with its reason. -->
+			<QuickActions actions={data.actions} showReason />
+			<div class="report-body">
+				{@html data.reportHtml}
+			</div>
+		{:else}
+			<div
+				class="flex flex-col items-center gap-5 pt-10 text-center text-surface-300"
+			>
+				{#if polling || data.pipelineRun?.status === 'running'}
+					<p class="text-primary-400 text-sm inline-flex items-center gap-2">
+						<Spinner label="Pipeline running" />
+						The pipeline is running{liveStatus && liveStatus !== 'running'
+							? ` (${liveStatus})`
+							: ''}. This page updates itself.
+					</p>
+				{:else if data.pipelineRun?.status === 'failed'}
+					<ErrorCard
+						step={data.pipelineRun.failedStep}
+						durationMs={data.pipelineRun.durationMs}
+						attempts={data.pipelineRun.stepErrors}
+					/>
+				{:else}
+					<p>No report for {fmtDate(data.date)}.</p>
+				{/if}
 
-      <!-- A run that failed or produced nothing is exactly when the reader wants to know what
+				<!-- A run that failed or produced nothing is exactly when the reader wants to know what
            did arrive, so the link is here too and not only on the stats bar. -->
-      <a href="/{data.date}/triage" class="text-xs text-primary-400 no-underline hover:text-primary-300">
-        See what was ingested on this day →
-      </a>
+				<a
+					href="/{data.date}/triage"
+					class="text-xs text-primary-400 no-underline hover:text-primary-300"
+				>
+					See what was ingested on this day →
+				</a>
 
-      {#if !triggering && !polling && data.pipelineRun?.status !== "running"}
-        <form
-          method="POST"
-          action="?/runPipeline"
-          use:enhance={() => {
-            triggering = true;
-            return async ({ update }) => {
-              await update();
-              triggering = false;
-            };
-          }}
-        >
-          <button
-            type="submit"
-            disabled={isOffline}
-            class="tap px-6 py-2.5 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {data.pipelineRun?.status === "failed" ? "Retry" : "Run pipeline now"}
-          </button>
-        </form>
-        {#if isOffline}
-          <p class="text-xs text-surface-400">Running the pipeline needs the connection.</p>
-        {/if}
-      {/if}
-    </div>
-  {/if}
+				{#if !triggering && !polling && data.pipelineRun?.status !== 'running'}
+					<form
+						method="POST"
+						action="?/runPipeline"
+						use:enhance={() => {
+							triggering = true;
+							return async ({ update }) => {
+								await update();
+								triggering = false;
+							};
+						}}
+					>
+						<button
+							type="submit"
+							disabled={isOffline}
+							class="tap px-6 py-2.5 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+						>
+							{data.pipelineRun?.status === 'failed'
+								? 'Retry'
+								: 'Run pipeline now'}
+						</button>
+					</form>
+					{#if isOffline}
+						<p class="text-xs text-surface-400">
+							Running the pipeline needs the connection.
+						</p>
+					{/if}
+				{/if}
+			</div>
+		{/if}
+	</div>
+
+	{#if data.report}
+		<!-- The width the wide-desktop grid frees up, put to use instead of left as margin: the same
+         figures the (now `xl:hidden`) stats bar shows, the open quick actions collected in one
+         place, and a permanent copy of `SectionNav`'s domain dropdown. Sticky, so it stays in view
+         while the article scrolls past it. -->
+		<aside
+			class="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky"
+			style="top: calc(var(--header-h) + 1.5rem)"
+		>
+			<div
+				class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
+			>
+				<h2
+					class="text-xs font-semibold uppercase tracking-wider text-surface-400"
+				>
+					Run stats
+				</h2>
+				<dl class="flex flex-col gap-1.5">
+					{#each stats as stat (stat.label)}
+						<div
+							class="flex items-baseline justify-between gap-3 text-sm"
+							title={stat.title}
+						>
+							<dt class="text-surface-400 truncate">{stat.label}</dt>
+							<dd class="font-semibold text-surface-50 tabular-nums shrink-0">
+								{stat.value}
+							</dd>
+						</div>
+					{/each}
+				</dl>
+				<a
+					href="/{data.date}/triage"
+					class="text-xs text-primary-400 no-underline hover:text-primary-300 mt-1"
+				>
+					What was left out? →
+				</a>
+			</div>
+
+			{#if openActions.length > 0}
+				<div
+					class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
+				>
+					<h2
+						class="text-xs font-semibold uppercase tracking-wider text-surface-400"
+					>
+						Open actions
+					</h2>
+					<ul class="flex flex-col gap-1.5 text-sm text-surface-300">
+						{#each openActions as action (action.id)}
+							<li>
+								{ACTION_META[action.preview.kind].verb}: {action.preview.title}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+
+			{#if domainTargets.length > 0}
+				<div
+					class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
+				>
+					<h2
+						class="text-xs font-semibold uppercase tracking-wider text-surface-400"
+					>
+						Jump to a story
+					</h2>
+					<ul class="flex flex-col gap-0.5">
+						{#each domainTargets as target (target.id)}
+							<li>
+								<button
+									type="button"
+									onclick={() => jumpTo(target.id)}
+									class="w-full rounded px-2 py-1 text-left text-sm text-surface-300 hover:bg-surface-800 hover:text-primary-300 cursor-pointer bg-transparent border-none"
+								>
+									{target.label}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</aside>
+	{/if}
 </Page>

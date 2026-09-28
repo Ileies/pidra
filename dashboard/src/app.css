@@ -62,6 +62,46 @@
 }
 
 /* ==========================================================================
+   Desktop density
+
+   The type scale and `--container-app` above are fixed regardless of viewport, so a
+   1152px cap and a 13-16px scale read identically on a 1920px monitor as on a 1024px
+   laptop - just centred in more empty margin. Every Tailwind utility that reads a theme
+   value reads it through the CSS variable, not an inlined number, so growing the same
+   variables here under a `min-width` query grows every `text-xs`/`max-w-app` in the app
+   at once, with nothing below `lg` (1024px) touched - the phone sizes stay exactly as
+   they were tuned. `--container-read` (68ch) is deliberately not touched: it is a
+   readability measure, not a viewport-fitting one, and widening it would hurt the thing
+   it exists for. Un-layered, so it wins over `@theme`'s layer regardless of source order.
+   ========================================================================== */
+
+@media (min-width: 64rem) {
+  :root {
+    --text-xs: 0.875rem; /* 14px */
+    --text-sm: 0.9375rem; /* 15px */
+    --text-base: 1.0625rem; /* 17px */
+    --text-lg: 1.1875rem; /* 19px */
+    --text-xl: 1.4375rem; /* 23px */
+    --text-2xl: 1.8125rem; /* 29px */
+
+    --container-app: 84rem; /* 1344px */
+  }
+}
+
+@media (min-width: 96rem) {
+  :root {
+    --text-xs: 0.9375rem; /* 15px */
+    --text-sm: 1rem; /* 16px */
+    --text-base: 1.125rem; /* 18px */
+    --text-lg: 1.25rem; /* 20px */
+    --text-xl: 1.5rem; /* 24px */
+    --text-2xl: 1.875rem; /* 30px */
+
+    --container-app: 100rem; /* 1600px */
+  }
+}
+
+/* ==========================================================================
    Palette (A4)
 
    Dark-only by decision, so there is no light theme to fall back to and every

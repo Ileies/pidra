@@ -498,6 +498,11 @@ async function runLane(browser: Awaited<ReturnType<typeof chromium.launch>>, lan
     deviceScaleFactor: 2,
     serviceWorkers: "allow",
   });
+  // The client-side twin of `PIDRA_BLACKHOLE_TEST` above: `+layout.svelte` decides whether to
+  // show the navbar from this cookie alone, never from a server round trip (offline pages must
+  // never wait on one), so the browser needs it set the same way a real login would - must match
+  // `SESSION_UI_COOKIE` in `src/lib/server/auth.ts`.
+  await context.addCookies([{ name: "pidra_ui", value: "1", url: proxy.origin }]);
   const pages: Page[] = [];
   const open = async () => {
     const page = await context.newPage();

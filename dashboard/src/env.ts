@@ -10,5 +10,11 @@ export const variables = defineEnvVars({
 	PUBLIC_MODEL_PRICE_IN_PER_MTOK: { public: true, schema: (input) => input ?? '' },
 	PUBLIC_MODEL_PRICE_OUT_PER_MTOK: { public: true, schema: (input) => input ?? '' },
 	CONTEXT_BUILDER_OUTPUT_DIR: { schema: (input) => input ?? '' },
-	PUBLIC_VAPID_KEY: { public: true, schema: (input) => input ?? '' }
+	PUBLIC_VAPID_KEY: { public: true, schema: (input) => input ?? '' },
+	// Undeclared defaults (`pidra.de` over https) live in `rpConfig()` (`$lib/server/auth.ts`), not
+	// here, so `input` passes through as `undefined` when unset.
+	AUTH_RP_ID: { schema: (input) => input },
+	AUTH_ORIGIN: { schema: (input) => input },
+	CONFIG_ENCRYPTION_KEY: { schema: (input) => input },
+	AUTH_SETUP_TOKEN: { schema: (input) => input }
 });

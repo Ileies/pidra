@@ -97,4 +97,8 @@
       </form>
     {/if}
   </div>
+  <nav aria-label="Legal" class="flex items-center gap-4 text-xs text-surface-400">
+    <a href="/privacy" class="underline hover:text-surface-200">Privacy policy</a>
+    <a href="/terms" class="underline hover:text-surface-200">Terms of service</a>
+  </nav>
 </Page>

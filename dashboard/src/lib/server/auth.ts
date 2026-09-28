@@ -10,10 +10,20 @@
  */
 
 import { sql } from "#lib/db.js";
+import { AUTH_RP_ID, AUTH_ORIGIN } from "$app/env/private";
 
 export class AuthError extends Error {}
 
 const SESSION_COOKIE = "pidra_session";
+/**
+ * A companion to `SESSION_COOKIE`, deliberately not `httpOnly`: the root layout reads it
+ * client-side to decide whether to render the navbar, so that decision never costs a server round
+ * trip (CLAUDE.md, offline mode - "no load waits on the network" applies to every mirrored route,
+ * which a `+layout.server.ts` would have violated for all of them at once). It carries no
+ * authority - `hooks.server.ts` is still what gates every route - so a spoofed value only ever
+ * shows a navbar the server would then refuse to serve behind.
+ */
+const SESSION_UI_COOKIE = "pidra_ui";
 const PKV_COOKIE = "pidra_pkv";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_TOUCH_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // only rewrite once a day
@@ -26,12 +36,12 @@ const IP_LOCKOUT_BASE_MS = 15 * 60 * 1000;
 const BOOTSTRAP_COOKIE = "pidra_bootstrap";
 const BOOTSTRAP_TTL_MS = 10 * 60 * 1000;
 
-export { SESSION_COOKIE, PKV_COOKIE, BOOTSTRAP_COOKIE };
+export { SESSION_COOKIE, SESSION_UI_COOKIE, PKV_COOKIE, BOOTSTRAP_COOKIE };
 
 /** The relying-party identity, shared by every WebAuthn call. */
 export function rpConfig(): { rpID: string; rpName: string; origin: string } {
-  const rpID = process.env.AUTH_RP_ID ?? "pidra.de";
-  return { rpID, rpName: "PIDRA", origin: process.env.AUTH_ORIGIN ?? `https://${rpID}` };
+  const rpID = AUTH_RP_ID ?? "pidra.de";
+  return { rpID, rpName: "PIDRA", origin: AUTH_ORIGIN ?? `https://${rpID}` };
 }
 
 // --- credentials ---

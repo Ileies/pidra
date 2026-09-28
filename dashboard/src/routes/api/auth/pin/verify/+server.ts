@@ -10,6 +10,7 @@ import {
   createSession,
   PKV_COOKIE,
   SESSION_COOKIE,
+  SESSION_UI_COOKIE,
 } from "#lib/server/auth.js";
 
 /** Login step 3: the PIN, only reachable with a still-live passkey-verified cookie. */
@@ -33,6 +34,8 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   clearIpFailures(ip);
   cookies.delete(PKV_COOKIE, { path: "/" });
   const token = await createSession(request.headers.get("user-agent"));
-  cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  const maxAge = 60 * 60 * 24 * 30;
+  cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge });
+  cookies.set(SESSION_UI_COOKIE, "1", { httpOnly: false, secure: true, sameSite: "lax", path: "/", maxAge });
   return Response.json({ ok: true });
 };

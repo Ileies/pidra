@@ -267,6 +267,15 @@ async function navigation(event: FetchEvent): Promise<Response> {
 
 async function fromNetwork(request: Request): Promise<Response> {
   const response = await send(request, ASSET_BUDGET_MS);
+  // A manual-redirect navigation (the auth gate sending `/` to `/login`) comes back opaque by
+  // spec: no headers, so the stamp cannot be read. It is still `hooks.server.ts` answering - the
+  // request never left `self.location.origin` - and it must go straight back to the browser,
+  // which alone can turn it into a real navigation to the redirect target. Treating it as "someone
+  // else answered" was falling back to the no-shell-yet offline page on every logged-out visit.
+  if (response.type === "opaqueredirect") {
+    offline = false;
+    return response;
+  }
   if (!response.headers.has("x-pidra")) throw new Error("answered by something other than the app");
   offline = false;
   if (response.ok && response.headers.has("x-pidra-shell")) {

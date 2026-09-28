@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { browser } from "$app/env";
   import { page } from "$app/state";
   import Navbar from "#lib/components/Navbar.svelte";
   import TabBar from "#lib/components/TabBar.svelte";
@@ -16,6 +17,20 @@
   import { MIRRORED_ROUTES } from "#lib/routes.js";
 
   let { children } = $props();
+
+  /**
+   * Whether to show the logged-in chrome (navbar, tab bar, assistant, command palette). Read
+   * straight from `pidra_ui` - a non-`httpOnly` companion to the real session cookie
+   * (`$lib/server/auth.ts`) - rather than from a `+layout.server.ts` load: a server load on the
+   * root layout is inherited by every route, including the offline-first mirrored ones, which
+   * must never wait on a network round trip (CLAUDE.md, offline mode). The cookie carries no
+   * authority; `hooks.server.ts` still gates every route server-side. Re-read on every navigation
+   * (`page.url` as the dependency) because login/logout is an SPA `goto`, not a full reload.
+   */
+  const loggedIn = $derived.by(() => {
+    void page.url;
+    return browser && document.cookie.split("; ").includes("pidra_ui=1");
+  });
 
   // A mirrored page whose load found the mirror empty: first launch, or right after "Clear offline
   // data". Decided from the load's own answer, so the first frame is already the right one.
@@ -80,7 +95,9 @@
     Skip to content
   </a>
 
-  <Navbar onOpenMore={() => (moreOpen = true)} />
+  {#if loggedIn}
+    <Navbar onOpenMore={() => (moreOpen = true)} />
+  {/if}
 
   {#if appUpdate.ready}
     <!-- Never automatic: taking over mid-read would reload the page under the reader. -->
@@ -103,13 +120,19 @@
   </div>
 </div>
 
-<TabBar open={moreOpen} onOpenChange={(open) => (moreOpen = open)} />
+{#if loggedIn}
+  <TabBar open={moreOpen} onOpenChange={(open) => (moreOpen = open)} />
+{/if}
 
-<!-- One instance each for the whole app, so a turn and an undo offer both survive navigation. -->
-<Assistant />
+<!-- One instance each for the whole app, so a turn and an undo offer both survive navigation.
+     Assistant and the command palette are gated the same as the navbar: both reach account data
+     (a chat turn, the route registry) that a logged-out visitor should not have. -->
+{#if loggedIn}
+  <Assistant />
+  <CommandPalette open={searchOpen} onOpenChange={(open) => (searchOpen = open)} />
+{/if}
 <SyncSheet />
 <Toast />
-<CommandPalette open={searchOpen} onOpenChange={(open) => (searchOpen = open)} />
 <!-- Every global key binding lives in one component, which is how the Ctrl+K collision between
      search and the assistant stays settled rather than re-emerging. -->
 <Shortcuts onOpenSearch={() => (searchOpen = true)} onToggleAssistant={() => assistant.toggle()} />

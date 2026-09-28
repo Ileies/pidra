@@ -1,5 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { error, fail, redirect } from "@sveltejs/kit";
+import { dev } from "$app/env";
+import { AUTH_SETUP_TOKEN } from "$app/env/private";
 import {
   hasCredentials,
   hasPin,
@@ -17,13 +19,18 @@ import {
  * and the ongoing management page (add a second device, change the PIN, revoke a session) -
  * the setup token only ever opens the door once, since after that `hasCredentials()` is true and
  * every later visit needs `locals.session` instead.
+ *
+ * `dev` skips that "already bootstrapped" redirect: a WebAuthn credential is bound to the RP ID
+ * it was created for, so the production `pidra.de` passkey can never authenticate a `localhost`
+ * dev server - dev needs its own credential, and `hasCredentials()` isn't RP-scoped to tell the
+ * two apart. Never true in a deployed build, so production keeps the one-time gate.
  */
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
   if (!locals.session) {
-    if (await hasCredentials()) redirect(303, `/login?redirect=${encodeURIComponent(url.pathname)}`);
+    if (!dev && (await hasCredentials())) redirect(303, `/login?redirect=${encodeURIComponent(url.pathname)}`);
 
     const token = url.searchParams.get("token");
-    if (!process.env.AUTH_SETUP_TOKEN || token !== process.env.AUTH_SETUP_TOKEN) error(404, "Not found");
+    if (!AUTH_SETUP_TOKEN || token !== AUTH_SETUP_TOKEN) error(404, "Not found");
 
     cookies.set(BOOTSTRAP_COOKIE, issueBootstrap(), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600 });
   }

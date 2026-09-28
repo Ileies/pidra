@@ -79,6 +79,7 @@ function expectedText(id: string): string {
     "/entities/[id]": F.TEXT.entity,
     "/contacts": F.TEXT.contact,
     "/topics": F.TEXT.topic,
+    "/settings": "Settings",
     "/privacy": "Privacy Policy",
     "/terms": "Terms of Service",
   };
@@ -145,7 +146,7 @@ interface Control {
   run: (page: Page, deadline: number) => Promise<void>;
 }
 
-const INDICATOR = (page: Page) => page.getByRole("button", { name: /^(Online|Offline|Checking)|queued|not saved/ });
+const INDICATOR = (page: Page) => page.getByRole("button", { name: /^(Synced|Syncing|Offline|Checking)|queued|not saved/ });
 
 async function clickLink(page: Page, href: string): Promise<void> {
   // A client-side navigation exactly as a tap on a link gives it, to any path.
@@ -543,7 +544,7 @@ async function runLane(browser: Awaited<ReturnType<typeof chromium.launch>>, lan
     for (const id of lane.routes) {
       await reconnect(proxy, context);
       await page.goto(`${proxy.origin}/notes`);
-      await page.getByRole("button", { name: "Online", exact: true }).waitFor({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Synced", exact: true }).waitFor({ timeout: 10_000 });
       await cut(lane, proxy, context);
       await step(
         `${id}: navigate while believed online`,
@@ -600,10 +601,10 @@ async function runLane(browser: Awaited<ReturnType<typeof chromium.launch>>, lan
         "reconnect: every queued write lands once",
         async (deadline) => {
           await page.goto(`${proxy.origin}/notes`, { timeout: remaining(deadline) });
-          // The app start is the flush trigger. Done when the queue is empty: the dot says only
-          // "Online" once the queue has been read, and no row carries a chip.
+          // The app start is the flush trigger. Done when the queue is empty: the glyph says only
+          // "Synced" once the queue has been read, and no row carries a chip.
           while (proxy.delivered.length < EXPECTED_WRITES.length && performance.now() < deadline) await Bun.sleep(50);
-          await page.getByRole("button", { name: "Online", exact: true }).waitFor({ timeout: remaining(deadline) });
+          await page.getByRole("button", { name: "Synced", exact: true }).waitFor({ timeout: remaining(deadline) });
           await page.getByText("Queued", { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
           checkDelivered(proxy);
         },

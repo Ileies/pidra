@@ -9,22 +9,26 @@
    *
    * - **`sm` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
    *   a single ungrouped row was the cause of the mobile header, and it was not much of a
-   *   desktop layout either.
+   *   desktop layout either. Now the row only ever shows a page's `secondary: false` entries -
+   *   the rest, plus the badges they may carry, live behind one "More" menu, the same cutoff
+   *   the mobile sheet uses.
    * - **Below `sm`:** the app icon, the page title, and one overflow button - roughly 52px,
    *   against the 150-200px the wrapped row used to take. Everything else lives in the bottom
    *   tab bar and its More sheet.
    *
    * The day steppers are gone from here. They were only ever on one route, they were the two
    * controls that pushed the row over, and they belong next to the date they step.
+   *
+   * Notifications, log out, passkeys and the legal pages used to live here as their own controls.
+   * They are account-level, not navigation, so they moved to /settings - which is why `/setup`,
+   * `/privacy` and `/terms` are `hidden` in the registry rather than rendered as links of their
+   * own.
    */
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
   import { ROUTES, NAV_GROUPS, needsConnection, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
-  import NotifyButton from "#lib/components/NotifyButton.svelte";
   import SyncIndicator from "#lib/offline/SyncIndicator.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
-  import { netJson } from "#lib/offline/net.js";
 
   interface Props {
     /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
@@ -54,19 +58,33 @@
   );
 
   const GROUPS: NavGroup[] = NAV_GROUPS;
+  const visible = $derived(ROUTES.filter((route) => !route.hidden));
   const byGroup = $derived(
-    GROUPS.map((group) => ROUTES.filter((route) => route.group === group)).filter((list) => list.length > 0),
+    GROUPS.map((group) => visible.filter((route) => route.group === group && !route.secondary)).filter(
+      (list) => list.length > 0,
+    ),
   );
+  /** Everything folded into "More", in registry order rather than re-grouped: six items is a list, not a menu. */
+  const overflow = $derived(visible.filter((route) => route.secondary));
+
+  let moreOpen = $state(false);
+
+  // A navigation closes the menu: leaving it open over the page it just opened is a trap (as in TabBar's sheet).
+  $effect(() => {
+    routeId;
+    moreOpen = false;
+  });
 
   function isCurrentEntry(entry: RouteDef): boolean {
     return current?.href === entry.href;
   }
 
-  async function logOut() {
-    await netJson("/api/auth/logout", { method: "POST" }).catch(() => {});
-    await goto("/login", { invalidateAll: true });
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" && moreOpen) moreOpen = false;
   }
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <header
   data-app-header
@@ -86,7 +104,7 @@
 
     <SyncIndicator />
 
-    <!-- Desktop: the whole registry, grouped. -->
+    <!-- Desktop: the primary entries, grouped, plus everything secondary behind one menu. -->
     <nav aria-label="Main" class="hidden sm:flex items-center justify-end gap-2 flex-wrap ml-auto">
       {#each byGroup as group, index (group[0].href)}
         {#if index > 0}
@@ -108,17 +126,67 @@
                 ? 'nav-btn-muted border-dashed'
                 : badge > 0
                   ? 'border-warning-700 text-warning-400 hover:bg-surface-800'
-                  : entry.secondary
-                    ? 'nav-btn-muted'
-                    : 'nav-btn-idle'}"
+                  : 'nav-btn-idle'}"
           >
             {entry.label}{#if badge > 0}<span class="ml-1 tabular-nums">({badge})</span><span class="sr-only"> waiting for you</span>{/if}{#if unavailable}<span class="sr-only"> (needs the connection)</span>{/if}
           </a>
         {/each}
       {/each}
-      <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
-      <NotifyButton />
-      <button type="button" onclick={logOut} class="nav-btn nav-btn-muted">Log out</button>
+
+      {#if overflow.length > 0}
+        {@const overflowPending = overflow.some((entry) => (badges[entry.href] ?? 0) > 0)}
+        <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
+        <div class="relative">
+          <button
+            type="button"
+            aria-expanded={moreOpen}
+            aria-haspopup="true"
+            onclick={() => (moreOpen = !moreOpen)}
+            class="nav-btn nav-btn-muted cursor-pointer relative"
+          >
+            More
+            {#if overflowPending}
+              <span class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-warning-500" aria-hidden="true"></span>
+            {/if}
+          </button>
+
+          {#if moreOpen}
+            <!-- Closes on a tap anywhere else, same as the report's jump list. -->
+            <button
+              type="button"
+              aria-label="Close the More menu"
+              class="fixed inset-0 z-10 cursor-default"
+              onclick={() => (moreOpen = false)}
+            ></button>
+            <ul class="absolute right-0 z-20 mt-1 w-56 overflow-y-auto rounded-lg border border-surface-700 bg-surface-900 py-1 shadow-2xl">
+              {#each overflow as entry (entry.href)}
+                {@const badge = badges[entry.href] ?? 0}
+                {@const unavailable = isOffline && needsConnection(entry)}
+                <li>
+                  <a
+                    href={entry.href}
+                    aria-current={isCurrentEntry(entry) ? "page" : undefined}
+                    data-sveltekit-preload-data={unavailable ? "off" : undefined}
+                    onclick={() => (moreOpen = false)}
+                    class="flex items-center gap-2 px-3 py-2 text-xs no-underline transition-colors
+                      {isCurrentEntry(entry) ? 'text-primary-300 bg-surface-800' : 'text-surface-200 hover:bg-surface-800'}"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d={entry.icon} />
+                    </svg>
+                    <span class="flex-1">{entry.label}</span>
+                    {#if unavailable}
+                      <span class="text-[10px] text-surface-500">Offline</span>
+                    {:else if badge > 0}
+                      <span class="tabular-nums text-warning-400">{badge}</span>
+                    {/if}
+                  </a>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/if}
     </nav>
 
     <!-- Mobile: one control. Everything else is in the tab bar. -->

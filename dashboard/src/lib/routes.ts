@@ -46,8 +46,20 @@ export interface RouteDef {
    * Report, Contacts and Sources got there first.
    */
   key?: string;
-  /** Kept out of the desktop nav row: reachable, but not one of the ten things always on screen. */
+  /**
+   * Folded into the "More" menu instead of the desktop nav row, and grouped under the mobile
+   * overflow sheet's own heading there: reachable, but not one of the handful of things always on
+   * screen. `Navbar.svelte` and `TabBar.svelte` both read this rather than each keeping its own
+   * cutoff, so the two surfaces agree on what counts as primary.
+   */
   secondary?: boolean;
+  /**
+   * Registered for its offline tier and assistant surface, but never rendered as a nav link on
+   * either surface - reachable only from a link inside another page (`/setup`, `/privacy` and
+   * `/terms` from `/settings`). A page earns this only when something else already links to it;
+   * it is not a way to hide a page nobody has gotten around to linking yet.
+   */
+  hidden?: boolean;
 }
 
 const ICON = {
@@ -64,6 +76,8 @@ const ICON = {
   questions: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4M12 17h.01",
   legal: "M5 3h10l4 4v14H5zM15 3v5h5M8 12h8M8 16h8",
   chat: "M21 11.5a8.4 8.4 0 0 1-9 8.3 9 9 0 0 1-2.8-.4L3 21l1.6-4.8A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.3 8.4 8.4 0 0 1 8.4 8.3z",
+  settings:
+    "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
   context: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5",
   feedback: "M7 10l-3 3v-9h16v9H10l-3 3v-3M8.5 8.5h7",
   more: "M5 12h.01M12 12h.01M19 12h.01",
@@ -126,6 +140,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "intel",
     icon: ICON.topics,
+    secondary: true,
   },
   {
     href: "/contacts",
@@ -172,6 +187,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.skills,
+    secondary: true,
   },
   {
     href: "/prompts",
@@ -181,6 +197,7 @@ export const ROUTES: RouteDef[] = [
     surface: "prompts",
     group: "system",
     icon: ICON.prompts,
+    secondary: true,
   },
   {
     href: "/runs",
@@ -190,6 +207,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.runs,
+    secondary: true,
   },
   {
     href: "/questions",
@@ -200,6 +218,15 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.questions,
     secondary: true,
+  },
+  {
+    href: "/settings",
+    id: "/settings",
+    label: "Settings",
+    key: "g",
+    surface: "global",
+    group: "system",
+    icon: ICON.settings,
   },
   {
     href: "/chat",
@@ -218,7 +245,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.legal,
-    secondary: true,
+    hidden: true,
   },
   {
     href: "/terms",
@@ -227,7 +254,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.legal,
-    secondary: true,
+    hidden: true,
   },
   {
     href: "/setup",
@@ -236,7 +263,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.auth,
-    secondary: true,
+    hidden: true,
   },
 ];
 
@@ -282,6 +309,7 @@ export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/entities/[id]",
   "/contacts",
   "/topics",
+  "/settings",
 ]);
 
 /**

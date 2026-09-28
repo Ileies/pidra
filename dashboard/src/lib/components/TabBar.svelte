@@ -12,7 +12,6 @@
    */
   import { page } from "$app/state";
   import { ROUTES, TABS, MORE_ICON, needsConnection, routeFor } from "#lib/routes.js";
-  import NotifyButton from "#lib/components/NotifyButton.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
 
@@ -28,8 +27,8 @@
   const anyPending = $derived(Object.values(badges).some((count) => count > 0));
   const isOffline = $derived(offline.reachable === "offline");
 
-  /** Everything the tab bar does not already reach. */
-  const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined));
+  /** Everything the tab bar does not already reach, minus the pages only reachable from /settings. */
+  const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined && !route.hidden));
 
   // A navigation closes the sheet: leaving it open over the page it just opened is a trap.
   $effect(() => {
@@ -90,8 +89,6 @@
         {/if}
       </a>
     {/each}
-
-    <NotifyButton variant="row" />
   </div>
 {/if}
 

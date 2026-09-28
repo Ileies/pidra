@@ -723,6 +723,9 @@ async function startServer(): Promise<{ url: string; stop: () => void }> {
       DATABASE_URL: "postgres://blackhole@127.0.0.1:1/none",
       SKILLS_BRIDGE_URL: "http://127.0.0.1:1",
       CONTEXT_BUILDER_OUTPUT_DIR: join(ARTIFACTS, "none"),
+      // The 2026-09-28 login gate has no session to check against with the DB closed above; this
+      // suite drives the offline layer, not the login flow, so `hooks.server.ts` stubs one in.
+      PIDRA_BLACKHOLE_TEST: "1",
     },
     stdout: "ignore",
     stderr: "ignore",

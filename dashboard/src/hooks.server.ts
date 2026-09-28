@@ -36,13 +36,25 @@ function isPublic(pathname: string): boolean {
  *   the same route-agnostic shell for all of them, and the worker keeps the newest one to boot any
  *   path from when the network does not answer.
  */
+
+// Set only by `scripts/blackhole/run.ts`'s own server spawn, never in a deployed environment: that
+// suite points `DATABASE_URL` at a closed port on purpose (everything it reads comes from the
+// fixture, nothing may write), so `validateSession` can never succeed there regardless of cookie.
+// Its lanes drive the offline layer, not the login flow, so a stubbed session sits alongside the
+// closed DB and the closed skills bridge as one more thing that suite deliberately does not touch.
+const BLACKHOLE_TEST = process.env.PIDRA_BLACKHOLE_TEST === "1";
+
 export const handle: Handle = async ({ event, resolve }) => {
   // The build's own prerender crawl runs every route through this hook with no real request or
   // cookies behind it. A redirect returned there is not a live 303 - SvelteKit bakes it into a
   // static file that then answers every future request for that path, session or not, since a
   // prerendered file bypasses this hook entirely. The gate has nothing to decide until a real
   // request exists, so it sits out the build rather than freezing "logged out" forever.
-  event.locals.session = building ? null : await validateSession(event.cookies.get(SESSION_COOKIE));
+  event.locals.session = building
+    ? null
+    : BLACKHOLE_TEST
+      ? { id: "blackhole-test" }
+      : await validateSession(event.cookies.get(SESSION_COOKIE));
 
   if (!building && !event.locals.session && !isPublic(event.url.pathname)) {
     if (event.url.pathname.startsWith("/api/")) {

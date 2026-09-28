@@ -492,3 +492,35 @@ export const contextBuilderIndexedItems = pgTable("context_builder_indexed_items
   data: jsonb("data"), // the extraction result for this item - lets a resumed run reuse it instead of re-extracting
   indexedAt: timestamptz("indexed_at").default(sql`now()`),
 }, (t) => [unique("cb_indexed_source_item").on(t.source, t.itemId)]);
+
+/** One registered WebAuthn passkey. `dashboard/src/lib/server/auth.ts` is the only writer. */
+export const authCredentials = pgTable("auth_credentials", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  credentialId: text("credential_id").unique().notNull(),
+  publicKey: text("public_key").notNull(),
+  counter: integer("counter").notNull().default(0),
+  deviceLabel: text("device_label"),
+  transports: jsonb("transports").$type<string[]>(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  lastUsedAt: timestamptz("last_used_at"),
+});
+
+/**
+ * The PIN, checked only after a passkey assertion already succeeded - a single mutable row rather
+ * than a keyed table, since there is exactly one. `dashboard/src/lib/server/auth.ts` replaces it
+ * in place; nothing else reads or writes this table.
+ */
+export const authPin = pgTable("auth_pin", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  pinHash: text("pin_hash").notNull(),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+});
+
+/** A logged-in session. `id` is the SHA-256 hash of the raw token the cookie carries. */
+export const authSessions = pgTable("auth_sessions", {
+  id: text("id").primaryKey(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  expiresAt: timestamptz("expires_at").notNull(),
+  lastSeenAt: timestamptz("last_seen_at"),
+  userAgent: text("user_agent"),
+});

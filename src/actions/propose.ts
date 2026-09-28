@@ -158,7 +158,7 @@ interface Mail {
 
 /**
  * The mails the agent may act on. Grouped by raw item, because a re-run of Phase 2 leaves one
- * extraction row per attempt (TODO.md, Now) and the report may cite any of them.
+ * extraction row per attempt (`docs/todo/now.md`) and the report may cite any of them.
  */
 async function candidateMails(runDate: string): Promise<Mail[]> {
   const rows = await db

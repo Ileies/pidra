@@ -3,7 +3,7 @@
  *
  * Keyword only, against Postgres `tsvector` with GIN indexes and `ts_headline` for snippets.
  * Semantic search is parked deliberately, not rejected: it is planned as its own project, with
- * its preconditions and intended shape in `TODO.md` under Later. It waits on the archive being
+ * its preconditions and intended shape in `docs/todo/later.md`. It waits on the archive being
  * deep enough to generalise over, not on a decision.
  *
  * This function is the seam that keeps that a later addition rather than a rewrite: one

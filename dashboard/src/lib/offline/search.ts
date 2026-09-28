@@ -6,7 +6,7 @@
  * ranking beyond a count, and only the mirrored window.
  *
  * A local index is not worth it at this size (60 reports, a few hundred other rows); the
- * semantic-search project in `TODO.md` is where that conversation belongs.
+ * semantic-search project in `docs/todo/later.md` is where that conversation belongs.
  */
 
 import * as db from "./db.js";

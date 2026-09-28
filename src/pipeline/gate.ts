@@ -13,9 +13,11 @@
  * So the gate is a function with named outcomes now, and Phase 3 writes its verdict per
  * extraction (`gate_passed`, `gate_reason`, `gate_detail`). `/[date]/triage` reads them back.
  *
- * It stays pure on purpose: the same function decides the live run and reconstructs the verdict
- * for rows written before the columns existed (`scripts/backfill-gate.ts`), so the history the
- * view shows is the real rule rather than a second implementation of it.
+ * It stays pure on purpose: the same function decided the live run and, once, reconstructed the
+ * verdict for every row written before these columns existed, so the history the view shows is the
+ * real rule rather than a second implementation of it. Those reconstructed rows are marked
+ * `recordedBy: "backfill"` rather than `"phase3"`, since the one input that reconstruction cannot
+ * recover is that morning's actual source-trust score.
  */
 
 import type { NewsValidation } from "../news/validate";

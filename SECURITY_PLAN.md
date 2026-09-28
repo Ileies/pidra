@@ -20,7 +20,7 @@ What an attacker gets on success, ranked by damage:
 |---|---|---|
 | 1 | Send mail as any of the configured accounts | `send_mail` skill, `email_accounts.password` (AES-256-GCM, key in `CONFIG_ENCRYPTION_KEY`) plus the `/settings/email-accounts` form itself |
 | 2 | Full read of Google account (mail, calendar, tasks, Keep) | `GOOGLE_REFRESH_TOKEN`, `GKEEPAPI_MASTER_TOKEN` in `.env` |
-| 3 | Read everything: reports, diary-grade `standing_context`, entities, contacts, notes | Postgres `pidra`; or, for the newest 60 briefings and without raw mail bodies, the offline mirror on an unlocked phone, where the device lock is the only control (`CONTEXT_AND_DECISIONS.md`, "Offline mode") |
+| 3 | Read everything: reports, diary-grade `standing_context`, entities, contacts, notes | Postgres `pidra`; or, for the newest 60 briefings and without raw mail bodies, the offline mirror on an unlocked phone, where the device lock is the only control (`CLAUDE.md`, "Offline mode") |
 | 4 | Rewrite what the system believes and does | `prompt_versions` activation, `skill_overrides` risk downgrade |
 | 5 | Write files and spawn processes on the host | `create_file`, `open_project_in_editor` |
 | 6 | Unmetered OpenAI spend | `/api/pipeline/run`, `/api/deepen`, `/api/chat` |

@@ -23,7 +23,7 @@ World-facing intelligence from the newsletters, organized by topic domain (AI, C
 | Database | Postgres + DrizzleORM |
 | Email | IMAP (Netcup) |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |
-| Web search | OpenAI `web_search` for the news desks; Brave Search API for the Section 1 slots |
+| Web search | Brave Search API only, for both the news desks and the Section 1 slots |
 | Push notifications | Web Push API (PWA), VAPID |
 | Scheduling | systemd timers on the host, one one-shot unit per job |
 | OS | NixOS (self-hosted on `pronix`) |
@@ -76,21 +76,24 @@ PIDRA is three tools sharing one Postgres database:
 
 It refuses an uncommitted tree, commits not on origin, a branch behind origin, a dirty checkout on the server, or a failing `bun run check`. It does not carry `.env` (same keys, different values per machine) and it does not carry the systemd units, which live in the NixOS flake and need a `nixos-rebuild` on pronix.
 
-## Planning Documents
+## Reference Docs
 
-All architecture decisions, prompts, schema, and build rationale are in the planning docs - read these before touching any implementation:
+`CLAUDE.md` carries the current, authoritative architecture rules. Deeper reference material that would otherwise bloat every session's context lives in `docs/`, one file per concern:
 
-- [`MORNING_BRIEFING_PLAN.md`](./MORNING_BRIEFING_PLAN.md) - Complete build plan: architecture, pipeline, DB schema, prompts, delivery, cost analysis, full roadmap
-- [`CONTEXT_AND_DECISIONS.md`](./CONTEXT_AND_DECISIONS.md) - Builder profile, intelligence priorities, newsletter selection rationale, key decisions made, design principles
+- [`docs/prompt-tuning-context.md`](./docs/prompt-tuning-context.md) - intelligence priorities, report format requirements, newsletter processing tiers
+- [`docs/newsletter-sources.md`](./docs/newsletter-sources.md) - all 32 newsletters with tier and selection rationale
+- [`docs/google-integration-notes.md`](./docs/google-integration-notes.md) - Google Tasks list and Keep category meanings
+- [`docs/scoring-formulas.md`](./docs/scoring-formulas.md) - the gate, trust-score and entity-pruning formulas as currently implemented
+- [`docs/phase7-passive-context-plan.md`](./docs/phase7-passive-context-plan.md) - undone design for Keep/chat/diary as future context sources
 - [`CONTEXT_BUILDER_PLAN.md`](./CONTEXT_BUILDER_PLAN.md) - Context Builder architecture, run modes (full/update/resume), pipeline phases, cost analysis, testing checklist
 
 ## Build Status
 
 Phases 0-6 of the daily pipeline are complete and the whole chain runs unattended: as of 2026-09-12 a run ingests all 16 sources, synthesises both sections and delivers the push notification without intervention.
 
-The dashboard redesign is finished, device pass on iOS and Android included; its plan document was deleted once it shipped, and the conventions that outlived it are in `CLAUDE.md`. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline. Offline mode is built and proven in headless Chrome; the pass on the phone itself is in `TODO.md`.
+The dashboard redesign is finished, device pass on iOS and Android included; its plan document was deleted once it shipped, and the conventions that outlived it are in `CLAUDE.md`. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline. Offline mode is built and proven in headless Chrome; the pass on the phone itself is in `docs/todo/now.md`.
 
-See [`TODO.md`](./TODO.md) for open items.
+See [`docs/todo/`](./docs/todo/README.md) for open items.
 
 ## Error Handling
 

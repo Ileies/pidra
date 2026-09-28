@@ -1,6 +1,6 @@
 # Prompt tuning context
 
-Reference material for anyone tuning the extraction or synthesis prompts (`src/ai/prompts.ts`). Migrated from the retired `CONTEXT_AND_DECISIONS.md`; not architecture rules, just the rationale behind specific prompt choices.
+Reference material for anyone tuning the extraction or synthesis prompts (`src/ai/prompts/`). Migrated from the retired `CONTEXT_AND_DECISIONS.md`; not architecture rules, just the rationale behind specific prompt choices.
 
 ## Reader profile (design rationale only)
 

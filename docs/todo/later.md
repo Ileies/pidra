@@ -16,7 +16,7 @@ See `docs/todo/README.md` for the conventions this list follows.
 
 **Skills - critical tier** (decided 2026-09-10: critical-risk skills *will* exist, contrary to the earlier blanket "never"). Until both designs below are written and built, `critical` stays "always rejected" in `executeSkill()`:
 - **[DECISION]** The approval model, before any critical skill is written. Every execution needs an explicit yes from the owner, per call, not a standing grant
-- **[DECISION]** The execution model: skill use should run as a real sequential agentic loop (act, observe, decide the next step), not one shot firing a batch of calls. Touches `src/ai/chat.ts` and `executeSkill()`, so it needs its own written plan
+- **[DECISION]** The execution model: skill use should run as a real sequential agentic loop (act, observe, decide the next step), not one shot firing a batch of calls. Touches `src/ai/chat/` and `executeSkill()`, so it needs its own written plan
 
 **Semantic search over the archive** (planned as its own project, decided 2026-09-10; the design moved here on 2026-09-12 when the dashboard plan was deleted):
 

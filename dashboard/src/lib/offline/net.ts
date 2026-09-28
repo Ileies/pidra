@@ -3,10 +3,9 @@
  * belief about whether pronix is reachable. `dashboard/scripts/check-offline.ts` fails the build
  * on a bare `fetch(` anywhere else in client code.
  *
- * The failure this has to survive is not a fast error. With the VPN app up and no network under
- * it, or with wg0 down and `pidra.ileies.de` resolving to a `10.200.200.1` nobody on this network
- * answers for, a request is a blackhole: nothing ever comes back, and a bare `fetch` waits for the
- * OS connect timeout, which on a phone is well past a minute. So:
+ * The failure this has to survive is not a fast error. A weak signal, a captive portal, or `pidra.de`
+ * resolving but nothing behind it answering is a blackhole: nothing ever comes back, and a bare
+ * `fetch` waits for the OS connect timeout, which on a phone is well past a minute. So:
  *
  * - **Every request has a hard ceiling**, and its body is read inside it, so a caller's `.json()`
  *   cannot hang after the headers arrived either.
@@ -19,8 +18,8 @@
  *   goes out: `net()` throws `NetError("offline")` at once and the caller falls back to the mirror,
  *   the outbox, or `OfflineNotice`. `state.svelte.ts` keeps probing, which is the way back.
  * - **A response the app did not write is not the app.** `hooks.server.ts` stamps `x-pidra` on
- *   every response it serves; one without it (nginx's 403 on the public path, a captive portal)
- *   means pronix was not reached.
+ *   every response it serves; one without it (a captive portal, someone else answering for the
+ *   name) means pronix was not reached.
  *
  * SvelteKit's own `__data.json` and form-action requests cannot be handed a signal, so
  * `guardKitFetch()` routes exactly those two through here as well, and bounds its version check.

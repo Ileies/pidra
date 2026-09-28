@@ -16,8 +16,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db, notes } from "../src/db";
 import { activePrompt } from "../src/ai/active-prompts";
 import { synthesize } from "../src/ai/openai";
-import { runNewsDesk, toExtraction } from "../src/news/desk";
-import { NEWS_SOURCE_TYPE } from "../src/news/desks";
+import { runNewsDesk, toExtraction } from "../src/news/run";
+import { NEWS_SOURCE_TYPE } from "../src/news/config";
 import { editorPayload, finishNewsSection, type NewsItem } from "../src/news/format";
 import { decideGate, GATE_REASON_TEXT } from "../src/pipeline/gate";
 

@@ -1,4 +1,4 @@
-import type { Skill } from "../src/skills/loader";
+import { provenanceOf, type Skill } from "../src/skills/loader";
 import { softDeleteNote } from "../src/notes/store";
 
 /**
@@ -16,11 +16,7 @@ const skill: Skill = {
     note_id: { type: "string", required: true, description: "UUID of the note to delete" },
   },
   execute: async (params, ctx) => {
-    const note = await softDeleteNote(String(params.note_id ?? ""), {
-      by: ctx.actor,
-      skillExecutionId: ctx.executionId,
-      conversationId: ctx.conversationId,
-    });
+    const note = await softDeleteNote(String(params.note_id ?? ""), provenanceOf(ctx));
     return `Note ${note.id} deleted (reversible with restore_note)`;
   },
 };

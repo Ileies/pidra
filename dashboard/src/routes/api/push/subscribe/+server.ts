@@ -1,5 +1,5 @@
 import type { RequestHandler } from "./$types";
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const sub = await request.json();

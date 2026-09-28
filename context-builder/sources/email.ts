@@ -1,9 +1,10 @@
-import Imap from "imap";
+import type Imap from "imap";
 import { simpleParser } from "mailparser";
 import libmime from "libmime";
 import type { EmailAccount } from "../config";
 import { logError } from "../errors";
 import { cleanEmailContent } from "../../src/ingest/html";
+import { openImap } from "../../src/ingest/imap-client";
 
 export interface EmailItem {
   messageId: string;
@@ -74,24 +75,6 @@ function parseFromHeader(raw: string): { name: string; email: string | null } {
 
 function shouldSkip(from: string): boolean {
   return SKIP_PATTERNS.some((p) => p.test(from));
-}
-
-function openImap(account: EmailAccount): Promise<Imap> {
-  return new Promise((resolve, reject) => {
-    const imap = new Imap({
-      user: account.user,
-      password: account.password,
-      host: account.host,
-      port: 993,
-      tls: true,
-      tlsOptions: { rejectUnauthorized: false },
-      authTimeout: 10000,
-      connTimeout: 15000,
-    });
-    imap.once("ready", () => resolve(imap));
-    imap.once("error", reject);
-    imap.connect();
-  });
 }
 
 function fetchHeadersSince(imap: Imap, since: Date): Promise<{ uid: number; messageId: string; from: string; subject: string; date: Date }[]> {

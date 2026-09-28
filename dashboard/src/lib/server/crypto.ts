@@ -3,7 +3,7 @@ import { CONFIG_ENCRYPTION_KEY } from "$app/env/private";
 
 /**
  * AES-256-GCM at-rest encryption for `email_accounts.password`, mirroring `src/config/crypto.ts`
- * on the pipeline side. The dashboard has its own Postgres connection (`#lib/db.js`) and does not
+ * on the pipeline side. The dashboard has its own Postgres connection (`#lib/server/postgres.js`) and does not
  * import from that package, the same split as every other dashboard-side writer (`auth.ts`,
  * `rules.ts`). The key is `CONFIG_ENCRYPTION_KEY`, a per-machine secret in `.env` - generate with
  * `openssl rand -hex 32`, set independently on the workstation and pronix, never carried by a

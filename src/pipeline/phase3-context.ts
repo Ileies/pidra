@@ -4,8 +4,8 @@ import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { decideGate, type GateDecision } from "./gate";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
 import { loadLongTermContext, type LongTermContext } from "./long-term-context";
-import { NEWS_SOURCE_TYPE } from "../news/desks";
-import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/desk";
+import { NEWS_SOURCE_TYPE } from "../news/config";
+import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/run";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
@@ -39,8 +39,8 @@ export interface ContextPayload {
  * email's action is "already in to-do", and most backlog items carry no due date at all.
  */
 function prioritiseTodos(items: TodoItem[], runDate: string): TodoItem[] {
-  const horizonDays = parseInt(process.env.TODO_HORIZON_DAYS ?? "14");
-  const maxItems = parseInt(process.env.TODO_MAX_ITEMS ?? "40");
+  const horizonDays = parseInt(process.env.OPEN_TASKS_HORIZON_DAYS ?? "14");
+  const maxItems = parseInt(process.env.OPEN_TASKS_MAX_ITEMS ?? "40");
 
   const horizon = new Date(`${runDate}T00:00:00Z`);
   horizon.setUTCDate(horizon.getUTCDate() + horizonDays);

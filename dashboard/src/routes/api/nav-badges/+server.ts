@@ -1,4 +1,4 @@
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 
 /**
  * Pulled out of +layout.server.ts. Kept as a real endpoint rather than a

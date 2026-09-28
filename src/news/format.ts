@@ -15,7 +15,7 @@
  * directly, so a synthesis hiccup never hides the news. Pure, so all of it is testable.
  */
 
-import { DESKS, type HomeConfig } from "./desks";
+import { DESKS, type HomeConfig } from "./config";
 import type { NewsExtraction } from "./validate";
 
 export interface NewsItem {

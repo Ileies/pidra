@@ -1,6 +1,6 @@
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 
 /**
  * Topic curation, online-only. The read side moved to `+page.ts`.

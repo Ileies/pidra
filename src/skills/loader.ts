@@ -31,6 +31,11 @@ export interface Skill {
   execute: (params: Record<string, unknown>, ctx: SkillContext) => Promise<string>;
 }
 
+/** The `{by, skillExecutionId, conversationId}` shape every notes/context writer's `Actor` param expects. */
+export function provenanceOf(ctx: SkillContext) {
+  return { by: ctx.actor, skillExecutionId: ctx.executionId, conversationId: ctx.conversationId };
+}
+
 const registry = new Map<string, Skill>();
 
 export async function loadSkills(): Promise<void> {

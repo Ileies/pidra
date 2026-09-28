@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { enabledDesks, homeConfig, newsWindow } from "../src/news/desks";
+import { enabledDesks, homeConfig, newsWindow } from "../src/news/config";
 import {
   articleKey, cleanText, cleanUrl, findAlreadyReported, isAbroad, looksLikeArticle, markDuplicates, sameStory,
   tidyStory, verifySources, withinWindow, type Candidate, type DeskStory, type NewsExtraction, type NewsValidation,

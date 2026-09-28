@@ -18,7 +18,7 @@
  * story, and seeing the delivery with its stories under it is what makes an empty one obvious.
  */
 
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import { parseSender, parseTitle } from "#lib/mail.js";
 import { ingestFailures, type IngestFailure, type StepAttempt } from "#lib/pipeline.js";

@@ -9,7 +9,7 @@ import { runPhase6 } from "./phase6-memory";
 import { withRetry, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
 import { sendPushNotifications, sendFailureNotification } from "../push";
-import { EMPTY_NEWS_DESK, runNewsDesk, type NewsDeskOutcome } from "../news/desk";
+import { EMPTY_NEWS_DESK, runNewsDesk, type NewsDeskOutcome } from "../news/run";
 import { renderNewsFallback } from "../news/format";
 import { proposeQuickActions } from "../actions/propose";
 import { saveProposals } from "../actions/store";

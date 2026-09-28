@@ -10,7 +10,7 @@
  * writes the same value twice, which is a no-op.
  */
 
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 
 export class RuleError extends Error {}
 

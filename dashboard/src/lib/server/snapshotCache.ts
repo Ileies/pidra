@@ -24,7 +24,7 @@
 
 import { createHash } from "node:crypto";
 import { version } from "$app/env";
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 
 /** Newest report dates the mirror keeps. About 2 to 3 MB, far inside any storage quota. */
 export const MIRROR_DAYS = 60;

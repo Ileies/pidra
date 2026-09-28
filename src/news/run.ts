@@ -23,7 +23,7 @@ import { decideGate } from "../pipeline/gate";
 import {
   DESKS, NEWS_SOURCE_TYPE, deskMessageId, deskSource, enabledDesks, homeConfig, newsWindow,
   type Desk, type DeskId, type HomeConfig, type NewsWindow,
-} from "./desks";
+} from "./config";
 import {
   findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, verifySources, withinWindow,
   type Candidate, type DeskStory, type NewsExtraction, type ReportedStory,

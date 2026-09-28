@@ -9,7 +9,7 @@
  * and losing them on a restart just forces a fresh login, which is fine.
  */
 
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { AUTH_RP_ID, AUTH_ORIGIN } from "$app/env/private";
 
 export class AuthError extends Error {}

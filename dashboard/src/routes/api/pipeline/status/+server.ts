@@ -1,5 +1,5 @@
 import type { RequestHandler } from "./$types";
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 
 /**

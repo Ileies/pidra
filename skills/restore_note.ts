@@ -1,4 +1,4 @@
-import type { Skill } from "../src/skills/loader";
+import { provenanceOf, type Skill } from "../src/skills/loader";
 import { restoreNote } from "../src/notes/store";
 
 const skill: Skill = {
@@ -10,11 +10,7 @@ const skill: Skill = {
     note_id: { type: "string", required: true, description: "UUID of the deleted note to restore" },
   },
   execute: async (params, ctx) => {
-    const note = await restoreNote(String(params.note_id ?? ""), {
-      by: ctx.actor,
-      skillExecutionId: ctx.executionId,
-      conversationId: ctx.conversationId,
-    });
+    const note = await restoreNote(String(params.note_id ?? ""), provenanceOf(ctx));
     return `Note ${note.id} restored (scope: ${note.scope})`;
   },
 };

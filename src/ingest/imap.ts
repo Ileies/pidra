@@ -1,33 +1,15 @@
-import Imap from "imap";
+import type Imap from "imap";
 import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
 import { db, ingestDrops, rawItems, rawItemExists } from "../db";
 import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
+import { openImap } from "./imap-client";
 import { RSS_SOURCE_NAMES } from "../config/rss-feeds";
 import type { EmailAccount } from "../config/email-accounts";
 
 /** The four ways a fetched mail can be discarded before it becomes a `raw_items` row. */
 type DropReason = "substack_system" | "ignored_sender" | "covered_by_rss" | "empty_content";
-
-function openImap(account: EmailAccount): Promise<Imap> {
-  return new Promise((resolve, reject) => {
-    const imap = new Imap({
-      user: account.user,
-      password: account.password,
-      host: account.host,
-      port: 993,
-      tls: true,
-      tlsOptions: { rejectUnauthorized: false },
-      authTimeout: 10000,
-      connTimeout: 15000,
-    });
-
-    imap.once("ready", () => resolve(imap));
-    imap.once("error", reject);
-    imap.connect();
-  });
-}
 
 function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Buffer[]> {
   return new Promise((resolve, reject) => {

@@ -6,7 +6,7 @@
  */
 
 import { renderMarkdown } from "#lib/markdown.js";
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import type { ReportJson, Urgency } from "#lib/report/types.js";
 
 /** One entry of the report, ready to render: sanitised HTML plus the refs behind it. */

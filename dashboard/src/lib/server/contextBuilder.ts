@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { CONTEXT_BUILDER_OUTPUT_DIR } from "$app/env/private";
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { renderMarkdown } from "#lib/markdown.js";
 
 // Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.

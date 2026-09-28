@@ -1,4 +1,4 @@
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import { MIRROR_DAYS, type SnapshotStores } from "#lib/server/snapshotCache.js";
 import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/reports.js";

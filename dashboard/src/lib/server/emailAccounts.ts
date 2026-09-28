@@ -9,7 +9,7 @@
  * `./crypto.ts` for that reason, not just an unused one.
  */
 
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { encryptSecret } from "./crypto";
 
 export class EmailAccountError extends Error {}

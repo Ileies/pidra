@@ -1,4 +1,4 @@
-import type { Skill } from "../src/skills/loader";
+import { provenanceOf, type Skill } from "../src/skills/loader";
 import { createNote, NOTE_SCOPES } from "../src/notes/store";
 
 const skill: Skill = {
@@ -19,7 +19,7 @@ const skill: Skill = {
         scope: params.scope ? String(params.scope) : undefined,
         expiresAt: params.expires_at ? String(params.expires_at) : null,
       },
-      { by: ctx.actor, skillExecutionId: ctx.executionId, conversationId: ctx.conversationId },
+      provenanceOf(ctx),
     );
     return `Note created with id=${note.id} (scope: ${note.scope})`;
   },

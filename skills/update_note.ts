@@ -1,4 +1,4 @@
-import type { Skill } from "../src/skills/loader";
+import { provenanceOf, type Skill } from "../src/skills/loader";
 import { updateNote, NOTE_SCOPES, type NoteWrite } from "../src/notes/store";
 
 /**
@@ -28,11 +28,7 @@ const skill: Skill = {
       patch.expiresAt = raw === "none" || raw === "null" || raw === "" ? null : String(params.expires_at).trim();
     }
 
-    const note = await updateNote(String(params.note_id ?? ""), patch, {
-      by: ctx.actor,
-      skillExecutionId: ctx.executionId,
-      conversationId: ctx.conversationId,
-    });
+    const note = await updateNote(String(params.note_id ?? ""), patch, provenanceOf(ctx));
 
     return `Note ${note.id} updated (scope: ${note.scope}). The previous version is in the note's history.`;
   },

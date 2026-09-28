@@ -11,7 +11,7 @@
  * behind the signature. The UI must never know which backend produced the ranking.
  */
 
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { sanitizeSnippet } from "#lib/markdown.js";
 
 export type SearchKind = "report" | "extraction" | "note" | "entity";

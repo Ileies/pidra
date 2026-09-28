@@ -14,7 +14,7 @@
  * Pure, so the rules are testable without a database or an API key.
  */
 
-import type { DeskId, HomeConfig, NewsWindow } from "./desks";
+import type { DeskId, HomeConfig, NewsWindow } from "./config";
 
 /** A story as the desk's JSON schema returns it. */
 export interface DeskStory {

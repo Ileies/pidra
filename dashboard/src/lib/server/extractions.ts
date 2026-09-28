@@ -6,7 +6,7 @@
  * They must show the same thing, so they read through the same function.
  */
 
-import { sql } from "#lib/db.js";
+import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import { parseSender, tidyRawContent } from "#lib/mail.js";
 

@@ -37,9 +37,14 @@ function isPublic(pathname: string): boolean {
  *   path from when the network does not answer.
  */
 export const handle: Handle = async ({ event, resolve }) => {
-  event.locals.session = await validateSession(event.cookies.get(SESSION_COOKIE));
+  // The build's own prerender crawl runs every route through this hook with no real request or
+  // cookies behind it. A redirect returned there is not a live 303 - SvelteKit bakes it into a
+  // static file that then answers every future request for that path, session or not, since a
+  // prerendered file bypasses this hook entirely. The gate has nothing to decide until a real
+  // request exists, so it sits out the build rather than freezing "logged out" forever.
+  event.locals.session = building ? null : await validateSession(event.cookies.get(SESSION_COOKIE));
 
-  if (!event.locals.session && !isPublic(event.url.pathname)) {
+  if (!building && !event.locals.session && !isPublic(event.url.pathname)) {
     if (event.url.pathname.startsWith("/api/")) {
       return stamp(Response.json({ error: "unauthorized" }, { status: 401 }), false);
     }

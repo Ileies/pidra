@@ -8,6 +8,10 @@ declare global {
        */
       offline?: boolean;
     }
+    interface Locals {
+      /** Set by the auth gate in `hooks.server.ts`. Null on every publicly-allowlisted path. */
+      session: { id: string } | null;
+    }
   }
 }
 

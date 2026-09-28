@@ -1,0 +1,100 @@
+<script lang="ts">
+  import { page } from "$app/state";
+  import { goto } from "$app/navigation";
+  import { startAuthentication } from "@simplewebauthn/browser";
+  import type { PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON } from "@simplewebauthn/browser";
+  import { netJson } from "#lib/offline/net.js";
+  import Page from "#lib/components/Page.svelte";
+
+  type Step = "passkey" | "pin";
+
+  let step = $state<Step>("passkey");
+  let busy = $state(false);
+  let error = $state<string | null>(null);
+  let pin = $state("");
+
+  const redirectTo = $derived(page.url.searchParams.get("redirect") || "/");
+
+  async function signInWithPasskey() {
+    error = null;
+    busy = true;
+    try {
+      const { options, nonce } = await netJson<{ options: PublicKeyCredentialRequestOptionsJSON; nonce: string }>(
+        "/api/auth/webauthn/challenge",
+        { method: "POST" },
+      );
+      const response: AuthenticationResponseJSON = await startAuthentication({ optionsJSON: options });
+      await netJson("/api/auth/webauthn/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nonce, response }),
+      });
+      step = "pin";
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function submitPin(event: SubmitEvent) {
+    event.preventDefault();
+    error = null;
+    busy = true;
+    try {
+      await netJson("/api/auth/pin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      await goto(redirectTo, { invalidateAll: true });
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      pin = "";
+    } finally {
+      busy = false;
+    }
+  }
+</script>
+
+<Page title="Log in" size="form" class="flex flex-col items-center justify-center gap-6 min-h-[70dvh]">
+  <div class="w-full max-w-sm flex flex-col gap-5 rounded-lg border border-surface-700 bg-surface-900 px-6 py-8">
+    <div class="flex flex-col gap-1 text-center">
+      <h1 class="text-xl font-bold text-surface-50">PIDRA</h1>
+      <p class="text-xs text-surface-400">
+        {step === "passkey" ? "Sign in with your passkey." : "Enter your PIN."}
+      </p>
+    </div>
+
+    {#if error}
+      <p class="text-sm text-error-400 text-center" role="alert">{error}</p>
+    {/if}
+
+    {#if step === "passkey"}
+      <button
+        type="button"
+        onclick={signInWithPasskey}
+        disabled={busy}
+        class="tap w-full px-4 py-2.5 rounded text-sm font-medium bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 disabled:opacity-50 cursor-pointer transition-colors"
+      >{busy ? "Waiting for passkey…" : "Sign in with passkey"}</button>
+    {:else}
+      <form onsubmit={submitPin} class="flex flex-col gap-3">
+        <input
+          type="password"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          pattern="[0-9]*"
+          maxlength="10"
+          bind:value={pin}
+          placeholder="PIN"
+          class="input-base-flush w-full text-center text-lg tracking-widest"
+        />
+        <button
+          type="submit"
+          disabled={busy || pin.length < 6}
+          class="tap w-full px-4 py-2.5 rounded text-sm font-medium bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 disabled:opacity-50 cursor-pointer transition-colors"
+        >{busy ? "Checking…" : "Continue"}</button>
+      </form>
+    {/if}
+  </div>
+</Page>

@@ -49,6 +49,13 @@
       <span>Passkey and PIN</span>
       <span class="text-xs text-surface-400">Register a device, change the PIN</span>
     </a>
+    <a
+      href="/settings/email-accounts"
+      class="tap flex items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+    >
+      <span>Email accounts</span>
+      <span class="text-xs text-surface-400">IMAP/SMTP accounts the pipeline reads</span>
+    </a>
     <button
       type="button"
       onclick={logOut}

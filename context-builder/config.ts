@@ -29,9 +29,9 @@ function resolveGithubToken(): string | null {
   }
 }
 
-export function loadConfig(): Config {
+export async function loadConfig(): Promise<Config> {
   return {
-    emailAccounts: loadEmailAccounts(),
+    emailAccounts: await loadEmailAccounts(),
     emailYears: Number(process.env.CONTEXT_BUILDER_EMAIL_YEARS ?? 3),
     githubToken: resolveGithubToken(),
     extractionModel: process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-5.6-luna",

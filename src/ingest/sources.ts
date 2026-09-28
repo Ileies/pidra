@@ -3,20 +3,23 @@ import { loadNewsletterConfig } from "../config/newsletter-sources";
 
 // Email addresses that are "self" - never classified as an incoming action item.
 //
-// Kept out of source: this repository is public and these are real addresses. The list is the
-// union of every account in email-accounts.json (gitignored) and SELF_EMAILS from .env, so
-// addresses the pipeline does not read from - a work address, an alias - can be added without
-// having to restate the accounts.
-export const SELF_EMAILS: string[] = (() => {
+// The list is the union of every account in `email_accounts` and SELF_EMAILS from .env (kept out
+// of source: this repository is public and these are real addresses), so addresses the pipeline
+// does not read from - a work address, an alias - can be added without having to restate the
+// accounts. Async because the accounts now live in Postgres; memoized like `loadEmailAccounts()`.
+let _selfEmails: string[] | null = null;
+
+export async function getSelfEmails(): Promise<string[]> {
+  if (_selfEmails) return _selfEmails;
   const all = new Set<string>();
 
   try {
-    for (const account of loadEmailAccounts()) {
+    for (const account of await loadEmailAccounts()) {
       const user = account.user.trim().toLowerCase();
       if (user.includes("@")) all.add(user);
     }
   } catch {
-    // email-accounts.json missing or malformed - fall through to the env list alone.
+    // email_accounts unreachable - fall through to the env list alone.
   }
 
   for (const raw of (process.env.SELF_EMAILS ?? "").split(",")) {
@@ -24,8 +27,9 @@ export const SELF_EMAILS: string[] = (() => {
     if (email.includes("@")) all.add(email);
   }
 
-  return [...all];
-})();
+  _selfEmails = [...all];
+  return _selfEmails;
+}
 
 /**
  * Decides whether a sender is a newsletter or a person.

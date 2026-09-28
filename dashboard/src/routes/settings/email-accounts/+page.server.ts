@@ -1,0 +1,82 @@
+import type { Actions, PageServerLoad } from "./$types";
+import { fail } from "@sveltejs/kit";
+import {
+  listEmailAccounts,
+  createEmailAccount,
+  updateEmailAccount,
+  deleteEmailAccount,
+  EmailAccountError,
+  type EmailAccountInput,
+} from "#lib/server/emailAccounts.js";
+
+/**
+ * `/settings/email-accounts` is the replacement for hand-editing the gitignored
+ * `email-accounts.json`: form actions only, online-only (see `ONLINE_ONLY` in `routes.ts`) since
+ * this is live credential management, not something an offline mirror should ever hold a copy of.
+ */
+
+function accountError(err: unknown) {
+  if (err instanceof EmailAccountError) return fail(400, { error: err.message });
+  throw err;
+}
+
+function readInput(data: FormData): EmailAccountInput {
+  return {
+    label: String(data.get("label") ?? ""),
+    host: String(data.get("host") ?? ""),
+    user: String(data.get("user") ?? ""),
+    password: String(data.get("password") ?? ""),
+    folder: String(data.get("folder") ?? ""),
+    isNewsAccount: data.get("isNewsAccount") === "on",
+    customInstructions: String(data.get("customInstructions") ?? ""),
+    aliases: String(data.get("aliases") ?? "")
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean),
+    ignore: String(data.get("ignore") ?? "")
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean),
+    smtpHost: String(data.get("smtpHost") ?? ""),
+    smtpPort: data.get("smtpPort") ? Number(data.get("smtpPort")) : null,
+    smtpSecure: data.get("smtpSecure") === "on",
+  };
+}
+
+export const load: PageServerLoad = async () => {
+  return { accounts: await listEmailAccounts() };
+};
+
+export const actions: Actions = {
+  create: async ({ request }) => {
+    const data = await request.formData();
+    try {
+      await createEmailAccount(readInput(data));
+      return { ok: true, message: "Account added." };
+    } catch (err) {
+      return accountError(err);
+    }
+  },
+
+  update: async ({ request }) => {
+    const data = await request.formData();
+    const id = (data.get("id") as string | null)?.trim();
+    if (!id) return fail(400, { error: "Missing account id" });
+
+    try {
+      await updateEmailAccount(id, readInput(data));
+      return { ok: true, message: "Account updated." };
+    } catch (err) {
+      return accountError(err);
+    }
+  },
+
+  delete: async ({ request }) => {
+    const data = await request.formData();
+    const id = (data.get("id") as string | null)?.trim();
+    if (!id) return fail(400, { error: "Missing account id" });
+
+    await deleteEmailAccount(id);
+    return { ok: true, message: "Account deleted." };
+  },
+};

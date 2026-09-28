@@ -524,3 +524,30 @@ export const authSessions = pgTable("auth_sessions", {
   lastSeenAt: timestamptz("last_seen_at"),
   userAgent: text("user_agent"),
 });
+
+/**
+ * IMAP/SMTP account configuration, managed from `/settings/email-accounts` instead of the
+ * gitignored `email-accounts.json` it replaced - both the pipeline (`src/config/email-accounts.ts`)
+ * and the Context Builder read it, per CLAUDE.md "Shared configs". `password` is AES-256-GCM
+ * ciphertext (`src/config/crypto.ts`), keyed by `CONFIG_ENCRYPTION_KEY` - a per-machine secret in
+ * `.env`, never in this table, same split as `AUTH_SETUP_TOKEN` and the VAPID keys.
+ */
+export const emailAccounts = pgTable("email_accounts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  label: text("label").notNull(),
+  host: text("host").notNull(),
+  // Column name avoids the reserved word `user`; the TS field stays `user` to match `EmailAccount`.
+  user: text("account_user").notNull(),
+  password: text("password").notNull(),
+  folder: text("folder").notNull().default("INBOX"),
+  isNewsAccount: boolean("is_news_account").notNull().default(false),
+  customInstructions: text("custom_instructions"),
+  aliases: jsonb("aliases").$type<string[]>(),
+  ignore: jsonb("ignore").$type<string[]>(),
+  // Optional SMTP overrides - derived from host when omitted, see smtpHost() in email-accounts.ts.
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port"),
+  smtpSecure: boolean("smtp_secure"),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+});

@@ -129,7 +129,7 @@ async function extractItem(
 export async function runPhase2(runDate: string): Promise<void> {
   console.log(`[Phase 2] Starting extraction for ${runDate}`);
 
-  const accounts = loadEmailAccounts();
+  const accounts = await loadEmailAccounts();
   const accountMap = new Map(accounts.map((a) => [a.user, a]));
 
   const prompts = await resolveActivePrompts();

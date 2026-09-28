@@ -1,4 +1,3 @@
-email-accounts.json
 node_modules/
 dist/
 # `.env` alone did not cover `.env.bak.<ts>`, which a credential rotation leaves behind on the

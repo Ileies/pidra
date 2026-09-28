@@ -52,7 +52,7 @@ Full daily pipeline architecture is in `MORNING_BRIEFING_PLAN.md`. All decisions
 
 ## Shared configs - don't duplicate
 
-- **Email accounts:** `email-accounts.json` in the project root, loaded via `src/config/email-accounts.ts` → `loadEmailAccounts()`. Both the pipeline and the Context Builder use this. Never create a separate email config in `context-builder/`.
+- **Email accounts:** the `email_accounts` table, managed from `/settings/email-accounts` and loaded via `src/config/email-accounts.ts` → `loadEmailAccounts()` (async - it queries Postgres). Both the pipeline and the Context Builder use this. `password` is AES-256-GCM ciphertext (`src/config/crypto.ts`), keyed by `CONFIG_ENCRYPTION_KEY` - a per-machine secret in `.env`, never in the table itself. The dashboard's own writer, `dashboard/src/lib/server/emailAccounts.ts`, is write-only for passwords: a saved one is never read back or shown again, only replaced. Never create a separate email config in `context-builder/`.
 - **RSS feeds:** `src/config/rss-feeds.ts`
 - **DB:** `src/db/index.ts` - re-export everything from there, don't create new DB connections elsewhere.
 

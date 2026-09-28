@@ -46,7 +46,6 @@ const SERVICES = ["pidra-bridge", "pidra-dashboard"];
  * machine's.
  */
 const SYNC: { path: string; filters?: string[] }[] = [
-  { path: "email-accounts.json" },
   // Only the harvested documents. `builder.ts` and `db-writer.ts` sit in the same directory and
   // are tracked, so they arrive with the pull - rsync has no business touching them.
   { path: "context-builder/output/", filters: ["--include=*.json", "--include=*.md", "--exclude=*"] },

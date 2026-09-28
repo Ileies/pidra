@@ -37,9 +37,9 @@ const message = (reason: unknown) => (reason instanceof Error ? reason.message :
 export async function runPhase1(runDate: string): Promise<IngestResult> {
   console.log(`[Phase 1] Starting ingestion for ${runDate}`);
 
-  const accounts = loadEmailAccounts();
+  const accounts = await loadEmailAccounts();
   if (accounts.length === 0) {
-    console.warn("[Phase 1] No email accounts configured in email-accounts.json");
+    console.warn("[Phase 1] No email accounts configured (see /settings/email-accounts)");
   }
 
   const [imapResults, rssResult, calendarResult, todoResult] = await Promise.all([

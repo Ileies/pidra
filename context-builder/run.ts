@@ -264,7 +264,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   }
 
   const memoryWatchdog = startMemoryWatchdog();
-  const config = loadConfig();
+  const config = await loadConfig();
 
   const today = new Date().toISOString().split("T")[0];
   const runId = `cb-${today}-${Date.now()}`;

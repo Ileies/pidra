@@ -117,16 +117,16 @@ context-builder/
 
 ## Data Sources & Strategies
 
-### 1. Email (N accounts, driven by `email-accounts.json`)
+### 1. Email (N accounts, driven by the `email_accounts` table)
 
-The tool reads `email-accounts.json` and classifies each account by its `isNewsAccount` flag:
+The tool reads `email_accounts` (managed from `/settings/email-accounts`) and classifies each account by its `isNewsAccount` flag:
 
 | `isNewsAccount` | Strategy |
 |---|---|
 | `true` | **Skip extraction.** Header-count only - newsletter content is already handled by the main pipeline. |
 | `false` | Full extraction, subject to time window below. |
 
-No account addresses are hardcoded. Adding or removing an account in `email-accounts.json` is all that is needed.
+No account addresses are hardcoded. Adding or removing an account on `/settings/email-accounts` is all that is needed.
 
 **Per email pipeline:**
 1. Fetch headers only first (IMAP ENVELOPE) - get `from`, `subject`, `date`, `message-id` (no body download yet)

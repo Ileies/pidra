@@ -253,8 +253,8 @@ The shape of what belongs in `contacts`, one row per sending address:
 
 Design notes that shaped it, with no personal detail attached:
 
-- **Own addresses** are never classified as an incoming action item. Configured via
-  `email-accounts.json` plus `SELF_EMAILS`, never in source.
+- **Own addresses** are never classified as an incoming action item. Configured via the
+  `email_accounts` table (`/settings/email-accounts`) plus `SELF_EMAILS`, never in source.
 - **Close family and partners** warrant `critical` or `high` priority so the question gate does
   not interrogate the user about people it should already know.
 - **Non-English personal mail is expected.** Personal contacts may write in a language other

@@ -18,7 +18,7 @@ What an attacker gets on success, ranked by damage:
 
 | # | Capability | Reached via |
 |---|---|---|
-| 1 | Send mail as any of the 13 configured accounts | `send_mail` skill, cleartext SMTP passwords in `email-accounts.json` |
+| 1 | Send mail as any of the configured accounts | `send_mail` skill, `email_accounts.password` (AES-256-GCM, key in `CONFIG_ENCRYPTION_KEY`) plus the `/settings/email-accounts` form itself |
 | 2 | Full read of Google account (mail, calendar, tasks, Keep) | `GOOGLE_REFRESH_TOKEN`, `GKEEPAPI_MASTER_TOKEN` in `.env` |
 | 3 | Read everything: reports, diary-grade `standing_context`, entities, contacts, notes | Postgres `pidra`; or, for the newest 60 briefings and without raw mail bodies, the offline mirror on an unlocked phone, where the device lock is the only control (`CONTEXT_AND_DECISIONS.md`, "Offline mode") |
 | 4 | Rewrite what the system believes and does | `prompt_versions` activation, `skill_overrides` risk downgrade |
@@ -366,18 +366,17 @@ access to the `rizinos` or `vaultwarden` databases on the same instance. Confirm
 
 ## 7. Secrets
 
-Today: `.env` and `email-accounts.json` sit in the repo working directory in
-cleartext, holding SMTP passwords for 13 accounts, a Google refresh token, a Keep
-master token and the OpenAI key. `src/config/email-accounts.ts:33` reads it via
-`process.cwd()`, so it only resolves when launched from the repo root - fragile
-in a systemd unit.
+Today: `.env` sits in the repo working directory in cleartext, holding a Google
+refresh token, a Keep master token and the OpenAI key. Email account SMTP
+passwords moved out of a gitignored file and into Postgres (`email_accounts`,
+managed from `/settings/email-accounts`), encrypted at rest with
+`CONFIG_ENCRYPTION_KEY` - itself still a cleartext `.env` value, so this section's
+`.env` risk now covers that key too.
 
-- Move both into `agenix-rekey`, which you already use for every other pronix
-  secret (`/etc/nixos/secrets/rekey/`). New entries:
-  `pronix-pidra-env.age`, `pronix-pidra-email-accounts.age`.
+- Move `.env` into `agenix-rekey`, which you already use for every other pronix
+  secret (`/etc/nixos/secrets/rekey/`). New entry: `pronix-pidra-env.age`.
 - Deliver via systemd `LoadCredential=`, read from `$CREDENTIALS_DIRECTORY`, mode
-  `0400`, owner `pidra`. Change `loadEmailAccounts()` to read
-  `PIDRA_EMAIL_ACCOUNTS_PATH` with the cwd behaviour as a dev-only fallback.
+  `0400`, owner `pidra`.
 - **Minimize Google scope.** `GOOGLE_REFRESH_TOKEN` currently grants far more than
   the pipeline needs. Re-issue with read-only scopes for Gmail and Calendar; keep
   write scope only for Tasks, which `add_todo_item` genuinely needs. This is the
@@ -476,8 +475,8 @@ nginx vhost with `auth_request`, `hooks.server.ts` doing its independent check.
 At the end of this phase the dashboard is publicly reachable and passkey-gated.
 
 **Phase 2 - deployment and secrets (days).** The `pidra.nix` module, three
-hardened systemd units, agenix for `.env` and `email-accounts.json`, Google scope
-reduction, key rotation, Postgres role hardening, backups.
+hardened systemd units, agenix for `.env`, Google scope reduction, key rotation,
+Postgres role hardening, backups.
 
 **Phase 3 - tiering (days).** Tier 3 paths removed from nginx and rejected in the
 app. Remaining §8 items.

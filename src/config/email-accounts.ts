@@ -1,11 +1,6 @@
-import { readFileSync } from "fs";
-import { join } from "path";
-
-type RawEmailAccount = Omit<EmailAccount, "folder" | "isNewsAccount" | "customInstructions"> & {
-  folder?: string;
-  isNewsAccount?: boolean;
-  customInstructions?: string | null;
-};
+import { asc } from "drizzle-orm";
+import { db, emailAccounts } from "../db";
+import { decryptSecret } from "./crypto";
 
 export interface EmailAccount {
   label: string;
@@ -30,19 +25,26 @@ export function smtpHost(account: EmailAccount): string {
 
 let _accounts: EmailAccount[] | null = null;
 
-export function loadEmailAccounts(): EmailAccount[] {
+/** Reads `email_accounts`, decrypting each password. Memoized for the life of the process, same
+ *  as the old JSON loader - the pipeline and the Context Builder are both one-shot runs. */
+export async function loadEmailAccounts(): Promise<EmailAccount[]> {
   if (_accounts) return _accounts;
 
-  const configPath = join(process.cwd(), "email-accounts.json");
-  const raw = JSON.parse(readFileSync(configPath, "utf-8")) as { accounts: RawEmailAccount[] };
+  const rows = await db.select().from(emailAccounts).orderBy(asc(emailAccounts.createdAt));
 
-  _accounts = raw.accounts
-    .filter((a) => a.host && a.user && a.password)
-    .map((a) => ({
-      ...a,
-      folder: a.folder ?? "INBOX",
-      isNewsAccount: a.isNewsAccount ?? false,
-      customInstructions: a.customInstructions ?? null,
-    }));
+  _accounts = rows.map((row) => ({
+    label: row.label,
+    host: row.host,
+    user: row.user,
+    password: decryptSecret(row.password),
+    folder: row.folder,
+    isNewsAccount: row.isNewsAccount,
+    customInstructions: row.customInstructions,
+    aliases: row.aliases ?? undefined,
+    ignore: row.ignore ?? undefined,
+    smtp_host: row.smtpHost ?? undefined,
+    smtp_port: row.smtpPort ?? undefined,
+    smtp_secure: row.smtpSecure ?? undefined,
+  }));
   return _accounts;
 }

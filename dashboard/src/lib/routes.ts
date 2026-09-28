@@ -227,6 +227,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.settings,
+    children: ["/settings/email-accounts"],
   },
   {
     href: "/chat",
@@ -263,6 +264,15 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.auth,
+    hidden: true,
+  },
+  {
+    href: "/settings/email-accounts",
+    id: "/settings/email-accounts",
+    label: "Email accounts",
+    surface: "global",
+    group: "system",
+    icon: ICON.settings,
     hidden: true,
   },
 ];
@@ -344,6 +354,10 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/questions": { label: "Questions", reason: "The question queue is live state: an answer queued offline could land on a question the pipeline has since merged or closed." },
   "/chat": { label: "Chat", reason: "The assistant needs a live connection to the model." },
   "/[date]/triage": { label: "Triage", reason: "Triage is a live query against the pipeline's own tables." },
+  "/settings/email-accounts": {
+    label: "Email accounts",
+    reason: "Managing IMAP/SMTP credentials needs a live connection, and offline is never the right place to queue a password change.",
+  },
 };
 
 const ONLINE_ONLY_PATTERNS = Object.entries(ONLINE_ONLY).map(([id, notice]) => ({

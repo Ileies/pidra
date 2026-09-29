@@ -55,7 +55,7 @@
     class="fixed z-40 flex flex-col bg-surface-950 border border-surface-700 shadow-2xl
            inset-0 rounded-none
            xl:inset-auto xl:bottom-5 xl:right-5 xl:rounded-xl
-           {assistant.expanded ? 'xl:w-[40rem] xl:h-[85vh]' : 'xl:w-[26rem] xl:h-[70vh]'}"
+           xl:w-[26rem] xl:h-[70vh]"
   >
     <header class="flex items-center gap-2 px-4 py-2 border-b border-surface-800 bg-surface-900 xl:rounded-t-xl pt-[calc(0.5rem+var(--safe-t))] xl:pt-2">
       <span class="text-xs font-semibold tracking-wide text-surface-200">{label}</span>
@@ -71,14 +71,10 @@
       >+</button>
       <a
         href={assistant.conversationId ? `/chat?c=${assistant.conversationId}` : "/chat"}
-        class="text-xs text-surface-400 hover:text-surface-200 no-underline"
-        title="Open in the full chat"
-      >Full screen</a>
-      <button
-        onclick={() => (assistant.expanded = !assistant.expanded)}
-        aria-label={assistant.expanded ? "Shrink" : "Expand"}
-        class="hidden xl:block text-surface-400 hover:text-surface-200 text-xs cursor-pointer bg-transparent border-none px-1"
-      >{assistant.expanded ? "⤡" : "⤢"}</button>
+        aria-label="Open full screen"
+        title="Open full screen"
+        class="hidden xl:block text-surface-400 hover:text-surface-200 text-xs no-underline px-1"
+      >⤢</a>
       <button
         onclick={() => assistant.close()}
         aria-label="Close assistant"

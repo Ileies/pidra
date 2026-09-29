@@ -67,7 +67,6 @@ function writeStored(store: "local" | "session", key: string, value: string | nu
 
 class Assistant {
   open = $state(false);
-  expanded = $state(false);
   draft = $state("");
   streaming = $state(false);
   error = $state<string | null>(null);

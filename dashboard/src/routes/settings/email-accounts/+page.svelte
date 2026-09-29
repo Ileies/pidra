@@ -27,6 +27,12 @@
   let modalAccount = $state<EmailAccountRow | "new" | null>(null);
   const modalMode = $derived(modalAccount === "new" ? "new" : modalAccount ? "edit" : null);
 
+  // Nothing disabled the Save button while a submit was in flight, and closing/re-showing the
+  // modal happened only after the response came back - so a slow or flaky connection (a prod
+  // report, 2026-09-29) invited repeat clicks, and every one of them ran its own `update()`, each
+  // producing its own toast and its own `invalidateAll()`.
+  let submitting = $state(false);
+
   function closeModal() {
     modalAccount = null;
   }
@@ -188,9 +194,16 @@
         id="account-form"
         method="POST"
         action={modalMode === "new" ? "?/create" : "?/update"}
-        use:enhance={() => async ({ update }) => {
-          closeModal();
-          await update();
+        use:enhance={() => {
+          submitting = true;
+          return async ({ update }) => {
+            try {
+              closeModal();
+              await update();
+            } finally {
+              submitting = false;
+            }
+          };
         }}
         class="contents"
       >
@@ -216,8 +229,9 @@
           <button
             type="submit"
             form="account-form"
-            class="tap px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer"
-          >{modalMode === "new" ? "Add account" : "Save"}</button>
+            disabled={submitting}
+            class="tap px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >{submitting ? "Saving…" : modalMode === "new" ? "Add account" : "Save"}</button>
         </div>
       </div>
     </div>

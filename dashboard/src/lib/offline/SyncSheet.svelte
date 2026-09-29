@@ -37,7 +37,8 @@
     role="dialog"
     aria-label="Sync status"
     aria-modal="true"
-    class="fixed inset-x-0 bottom-0 z-50 xl:inset-x-auto xl:right-4 xl:bottom-4 xl:w-96 max-h-[80dvh] overflow-y-auto
+    class="fixed inset-x-0 bottom-0 z-50 xl:inset-x-auto xl:left-4 xl:top-16 xl:bottom-auto xl:w-96
+           max-h-[80dvh] xl:max-h-[calc(100dvh-6rem)] overflow-y-auto
            rounded-t-2xl xl:rounded-2xl border-t xl:border border-surface-700 bg-surface-900
            px-4 pt-3 pb-[calc(1rem+var(--safe-b))] xl:pb-4 flex flex-col gap-3 shadow-2xl"
   >

@@ -8,6 +8,7 @@ import {
   integer,
   real,
   unique,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 // Not `jsonb` from pg-core: that one double-encodes on the Bun SQL driver. Same signature, so
@@ -229,7 +230,12 @@ export const contacts = pgTable("contacts", {
   // Seeded once from the Context Builder's corpus count, then owned by the live pipeline going
   // forward - the same split as `entities.mention_count`. `seedContacts` only sets it on insert.
   emailCount: integer("email_count").default(0),
-});
+}, (t) => [
+  // Belt-and-suspenders against a write path that skips `ContactSuggestionSchema`: `contacts` is
+  // an email sender directory (CLAUDE.md), so a row with no address should be impossible at the DB
+  // level too, not just at the one Zod gate in `src/pipeline/contact-suggestions.ts`.
+  check("contacts_identifier_email_like", sql`${t.identifier} LIKE '%@%.%'`),
+]);
 
 /**
  * The mutable working layer: the user's standing instructions plus whatever Phase 6 writes from

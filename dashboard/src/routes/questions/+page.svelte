@@ -30,6 +30,9 @@
 
   const MAX_SOURCES = 3;
 
+  const OPEN_PAGE = 20;
+  let visibleOpen = $state(OPEN_PAGE);
+
   function submit(id: string): SubmitFunction {
     return ({ action }) => {
       const op = action.search.replace(/^\?\//, "");
@@ -96,7 +99,7 @@
     </div>
 
     <ul class="flex flex-col gap-4">
-      {#each data.open as q (q.id)}
+      {#each data.open.slice(0, visibleOpen) as q (q.id)}
         <li class="rounded-lg border bg-surface-900 p-4 sm:p-5 {q.blockingMinutesLeft !== null ? 'border-warning-800' : 'border-surface-700'}">
           <div class="flex flex-wrap items-center gap-2 mb-2">
             <Badge tone="muted">{q.kind === "review" ? "Weekly review" : "Mail"}</Badge>
@@ -169,6 +172,13 @@
         </li>
       {/each}
     </ul>
+    {#if visibleOpen < data.open.length}
+      <button
+        type="button"
+        onclick={() => (visibleOpen += OPEN_PAGE)}
+        class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer"
+      >Show more ({data.open.length - visibleOpen} more)</button>
+    {/if}
   {/if}
 
   {#if data.closed.length > 0}

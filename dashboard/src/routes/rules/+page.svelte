@@ -130,9 +130,9 @@
       hint="The Context Builder seeds these from your Keep notes; you can also write one here."
     />
   {:else}
-    <ul class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3">
+    <div class="columns-1 md:columns-2 2xl:columns-3 gap-3">
       {#each data.rules as rule (rule.id)}
-        <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-2">
+        <div class="break-inside-avoid mb-3 rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-2">
           {#if editing === rule.id}
             <form
               method="POST"
@@ -196,8 +196,8 @@
           {#each failedFor(rule.id) as intent (intent.id)}
             <FailedWrite {intent} />
           {/each}
-        </li>
+        </div>
       {/each}
-    </ul>
+    </div>
   {/if}
 </Page>

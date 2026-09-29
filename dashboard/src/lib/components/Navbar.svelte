@@ -7,12 +7,14 @@
    *
    * Two forms (M-1):
    *
-   * - **`sm` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
+   * - **`xl` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
    *   a single ungrouped row was the cause of the mobile header, and it was not much of a
    *   desktop layout either. Now the row only ever shows a page's `secondary: false` entries -
    *   the rest, plus the badges they may carry, live behind one "More" menu, the same cutoff
-   *   the mobile sheet uses.
-   * - **Below `sm`:** the app icon, the page title, and one overflow button - roughly 52px,
+   *   the mobile sheet uses. `xl` (1280px) rather than `sm`: below that the ten-to-twelve pills
+   *   do not fit in one line even grouped, and a wrapped row squeezed the page title down to a
+   *   few truncated characters on anything narrower than roughly 1100px - a common laptop width.
+   * - **Below `xl`:** the app icon, the page title, and one overflow button - roughly 52px,
    *   against the 150-200px the wrapped row used to take. Everything else lives in the bottom
    *   tab bar and its More sheet.
    *
@@ -105,7 +107,7 @@
     <SyncIndicator />
 
     <!-- Desktop: the primary entries, grouped, plus everything secondary behind one menu. -->
-    <nav aria-label="Main" class="hidden sm:flex items-center justify-end gap-2 flex-wrap ml-auto">
+    <nav aria-label="Main" class="hidden xl:flex items-center justify-end gap-2 flex-wrap ml-auto">
       {#each byGroup as group, index (group[0].href)}
         {#if index > 0}
           <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
@@ -194,7 +196,7 @@
       type="button"
       onclick={onOpenMore}
       aria-label="Open menu"
-      class="tap sm:hidden ml-auto flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 px-3 text-surface-200 cursor-pointer relative"
+      class="tap xl:hidden ml-auto flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 px-3 text-surface-200 cursor-pointer relative"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
         <path d="M4 7h16M4 12h16M4 17h16" />

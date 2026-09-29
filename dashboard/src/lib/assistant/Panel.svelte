@@ -109,7 +109,7 @@
       aria-label="Message"
       class="input-base w-full resize-none disabled:opacity-50"
     ></textarea>
-    <div class="flex items-center gap-2 pb-[var(--safe-b)] sm:pb-0">
+    <div class="flex items-center gap-2 pb-[var(--safe-b)] xl:pb-0">
       <button
         type="button"
         onclick={() => assistant.newConversation()}

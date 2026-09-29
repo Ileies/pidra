@@ -18,8 +18,8 @@
 
 {#if toasts.items.length > 0}
   <div
-    class="fixed z-50 flex flex-col gap-2 left-4 right-4 sm:right-auto sm:max-w-md
-           bottom-[calc(4.5rem+var(--safe-b))] sm:bottom-[calc(1.5rem+var(--safe-b))]"
+    class="fixed z-50 flex flex-col gap-2 left-4 right-4 xl:right-auto xl:max-w-md
+           bottom-[calc(4.5rem+var(--safe-b))] xl:bottom-[calc(1.5rem+var(--safe-b))]"
     role="region"
     aria-label="Notifications"
   >

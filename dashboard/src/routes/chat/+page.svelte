@@ -67,7 +67,7 @@
 </svelte:head>
 
 <div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-4 sm:px-6 lg:px-8 py-3 lg:py-6 gap-3
-            pb-[calc(3.5rem+var(--safe-b))] sm:pb-3 lg:pb-6">
+            pb-[calc(3.5rem+var(--safe-b))] xl:pb-3 2xl:pb-6">
   <!-- Below lg: one pane at a time. -->
   <div class="lg:hidden grid grid-cols-3 gap-1 rounded-lg border border-surface-700 bg-surface-900 p-1 shrink-0">
     {#each VIEWS as [key, viewLabel] (key)}

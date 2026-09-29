@@ -37,11 +37,11 @@
     role="dialog"
     aria-label="Sync status"
     aria-modal="true"
-    class="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-96 max-h-[80dvh] overflow-y-auto
-           rounded-t-2xl sm:rounded-2xl border-t sm:border border-surface-700 bg-surface-900
-           px-4 pt-3 pb-[calc(1rem+var(--safe-b))] sm:pb-4 flex flex-col gap-3 shadow-2xl"
+    class="fixed inset-x-0 bottom-0 z-50 xl:inset-x-auto xl:right-4 xl:bottom-4 xl:w-96 max-h-[80dvh] overflow-y-auto
+           rounded-t-2xl xl:rounded-2xl border-t xl:border border-surface-700 bg-surface-900
+           px-4 pt-3 pb-[calc(1rem+var(--safe-b))] xl:pb-4 flex flex-col gap-3 shadow-2xl"
   >
-    <div class="mx-auto sm:hidden mb-1 h-1 w-10 rounded-full bg-surface-600" aria-hidden="true"></div>
+    <div class="mx-auto xl:hidden mb-1 h-1 w-10 rounded-full bg-surface-600" aria-hidden="true"></div>
 
     <div class="flex items-center justify-between">
       <h2 class="text-sm font-semibold text-surface-100">Sync status</h2>

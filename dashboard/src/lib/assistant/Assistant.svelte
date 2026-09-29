@@ -62,9 +62,16 @@
       {#if assistant.info?.notice}
         <span class="text-xs text-warning-400 truncate">· final</span>
       {/if}
+      <button
+        onclick={() => assistant.newConversation()}
+        disabled={assistant.streaming || assistant.messages.length === 0}
+        aria-label="New chat"
+        title="New chat"
+        class="ml-auto text-surface-400 hover:text-surface-200 text-sm cursor-pointer bg-transparent border-none px-1 disabled:opacity-40 disabled:cursor-not-allowed"
+      >+</button>
       <a
         href={assistant.conversationId ? `/chat?c=${assistant.conversationId}` : "/chat"}
-        class="ml-auto text-xs text-surface-400 hover:text-surface-200 no-underline"
+        class="text-xs text-surface-400 hover:text-surface-200 no-underline"
         title="Open in the full chat"
       >Full screen</a>
       <button

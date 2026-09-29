@@ -80,7 +80,7 @@
   }
 </script>
 
-<div class="flex flex-col min-h-0 {variant === 'widget' ? 'flex-1' : ''}">
+<div class="flex flex-1 flex-col min-h-0">
   <div
     bind:this={scroller}
     aria-live="polite"
@@ -181,40 +181,42 @@
     {/if}
   </div>
 
-  <form onsubmit={submit} class="border-t border-surface-800 px-3 py-2 flex flex-col gap-1.5 bg-surface-950">
-    <textarea
-      bind:this={composer}
-      value={assistant.draft}
-      oninput={(event) => assistant.setDraft(event.currentTarget.value)}
-      onkeydown={onKeydown}
-      rows="1"
-      placeholder={assistant.conversationId ? "Message…" : "What should change?"}
-      disabled={assistant.streaming}
-      aria-label="Message"
-      class="input-base w-full resize-none disabled:opacity-50 overflow-y-auto"
-      style="max-height: {MAX_COMPOSER_HEIGHT}px"
-    ></textarea>
-    <div class="flex items-center gap-2 pb-[var(--safe-b)] xl:pb-0">
-      <button
-        type="button"
-        onclick={() => assistant.newConversation()}
-        disabled={assistant.streaming || assistant.messages.length === 0}
-        class="tap px-3 py-1 rounded text-xs bg-surface-900 border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-      >New chat</button>
-      <span class="text-[10px] text-surface-500 hidden sm:inline">Enter to send · Shift+Enter for a new line</span>
+  <form onsubmit={submit} class="border-t border-surface-800 p-3 flex flex-col gap-1 bg-surface-950 {variant === 'widget' ? 'pb-[calc(0.75rem+var(--safe-b))] xl:pb-3' : ''}">
+    <div class="input-base w-full flex items-end gap-2">
+      <textarea
+        bind:this={composer}
+        value={assistant.draft}
+        oninput={(event) => assistant.setDraft(event.currentTarget.value)}
+        onkeydown={onKeydown}
+        rows="1"
+        placeholder={assistant.conversationId ? "Message…" : "What should change?"}
+        disabled={assistant.streaming}
+        aria-label="Message"
+        class="flex-1 min-w-0 resize-none border-none bg-transparent p-0 text-surface-100 placeholder-surface-400 disabled:opacity-50 overflow-y-auto"
+        style="max-height: {MAX_COMPOSER_HEIGHT}px"
+      ></textarea>
       {#if assistant.streaming}
         <button
           type="button"
           onclick={() => assistant.cancel()}
-          class="tap ml-auto px-4 py-1 rounded text-xs bg-surface-900 border border-surface-500 text-surface-200 hover:bg-surface-800 cursor-pointer"
-        >Stop</button>
+          aria-label="Stop"
+          title="Stop"
+          class="tap shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 cursor-pointer"
+        >
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+        </button>
       {:else}
         <button
           type="submit"
           disabled={assistant.draft.trim() === ""}
-          class="tap ml-auto px-4 py-1 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-        >Send</button>
+          aria-label="Send"
+          title="Send"
+          class="tap shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-primary-800 border border-primary-700 text-primary-100 hover:bg-primary-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+        </button>
       {/if}
     </div>
+    <span class="text-[10px] text-surface-500 hidden sm:inline px-1">Enter to send · Shift+Enter for a new line</span>
   </form>
 </div>

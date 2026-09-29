@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
@@ -7,7 +9,6 @@
   import type { Column } from "#lib/components/table.js";
   import { fmtDate } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
-  import { page } from "$app/state";
   import type { MirroredEntity } from "#lib/offline/repo.js";
   import type { PageData } from "./$types";
 
@@ -18,20 +19,67 @@
   /** What one view renders, as the server-rendered table did. */
   const SHOWN = 200;
 
-  // Filtered here, from the URL the GET form writes: the load reads no URL,
-  // so submitting the form re-renders this and never re-runs the load.
-  const statusFilter = $derived(page.url.searchParams.get("status") ?? "all");
-  const typeFilter = $derived(page.url.searchParams.get("type") ?? "");
-  const search = $derived(page.url.searchParams.get("q") ?? "");
+  // --- filters: applied here so every keystroke re-renders live, no submit needed; kept in the
+  // URL (debounced, no navigation) so a view is still shareable and survives a reload ---
+
+  interface EntitiesFilter {
+    status: string;
+    type: string;
+    query: string;
+  }
+
+  function parseFilter(params: Pick<URLSearchParams, "get">): EntitiesFilter {
+    return {
+      status: params.get("status") ?? "all",
+      type: params.get("type") ?? "",
+      query: params.get("q") ?? "",
+    };
+  }
+
+  function searchOf(filter: EntitiesFilter): string {
+    const params = new URLSearchParams();
+    if (filter.status !== "all") params.set("status", filter.status);
+    if (filter.type) params.set("type", filter.type);
+    if (filter.query.trim()) params.set("q", filter.query.trim());
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
+
+  let filter = $state<EntitiesFilter>(parseFilter(page.url.searchParams));
+
+  let written = page.url.search;
+  let urlTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function writeUrl() {
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(() => {
+      written = searchOf(filter);
+      if (written === page.url.search) return;
+      goto(`/entities${written}`, { shallow: true, replace: true, reset: false, state: {} });
+    }, 250);
+  }
+
+  $effect(() => {
+    const search = page.url.search;
+    if (search !== written) {
+      written = search;
+      filter = parseFilter(page.url.searchParams);
+    }
+  });
+
+  function applyFilters(patch: Partial<EntitiesFilter>) {
+    filter = { ...filter, ...patch };
+    writeUrl();
+  }
 
   const types = $derived([...new Set(data.entities.map((e) => e.type).filter((t): t is string => !!t))].sort());
 
   const matching = $derived.by(() => {
-    const needle = search.trim().toLowerCase();
+    const needle = filter.query.trim().toLowerCase();
     return data.entities.filter(
       (e) =>
-        (statusFilter === "all" || e.status === statusFilter) &&
-        (typeFilter === "" || e.type === typeFilter) &&
+        (filter.status === "all" || e.status === filter.status) &&
+        (filter.type === "" || e.type === filter.type) &&
         (needle === "" || e.name.toLowerCase().includes(needle)),
     );
   });
@@ -105,37 +153,42 @@
 {/snippet}
 
 <Page title="Entities" size="app" class="flex flex-col gap-4">
-  <form method="GET" class="flex flex-wrap gap-2">
+  <div class="flex flex-wrap gap-2">
     <input
       type="search"
-      name="q"
-      value={search}
+      value={filter.query}
+      oninput={(event) => applyFilters({ query: event.currentTarget.value })}
       placeholder="Search entities…"
       aria-label="Search entities"
       class="input-base flex-1 min-w-48"
     />
 
-    <select name="status" aria-label="Status filter" class="input-base">
-      <option value="all" selected={statusFilter === "all"}>All statuses</option>
-      <option value="active" selected={statusFilter === "active"}>Active</option>
-      <option value="dormant" selected={statusFilter === "dormant"}>Dormant</option>
-      <option value="archived" selected={statusFilter === "archived"}>Archived</option>
+    <select
+      value={filter.status}
+      onchange={(event) => applyFilters({ status: event.currentTarget.value })}
+      aria-label="Status filter"
+      class="input-base"
+    >
+      <option value="all">All statuses</option>
+      <option value="active">Active</option>
+      <option value="dormant">Dormant</option>
+      <option value="archived">Archived</option>
     </select>
 
     {#if types.length > 0}
-      <select name="type" aria-label="Type filter" class="input-base">
-        <option value="" selected={typeFilter === ""}>All types</option>
+      <select
+        value={filter.type}
+        onchange={(event) => applyFilters({ type: event.currentTarget.value })}
+        aria-label="Type filter"
+        class="input-base"
+      >
+        <option value="">All types</option>
         {#each types as type (type)}
-          <option value={type} selected={typeFilter === type}>{type}</option>
+          <option value={type}>{type}</option>
         {/each}
       </select>
     {/if}
-
-    <button
-      type="submit"
-      class="tap px-4 py-1.5 rounded text-sm bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
-    >Filter</button>
-  </form>
+  </div>
 
   {#if matching.length > 0}
     <div class="text-xs text-surface-400">

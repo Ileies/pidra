@@ -22,8 +22,6 @@
   $effect(() => toastFormResult(form));
 
   const RISK_OPTIONS = ["low", "medium", "high", "critical"] as const;
-  const RISK_LEVELS = ["all", ...RISK_OPTIONS] as const;
-  type RiskFilter = (typeof RISK_LEVELS)[number];
 
   const RISK_TONE = {
     low: "success",
@@ -50,24 +48,19 @@
   });
 
   let searchQuery = $state("");
-  let riskFilter = $state<RiskFilter>("all");
-
-  let riskCounts = $derived.by(() => {
-    const counts: Record<string, number> = { all: data.skills.length, low: 0, medium: 0, high: 0, critical: 0 };
-    for (const skill of data.skills) counts[skill.risk_level] = (counts[skill.risk_level] ?? 0) + 1;
-    return counts;
-  });
 
   let filteredSkills = $derived.by(() => {
     const q = searchQuery.trim().toLowerCase();
     return data.skills
-      .filter((skill) => riskFilter === "all" || skill.risk_level === riskFilter)
       .filter((skill) => !q || skill.name.toLowerCase().includes(q) || skill.description.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
   let expandedSkills = $state<Record<string, boolean>>({});
   let expandedExecs = $state<Record<string, boolean>>({});
+
+  const EXECS_PAGE = 20;
+  let visibleExecs = $state(EXECS_PAGE);
 
   function params(skill: SkillInfo) {
     return Object.entries(skill.parameters ?? {});
@@ -139,30 +132,13 @@
         Registered skills <span class="text-surface-400 font-normal text-base">({data.skills.length})</span>
       </h1>
 
-      <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-        <input
-          type="search"
-          placeholder="Search skills…"
-          aria-label="Search skills"
-          bind:value={searchQuery}
-          class="input-base flex-1 sm:w-48 sm:flex-none"
-        />
-        <div class="flex items-center gap-1 flex-wrap">
-          {#each RISK_LEVELS as level (level)}
-            <button
-              type="button"
-              aria-pressed={riskFilter === level}
-              class="tap px-2.5 py-1 rounded text-xs border transition-colors cursor-pointer
-                {riskFilter === level
-                  ? 'bg-surface-700 border-surface-500 text-surface-50'
-                  : 'border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200'}"
-              onclick={() => (riskFilter = level)}
-            >
-              {level} <span class="opacity-70">{riskCounts[level] ?? 0}</span>
-            </button>
-          {/each}
-        </div>
-      </div>
+      <input
+        type="search"
+        placeholder="Search skills…"
+        aria-label="Search skills"
+        bind:value={searchQuery}
+        class="input-base flex-1 sm:w-48 sm:flex-none"
+      />
     </div>
 
     {#if filteredSkills.length === 0}
@@ -285,7 +261,7 @@
       <EmptyState title="No skill executions yet." compact />
     {:else}
       <ul class="flex flex-col gap-2">
-        {#each data.executions as exec (exec.id)}
+        {#each data.executions.slice(0, visibleExecs) as exec (exec.id)}
           {@const open = !!expandedExecs[exec.id]}
           <li class="rounded-lg border border-surface-800 bg-surface-900">
             <button
@@ -322,6 +298,13 @@
           </li>
         {/each}
       </ul>
+      {#if visibleExecs < data.executions.length}
+        <button
+          type="button"
+          onclick={() => (visibleExecs += EXECS_PAGE)}
+          class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer"
+        >Show more ({data.executions.length - visibleExecs} more)</button>
+      {/if}
     {/if}
   </section>
 </Page>

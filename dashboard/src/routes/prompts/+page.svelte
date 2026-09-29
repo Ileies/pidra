@@ -16,6 +16,10 @@
   /** Diff by default, full text behind a toggle: the diff is what the decision needs (D6). */
   let showFullText = $state<Record<string, boolean>>({});
 
+  // "Running the code baseline" repeated on every single card said nothing once it was true for
+  // all of them; only worth stating per card once at least one section actually differs.
+  let anyActiveOverride = $derived(data.sections.some((section) => section.effective?.source === "db"));
+
   // The assistant may propose a version here, never activate one: prompt changes require human
   // approval, and activation lives on this page.
   $effect(() => {
@@ -40,6 +44,11 @@
   {#if data.sections.length === 0}
     <EmptyState title="The skills bridge is not reachable." hint="Prompt versions are served by the bridge on localhost:4000." />
   {:else}
+    {#if !anyActiveOverride}
+      <p class="text-xs text-surface-400">
+        No section has an active override yet - every prompt below is running its code baseline.
+      </p>
+    {/if}
     <div class="grid grid-cols-1 xl:grid-cols-2 items-start gap-6">
       {#each data.sections as group (group.section)}
         <section>
@@ -49,7 +58,7 @@
               <Badge tone="warning">Not read</Badge>
             {:else if group.effective.source === "db"}
               <Badge tone="success">Running v{group.effective.version}</Badge>
-            {:else}
+            {:else if anyActiveOverride}
               <Badge tone="muted">Running the code baseline</Badge>
             {/if}
           </div>
@@ -57,11 +66,15 @@
           <div class="flex flex-col gap-3">
             {#if group.effective?.source === "code"}
               <article class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4">
-                <div class="flex flex-wrap items-center gap-2 mb-3">
-                  <span class="font-mono text-xs text-surface-300">Code</span>
-                  <Badge tone="neutral">In use</Badge>
-                  <span class="text-xs text-surface-400 italic">src/ai/prompts.ts - changeable only by deploy</span>
-                </div>
+                {#if anyActiveOverride}
+                  <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <span class="font-mono text-xs text-surface-300">Code</span>
+                    <Badge tone="neutral">In use</Badge>
+                    <span class="text-xs text-surface-400 italic">src/ai/prompts.ts - changeable only by deploy</span>
+                  </div>
+                {:else}
+                  <span class="font-mono text-xs text-surface-300 block mb-3">Code baseline</span>
+                {/if}
                 <pre class="text-xs text-surface-200 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">{group.effective.text}</pre>
               </article>
             {/if}

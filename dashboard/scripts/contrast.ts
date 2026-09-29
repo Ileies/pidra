@@ -22,6 +22,7 @@ const PALETTE: Record<string, string> = {
   "surface-800": "#22252a",
   "surface-900": "#1a1c1f",
   "surface-950": "#111214",
+  "primary-100": "#d5e3fd",
   "primary-300": "#8bb4fa",
   "primary-400": "#4f8ef7",
   "primary-500": "#4080f0",
@@ -71,6 +72,8 @@ const PAIRS: [string, string, string][] = [
   ["surface-500", "surface-900", "control: input and button border"],
   ["surface-500", "surface-950", "control: input border on the page"],
   ["primary-400", "surface-900", "control: focus ring"],
+  ["primary-100", "primary-900", "chat: user bubble text"],
+  ["primary-400", "primary-950", "control: chat assistant avatar mark"],
   ["surface-700", "surface-900", "decorative: card separator"],
   ["surface-600", "surface-900", "decorative: disabled control"],
 ];

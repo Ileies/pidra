@@ -1,8 +1,10 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import Panel from "#lib/assistant/Panel.svelte";
+  import ConversationList from "#lib/assistant/ConversationList.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
-  import { fmtDateTimeShort } from "#lib/format.js";
+  import Badge from "#lib/components/Badge.svelte";
+  import { label } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -13,7 +15,8 @@
    * a turn started in the floating widget continues here.
    *
    * This page does not use `<Page>`: it owns the viewport and scrolls inside its own panes rather
-   * than scrolling as a document.
+   * than scrolling as a document, and `<Page>`'s padding/title handling is built for a document
+   * that scrolls as a whole, which this deliberately does not.
    *
    * Below `lg` the three panes used to stack and each keep its own `overflow-y-auto`, so a phone
    * got three independently scrolling regions in a box that was also the wrong height (M11).
@@ -45,15 +48,16 @@
     });
   });
 
-  const SURFACE_LABEL: Record<string, string> = {
-    notes: "Notes",
-    context: "Context",
-    entities: "Entities",
-    report: "Briefing",
-    sources: "Sources",
-    prompts: "Prompts",
-    global: "General",
-  };
+  function newConversation() {
+    assistant.newConversation();
+    view = "chat";
+  }
+
+  /** The conversation the URL points at was just deleted: fall back to whatever is newest now. */
+  function onDeletedActive() {
+    assistant.newConversation();
+    goto("/chat", { invalidateAll: true });
+  }
 
   const VIEWS: [MobileView, string][] = [
     ["conversations", "Chats"],
@@ -69,51 +73,32 @@
 <div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-4 sm:px-6 lg:px-8 py-3 lg:py-6 gap-3
             pb-[calc(3.5rem+var(--safe-b))] xl:pb-3 2xl:pb-6">
   <!-- Below lg: one pane at a time. -->
-  <div class="lg:hidden grid grid-cols-3 gap-1 rounded-lg border border-surface-700 bg-surface-900 p-1 shrink-0">
+  <div class="lg:hidden grid grid-cols-3 gap-1.5 shrink-0">
     {#each VIEWS as [key, viewLabel] (key)}
       <button
         type="button"
         aria-pressed={view === key}
         onclick={() => (view = key)}
-        class="tap rounded px-2 py-1.5 text-xs transition-colors cursor-pointer border-none
-          {view === key ? 'bg-surface-700 text-surface-50' : 'bg-transparent text-surface-400'}"
+        class="tap nav-btn text-center cursor-pointer {view === key ? 'nav-btn-active' : 'nav-btn-muted'}"
       >
         {viewLabel}{key === "corrections" && data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}
       </button>
     {/each}
   </div>
 
-  <div class="flex-1 min-h-0 lg:grid lg:gap-6 lg:grid-cols-[15rem_minmax(0,1fr)_16rem]">
+  <div class="flex-1 min-h-0 lg:grid lg:gap-6 lg:grid-cols-[16rem_minmax(0,1fr)_18rem]">
     <!-- Conversations -->
     <aside
-      class="flex-col gap-2 min-h-0 overflow-y-auto {view === 'conversations' ? 'flex' : 'hidden'} lg:flex"
+      class="min-h-0 {view === 'conversations' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Conversations"
     >
-      <button
-        class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer text-left"
-        onclick={() => {
-          assistant.newConversation();
-          view = "chat";
-        }}
-      >
-        + New chat
-      </button>
-      {#each data.conversations as conversation (conversation.id)}
-        <a
-          href="/chat?c={conversation.id}"
-          class="tap px-3 py-2 rounded border text-xs no-underline transition-colors {conversation.id === assistant.conversationId
-            ? 'bg-surface-800 border-surface-500 text-surface-100'
-            : 'bg-surface-950 border-surface-800 text-surface-300 hover:bg-surface-900'}"
-        >
-          <span class="line-clamp-2 block">{conversation.title ?? "Untitled"}</span>
-          <span class="text-surface-400 mt-1 flex items-center gap-2">
-            <span>{fmtDateTimeShort(conversation.updated_at)}</span>
-            {#if conversation.surface}
-              <span>· {SURFACE_LABEL[conversation.surface] ?? conversation.surface}</span>
-            {/if}
-          </span>
-        </a>
-      {/each}
+      <ConversationList
+        conversations={data.conversations}
+        activeId={assistant.conversationId}
+        onNewConversation={newConversation}
+        onSelect={() => (view = "chat")}
+        {onDeletedActive}
+      />
     </aside>
 
     <!-- Transcript, the same component the floating widget uses -->
@@ -125,26 +110,31 @@
 
     <!-- Active corrections -->
     <aside
-      class="flex-col gap-2 min-w-0 min-h-0 overflow-y-auto {view === 'corrections' ? 'flex' : 'hidden'} lg:flex"
+      class="min-w-0 min-h-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Active corrections"
     >
-      <h2 class="text-surface-200 text-xs font-semibold uppercase tracking-wide">Active corrections</h2>
-      {#if data.corrections.length === 0}
-        <p class="text-surface-400 text-xs">None yet.</p>
-      {:else}
-        {#each data.corrections as correction (correction.id)}
-          <div class="rounded border border-surface-800 bg-surface-950 px-3 py-2 text-xs">
-            <div class="text-surface-400">
-              <code>{correction.target_kind}</code> · {correction.operation}
-            </div>
-            <div class="text-surface-200 mt-1 break-words">{correction.statement}</div>
-            {#if correction.supersedes_text}
-              <div class="text-surface-400 mt-1 line-through break-words">{correction.supersedes_text}</div>
-            {/if}
+      <div class="rounded-lg border border-surface-800 bg-surface-900 p-4 flex flex-col gap-3 min-h-0">
+        <h2 class="text-surface-400 text-xs font-semibold uppercase tracking-wide shrink-0">Active corrections</h2>
+        {#if data.corrections.length === 0}
+          <p class="text-surface-400 text-xs">None yet.</p>
+        {:else}
+          <div class="flex flex-col gap-2 overflow-y-auto min-h-0">
+            {#each data.corrections as correction (correction.id)}
+              <div class="rounded-lg border border-surface-800 bg-surface-950 px-3 py-2 text-xs">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <Badge tone="primary">{label(correction.target_kind)}</Badge>
+                  <Badge tone="muted">{label(correction.operation)}</Badge>
+                </div>
+                <div class="text-surface-200 mt-1.5 break-words">{correction.statement}</div>
+                {#if correction.supersedes_text}
+                  <div class="text-surface-500 mt-1 line-through break-words">{correction.supersedes_text}</div>
+                {/if}
+              </div>
+            {/each}
           </div>
-        {/each}
-        <a href="/context-builder" class="text-surface-400 text-xs hover:text-surface-200">See all and revert →</a>
-      {/if}
+          <a href="/context-builder" class="text-surface-400 text-xs hover:text-surface-200 shrink-0">See all and revert →</a>
+        {/if}
+      </div>
     </aside>
   </div>
 </div>

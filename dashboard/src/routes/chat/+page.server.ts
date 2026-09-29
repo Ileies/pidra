@@ -1,6 +1,8 @@
-import type { PageServerLoad } from "./$types";
+import type { Actions, PageServerLoad } from "./$types";
+import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
+import { renameConversation, deleteConversation, ConversationError } from "#lib/server/chatConversations.js";
 
 export interface ChatToolCall {
   call_id: string;
@@ -13,7 +15,7 @@ export interface ChatToolCall {
 /**
  * Reads the transcript straight from Postgres like every other dashboard page; only sending a
  * message goes through the bridge, because that is where the skill registry and the model call
- * live.
+ * live. Rename and delete are dashboard-only writes, in `#lib/server/chatConversations.js`.
  */
 // postgres.js hands back timestamptz as a Date; the page only formats it, and a Date does not
 // survive the serialisation boundary as one, so it is normalised here.
@@ -22,10 +24,17 @@ const iso = (value: unknown): string => new Date(value as string).toISOString();
 export const load: PageServerLoad = async ({ url }) => {
   const db = sql();
 
+  // The last message's content rides along as a preview snippet for the conversation list.
   const conversations = await db`
-    SELECT id, title, surface, updated_at
-    FROM chat_conversations
-    ORDER BY updated_at DESC
+    SELECT c.id, c.title, c.surface, c.updated_at, m.content AS snippet
+    FROM chat_conversations c
+    LEFT JOIN LATERAL (
+      SELECT content FROM chat_messages
+      WHERE conversation_id = c.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) m ON true
+    ORDER BY c.updated_at DESC
     LIMIT 30
   `;
 
@@ -60,6 +69,7 @@ export const load: PageServerLoad = async ({ url }) => {
       // Which page the conversation started on, for the badge in the list.
       surface: row.surface as string | null,
       updated_at: iso(row.updated_at),
+      snippet: row.snippet as string | null,
     })),
     activeId,
     // tool_calls comes back from postgres.js as a JSON string, not an array - see $lib/jsonb.
@@ -80,4 +90,33 @@ export const load: PageServerLoad = async ({ url }) => {
       created_at: iso(row.created_at),
     })),
   };
+};
+
+function conversationError(err: unknown) {
+  if (err instanceof ConversationError) return fail(400, { error: err.message });
+  throw err;
+}
+
+export const actions: Actions = {
+  rename: async ({ request }) => {
+    const data = await request.formData();
+    const id = (data.get("id") as string | null)?.trim();
+    if (!id) return fail(400, { error: "Missing conversation id" });
+
+    try {
+      await renameConversation(id, (data.get("title") as string | null) ?? "");
+      return { ok: true };
+    } catch (err) {
+      return conversationError(err);
+    }
+  },
+
+  delete: async ({ request }) => {
+    const data = await request.formData();
+    const id = (data.get("id") as string | null)?.trim();
+    if (!id) return fail(400, { error: "Missing conversation id" });
+
+    await deleteConversation(id);
+    return { ok: true, deletedId: id };
+  },
 };

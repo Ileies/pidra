@@ -21,6 +21,8 @@ export interface UiMessage {
   role: "user" | "assistant";
   content: string;
   toolCalls: UiToolCall[];
+  /** ISO timestamp. Absent only for the split second before the first SSE frame lands. */
+  createdAt?: string;
 }
 
 /** A row of a stored transcript, as /chat's load function returns it. */
@@ -29,6 +31,7 @@ export interface StoredMessage {
   role: string;
   content: string;
   tool_calls: { name: string; arguments?: Record<string, unknown>; status?: string; result?: string }[] | null;
+  created_at?: string;
 }
 
 export interface SurfaceInfo {
@@ -157,6 +160,7 @@ class Assistant {
         status: call.status ?? "executed",
         message: call.result ?? "",
       })),
+      createdAt: row.created_at,
     }));
     writeStored("session", STORAGE_CONVERSATION, conversationId);
   }
@@ -187,8 +191,13 @@ class Assistant {
     this.touchedIds = new Set();
 
     const stamp = Date.now();
-    const reply: UiMessage = { id: `assistant-${stamp}`, role: "assistant", content: "", toolCalls: [] };
-    this.messages = [...this.messages, { id: `user-${stamp}`, role: "user", content: message, toolCalls: [] }, reply];
+    const now = new Date(stamp).toISOString();
+    const reply: UiMessage = { id: `assistant-${stamp}`, role: "assistant", content: "", toolCalls: [], createdAt: now };
+    this.messages = [
+      ...this.messages,
+      { id: `user-${stamp}`, role: "user", content: message, toolCalls: [], createdAt: now },
+      reply,
+    ];
     this.streaming = true;
 
     const controller = new AbortController();

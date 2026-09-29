@@ -33,6 +33,8 @@ const LABELS: Record<string, string> = {
   executed: "Executed",
   failed: "Failed",
   rejected: "Rejected",
+  pending_confirmation: "Needs confirmation",
+  unknown_skill: "Unknown skill",
   running: "Running",
   completed: "Completed",
   idle: "Idle",

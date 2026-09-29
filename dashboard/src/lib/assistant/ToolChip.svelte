@@ -1,5 +1,8 @@
 <script lang="ts">
   import type { UiToolCall } from "#lib/assistant/state.svelte.js";
+  import Badge from "#lib/components/Badge.svelte";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import { label } from "#lib/labels.js";
 
   let { call }: { call: UiToolCall } = $props();
 
@@ -18,38 +21,96 @@
     add_todo_item: "Added a to-do",
     complete_todo_item: "Completed a to-do",
     add_calendar_event: "Added a calendar event",
+    update_calendar_event: "Changed a calendar event",
     run_web_search: "Searched the web",
     set_source_active: "Toggled a source",
     propose_prompt_version: "Proposed a prompt version",
+    create_file: "Created a file",
+    send_email: "Sent an email",
+    send_mail: "Sent mail",
+    open_project_in_editor: "Opened the project",
   };
 
-  const label = $derived(LABELS[call.name] ?? call.name);
+  // 24x24 stroke paths, matching the hand-authored icon set in $lib/routes.ts - a small local set
+  // rather than exporting that one, since these are keyed by skill name, not by route.
+  const NOTE = "M6 3h9l5 5v13H6zM15 3v5h5M9 13h7M9 17h5";
+  const CONTEXT = "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5";
+  const REPORT = "M4 4h16v16H4zM8 9h8M8 13h8M8 17h5";
+  const TODO = "M5 6l1.3 1.3L9 4.6M5 12l1.3 1.3L9 10.6M5 18l1.3 1.3L9 16.6M12 6h7M12 12h7M12 18h7";
+  const CALENDAR = "M7 3v3M17 3v3M4 8h16M5 5h14v14H5zM8 13h3M13 13h3M8 17h3";
+  const SEARCH = "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3";
+  const SOURCE = "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3";
+  const PROMPT = "M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5";
+  const MAIL = "M4 5h16v14H4zM4 6l8 7 8-7";
+  const FILE = "M6 3h9l5 5v13H6zM15 3v5h5";
+  const EXTERNAL = "M9 15L20 4M14 4h6v6M6 9v11h11v-5";
+  const WRENCH = "M14.7 6.3a4 4 0 1 0-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-2.4-.6-.6-2.4z";
+
+  const ICON_PATHS: Record<string, string> = {
+    list_notes: NOTE,
+    write_note: NOTE,
+    update_note: NOTE,
+    delete_note: NOTE,
+    restore_note: NOTE,
+    read_context: CONTEXT,
+    revise_context: CONTEXT,
+    revert_context_revision: CONTEXT,
+    read_report: REPORT,
+    add_todo_item: TODO,
+    complete_todo_item: TODO,
+    add_calendar_event: CALENDAR,
+    update_calendar_event: CALENDAR,
+    run_web_search: SEARCH,
+    set_source_active: SOURCE,
+    propose_prompt_version: PROMPT,
+    send_email: MAIL,
+    send_mail: MAIL,
+    create_file: FILE,
+    open_project_in_editor: EXTERNAL,
+  };
+
+  const chipLabel = $derived(LABELS[call.name] ?? call.name);
+  const iconPath = $derived(ICON_PATHS[call.name] ?? WRENCH);
   const pending = $derived(!call.status);
 
-  const statusClass = $derived(
-    pending
-      ? "text-surface-300 border-surface-700"
-      : call.status === "executed"
-        ? "text-success-400 border-success-800"
-        : call.status === "rejected"
-          ? "text-warning-400 border-warning-800"
-          : call.status === "pending_confirmation"
-            ? "text-warning-400 border-warning-800"
-            : "text-error-400 border-error-800",
-  );
+  const TONE = {
+    executed: "success",
+    rejected: "warning",
+    pending_confirmation: "warning",
+    failed: "error",
+    unknown_skill: "error",
+  } as const;
+  const tone = $derived(call.status ? (TONE[call.status as keyof typeof TONE] ?? "neutral") : "neutral");
+
+  const ICON_TONE = {
+    neutral: "border-surface-700 text-surface-300",
+    success: "border-success-800 text-success-400",
+    warning: "border-warning-800 text-warning-400",
+    error: "border-error-800 text-error-400",
+  } as const;
 </script>
 
-<details class="rounded border bg-surface-950 px-3 py-1.5 text-xs {statusClass}">
-  <summary class="tap cursor-pointer flex items-center gap-2">
-    <span>{label}</span>
+<details class="group rounded-lg border border-surface-800 bg-surface-950 overflow-hidden">
+  <summary
+    class="tap cursor-pointer list-none flex items-center gap-2 px-2.5 py-1.5 [&::-webkit-details-marker]:hidden"
+  >
+    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border {ICON_TONE[tone]}">
+      <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d={iconPath} />
+      </svg>
+    </span>
+    <span class="text-xs text-surface-200 flex-1 min-w-0 truncate">{chipLabel}</span>
     {#if pending}
-      <span class="text-surface-400">running…</span>
-    {:else if call.status !== "executed"}
-      <span class="text-surface-400">{call.status}</span>
+      <Spinner size="sm" label="Running" />
+    {:else}
+      <Badge {tone}>{label(call.status)}</Badge>
     {/if}
+    <svg viewBox="0 0 24 24" class="h-3 w-3 shrink-0 text-surface-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
   </summary>
 
-  <div class="mt-2 flex flex-col gap-1">
+  <div class="px-2.5 pb-2 ml-8 flex flex-col gap-1 text-xs border-t border-surface-900 pt-2">
     <code class="text-surface-400">{call.name}</code>
     {#if Object.keys(call.arguments).length > 0}
       <pre class="text-surface-300 whitespace-pre-wrap break-words">{JSON.stringify(call.arguments, null, 2)}</pre>

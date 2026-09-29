@@ -23,6 +23,9 @@
     tone?: "error" | "success";
     /** Skips the confirmation step entirely - for the reversible direction of a toggle. */
     immediate?: boolean;
+    /** Runs after a successful submit, once `update()` has applied the result - for a caller
+     *  that has client-side state of its own to reconcile (e.g. the active row was just deleted). */
+    onSuccess?: () => void;
   }
 
   let {
@@ -34,6 +37,7 @@
     reasonPlaceholder = "Reason (optional)",
     tone = "error",
     immediate = false,
+    onSuccess,
   }: Props = $props();
 
   let armed = $state(false);
@@ -56,7 +60,14 @@
 </script>
 
 {#if immediate}
-  <form method="POST" {action} use:enhance>
+  <form
+    method="POST"
+    {action}
+    use:enhance={() => async ({ update, result }) => {
+      await update();
+      if (result.type === "success") onSuccess?.();
+    }}
+  >
     {#each Object.entries(fields) as [name, value] (name)}
       <input type="hidden" {name} {value} />
     {/each}
@@ -76,9 +87,10 @@
   <form
     method="POST"
     {action}
-    use:enhance={() => async ({ update }) => {
+    use:enhance={() => async ({ update, result }) => {
       disarm();
       await update();
+      if (result.type === "success") onSuccess?.();
     }}
     class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto"
   >

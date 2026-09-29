@@ -160,7 +160,7 @@
         <ul class="flex flex-col gap-2">
           {#each data.sessions as sess (sess.id)}
             <li class="flex flex-wrap items-center gap-2 text-xs text-surface-300">
-              <span class="truncate max-w-64">{sess.userAgent || "Unknown device"}</span>
+              <span class="truncate max-w-64" title={sess.userAgent || "Unknown device"}>{sess.userAgent || "Unknown device"}</span>
               {#if sess.lastSeenAt}<span class="text-surface-500">seen {fmtDateTime(sess.lastSeenAt)}</span>{/if}
               <Badge tone="muted">expires {fmtDateTime(sess.expiresAt)}</Badge>
               <form method="POST" action="?/revokeSession" use:enhance class="ml-auto">

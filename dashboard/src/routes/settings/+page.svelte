@@ -68,13 +68,11 @@
     </button>
   </section>
 
-  <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+  <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-2">
     <h2 class="text-sm font-semibold text-surface-100">Legal</h2>
-    <a href="/privacy" class="tap flex items-center rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800">
-      Privacy policy
-    </a>
-    <a href="/terms" class="tap flex items-center rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800">
-      Terms of service
-    </a>
+    <div class="flex items-center gap-4">
+      <a href="/privacy" class="tap text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>
+      <a href="/terms" class="tap text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Terms of service</a>
+    </div>
   </section>
 </Page>

@@ -218,7 +218,7 @@
   }
 </script>
 
-<Page title="Notes" size="read" class="flex flex-col gap-4">
+<Page title="Notes" size="app" class="flex flex-col gap-4">
   <div class="flex flex-wrap items-center gap-2">
     <input
       type="search"
@@ -363,17 +363,19 @@
       </div>
     {/if}
 
-    <div class="flex flex-col gap-3">
+    <div class="columns-1 md:columns-2 2xl:columns-3 gap-3">
       {#each shown as note (note.id)}
-        <NoteCard
-          {note}
-          highlighted={assistant.touchedIds.has(note.id)}
-          selected={selected.has(note.id)}
-          onToggleSelect={toggleSelect}
-          onServerChange={() => void sync({ force: true })}
-          onDelete={handleDelete}
-          onRestore={handleRestore}
-        />
+        <div class="break-inside-avoid mb-3">
+          <NoteCard
+            {note}
+            highlighted={assistant.touchedIds.has(note.id)}
+            selected={selected.has(note.id)}
+            onToggleSelect={toggleSelect}
+            onServerChange={() => void sync({ force: true })}
+            onDelete={handleDelete}
+            onRestore={handleRestore}
+          />
+        </div>
       {/each}
     </div>
   {/if}

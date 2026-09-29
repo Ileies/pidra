@@ -79,7 +79,7 @@
   {/if}
 {/snippet}
 
-<Page title="Questions" size="form" class="flex flex-col gap-6">
+<Page title="Questions" size="app" class="flex flex-col gap-6">
   {#if data.open.length === 0}
     <EmptyState
       title="No open questions."
@@ -98,7 +98,7 @@
       </p>
     </div>
 
-    <ul class="flex flex-col gap-4">
+    <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-4">
       {#each data.open.slice(0, visibleOpen) as q (q.id)}
         <li class="rounded-lg border bg-surface-900 p-4 sm:p-5 {q.blockingMinutesLeft !== null ? 'border-warning-800' : 'border-surface-700'}">
           <div class="flex flex-wrap items-center gap-2 mb-2">

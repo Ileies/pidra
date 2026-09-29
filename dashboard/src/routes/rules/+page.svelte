@@ -61,7 +61,7 @@
   );
 </script>
 
-<Page title="Rules" size="read" class="flex flex-col gap-5">
+<Page title="Rules" size="app" class="flex flex-col gap-5">
   <div class="flex flex-col gap-1">
     <h1 class="text-xl font-bold text-surface-50">Standing rules</h1>
     <p class="text-xs text-surface-400 max-w-prose">
@@ -85,7 +85,7 @@
   </div>
 
   {#if showPreview}
-    <pre class="text-xs text-surface-200 bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">{preview}</pre>
+    <pre class="max-w-2xl text-xs text-surface-200 bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">{preview}</pre>
   {/if}
 
   {#if adding}
@@ -97,7 +97,7 @@
         adding = false;
         outbox.createRule(String(formData.get("key") ?? ""), String(formData.get("value") ?? ""));
       }}
-      class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3"
+      class="max-w-2xl bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3"
     >
       <label class="flex flex-col gap-1 text-xs text-surface-400">
         Key
@@ -130,7 +130,7 @@
       hint="The Context Builder seeds these from your Keep notes; you can also write one here."
     />
   {:else}
-    <ul class="flex flex-col gap-3">
+    <ul class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3">
       {#each data.rules as rule (rule.id)}
         <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-2">
           {#if editing === rule.id}

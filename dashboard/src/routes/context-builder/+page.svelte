@@ -139,11 +139,11 @@
   </div>
 {/snippet}
 
-<Page title="Context Builder" size="read" class="flex flex-col gap-6">
+<Page title="Context Builder" size="app" class="flex flex-col gap-6">
   <!-- A newer run exists but is not what is on screen. Shown above the document, not below it:
        the point is that the reader knows before reading which version they are looking at. -->
   {#if data.skipped.length > 0}
-    <section class="bg-warning-950 border border-warning-900 rounded-lg p-4 sm:p-5">
+    <section class="max-w-read bg-warning-950 border border-warning-900 rounded-lg p-4 sm:p-5">
       <h2 class="text-warning-400 text-sm font-semibold mb-2">
         {data.skipped.length === 1 ? "A newer run is not shown" : `${data.skipped.length} newer runs are not shown`}
       </h2>
@@ -164,9 +164,10 @@
   {/if}
 
   <!-- What the builder actually produced. This is the point of the tool, so it comes before
-       the run machinery rather than after it. -->
+       the run machinery rather than after it. Kept at reading width even though the page is
+       wide now: it is prose, and 68ch stays the comfortable measure for it. -->
   {#if data.doc}
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+    <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
       <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
         <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
         <span class="text-surface-400 text-xs tabular-nums">
@@ -185,7 +186,7 @@
       </article>
     </section>
 
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
+    <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
       <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
       {#each data.doc.sections as section (section.title)}
         {#if section.chars > 0}
@@ -201,7 +202,7 @@
       <p class="text-surface-400 text-xs break-all">Source file: <code>{data.doc.path}</code></p>
     </section>
   {:else}
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+    <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
       <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
       <p class="text-surface-300 text-sm">
         {#if data.docError}
@@ -216,6 +217,10 @@
     </section>
   {/if}
 
+  <!-- Everything below is dashboard-shaped rather than prose - the run controls, the correction
+       and rule lists, the numbers - so it runs as a two-up grid on a wide screen instead of
+       inheriting the document's reading measure. -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 items-start gap-6">
   <!-- The correction layer. The harvest above is never rewritten, so this is where the current
        truth lives; reverting one puts the harvest back in charge of that fact. -->
   <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
@@ -445,4 +450,5 @@
       </details>
     </section>
   {/if}
+  </div>
 </Page>

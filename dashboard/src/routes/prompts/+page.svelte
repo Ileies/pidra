@@ -30,7 +30,7 @@
   });
 </script>
 
-<Page title="Prompts" size="read" class="flex flex-col gap-6">
+<Page title="Prompts" size="app" class="flex flex-col gap-6">
   <p class="text-xs text-surface-400 max-w-prose">
     Every section runs on the active version from the database. Where there is none, the prompt
     from the code baseline runs instead. Activating a version takes effect on the next pipeline
@@ -40,7 +40,7 @@
   {#if data.sections.length === 0}
     <EmptyState title="The skills bridge is not reachable." hint="Prompt versions are served by the bridge on localhost:4000." />
   {:else}
-    <div class="flex flex-col gap-8">
+    <div class="grid grid-cols-1 xl:grid-cols-2 items-start gap-6">
       {#each data.sections as group (group.section)}
         <section>
           <div class="flex flex-wrap items-center gap-2 mb-3">

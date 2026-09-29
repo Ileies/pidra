@@ -49,6 +49,7 @@ export function rpConfig(): { rpID: string; rpName: string; origin: string } {
 export interface CredentialRow {
   id: string;
   credentialId: string;
+  rpId: string;
   publicKey: string;
   counter: number;
   deviceLabel: string | null;
@@ -57,49 +58,57 @@ export interface CredentialRow {
   lastUsedAt: string | null;
 }
 
-export async function listCredentials(): Promise<CredentialRow[]> {
+/**
+ * Scoped to `rpID`: dev (`localhost`) and prod (`pidra.de`) share this table (same
+ * `DATABASE_URL`), and a credential bound to one RP ID can never authenticate the other, so an
+ * unscoped read would mix the two - `excludeCredentials` would list a credential Bitwarden has
+ * never heard of for this origin, and `hasCredentials`/`findCredentialByCredentialId` would count
+ * or match rows for a WebAuthn identity the current origin isn't allowed to touch.
+ */
+export async function listCredentials(rpID: string): Promise<CredentialRow[]> {
   const rows = await sql()<CredentialRow[]>`
-    SELECT id, credential_id AS "credentialId", public_key AS "publicKey", counter,
+    SELECT id, credential_id AS "credentialId", rp_id AS "rpId", public_key AS "publicKey", counter,
            device_label AS "deviceLabel", transports, created_at AS "createdAt", last_used_at AS "lastUsedAt"
-    FROM auth_credentials ORDER BY created_at ASC`;
+    FROM auth_credentials WHERE rp_id = ${rpID} ORDER BY created_at ASC`;
   return rows;
 }
 
-export async function hasCredentials(): Promise<boolean> {
-  const [row] = await sql()`SELECT 1 FROM auth_credentials LIMIT 1`;
+export async function hasCredentials(rpID: string): Promise<boolean> {
+  const [row] = await sql()`SELECT 1 FROM auth_credentials WHERE rp_id = ${rpID} LIMIT 1`;
   return !!row;
 }
 
-export async function findCredentialByCredentialId(credentialId: string): Promise<CredentialRow | null> {
+export async function findCredentialByCredentialId(credentialId: string, rpID: string): Promise<CredentialRow | null> {
   const [row] = await sql()<CredentialRow[]>`
-    SELECT id, credential_id AS "credentialId", public_key AS "publicKey", counter,
+    SELECT id, credential_id AS "credentialId", rp_id AS "rpId", public_key AS "publicKey", counter,
            device_label AS "deviceLabel", transports, created_at AS "createdAt", last_used_at AS "lastUsedAt"
-    FROM auth_credentials WHERE credential_id = ${credentialId} LIMIT 1`;
+    FROM auth_credentials WHERE credential_id = ${credentialId} AND rp_id = ${rpID} LIMIT 1`;
   return row ?? null;
 }
 
 export async function addCredential(input: {
   credentialId: string;
+  rpId: string;
   publicKey: string;
   counter: number;
   deviceLabel?: string;
   transports?: string[];
 }): Promise<void> {
   await sql()`
-    INSERT INTO auth_credentials (credential_id, public_key, counter, device_label, transports)
-    VALUES (${input.credentialId}, ${input.publicKey}, ${input.counter}, ${input.deviceLabel ?? null}, ${sql().json(input.transports ?? [])})`;
+    INSERT INTO auth_credentials (credential_id, rp_id, public_key, counter, device_label, transports)
+    VALUES (${input.credentialId}, ${input.rpId}, ${input.publicKey}, ${input.counter}, ${input.deviceLabel ?? null}, ${sql().json(input.transports ?? [])})`;
 }
 
 export async function touchCredential(id: string, counter: number): Promise<void> {
   await sql()`UPDATE auth_credentials SET counter = ${counter}, last_used_at = now() WHERE id = ${id}`;
 }
 
-export async function deleteCredential(id: string): Promise<void> {
-  const remaining = await sql()`SELECT count(*) AS n FROM auth_credentials WHERE id != ${id}`;
+export async function deleteCredential(id: string, rpID: string): Promise<void> {
+  const remaining = await sql()`SELECT count(*) AS n FROM auth_credentials WHERE id != ${id} AND rp_id = ${rpID}`;
   if (Number(remaining[0]?.n ?? 0) === 0) {
     throw new AuthError("Can't remove the last passkey - you would be locked out.");
   }
-  await sql()`DELETE FROM auth_credentials WHERE id = ${id}`;
+  await sql()`DELETE FROM auth_credentials WHERE id = ${id} AND rp_id = ${rpID}`;
 }
 
 // --- PIN ---

@@ -27,6 +27,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   const { credential } = verified.registrationInfo;
   await addCredential({
     credentialId: credential.id,
+    rpId: rpID,
     publicKey: Buffer.from(credential.publicKey).toString("base64url"),
     counter: credential.counter,
     deviceLabel: body.deviceLabel?.slice(0, 80),

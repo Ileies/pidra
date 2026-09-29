@@ -22,13 +22,13 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   const challenge = takeChallenge(body.nonce ?? "");
   if (!challenge || !body.response) return Response.json({ error: "Challenge expired. Try again." }, { status: 400 });
 
-  const credential = await findCredentialByCredentialId(body.response.id);
+  const { rpID, origin } = rpConfig();
+  const credential = await findCredentialByCredentialId(body.response.id, rpID);
   if (!credential) {
     recordIpFailure(ip);
     return Response.json({ error: "Unrecognised passkey." }, { status: 401 });
   }
 
-  const { rpID, origin } = rpConfig();
   const verified = await verifyAuthenticationResponse({
     response: body.response,
     expectedChallenge: challenge,

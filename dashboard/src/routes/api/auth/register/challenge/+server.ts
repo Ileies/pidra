@@ -6,7 +6,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
   if (!canManageAuth(locals.session, cookies.get(BOOTSTRAP_COOKIE))) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const { rpID, rpName } = rpConfig();
-  const existing = await listCredentials();
+  const existing = await listCredentials(rpID);
   const options = await generateRegistrationOptions({
     rpName,
     rpID,

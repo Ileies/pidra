@@ -493,10 +493,17 @@ export const contextBuilderIndexedItems = pgTable("context_builder_indexed_items
   indexedAt: timestamptz("indexed_at").default(sql`now()`),
 }, (t) => [unique("cb_indexed_source_item").on(t.source, t.itemId)]);
 
-/** One registered WebAuthn passkey. `dashboard/src/lib/server/auth.ts` is the only writer. */
+/**
+ * One registered WebAuthn passkey. `dashboard/src/lib/server/auth.ts` is the only writer.
+ * `rpId` scopes every read to the relying party it was created for - dev (`localhost`) and prod
+ * (`pidra.de`) share this table (same `DATABASE_URL`), and a credential bound to one RP ID can
+ * never authenticate the other, so without this column the two are indistinguishable here even
+ * though the browser already keeps them apart.
+ */
 export const authCredentials = pgTable("auth_credentials", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   credentialId: text("credential_id").unique().notNull(),
+  rpId: text("rp_id").notNull(),
   publicKey: text("public_key").notNull(),
   counter: integer("counter").notNull().default(0),
   deviceLabel: text("device_label"),

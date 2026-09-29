@@ -54,7 +54,10 @@
     {/if}
   </div>
 
-  {#each attempts as attempt (`${attempt.step}-${attempt.attempt}-${attempt.ts}`)}
+  <!-- Keyed on index too: two sources failing in the same phase log an attempt each with the same
+       ts (seen in production - calendar and tasks both hit `invalid_grant` in the same instant),
+       and a duplicate key crashes Svelte's keyed each with no reported exception. -->
+  {#each attempts as attempt, i (`${attempt.step}-${attempt.attempt}-${attempt.ts}-${i}`)}
     <div class="px-4 py-3 border-b border-surface-700/60 last:border-b-0">
       <div class="flex items-center gap-2.5 mb-1 flex-wrap">
         {#if !degraded}

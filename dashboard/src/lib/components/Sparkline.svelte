@@ -93,7 +93,10 @@
       {#if linePath}
         <polyline points={linePath} fill="none" stroke="var(--color-surface-600)" stroke-width="1" />
       {/if}
-      {#each points as point, i (point.at)}
+      <!-- Keyed on index + `at` rather than `at` alone: two points can legitimately share a date
+           (a retried pipeline_runs row on the same run_date), and a duplicate key crashes Svelte's
+           keyed each with no reported exception. -->
+      {#each points as point, i (`${i}-${point.at}`)}
         {#if point.value != null}
           <circle cx={x(i)} cy={y(point.value)} r="1.5" fill={tone(point.value)} />
         {/if}

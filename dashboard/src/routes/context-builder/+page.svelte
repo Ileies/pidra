@@ -409,7 +409,10 @@
     <section class="bg-surface-900 border border-warning-800 rounded-lg p-4 sm:p-5">
       <h2 class="text-warning-400 text-sm font-semibold mb-3">Errors this run ({currentErrors.length})</h2>
       <ul class="flex flex-col gap-2 text-xs">
-        {#each currentErrors as error (error.ts + error.source)}
+        <!-- Keyed on index too: two errors.json entries can share a (ts, source) pair (seen in
+             production), and a duplicate key crashes Svelte's keyed each with no reported
+             exception. -->
+        {#each currentErrors as error, i (`${error.ts}-${error.source}-${i}`)}
           <li class="border-b border-surface-800 pb-2 last:border-0">
             <div class="flex items-center gap-2 flex-wrap">
               <Badge tone="muted">{error.source}</Badge>
@@ -429,7 +432,7 @@
           Older errors from previous runs ({olderErrors.length})
         </summary>
         <ul class="flex flex-col gap-2 text-xs mt-3">
-          {#each olderErrors as error (error.ts + error.source)}
+          {#each olderErrors as error, i (`${error.ts}-${error.source}-${i}`)}
             <li class="border-b border-surface-800 pb-2 last:border-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge tone="muted">{error.source}</Badge>

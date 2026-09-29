@@ -57,7 +57,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       : await validateSession(event.cookies.get(SESSION_COOKIE));
 
   if (!building && !event.locals.session && !isPublic(event.url.pathname)) {
-    if (event.url.pathname.startsWith("/api/")) {
+    if (event.url.pathname.toLowerCase().startsWith("/api/")) {
       return stamp(Response.json({ error: "unauthorized" }, { status: 401 }), false);
     }
     // Not `.search` too: SvelteKit forbids reading it while prerendering (a canonical-output

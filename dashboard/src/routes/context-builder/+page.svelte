@@ -163,292 +163,301 @@
     </section>
   {/if}
 
-  <!-- What the builder actually produced. This is the point of the tool, so it comes before
-       the run machinery rather than after it. Kept at reading width even though the page is
-       wide now: it is prose, and 68ch stays the comfortable measure for it. -->
-  {#if data.doc}
-    <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-      <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-        <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
-        <span class="text-surface-400 text-xs tabular-nums">
-          {fmtNum(data.doc.chars)} chars
-          {#if data.doc.generatedAt}· built {fmtDateTime(data.doc.generatedAt)}{/if}
-        </span>
-      </div>
-      <p class="text-surface-400 text-xs mb-4">
-        Synthesised from {fmtNum(data.counts.indexed_email)} emails and
-        {fmtNum(data.counts.indexed_keep)} Keep notes. Seeded
-        {fmtNum(data.counts.contacts)} contacts, {fmtNum(data.counts.entities)} entities and
-        {fmtNum(data.counts.standing_context)} standing rules.
-      </p>
-      <article class="report-body text-sm max-w-none">
-        {@html data.doc.fullContextHtml}
-      </article>
-    </section>
+  <!-- Document on the left, everything dashboard-shaped in a sidebar that stays alongside it -
+       the doc is often thousands of characters of prose, and making the reader scroll past all
+       of it before reaching Start/Stop or the corrections list was the bug this replaced. -->
+  <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-6">
+    <!-- Main: what the builder actually produced. This is the point of the tool, so it leads.
+         Kept at reading width even though its column is wider now: it is prose, and 68ch stays
+         the comfortable measure for it. -->
+    <div class="flex flex-col gap-6 min-w-0">
+      {#if data.doc}
+        <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+          <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+            <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
+            <span class="text-surface-400 text-xs tabular-nums">
+              {fmtNum(data.doc.chars)} chars
+              {#if data.doc.generatedAt}· built {fmtDateTime(data.doc.generatedAt)}{/if}
+            </span>
+          </div>
+          <p class="text-surface-400 text-xs mb-4">
+            Synthesised from {fmtNum(data.counts.indexed_email)} emails and
+            {fmtNum(data.counts.indexed_keep)} Keep notes. Seeded
+            {fmtNum(data.counts.contacts)} contacts, {fmtNum(data.counts.entities)} entities and
+            {fmtNum(data.counts.standing_context)} standing rules.
+          </p>
+          <article class="report-body text-sm max-w-none">
+            {@html data.doc.fullContextHtml}
+          </article>
+        </section>
 
-    <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
-      <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
-      {#each data.doc.sections as section (section.title)}
-        {#if section.chars > 0}
-          <details class="border-b border-surface-800 pb-2 last:border-0">
-            <summary class="tap cursor-pointer text-surface-200 text-sm flex items-baseline justify-between gap-3">
-              <span>{section.title}</span>
-              <span class="text-surface-400 text-xs tabular-nums shrink-0">{fmtNum(section.chars)} chars</span>
-            </summary>
-            <article class="report-body text-sm max-w-none mt-3">{@html section.html}</article>
-          </details>
-        {/if}
-      {/each}
-      <p class="text-surface-400 text-xs break-all">Source file: <code>{data.doc.path}</code></p>
-    </section>
-  {:else}
-    <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-      <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
-      <p class="text-surface-300 text-sm">
-        {#if data.docError}
-          The last completed run recorded an output file, but it could not be read:
-          <code class="text-warning-400">{data.docError}</code>
-        {:else if data.run}
-          The last completed run recorded no output file. Re-run to generate the document.
-        {:else}
-          No completed run yet. Start one below to build the context document.
-        {/if}
-      </p>
-    </section>
-  {/if}
-
-  <!-- Everything below is dashboard-shaped rather than prose - the run controls, the correction
-       and rule lists, the numbers - so it runs as a two-up grid on a wide screen instead of
-       inheriting the document's reading measure. -->
-  <div class="grid grid-cols-1 xl:grid-cols-2 items-start gap-6">
-  <!-- The correction layer. The harvest above is never rewritten, so this is where the current
-       truth lives; reverting one puts the harvest back in charge of that fact. -->
-  <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-      <h2 class="text-surface-200 text-sm font-semibold">Corrections ({data.corrections.length})</h2>
-      <a href="/chat" class="text-primary-400 text-xs no-underline hover:text-primary-300">Correct it in the chat →</a>
-    </div>
-    <p class="text-surface-400 text-xs mb-3">
-      Injected into every briefing alongside the document, and authoritative wherever the two
-      disagree. Nothing above is overwritten.
-    </p>
-
-    {#if data.corrections.length === 0}
-      <p class="text-surface-300 text-sm">
-        No active corrections. A wrong relationship or fact in the document can be fixed in the
-        <a href="/chat" class="text-primary-400 no-underline hover:text-primary-300">context chat</a>.
-      </p>
-    {:else}
-      <ul class="flex flex-col gap-3 text-sm">
-        {#each data.corrections as correction (correction.id)}
-          <li class="border-b border-surface-800 pb-3 last:border-0">
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div class="min-w-0 flex-1">
-                <div class="text-surface-400 text-xs break-all">
-                  <code>{correction.target_kind}:{correction.target_key}</code> ·
-                  {displayLabel(correction.operation)} · {correction.source}
-                </div>
-                <div class="text-surface-100 mt-1 whitespace-pre-wrap break-words">{correction.statement}</div>
-                {#if correction.supersedes_text}
-                  <div class="text-surface-400 text-xs mt-1 line-through whitespace-pre-wrap break-words">
-                    {correction.supersedes_text}
-                  </div>
-                {/if}
-                {#if correction.rationale}
-                  <div class="text-surface-400 text-xs mt-1 whitespace-pre-wrap break-words">{correction.rationale}</div>
-                {/if}
-                <div class="text-surface-400 text-xs mt-1">{fmtDateTime(correction.created_at)}</div>
-              </div>
-              <!-- A revert is written on the server, not through the outbox, so the offline copy this
-                   page reads only shows it after a pull; forced, because the throttle would skip it. -->
-              <form
-                method="POST"
-                action="?/revertCorrection"
-                use:enhance={() => async ({ update, result }) => {
-                  await update();
-                  if (result.type === "success") await sync({ force: true });
-                }}
-                class="shrink-0"
-              >
-                <input type="hidden" name="id" value={correction.id} />
-                <button
-                  type="submit"
-                  disabled={isOffline}
-                  title={isOffline ? "Needs the connection" : undefined}
-                  class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >Revert</button>
-              </form>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
-
-  {#if data.standing.length > 0}
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-      <h2 class="text-surface-200 text-sm font-semibold mb-1">Standing rules ({data.standing.length})</h2>
-      <p class="text-surface-400 text-xs mb-3">
-        Persistent rules extracted from your Keep notes, stored in <code>standing_context</code>.
-      </p>
-      <ul class="flex flex-col gap-2 text-sm">
-        {#each data.standing as rule (rule.key)}
-          <li class="border-b border-surface-800 pb-2 last:border-0">
-            <div class="text-surface-200 whitespace-pre-wrap break-words">{rule.value}</div>
-            <div class="text-surface-400 text-xs mt-1 break-all"><code>{rule.key}</code> · {rule.source}</div>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  <!-- Run status + controls -->
-  <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
-      <div class="flex items-center gap-3">
-        <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
-          {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
-        </Badge>
-        {#if status?.dbRun}
-          <span class="text-surface-400 text-sm">{displayLabel(status.dbRun.mode)} mode</span>
-        {/if}
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <button
-          class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={isOffline || starting || status?.running}
-          onclick={() => start(null)}
-        >
-          {starting ? "Starting…" : "Start"}
-        </button>
-        <button
-          class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={isOffline || starting || status?.running}
-          onclick={() => start("full")}
-        >
-          Force full
-        </button>
-        <button
-          class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled={isOffline || stopping || !status?.trackedByDashboard}
-          onclick={stop}
-        >
-          {stopping ? "Stopping…" : "Stop"}
-        </button>
-      </div>
-    </div>
-
-    {#if isOffline}
-      <!-- Live run state is what this section shows, and a copy of it would be a lie. -->
-      <p class="text-xs text-surface-400 mb-3">Starting or stopping a run needs the connection. The run status below is the last one seen.</p>
-    {/if}
-
-    {#if status?.dbRun}
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Elapsed" value={fmtElapsed(status.dbRun.started_at)} />
-        <StatCard label="Items indexed" value={fmtNum(status.dbRun.items_indexed)} />
-        <StatCard
-          label="Memory (RSS)"
-          value={status.trackedByDashboard && status.rssMb != null ? `${fmtNum(status.rssMb)} MB` : "not tracked"}
-        />
-        <!-- This figure used to be computed at Sonnet's $3/$15 per Mtok against gpt-5.6-luna
-             token counts, so it was simply wrong. It now comes from configured prices, and
-             says so when there are none rather than inventing a number. -->
-        <StatCard
-          label="OpenAI cost"
-          value={status.checkpoint ? fmtCost(costUsd(status.checkpoint.openaiTokensIn, status.checkpoint.openaiTokensOut)) : "-"}
-          hint={PRICING_CONFIGURED ? undefined : PRICING_HINT}
-        />
-      </div>
-    {:else if status}
-      <p class="text-surface-300 text-sm">No runs yet.</p>
-    {/if}
-  </section>
-
-  <!-- Phase progress -->
-  {#if status?.checkpoint}
-    {@const checkpoint = status.checkpoint}
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-4">
-      <h2 class="text-surface-200 text-sm font-semibold">Steps</h2>
-
-      {#each PHASES as phase (phase.key)}
-        {@const p = checkpoint.phases[phase.key]}
-        {@const pct = p.total > 0 ? Math.min(100, Math.round((p.processed / p.total) * 100)) : p.done ? 100 : 0}
-        {@render progress(
-          phase.label,
-          p.done,
-          p.done
-            ? `done${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
-            : p.total > 0
-              ? `${fmtNum(p.processed)} / ${fmtNum(p.total)}${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
-              : "waiting…",
-          pct,
-        )}
-      {/each}
-
-      {@render progress("Synthesis", checkpoint.phases.synthesis.done, checkpoint.phases.synthesis.done ? "done" : "waiting…", checkpoint.phases.synthesis.done ? 100 : 0)}
-      {@render progress("DB seed", checkpoint.phases.dbSeed.done, checkpoint.phases.dbSeed.done ? "done" : "waiting…", checkpoint.phases.dbSeed.done ? 100 : 0)}
-    </section>
-
-    <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-      <h2 class="text-surface-200 text-sm font-semibold mb-3">Numbers</h2>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <StatCard label="Tokens in" value={fmtNum(checkpoint.openaiTokensIn)} />
-        <StatCard label="Tokens out" value={fmtNum(checkpoint.openaiTokensOut)} />
-        <StatCard label="Emails extracted" value={fmtNum(checkpoint.phases.email.processed)} />
-        <StatCard label="Notes extracted" value={fmtNum(checkpoint.phases.keep.processed)} />
-        <StatCard label="GitHub repos" value={fmtNum(checkpoint.phases.github.processed || checkpoint.phases.github.total)} />
-        <StatCard
-          label="Errors this run"
-          value={fmtNum(currentErrors.length)}
-          tone={currentErrors.length > 0 ? "warning" : "default"}
-        />
-      </div>
-    </section>
-  {/if}
-
-  <!-- errors.json is a persistent log across every run ever made, so it is split here by the
-       current run's start time: showing the whole file undated made errors from runs abandoned
-       days earlier look like the current run's output. -->
-  {#if currentErrors.length > 0}
-    <section class="bg-surface-900 border border-warning-800 rounded-lg p-4 sm:p-5">
-      <h2 class="text-warning-400 text-sm font-semibold mb-3">Errors this run ({currentErrors.length})</h2>
-      <ul class="flex flex-col gap-2 text-xs">
-        <!-- Keyed on index too: two errors.json entries can share a (ts, source) pair (seen in
-             production), and a duplicate key crashes Svelte's keyed each with no reported
-             exception. -->
-        {#each currentErrors as error, i (`${error.ts}-${error.source}-${i}`)}
-          <li class="border-b border-surface-800 pb-2 last:border-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <Badge tone="muted">{error.source}</Badge>
-              <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
-            </div>
-            <div class="text-surface-300 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  {#if olderErrors.length > 0}
-    <section class="bg-surface-900 border border-surface-800 rounded-lg p-4 sm:p-5">
-      <details>
-        <summary class="tap text-surface-300 text-sm font-semibold cursor-pointer">
-          Older errors from previous runs ({olderErrors.length})
-        </summary>
-        <ul class="flex flex-col gap-2 text-xs mt-3">
-          {#each olderErrors as error, i (`${error.ts}-${error.source}-${i}`)}
-            <li class="border-b border-surface-800 pb-2 last:border-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <Badge tone="muted">{error.source}</Badge>
-                <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
-              </div>
-              <div class="text-surface-400 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
-            </li>
+        <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
+          <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
+          {#each data.doc.sections as section (section.title)}
+            {#if section.chars > 0}
+              <details class="border-b border-surface-800 pb-2 last:border-0">
+                <summary class="tap cursor-pointer text-surface-200 text-sm flex items-baseline justify-between gap-3">
+                  <span>{section.title}</span>
+                  <span class="text-surface-400 text-xs tabular-nums shrink-0">{fmtNum(section.chars)} chars</span>
+                </summary>
+                <article class="report-body text-sm max-w-none mt-3">{@html section.html}</article>
+              </details>
+            {/if}
           {/each}
-        </ul>
-      </details>
-    </section>
-  {/if}
+          <p class="text-surface-400 text-xs break-all">Source file: <code>{data.doc.path}</code></p>
+        </section>
+      {:else}
+        <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+          <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
+          <p class="text-surface-300 text-sm">
+            {#if data.docError}
+              The last completed run recorded an output file, but it could not be read:
+              <code class="text-warning-400">{data.docError}</code>
+            {:else if data.run}
+              The last completed run recorded no output file. Re-run to generate the document.
+            {:else}
+              No completed run yet. Start one below to build the context document.
+            {/if}
+          </p>
+        </section>
+      {/if}
+    </div>
+
+    <!-- Sidebar: run controls, progress and everything that needs correcting or watching, all
+         reachable without scrolling past the document. Sticky past `xl`, same pattern as the
+         report's run-stats aside; below `xl` it just falls in the normal flow, after the doc. -->
+    <aside
+      class="mt-6 xl:mt-0 flex flex-col gap-4 xl:sticky"
+      style="top: calc(var(--header-h) + 1.5rem)"
+    >
+      <!-- Run status + controls -->
+      <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
+              {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
+            </Badge>
+            {#if status?.dbRun}
+              <span class="text-surface-400 text-sm">{displayLabel(status.dbRun.mode)} mode</span>
+            {/if}
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={isOffline || starting || status?.running}
+              onclick={() => start(null)}
+            >
+              {starting ? "Starting…" : "Start"}
+            </button>
+            <button
+              class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={isOffline || starting || status?.running}
+              onclick={() => start("full")}
+            >
+              Force full
+            </button>
+            <button
+              class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={isOffline || stopping || !status?.trackedByDashboard}
+              onclick={stop}
+            >
+              {stopping ? "Stopping…" : "Stop"}
+            </button>
+          </div>
+        </div>
+
+        {#if isOffline}
+          <!-- Live run state is what this section shows, and a copy of it would be a lie. -->
+          <p class="text-xs text-surface-400 mb-3">Starting or stopping a run needs the connection. The run status below is the last one seen.</p>
+        {/if}
+
+        {#if status?.dbRun}
+          <div class="grid grid-cols-2 gap-3">
+            <StatCard label="Elapsed" value={fmtElapsed(status.dbRun.started_at)} />
+            <StatCard label="Items indexed" value={fmtNum(status.dbRun.items_indexed)} />
+            <StatCard
+              label="Memory (RSS)"
+              value={status.trackedByDashboard && status.rssMb != null ? `${fmtNum(status.rssMb)} MB` : "not tracked"}
+            />
+            <!-- This figure used to be computed at Sonnet's $3/$15 per Mtok against gpt-5.6-luna
+                 token counts, so it was simply wrong. It now comes from configured prices, and
+                 says so when there are none rather than inventing a number. -->
+            <StatCard
+              label="OpenAI cost"
+              value={status.checkpoint ? fmtCost(costUsd(status.checkpoint.openaiTokensIn, status.checkpoint.openaiTokensOut)) : "-"}
+              hint={PRICING_CONFIGURED ? undefined : PRICING_HINT}
+            />
+          </div>
+        {:else if status}
+          <p class="text-surface-300 text-sm">No runs yet.</p>
+        {/if}
+      </section>
+
+      <!-- Phase progress -->
+      {#if status?.checkpoint}
+        {@const checkpoint = status.checkpoint}
+        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-4">
+          <h2 class="text-surface-200 text-sm font-semibold">Steps</h2>
+
+          {#each PHASES as phase (phase.key)}
+            {@const p = checkpoint.phases[phase.key]}
+            {@const pct = p.total > 0 ? Math.min(100, Math.round((p.processed / p.total) * 100)) : p.done ? 100 : 0}
+            {@render progress(
+              phase.label,
+              p.done,
+              p.done
+                ? `done${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
+                : p.total > 0
+                  ? `${fmtNum(p.processed)} / ${fmtNum(p.total)}${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
+                  : "waiting…",
+              pct,
+            )}
+          {/each}
+
+          {@render progress("Synthesis", checkpoint.phases.synthesis.done, checkpoint.phases.synthesis.done ? "done" : "waiting…", checkpoint.phases.synthesis.done ? 100 : 0)}
+          {@render progress("DB seed", checkpoint.phases.dbSeed.done, checkpoint.phases.dbSeed.done ? "done" : "waiting…", checkpoint.phases.dbSeed.done ? 100 : 0)}
+        </section>
+
+        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+          <h2 class="text-surface-200 text-sm font-semibold mb-3">Numbers</h2>
+          <div class="grid grid-cols-2 gap-3">
+            <StatCard label="Tokens in" value={fmtNum(checkpoint.openaiTokensIn)} />
+            <StatCard label="Tokens out" value={fmtNum(checkpoint.openaiTokensOut)} />
+            <StatCard label="Emails extracted" value={fmtNum(checkpoint.phases.email.processed)} />
+            <StatCard label="Notes extracted" value={fmtNum(checkpoint.phases.keep.processed)} />
+            <StatCard label="GitHub repos" value={fmtNum(checkpoint.phases.github.processed || checkpoint.phases.github.total)} />
+            <StatCard
+              label="Errors this run"
+              value={fmtNum(currentErrors.length)}
+              tone={currentErrors.length > 0 ? "warning" : "default"}
+            />
+          </div>
+        </section>
+      {/if}
+
+      <!-- The correction layer. The harvest above is never rewritten, so this is where the current
+           truth lives; reverting one puts the harvest back in charge of that fact. -->
+      <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+        <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+          <h2 class="text-surface-200 text-sm font-semibold">Corrections ({data.corrections.length})</h2>
+        </div>
+        <p class="text-surface-400 text-xs mb-3">
+          Injected into every briefing alongside the document, and authoritative wherever the two
+          disagree. Nothing above is overwritten.
+          <a href="/chat" class="text-primary-400 no-underline hover:text-primary-300">Correct it in the chat →</a>
+        </p>
+
+        {#if data.corrections.length === 0}
+          <p class="text-surface-300 text-sm">
+            No active corrections. A wrong relationship or fact in the document can be fixed in the
+            <a href="/chat" class="text-primary-400 no-underline hover:text-primary-300">context chat</a>.
+          </p>
+        {:else}
+          <ul class="flex flex-col gap-3 text-sm">
+            {#each data.corrections as correction (correction.id)}
+              <li class="border-b border-surface-800 pb-3 last:border-0">
+                <div class="flex flex-col gap-2">
+                  <div class="min-w-0">
+                    <div class="text-surface-400 text-xs break-all">
+                      <code>{correction.target_kind}:{correction.target_key}</code> ·
+                      {displayLabel(correction.operation)} · {correction.source}
+                    </div>
+                    <div class="text-surface-100 mt-1 whitespace-pre-wrap break-words">{correction.statement}</div>
+                    {#if correction.supersedes_text}
+                      <div class="text-surface-400 text-xs mt-1 line-through whitespace-pre-wrap break-words">
+                        {correction.supersedes_text}
+                      </div>
+                    {/if}
+                    {#if correction.rationale}
+                      <div class="text-surface-400 text-xs mt-1 whitespace-pre-wrap break-words">{correction.rationale}</div>
+                    {/if}
+                    <div class="text-surface-400 text-xs mt-1">{fmtDateTime(correction.created_at)}</div>
+                  </div>
+                  <!-- A revert is written on the server, not through the outbox, so the offline copy this
+                       page reads only shows it after a pull; forced, because the throttle would skip it. -->
+                  <form
+                    method="POST"
+                    action="?/revertCorrection"
+                    use:enhance={() => async ({ update, result }) => {
+                      await update();
+                      if (result.type === "success") await sync({ force: true });
+                    }}
+                  >
+                    <input type="hidden" name="id" value={correction.id} />
+                    <button
+                      type="submit"
+                      disabled={isOffline}
+                      title={isOffline ? "Needs the connection" : undefined}
+                      class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >Revert</button>
+                  </form>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+
+      {#if data.standing.length > 0}
+        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+          <h2 class="text-surface-200 text-sm font-semibold mb-1">Standing rules ({data.standing.length})</h2>
+          <p class="text-surface-400 text-xs mb-3">
+            Persistent rules extracted from your Keep notes, stored in <code>standing_context</code>.
+          </p>
+          <ul class="flex flex-col gap-2 text-sm">
+            {#each data.standing as rule (rule.key)}
+              <li class="border-b border-surface-800 pb-2 last:border-0">
+                <div class="text-surface-200 whitespace-pre-wrap break-words">{rule.value}</div>
+                <div class="text-surface-400 text-xs mt-1 break-all"><code>{rule.key}</code> · {rule.source}</div>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
+      <!-- errors.json is a persistent log across every run ever made, so it is split here by the
+           current run's start time: showing the whole file undated made errors from runs abandoned
+           days earlier look like the current run's output. -->
+      {#if currentErrors.length > 0}
+        <section class="bg-surface-900 border border-warning-800 rounded-lg p-4 sm:p-5">
+          <h2 class="text-warning-400 text-sm font-semibold mb-3">Errors this run ({currentErrors.length})</h2>
+          <ul class="flex flex-col gap-2 text-xs">
+            <!-- Keyed on index too: two errors.json entries can share a (ts, source) pair (seen in
+                 production), and a duplicate key crashes Svelte's keyed each with no reported
+                 exception. -->
+            {#each currentErrors as error, i (`${error.ts}-${error.source}-${i}`)}
+              <li class="border-b border-surface-800 pb-2 last:border-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <Badge tone="muted">{error.source}</Badge>
+                  <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
+                </div>
+                <div class="text-surface-300 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
+      {#if olderErrors.length > 0}
+        <section class="bg-surface-900 border border-surface-800 rounded-lg p-4 sm:p-5">
+          <details>
+            <summary class="tap text-surface-300 text-sm font-semibold cursor-pointer">
+              Older errors from previous runs ({olderErrors.length})
+            </summary>
+            <ul class="flex flex-col gap-2 text-xs mt-3">
+              {#each olderErrors as error, i (`${error.ts}-${error.source}-${i}`)}
+                <li class="border-b border-surface-800 pb-2 last:border-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <Badge tone="muted">{error.source}</Badge>
+                    <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
+                  </div>
+                  <div class="text-surface-400 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
+                </li>
+              {/each}
+            </ul>
+          </details>
+        </section>
+      {/if}
+    </aside>
   </div>
 </Page>

@@ -27,6 +27,12 @@
   );
 
   let retrying = $state(false);
+  // Set for the whole span of a manual retry, including the probe before it - `retrying` alone
+  // only covers the `goto()` itself, leaving a window where `probe()` has already flipped
+  // `offline.reachable` to "online" but the explicit `retry()` below hasn't started yet. Without
+  // this, the reachability effect below sees that same transition and fires its own `retry()`,
+  // so one click produced two concurrent navigations to the same URL.
+  let manualRetryPending = false;
 
   async function retry() {
     if (retrying) return;
@@ -40,15 +46,21 @@
 
   /** The Try again button: probe first, because while offline a reload would fail in one frame. */
   async function retryWhenReachable() {
-    if (await offline.probe()) await retry();
+    manualRetryPending = true;
+    try {
+      if (await offline.probe()) await retry();
+    } finally {
+      manualRetryPending = false;
+    }
   }
 
   // Coming back online takes the reader back to the page they asked for, without a tap. Only on
-  // the transition, so a page that fails again for a different reason cannot loop.
+  // the transition, so a page that fails again for a different reason cannot loop, and never
+  // while a manual retry (above) is already handling that same transition itself.
   let lastReachable = offline.reachable;
   $effect(() => {
     const now = offline.reachable;
-    if (isOffline && now === "online" && lastReachable !== "online") void retry();
+    if (isOffline && now === "online" && lastReachable !== "online" && !manualRetryPending) void retry();
     lastReachable = now;
   });
 </script>

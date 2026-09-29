@@ -98,7 +98,7 @@ export const load: PageServerLoad = async ({ params }) => {
     // The header block is all the template needs for a title, so the bodies stay in Postgres.
     db`
       WITH deliveries AS (
-        SELECT id, received_at, run_date, source_type, split_part(raw_content, E'\n\n', 1) AS raw_header
+        SELECT id, received_at, run_date::text AS run_date, source_type, split_part(raw_content, E'\n\n', 1) AS raw_header
         FROM raw_items
         WHERE source_name = ${sourceName}
         ORDER BY received_at DESC NULLS LAST
@@ -117,7 +117,7 @@ export const load: PageServerLoad = async ({ params }) => {
         e.novelty,
         e.included_in_report,
         e.ai_failed,
-        e.run_date AS extraction_run_date,
+        e.run_date::text AS extraction_run_date,
         f.event_type AS rating
       FROM deliveries d
       LEFT JOIN extractions e ON e.raw_item_id = d.id

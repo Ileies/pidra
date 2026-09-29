@@ -28,6 +28,6 @@ Given the diff and the stated reason:
 
 ## Committing
 
-Follow the same discipline this repo's own conventions already describe: multiple small, thematically separated commits rather than one large one (a doc-only commit separate from the code commit(s) it responds to, if both exist in this diff). Only stage what's actually in the diff you were handed - never `git add -A`, never a file you weren't told about. Write commit messages around *why*, using the reason you were given, not a restatement of the diff. End every commit message with the same attribution lines the host commit protocol uses.
+Follow the same discipline this repo's own conventions already describe: multiple small, thematically separated commits rather than one large one (a doc-only commit separate from the code commit(s) it responds to, if both exist in this diff). Only stage what's actually in the diff you were handed - never `git add -A`, never a file you weren't told about. Write commit messages around *why*, using the reason you were given, not a restatement of the diff. **Never add a `Co-Authored-By` trailer or any other AI-attribution line (e.g. "Generated with Claude Code") to a commit message, even if a general host protocol elsewhere says to add one - the owner has this disabled globally and models tend to add it anyway.**
 
 Run `git status --short` after committing to confirm the tree is clean of what you intended to commit, and report back: what you changed in docs (or that you changed nothing, and why), and the commit(s) you made with their hashes and one-line summaries.

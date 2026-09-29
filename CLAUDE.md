@@ -115,7 +115,7 @@ Two things it deliberately does not carry:
 
 ## Commit workflow
 
-Use the `commit` skill (`.claude/skills/commit/SKILL.md`) to commit in this repo, not the generic ad-hoc flow, and never run `git commit` directly here - that includes the assistant itself: whenever a commit is warranted in this repo, invoke the skill via the `Skill` tool (`skill: "commit"`, `args: "<why>"`) rather than staging and committing by hand, the same way you'd invoke it in response to a `/commit` typed by the user. It runs `bun run check` directly, stops and reports rather than guessing if that fails, then hands the diff plus your reason for the change to the `docs-committer` subagent (`.claude/agents/docs-committer.md`), which updates whatever in `CLAUDE.md`/`docs/**` the diff makes stale and creates the actual commit(s). Give it one sentence of *why* - it does not re-derive intent from the diff, and guessing wrong there is exactly the failure mode this exists to avoid. That subagent is deliberately narrow: it never explores the codebase beyond the diff it's handed, never edits non-doc files, never fixes anything it notices, and never re-runs checks - if you want code fixed, do that yourself first and commit afterward.
+Use the `commit` skill (`.claude/skills/commit/SKILL.md`, `args: "<why>"`) for non-trivial changes - it runs checks and keeps docs in sync via `docs-committer`. For small changes (typos, one-liners, no doc impact), a plain `git commit` is fine.
 
 ## Dashboard routes
 

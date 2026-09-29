@@ -16,8 +16,8 @@
 
   type TopicRow = PageData["topics"][number];
 
-  /** What one view renders, as the server-rendered page did. */
-  const SHOWN = 200;
+  const TOPICS_PAGE = 20;
+  let visibleTopics = $state(TOPICS_PAGE);
 
   // Filtered here, from the URL the chips and the GET form write: the load
   // reads no URL, so a filter change re-renders this and never re-runs the load.
@@ -31,18 +31,18 @@
     resolved: data.topics.filter((t) => t.status === "resolved").length,
   });
 
-  const shown = $derived.by(() => {
+  const filtered = $derived.by(() => {
     const needle = search.trim().toLowerCase();
-    return data.topics
-      .filter(
-        (t) =>
-          (statusFilter === "all" || t.status === statusFilter) &&
-          (needle === "" ||
-            t.headline.toLowerCase().includes(needle) ||
-            (t.runningSummary ?? "").toLowerCase().includes(needle)),
-      )
-      .slice(0, SHOWN);
+    return data.topics.filter(
+      (t) =>
+        (statusFilter === "all" || t.status === statusFilter) &&
+        (needle === "" ||
+          t.headline.toLowerCase().includes(needle) ||
+          (t.runningSummary ?? "").toLowerCase().includes(needle)),
+    );
   });
+
+  const shown = $derived(filtered.slice(0, visibleTopics));
 
   // Curation writes `active_topics` on the server, never through the outbox: it changes what
   // tomorrow's briefing carries forward.
@@ -83,11 +83,6 @@
 <Page title="Topics" size="app" class="flex flex-col gap-4">
   <div class="flex flex-col gap-1">
     <h1 class="text-xl font-bold text-surface-50">Active topics</h1>
-    <p class="text-xs text-surface-400 max-w-prose">
-      The running summaries behind story continuity. A topic here is why tomorrow's briefing can
-      say "UPDATE:" and state only what is new, instead of re-explaining the background. Resolving
-      one stops it carrying forward.
-    </p>
     {#if isOffline}
       <p class="text-xs text-warning-400 max-w-prose">
         Resolving and archiving need the connection: they change what tomorrow's briefing carries
@@ -228,5 +223,12 @@
         </li>
       {/each}
     </ul>
+    {#if visibleTopics < filtered.length}
+      <button
+        type="button"
+        onclick={() => (visibleTopics += TOPICS_PAGE)}
+        class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer"
+      >Show more ({filtered.length - visibleTopics} more)</button>
+    {/if}
   {/if}
 </Page>

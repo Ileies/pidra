@@ -36,6 +36,8 @@ export interface GateResult {
   /** Whether Section 2 had anything of this run's to wait for. */
   fired: boolean;
   answers: QuestionAnswer[];
+  /** Genuinely new questions this run added to the queue (`plan.created`) - what the questions push counts. */
+  newQuestionCount: number;
   tokensIn: number;
   tokensOut: number;
   aiCalls: number;
@@ -128,6 +130,7 @@ async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepA
   const waitFor = await applyPlan(plan, runDate);
   return {
     waitFor,
+    newQuestionCount: plan.created.length,
     tokensIn: usage.tokensIn + absorbed.tokensIn,
     tokensOut: usage.tokensOut + absorbed.tokensOut,
     aiCalls: usage.aiCalls + absorbed.aiCalls,
@@ -152,7 +155,7 @@ export async function runQuestionGate(ctx: ContextPayload, runDate: string, erro
 
   if (opened.waitFor.length === 0) {
     console.log("[Phase 4] Nothing of this run's to ask - Section 2 does not wait");
-    return { fired: false, answers: await recentAnswers(), ...usage };
+    return { fired: false, answers: await recentAnswers(), newQuestionCount: opened.newQuestionCount, ...usage };
   }
 
   const deadline = new Date(Date.now() + TIMEOUT_MINUTES * 60_000);
@@ -172,5 +175,5 @@ export async function runQuestionGate(ctx: ContextPayload, runDate: string, erro
       ? "[Phase 4] All of this run's questions settled"
       : `[Phase 4] Timed out with ${open.length} question(s) still open - they stay on /questions`,
   );
-  return { fired: true, answers: await recentAnswers(), ...usage };
+  return { fired: true, answers: await recentAnswers(), newQuestionCount: opened.newQuestionCount, ...usage };
 }

@@ -8,7 +8,7 @@ import { newsItemsOf, runNewsSection, runSection1, runSection2 } from "./phase5-
 import { runPhase6 } from "./phase6-memory";
 import { withRetry, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
-import { sendPushNotifications, sendFailureNotification } from "../push";
+import { sendPushNotifications, sendFailureNotification, sendNewQuestionsNotification } from "../push";
 import { EMPTY_NEWS_DESK, runNewsDesk, type NewsDeskOutcome } from "../news/run";
 import { renderNewsFallback } from "../news/format";
 import { proposeQuickActions } from "../actions/propose";
@@ -175,6 +175,13 @@ export async function runPipeline(runDate?: string): Promise<string> {
       notificationSummary,
       [...ingest.failures, ...news.failures].map((f) => f.source),
     ).catch(console.error);
+
+    // A second, distinct push: new questions are new state the reader has not seen, not a lesser
+    // version of the briefing above, so they get their own notification rather than a mention
+    // folded into the summary. Awaited for the same reason the briefing push is (see above).
+    if (gate.newQuestionCount > 0) {
+      await sendNewQuestionsNotification(date, gate.newQuestionCount).catch(console.error);
+    }
 
     console.log(`\n=== Pipeline complete in ${Math.round(durationMs / 1000)}s ===\n`);
     return report;

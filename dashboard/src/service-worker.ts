@@ -479,9 +479,11 @@ self.addEventListener("push", (event) => {
         body: data.body ?? "Today's briefing is ready.",
         icon,
         badge: icon,
-        tag: data.date ? `report-${data.date}` : "pidra",
+        // Its own tag: a questions push shares its date with the briefing push, so without a
+        // distinct tag one would replace the other instead of both surfacing.
+        tag: data.kind === "questions" ? `questions-${data.date}` : data.date ? `report-${data.date}` : "pidra",
         data: { url: data.url ?? "/" },
-        actions: data.date
+        actions: data.date && data.kind !== "questions"
           ? [
               { action: "personal", title: "Personal first" },
               { action: "open", title: "Open report" },

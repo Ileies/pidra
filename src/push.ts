@@ -93,6 +93,30 @@ export async function sendPushNotifications(
 }
 
 /**
+ * A second push on the same morning, deliberately - the reasoning above is why `sendPushNotifications`
+ * folds a degraded source into the one notification it sends rather than a second: a missing source is
+ * a lesser version of the same briefing. A new question is not a lesser version of anything; it is new
+ * state the reader has not seen, on its own page, and burying it in the briefing body would make it as
+ * easy to miss as the sources that already ride there silently would if there were more of them. `kind`
+ * in the payload gives it its own notification tag (`questions-<date>`), so it cannot replace, or be
+ * replaced by, the briefing push for the same date.
+ */
+export async function sendNewQuestionsNotification(date: string, count: number): Promise<void> {
+  await deliver(
+    JSON.stringify({
+      kind: "questions",
+      title: count === 1 ? "PIDRA - 1 new question" : `PIDRA - ${count} new questions`,
+      body:
+        count === 1
+          ? "The morning's mail raised something worth asking about."
+          : `The morning's mail raised ${count} things worth asking about.`,
+      url: "/questions",
+      date,
+    }),
+  );
+}
+
+/**
  * The failure counterpart, and the reason it exists: the success notification is sent at the very
  * end of `runPipeline`, so every failure mode used to be silent. Waking up to no notification is
  * indistinguishable from waking up before the run finished, which is the worst of both - the run

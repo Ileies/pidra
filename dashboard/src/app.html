@@ -18,6 +18,15 @@
   </head>
   <body data-sveltekit-preload-data="hover" data-theme="cerberus">
     <div style="display: contents">%sveltekit.body%</div>
+    <!--
+      Inline on purpose, not a `<script src>`: this runs in the same request as the document, with
+      no separate network round trip - a `src` load is exactly the bare, unbudgeted fetch the
+      offline design (CLAUDE.md, "Offline mode") exists to avoid, and it would hang for the OS
+      connect timeout in a blackhole instead of failing fast. The tradeoff is that a strict
+      script-src CSP has to allowlist this exact content by hash (hooks.server.ts, RESOURCE_CSP) -
+      that hash must be updated if this script's text changes, or `CSP_REPORT_ONLY` will start
+      logging a violation for it, which is the trip wire that catches a stale hash.
+    -->
     <script>
       // Migration off the old /sw.js worker: a registration at a different
       // scriptURL does not replace the old one, so a device left on the old worker would keep

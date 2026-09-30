@@ -31,6 +31,7 @@ There is no relation graph in the current schema (`entity_relations` was dropped
 - A dormant topic with no story update for 30 days becomes archived. Archived topics and their summaries are retained.
 - Dormant and archived topics that match a new newsletter claim are offered to Section 1 for a same-story decision. A confirmed continuation reactivates the existing row.
 - `resolved` requires evidence of an ending from today's claim. Inactivity alone never resolves a topic.
+- At most `TOPIC_ACTIVE_CAP` (15) topics are `active` at once. A candidate that would grow that count - a `new_topics` entry, or a dormant/archived topic Section 1 revives back to active - only gets in at capacity by out-valuing `weakestActiveTopic()` (ranked by `importance`, tie-broken by lower `update_count`, then older `last_updated`); a strict win (`isMoreValuable()`) bumps the incumbent to dormant, a tie or loss leaves the candidate at its current status, untouched. Candidates are ranked by `importance` (`high|normal|low`, model-supplied, default `normal`) and processed strongest-first. Resolving or refreshing an already-active topic doesn't touch the active count, so those always apply directly.
 
 ## Feedback signals
 

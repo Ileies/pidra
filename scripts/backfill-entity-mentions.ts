@@ -3,10 +3,21 @@
  * correct `entities.mention_count` / `last_mentioned` to match it.
  *
  * Source data: every newsletter's `entities_graph` (`extractions.extracted_json`, deduped to one
- * per `raw_item_id` - the live writer's bug was counting once per claim instead), and every
- * `context_builder_indexed_items` row's stored `entities` list. Both are exactly what the live
- * writers (`src/pipeline/phase6/entities.ts`, `context-builder/output/db-writer.ts`) read today,
- * so a backfilled count and a freshly-written one are reproduced the same way.
+ * per `raw_item_id` - the live writer's bug was counting once per claim instead). This is exactly
+ * what `src/pipeline/phase6/entities.ts` reads today, so a backfilled count and a freshly-written
+ * one are reproduced the same way.
+ *
+ * Deliberately excludes `context_builder_indexed_items`. `seedEntities()` only ever contributes a
+ * mention count once, at the moment an entity is first created, from whatever the corpus looked
+ * like then, and never revisits an existing row - that contribution is already correctly baked
+ * into the entity's current `mention_count`, so there is no bug to backfill there. Reconstructing
+ * it from the full, ever-growing indexed-items corpus instead would count every incidental
+ * appearance of a name (the owner's own name in an email signature, a CI bot's notification
+ * footer) as a fresh "mention" of a topic entity, inflating exactly the entities that show up
+ * most in personal email regardless of whether they are ever worth surfacing in a briefing - and
+ * it would do so without an `entity_mentions` row to justify it going forward, which breaks the
+ * invariant the mentions table exists to guarantee: `mention_count` only ever moves alongside a
+ * mention row that was actually inserted.
  *
  * Only ever touches `mention_count`, `last_mentioned` and `entity_mentions` - never `type`,
  * `domain`, `summary`, `importance` or `status`, so a `revise_context`-locked row is untouched
@@ -87,23 +98,6 @@ for (const row of newsletterRows) {
   const graph = row.extracted_json?.entities_graph;
   for (const ent of (graph?.entities ?? []) as { name?: string }[]) {
     if (ent?.name) addRef(ent.name, "newsletter", row.raw_item_id, row.run_date);
-  }
-}
-
-const harvestRows = (await db`
-  SELECT source, item_id, data FROM context_builder_indexed_items WHERE source IN ('email', 'keep')
-`) as unknown as { source: string; item_id: string; data: any }[];
-
-for (const row of harvestRows) {
-  const names = (row.data?.entities ?? []) as unknown[];
-  const date: string | null = row.source === "email" && row.data?.date ? String(row.data.date).slice(0, 10) : null;
-  const sourceRef = `${row.source}:${row.item_id}`;
-  const seen = new Set<string>();
-  for (const raw of names) {
-    const key = normalizeEntityKey(String(raw));
-    if (seen.has(key)) continue;
-    seen.add(key);
-    addRef(String(raw), "context_builder", sourceRef, date);
   }
 }
 

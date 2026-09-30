@@ -3,7 +3,7 @@ import {
   rawItems,
   extractions,
   entities,
-  entityRelations,
+  entityMentions,
   entityAppearances,
   feedbackEvents,
 } from "./schema";
@@ -22,20 +22,13 @@ export const extractionsRelations = relations(extractions, ({ one, many }) => ({
 
 export const entitiesRelations = relations(entities, ({ many }) => ({
   appearances: many(entityAppearances),
-  relationsFrom: many(entityRelations, { relationName: "from" }),
-  relationsTo: many(entityRelations, { relationName: "to" }),
+  mentions: many(entityMentions),
 }));
 
-export const entityRelationsRelations = relations(entityRelations, ({ one }) => ({
-  from: one(entities, {
-    fields: [entityRelations.fromId],
+export const entityMentionsRelations = relations(entityMentions, ({ one }) => ({
+  entity: one(entities, {
+    fields: [entityMentions.entityId],
     references: [entities.id],
-    relationName: "from",
-  }),
-  to: one(entities, {
-    fields: [entityRelations.toId],
-    references: [entities.id],
-    relationName: "to",
   }),
 }));
 

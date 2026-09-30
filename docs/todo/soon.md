@@ -22,4 +22,4 @@ See `docs/todo/README.md` for the conventions this list follows. This is mostly 
 - **[FEATURE]** Dashboard toggle to enable/disable
 
 **At the 30-day mark:**
-- **[DECISION]** Evaluate web search quality - upgrade from Brave to Tavily or Exa if insufficient. The trigger is thin results, above all stories the news desks missed, not quota. The old "2,000 calls a month free" figure is gone: Brave now bills $5 per 1,000 requests with $5 of credit a month, so the desks will cost real money once they run on it
+- **[INFRA]** At the 30-day mark, compare Brave with Tavily and Exa on the same representative desk queries and a record of stories Brave missed. Compare useful story recall, source quality and request cost. Keep Brave unless an alternative shows a clear coverage improvement at an acceptable cost; quota alone is not a reason to switch

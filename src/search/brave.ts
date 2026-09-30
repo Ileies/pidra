@@ -1,13 +1,36 @@
+import { db, braveDailyUsage } from "../db";
+import { lt, sql } from "drizzle-orm";
+
 const BASE_URL = "https://api.search.brave.com/res/v1";
 const MIN_INTERVAL_MS = 1100;
+const DAILY_LIMIT = 30;
 let nextRequestAt = 0;
 let queue = Promise.resolve();
 
-/** One shared queue prevents concurrent desks and other callers from bursting the API. */
+function berlinDay(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+}
+
+async function reserveDailyCall(): Promise<void> {
+  const [row] = await db.insert(braveDailyUsage)
+    .values({ day: berlinDay(), calls: 1 })
+    .onConflictDoUpdate({
+      target: braveDailyUsage.day,
+      set: { calls: sql`${braveDailyUsage.calls} + 1` },
+      setWhere: lt(braveDailyUsage.calls, DAILY_LIMIT),
+    })
+    .returning({ calls: braveDailyUsage.calls });
+  if (!row) throw new Error(`Brave Search daily limit of ${DAILY_LIMIT} requests reached`);
+}
+
+/** One shared queue paces requests; Postgres enforces the cap across processes. */
 function reserveRequest(): Promise<void> {
   const turn = queue.then(async () => {
     const delay = Math.max(0, nextRequestAt - Date.now());
     if (delay) await Bun.sleep(delay);
+    await reserveDailyCall();
     nextRequestAt = Date.now() + MIN_INTERVAL_MS;
   });
   queue = turn.catch(() => {});
@@ -33,14 +56,16 @@ export interface BraveSearchOptions {
   country?: string;
   freshness?: string;
   extraSnippets?: boolean;
+  onAttempt?: () => void;
 }
 
-async function braveRequest(url: URL): Promise<Response> {
+async function braveRequest(url: URL, onAttempt?: () => void): Promise<Response> {
   const key = process.env.BRAVE_SEARCH_API_KEY;
   if (!key) throw new Error("BRAVE_SEARCH_API_KEY is not set");
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     await reserveRequest();
+    onAttempt?.();
     try {
       const res = await fetch(url.toString(), {
         headers: { Accept: "application/json", "X-Subscription-Token": key },
@@ -71,7 +96,7 @@ export async function braveSearch(query: string, count = 5, options: BraveSearch
   if (options.country) url.searchParams.set("country", options.country);
   if (options.extraSnippets) url.searchParams.set("extra_snippets", "true");
 
-  const res = await braveRequest(url);
+  const res = await braveRequest(url, options.onAttempt);
   const data = await res.json() as {
     web?: { results?: RawResult[] };
     results?: RawResult[];
@@ -92,7 +117,7 @@ export async function braveSearch(query: string, count = 5, options: BraveSearch
 }
 
 /** One search with page text extracted by Brave, within the same request budget. */
-export async function braveContext(query: string, options: Pick<BraveSearchOptions, "country" | "freshness"> = {}): Promise<BraveSearchResponse> {
+export async function braveContext(query: string, options: Pick<BraveSearchOptions, "country" | "freshness" | "onAttempt"> = {}): Promise<BraveSearchResponse> {
   const url = new URL(`${BASE_URL}/llm/context`);
   url.searchParams.set("q", query);
   url.searchParams.set("count", "20");
@@ -103,7 +128,7 @@ export async function braveContext(query: string, options: Pick<BraveSearchOptio
   url.searchParams.set("enable_source_metadata", "true");
   if (options.country) url.searchParams.set("country", options.country);
   if (options.freshness) url.searchParams.set("freshness", options.freshness);
-  const res = await braveRequest(url);
+  const res = await braveRequest(url, options.onAttempt);
   const data = await res.json() as {
     grounding?: { generic?: { title: string; url: string; snippets?: string[] }[] };
     sources?: Record<string, { age?: string[]; description?: string }>;

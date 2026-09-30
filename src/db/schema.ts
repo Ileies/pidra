@@ -121,6 +121,12 @@ export const dailyReports = pgTable("daily_reports", {
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 
+/** Atomic, shared limit for every Brave API request, including retries and assistant searches. */
+export const braveDailyUsage = pgTable("brave_daily_usage", {
+  day: dateStr("day").primaryKey(),
+  calls: integer("calls").notNull().default(0),
+}, (t) => [check("brave_daily_usage_calls_range", sql`${t.calls} BETWEEN 0 AND 30`)]);
+
 /**
  * Quick actions: one-tap buttons the report offers beside a personal item, such as "add this
  * event to the calendar". Proposed by a separate model call in Phase 5 (`src/actions/`), never

@@ -116,13 +116,12 @@ function freshness(window: NewsWindow): string {
 
 async function searchRound(queries: string[], window: NewsWindow, country: string | undefined, kind: SearchEvidence["kind"], onCall: () => void): Promise<SearchEvidence[]> {
   return Promise.all(queries.map(async (query) => {
-    onCall();
     return {
       query,
       kind,
       results: (kind === "news"
-        ? await braveSearch(query, 20, { kind: "news", country: country ?? "ALL", freshness: freshness(window), extraSnippets: true })
-        : await braveContext(query, { country, freshness: freshness(window) })).results,
+        ? await braveSearch(query, 20, { kind: "news", country: country ?? "ALL", freshness: freshness(window), extraSnippets: true, onAttempt: onCall })
+        : await braveContext(query, { country, freshness: freshness(window), onAttempt: onCall })).results,
     };
   }));
 }

@@ -21,6 +21,7 @@
     "context-builder:full": "bun run context-builder/run.ts --full"
   },
   "dependencies": {
+    "@typesafe-ai/sdk": "0.6.0",
     "drizzle-orm": "^0.45.2",
     "googleapis": "^171.4.0",
     "hono": "^4.12.19",

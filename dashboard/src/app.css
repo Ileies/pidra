@@ -307,6 +307,20 @@
   @apply border-surface-700 text-surface-400 opacity-40 cursor-default select-none;
 }
 
+/* Context Builder (C-something): a jumped-to anchor sitting flush under the fixed header is half
+   hidden by it, so every in-page jump target carries this instead of a one-off inline style. */
+@utility cb-anchor {
+  scroll-margin-top: calc(var(--header-h) + 1rem);
+}
+
+/* The in-page search match, and the one of them currently focused by prev/next. */
+@utility search-hit {
+  @apply bg-warning-500/30 rounded-sm;
+}
+@utility search-hit-current {
+  @apply bg-warning-500 text-surface-950 rounded-sm;
+}
+
 /* M-3: the minimum touch target. iOS asks for 44x44pt, Material for 48dp; the app's
    controls were 22-28px and its checkboxes 13px. Below `sm` every control this is on
    is at least 44px; above it, the desktop size stands. */

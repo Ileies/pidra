@@ -9,7 +9,8 @@
  *   1. dropped by the IMAP ingest, before it was ever a row      → `ingest_drops`
  *   2. never extracted, because its source is switched off        → no extraction row
  *   3. extracted, then dropped by the Phase 3 relevance gate      → `extractions.gate_*`
- *   4. handed to synthesis, which chose not to write about it     → gate passed, not in the refs
+ *   4. passed the gate but fell outside Section 1 capacity        → synthesis handoff
+ *   5. handed to synthesis, which chose not to write about it     → sent, not in the refs
  *
  * Only the last one leaves a trace in `included_in_report`, which is why that column alone could
  * never answer the question.
@@ -60,6 +61,8 @@ export type Outcome =
   | "in_report"
   /** Handed to synthesis, which did not write about it. */
   | "passed"
+  /** Gate-passed newsletter claim beyond Section 1's 30-item limit. */
+  | "outside_synthesis_capacity"
   /** Extracted and then dropped by the relevance gate. */
   | "gated"
   /** The extraction call failed, so there was never anything to judge. */
@@ -85,6 +88,8 @@ export interface TriageExtraction {
   gatePassed: boolean | null;
   gateReason: GateReason | null;
   gateDetail: GateDetail | null;
+  synthesisHandoff: "sent" | "outside_synthesis_capacity" | null;
+  synthesisOrder: number | null;
   includedInReport: boolean;
   aiFailed: boolean;
   rating: string | null;
@@ -113,6 +118,7 @@ export interface TriageSummary {
   ingested: number;
   inReport: number;
   passed: number;
+  outsideSynthesisCapacity: number;
   gated: number;
   failed: number;
   notExtracted: number;
@@ -154,6 +160,8 @@ type Row = {
   gate_passed: boolean | null;
   gate_reason: string | null;
   gate_detail: unknown;
+  synthesis_handoff: string | null;
+  synthesis_order: number | null;
   included_in_report: boolean | null;
   ai_failed: boolean | null;
   rating: string | null;
@@ -187,6 +195,9 @@ interface Extracted {
 function outcomeOf(extractions: TriageExtraction[]): Outcome {
   if (extractions.length === 0) return "not_extracted";
   if (extractions.some((e) => e.includedInReport)) return "in_report";
+  if (extractions.some((e) => e.synthesisHandoff === "sent")) return "passed";
+  if (extractions.some((e) => e.synthesisHandoff === "outside_synthesis_capacity")) return "outside_synthesis_capacity";
+  // Older runs predate the separate handoff column.
   if (extractions.some((e) => e.gatePassed === true)) return "passed";
   if (extractions.every((e) => e.aiFailed)) return "failed";
   if (extractions.some((e) => e.gateReason !== null)) return "gated";
@@ -222,6 +233,8 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
         e.gate_passed,
         e.gate_reason,
         e.gate_detail,
+        e.synthesis_handoff,
+        e.synthesis_order,
         e.included_in_report,
         e.ai_failed,
         f.event_type AS rating
@@ -287,6 +300,8 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
       gatePassed: row.gate_passed,
       gateReason: (row.gate_reason as GateReason | null) ?? null,
       gateDetail: parseJsonb<GateDetail | null>(row.gate_detail, null),
+      synthesisHandoff: (row.synthesis_handoff as TriageExtraction["synthesisHandoff"]) ?? null,
+      synthesisOrder: row.synthesis_order,
       includedInReport: row.included_in_report ?? false,
       aiFailed: row.ai_failed ?? false,
       rating: row.rating,
@@ -325,6 +340,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
       ingested: items.length - count("dropped_at_ingest"),
       inReport: count("in_report"),
       passed: count("passed"),
+      outsideSynthesisCapacity: count("outside_synthesis_capacity"),
       gated: count("gated"),
       failed: count("failed"),
       notExtracted: count("not_extracted"),

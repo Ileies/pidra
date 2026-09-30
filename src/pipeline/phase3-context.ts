@@ -6,11 +6,13 @@ import { runAllSlots, type WebSearchResult } from "../search/slots";
 import { loadLongTermContext, type LongTermContext } from "./long-term-context";
 import { NEWS_SOURCE_TYPE } from "../news/config";
 import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/run";
+import { handoffForOrder, orderNewsletterItems } from "./section1-handoff";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
   highRelevanceCount: number;
   activeTopics: (typeof activeTopics.$inferSelect)[];
+  /** All gate-passed newsletter claims, ordered for Section 1; only the first 30 are sent. */
   newsletterItems: ExtractionWithSource[];
   personalItems: ExtractionWithSource[];
   /** News desk stories that passed the gate, for the News section. */
@@ -90,8 +92,9 @@ function parseJsonRows<T>(rows: { rawContent: string | null }[]): T[] {
  * Row by row rather than one statement: the phase is wrapped in `withRetry`, so this has to be
  * idempotent, and it is - every attempt writes the same verdict over the same id.
  */
-async function persistGate(items: ExtractionWithSource[]): Promise<void> {
+async function persistGate(items: ExtractionWithSource[], newsletterOrder: Map<string, number>): Promise<void> {
   for (const item of items) {
+    const order = newsletterOrder.get(item.extraction.id) ?? null;
     await db
       .update(extractions)
       .set({
@@ -99,6 +102,8 @@ async function persistGate(items: ExtractionWithSource[]): Promise<void> {
         gatePassed: item.gate.passed,
         gateReason: item.gate.reason,
         gateDetail: item.gate.detail,
+        synthesisOrder: order,
+        synthesisHandoff: handoffForOrder(order),
       })
       .where(eq(extractions.id, item.extraction.id));
   }
@@ -201,12 +206,15 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     });
   }
 
-  await persistGate(items);
+  // Section 1 has a separate capacity after the gate. Keep the full list for counts and
+  // scoring, but persist its order and every item that cannot fit in the synthesis payload.
+  const newsletterItems = orderNewsletterItems(
+    items.filter((i) => i.gate.passed && i.sourceType === "newsletter"),
+  );
+  const newsletterOrder = new Map(newsletterItems.map((item, index) => [item.extraction.id, index + 1]));
+  await persistGate(items, newsletterOrder);
 
-  // The two lists synthesis receives are exactly what the gate passed - one decision, recorded
-  // and acted on. They used to be two inline filters, which is how a dropped item became
-  // untraceable.
-  const newsletterItems = items.filter((i) => i.gate.passed && i.sourceType === "newsletter");
+  // The remaining sections receive every item the gate passed.
   const personalItems = items.filter(
     (i) => i.gate.passed && (i.sourceType === "personal_email" || i.sourceType === "sms"),
   );

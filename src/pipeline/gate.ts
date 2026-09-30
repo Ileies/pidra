@@ -1,6 +1,6 @@
 /**
- * The Phase 3 relevance gate: which extracted items are handed to synthesis, and why the rest
- * are not.
+ * The Phase 3 relevance gate: which extracted items clear the relevance bar, and why the rest
+ * do not. Section 1 then applies its separate 30-item capacity.
  *
  * This decision used to live as two anonymous `.filter()` calls at the bottom of
  * `phase3-context.ts`, and it left no trace anywhere. An item that dropped out here was simply
@@ -22,7 +22,7 @@
 
 import type { NewsValidation } from "../news/validate";
 
-/** A newsletter item needs this much effective relevance to be handed to synthesis. */
+/** A newsletter item needs this much effective relevance to clear the gate. */
 export const NEWSLETTER_THRESHOLD = 3;
 
 /**
@@ -35,7 +35,7 @@ export const NEWS_THRESHOLD = 3;
 export const NEWS_ABROAD_THRESHOLD = 4;
 
 export type GateReason =
-  /** Handed to synthesis. Whether synthesis then wrote about it is `included_in_report`. */
+  /** Cleared the gate. Section 1 may still leave it outside synthesis capacity. */
   | "passed"
   /** Scored, but under the bar for its kind. */
   | "below_threshold"
@@ -189,7 +189,7 @@ export function decideGate(input: GateInput): GateDecision {
 
 /** One line of plain English per outcome, shared by the view and by anything that logs one. */
 export const GATE_REASON_TEXT: Record<GateReason, string> = {
-  passed: "Handed to synthesis",
+  passed: "Cleared relevance gate",
   below_threshold: "Scored under the bar",
   skipped_by_extraction: "Extraction found nothing to report",
   extraction_failed: "The extraction call failed",

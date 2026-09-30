@@ -5,7 +5,7 @@
    * The report is the system's answer. This is its working, and it exists because on 2026-09-12 a
    * mail the reader knew had arrived was simply not in the briefing, and there was no way to find
    * out whether it had been dropped at ingest, never extracted, filtered by the relevance gate, or
-   * read by synthesis and passed over. Those four are one sentence apart here.
+   * outside Section 1 capacity, or read by synthesis and passed over.
    *
    * Filtering and searching are client-side on purpose: a run is a few hundred rows, they are all
    * on the page already, and a round trip per keystroke would buy nothing.
@@ -28,7 +28,8 @@
       route: `/${data.date}/triage`,
       digest:
         `Triage for ${data.date}: ${data.summary.ingested} mails ingested, ${data.summary.inReport} cited in the ` +
-        `report, ${data.summary.passed} reached synthesis without being cited, ${data.summary.gated} dropped at ` +
+        `report, ${data.summary.passed} reached synthesis without being cited, ` +
+        `${data.summary.outsideSynthesisCapacity} fell outside Section 1 capacity, ${data.summary.gated} dropped at ` +
         `the relevance gate, ${data.summary.notExtracted} never extracted, ${data.summary.droppedAtIngest} ` +
         `dropped before ingest. Reports are final; what can change is a note or a standing rule for tomorrow.`,
     });
@@ -42,6 +43,7 @@
     { key: "all", label: "Everything" },
     { key: "in_report", label: "In the report" },
     { key: "passed", label: "Reached synthesis" },
+    { key: "outside_synthesis_capacity", label: "Outside Section 1 capacity" },
     { key: "gated", label: "Dropped at the gate" },
     { key: "failed", label: "Extraction failed" },
     { key: "not_extracted", label: "Never extracted" },
@@ -87,6 +89,9 @@
     { label: "mails ingested", value: data.summary.ingested },
     { label: "extracted items", value: data.summary.extractions },
     { label: "in the report", value: data.summary.inReport },
+    ...(data.summary.outsideSynthesisCapacity > 0
+      ? [{ label: "outside Section 1 capacity", value: data.summary.outsideSynthesisCapacity }]
+      : []),
     { label: "dropped at the gate", value: data.summary.gated },
     ...(data.summary.droppedAtIngest > 0
       ? [{ label: "dropped at ingest", value: data.summary.droppedAtIngest }]

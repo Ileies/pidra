@@ -32,6 +32,11 @@
       tone: "primary",
       hint: "It cleared the gate, and synthesis chose not to write about it.",
     },
+    outside_synthesis_capacity: {
+      label: "Outside Section 1 capacity",
+      tone: "warning",
+      hint: "It cleared the gate but ranked below the 30 claims sent to Section 1 synthesis.",
+    },
     gated: {
       label: "Dropped at the gate",
       tone: "warning",
@@ -183,6 +188,10 @@
               <p class="text-xs text-surface-400">
                 {#if extraction.includedInReport}
                   <span class="text-success-400">Cited in the report</span>
+                {:else if extraction.synthesisHandoff === "outside_synthesis_capacity"}
+                  Outside Section 1 capacity{extraction.synthesisOrder ? ` (rank ${extraction.synthesisOrder})` : ""}
+                {:else if extraction.synthesisHandoff === "sent"}
+                  Reached synthesis, not cited{extraction.synthesisOrder ? ` (rank ${extraction.synthesisOrder})` : ""}
                 {:else if extraction.gateReason}
                   {displayLabel(extraction.gateReason)}
                 {:else}

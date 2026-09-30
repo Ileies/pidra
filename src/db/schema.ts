@@ -44,7 +44,7 @@ export const extractions = pgTable("extractions", {
   revealedRelevance: integer("revealed_relevance"),
   aiFailed: boolean("ai_failed").default(false),
   /**
-   * The Phase 3 gate: was this item handed to synthesis at all. Null means the run predates the
+   * The Phase 3 gate: did this item clear the relevance bar. Null means the run predates the
    * column and nothing reconstructed it - `/[date]/triage` renders that as "not recorded" rather
    * than as a rejection. See `src/pipeline/gate.ts`.
    */
@@ -52,6 +52,10 @@ export const extractions = pgTable("extractions", {
   gateReason: text("gate_reason"), // see GateReason in pipeline/gate.ts
   /** The arithmetic behind the verdict: trust score, corroboration, threshold, category. */
   gateDetail: jsonb("gate_detail").$type<import("../pipeline/gate").GateDetail | null>(),
+  /** Section 1 newsletter handoff, separate from the Phase 3 gate verdict. */
+  synthesisHandoff: text("synthesis_handoff"), // sent | outside_synthesis_capacity
+  /** Stable, one-based order among gate-passed newsletter claims. */
+  synthesisOrder: integer("synthesis_order"),
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
 

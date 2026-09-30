@@ -5,6 +5,9 @@ import type { ContextPayload, ExtractionWithSource } from "./phase3-context";
 import type { QuestionAnswer } from "./phase4-questiongate";
 import { editorPayload, finishNewsSection, type NewsItem } from "../news/format";
 import type { NewsExtraction } from "../news/validate";
+import { db, extractions } from "../db";
+import { inArray } from "drizzle-orm";
+import { SECTION1_CAPACITY } from "./section1-handoff";
 
 // Null rather than an empty array, matching how every other optional block in the payload
 // signals "nothing here" - the prompts already say to proceed unchanged when a field is null.
@@ -43,7 +46,7 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
       summary: t.runningSummary,
       update_count: t.updateCount,
     })),
-    todays_items: ctx.newsletterItems.slice(0, 30).map((i) => ({
+    todays_items: ctx.newsletterItems.slice(0, SECTION1_CAPACITY).map((i) => ({
       id: i.extraction.id,
       source: i.sourceName,
       effective_relevance: i.extraction.effectiveRelevance,
@@ -123,8 +126,15 @@ async function synthesizeSection(name: string, section: PromptSection, payload: 
   return result;
 }
 
-export function runSection1(ctx: ContextPayload, runDate: string) {
-  return synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate));
+export async function runSection1(ctx: ContextPayload, runDate: string) {
+  const selected = ctx.newsletterItems.slice(0, SECTION1_CAPACITY);
+  const result = await synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate));
+  if (selected.length > 0) {
+    await db.update(extractions)
+      .set({ synthesisHandoff: "sent" })
+      .where(inArray(extractions.id, selected.map((item) => item.extraction.id)));
+  }
+  return result;
 }
 
 export function runSection2(ctx: ContextPayload, runDate: string, questionAnswers: QuestionAnswer[] = []) {

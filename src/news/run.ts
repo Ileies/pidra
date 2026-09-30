@@ -17,7 +17,7 @@
 import { and, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { db, extractions, notes, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
-import { RESEARCH_MODEL, researchJson } from "../ai/openai";
+import { DeskResearchError, researchDesk, type SearchEvidence } from "./research";
 import { loadLongTermContext } from "../pipeline/long-term-context";
 import { decideGate } from "../pipeline/gate";
 import {
@@ -25,9 +25,10 @@ import {
   type Desk, type DeskId, type HomeConfig, type NewsWindow,
 } from "./config";
 import {
-  findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, verifySources, withinWindow,
+  findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, toExtraction, verifySources, withinWindow,
   type Candidate, type DeskStory, type NewsExtraction, type ReportedStory,
 } from "./validate";
+export { toExtraction } from "./validate";
 
 export interface DeskReport {
   desk: DeskId;
@@ -66,47 +67,6 @@ export const EMPTY_NEWS_DESK: NewsDeskOutcome = {
   tokensOut: 0,
 };
 
-const STORY_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "headline", "summary", "context", "significance", "status", "confidence",
-    "region", "topic", "happened_at", "entities", "sources",
-  ],
-  properties: {
-    headline: { type: "string" },
-    summary: { type: "string" },
-    context: { type: "string" },
-    // An enum rather than a bare integer: unconstrained, the first probe invented a 0-100 scale.
-    significance: { type: "integer", enum: [1, 2, 3, 4, 5] },
-    status: { type: "string", enum: ["new", "update"] },
-    confidence: { type: "string", enum: ["confirmed", "reported", "unconfirmed"] },
-    region: { type: "string" },
-    topic: { type: "string" },
-    happened_at: { type: "string" },
-    entities: { type: "array", items: { type: "string" } },
-    sources: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["publisher", "title", "url"],
-        properties: { publisher: { type: "string" }, title: { type: "string" }, url: { type: "string" } },
-      },
-    },
-  },
-};
-
-const DESK_SCHEMA = {
-  name: "news_desk",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["stories"],
-    properties: { stories: { type: "array", items: STORY_SCHEMA } },
-  },
-};
-
 /** How many days of what the reader was already told each desk is shown, and dedup compares against. */
 const REPORTED_LOOKBACK_DAYS = 3;
 
@@ -126,14 +86,6 @@ interface DeskInputs {
   priorities: string[];
   /** Whether the beat desk runs today, which decides whether the fields desk covers priority one. */
   beatDesk: boolean;
-}
-
-const EFFORTS = new Set(["low", "medium", "high"]);
-
-/** The desk's own effort (see `Desk.effort`), unless `NEWS_REASONING_EFFORT` sets one for all. */
-function reasoningEffort(desk: Desk): "low" | "medium" | "high" {
-  const value = process.env.NEWS_REASONING_EFFORT?.trim().toLowerCase();
-  return value && EFFORTS.has(value) ? (value as "low" | "medium" | "high") : desk.effort;
 }
 
 /**
@@ -172,44 +124,38 @@ function deskPayload(desk: Desk, inputs: DeskInputs): Record<string, unknown> {
   }
 }
 
-function userLocation(desk: Desk, home: HomeConfig | null) {
-  if (!desk.locality || !home) return undefined;
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return desk.locality === "city"
-    ? { city: home.city, region: home.region, country: home.country, timezone }
-    : { country: home.country, timezone };
-}
-
 interface DeskAnswer {
   desk: Desk;
   stories: DeskStory[];
   queries: string[];
   sources: string[];
+  evidence: SearchEvidence[];
   searchCalls: number;
+  aiCalls: number;
   tokensIn: number;
   tokensOut: number;
   durationMs: number;
   prompt: { section: string; version: number | null };
+  model: string;
 }
 
 async function research(desk: Desk, inputs: DeskInputs): Promise<DeskAnswer> {
   const prompt = await activePrompt(desk.section);
   const started = Date.now();
-  const result = await researchJson<{ stories: DeskStory[] }>(
-    prompt.text,
-    JSON.stringify(deskPayload(desk, inputs)),
-    { schema: DESK_SCHEMA, userLocation: userLocation(desk, inputs.home), reasoningEffort: reasoningEffort(desk) },
-  );
+  const result = await researchDesk(desk, prompt.text, deskPayload(desk, inputs), inputs.window, inputs.home);
   return {
     desk,
-    stories: (result.data.stories ?? []).map(tidyStory),
+    stories: result.stories.map(tidyStory),
     queries: result.queries,
     sources: result.sources,
+    evidence: result.evidence,
     searchCalls: result.searchCalls,
+    aiCalls: result.aiCalls,
     tokensIn: result.tokensIn,
     tokensOut: result.tokensOut,
     durationMs: Date.now() - started,
     prompt: { section: prompt.section, version: prompt.version },
+    model: result.model,
   };
 }
 
@@ -226,7 +172,7 @@ function deliveryContent(answer: DeskAnswer, window: NewsWindow): string {
   ].join("\n");
   const body = JSON.stringify({
     desk: answer.desk.id,
-    model: RESEARCH_MODEL,
+    model: answer.model,
     prompt: answer.prompt,
     window,
     durationMs: answer.durationMs,
@@ -235,6 +181,7 @@ function deliveryContent(answer: DeskAnswer, window: NewsWindow): string {
     tokensOut: answer.tokensOut,
     queries: answer.queries,
     consulted: answer.sources,
+    searches: answer.evidence,
     stories: answer.stories,
   });
   return `${header}\n\n${body}`;
@@ -290,25 +237,6 @@ async function priorities(runDate: string): Promise<string[]> {
       or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
     ));
   return rows.map((r) => r.content);
-}
-
-/** A checked story as its extraction row stores it. */
-export function toExtraction(desk: DeskId, story: DeskStory, validation: NewsExtraction["validation"]): NewsExtraction {
-  return {
-    desk,
-    headline: story.headline,
-    key_claim: story.summary,
-    context: story.context,
-    significance: story.significance,
-    status: story.status,
-    confidence: story.confidence,
-    region: story.region,
-    topic: story.topic,
-    happened_at: story.happened_at,
-    entities: story.entities,
-    sources: story.sources,
-    validation,
-  };
 }
 
 function storyFromStored(json: NewsExtraction): DeskStory {
@@ -372,9 +300,8 @@ export interface RunOptions {
 
 /**
  * Runs every enabled desk for `runDate`. Tolerant per desk, the way Phase 1 is per source: a desk
- * that fails is recorded and the rest carry on. It throws only when every desk it tried failed and
- * nothing was stored earlier, which is an outage rather than one bad answer, so that `withRetry`
- * gets another go at it.
+ * that fails is recorded and the rest carry on. Failed searches are not automatically retried by
+ * the pipeline, since another whole attempt could spend the same day's Brave budget twice.
  */
 export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = false }: RunOptions = {}): Promise<NewsDeskOutcome> {
   const plan = enabledDesks();
@@ -455,12 +382,19 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
     if (result.status === "rejected") {
       console.error(`[News] ${desk.id} failed:`, result.reason);
       outcome.failures.push({ source: deskSource(desk.id), error: message(result.reason) });
-      outcome.desks.push({ desk: desk.id, status: "failed", stories: 0, searchCalls: 0, error: message(result.reason) });
+      const used = result.reason instanceof DeskResearchError ? result.reason.searchCalls : 0;
+      outcome.searchCalls += used;
+      if (result.reason instanceof DeskResearchError) {
+        outcome.aiCalls += result.reason.aiCalls;
+        outcome.tokensIn += result.reason.tokensIn;
+        outcome.tokensOut += result.reason.tokensOut;
+      }
+      outcome.desks.push({ desk: desk.id, status: "failed", stories: 0, searchCalls: used, error: message(result.reason) });
       return;
     }
 
     const answer = result.value;
-    outcome.aiCalls += 1;
+    outcome.aiCalls += answer.aiCalls;
     outcome.searchCalls += answer.searchCalls;
     outcome.tokensIn += answer.tokensIn;
     outcome.tokensOut += answer.tokensOut;
@@ -499,18 +433,21 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
   }
 
   for (const { answer, candidates: own } of answers) {
-    const stored = dryRun ? own.length : await persist(answer, own, runDate, window);
+    let stored: number;
+    try {
+      stored = dryRun ? own.length : await persist(answer, own, runDate, window);
+    } catch (error) {
+      const detail = message(error);
+      outcome.failures.push({ source: deskSource(answer.desk.id), error: detail });
+      outcome.desks.push({ desk: answer.desk.id, status: "failed", stories: 0, searchCalls: answer.searchCalls, queries: answer.queries, error: detail });
+      continue;
+    }
     const held = own.filter((c) => heldBack(c.validation)).length;
     outcome.desks.push({ desk: answer.desk.id, status: "ran", stories: stored, searchCalls: answer.searchCalls, queries: answer.queries });
     console.log(
       `[News] ${answer.desk.id}: ${stored} stories (${held} held back by the checks), ` +
       `${answer.searchCalls} search calls, ${answer.queries.length} queries, ${Math.round(answer.durationMs / 1000)}s`,
     );
-  }
-
-  if (answers.length === 0 && reused.length === 0) {
-    const failed = outcome.desks.filter((d) => d.status === "failed");
-    throw new Error(`every news desk failed - ${failed.map((d) => `${d.desk}: ${d.error}`).join("; ")}`);
   }
 
   // In DESKS order, so logs and anything that lists the desks read the same every day.

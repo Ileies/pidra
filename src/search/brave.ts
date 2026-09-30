@@ -1,11 +1,26 @@
-const API_KEY = process.env.BRAVE_SEARCH_API_KEY;
-const BASE_URL = "https://api.search.brave.com/res/v1/web/search";
+const BASE_URL = "https://api.search.brave.com/res/v1";
+const MIN_INTERVAL_MS = 1100;
+let nextRequestAt = 0;
+let queue = Promise.resolve();
+
+/** One shared queue prevents concurrent desks and other callers from bursting the API. */
+function reserveRequest(): Promise<void> {
+  const turn = queue.then(async () => {
+    const delay = Math.max(0, nextRequestAt - Date.now());
+    if (delay) await Bun.sleep(delay);
+    nextRequestAt = Date.now() + MIN_INTERVAL_MS;
+  });
+  queue = turn.catch(() => {});
+  return turn;
+}
 
 export interface BraveResult {
   title: string;
   url: string;
   description: string;
   age?: string; // e.g. "2 hours ago"
+  publishedAt?: string;
+  extraSnippets?: string[];
 }
 
 export interface BraveSearchResponse {
@@ -13,29 +28,55 @@ export interface BraveSearchResponse {
   results: BraveResult[];
 }
 
-export async function braveSearch(query: string, count = 5): Promise<BraveSearchResponse> {
-  if (!API_KEY) throw new Error("BRAVE_SEARCH_API_KEY is not set");
+export interface BraveSearchOptions {
+  kind?: "web" | "news";
+  country?: string;
+  freshness?: string;
+  extraSnippets?: boolean;
+}
 
-  const url = new URL(BASE_URL);
+async function braveRequest(url: URL): Promise<Response> {
+  const key = process.env.BRAVE_SEARCH_API_KEY;
+  if (!key) throw new Error("BRAVE_SEARCH_API_KEY is not set");
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await reserveRequest();
+    try {
+      const res = await fetch(url.toString(), {
+        headers: { Accept: "application/json", "X-Subscription-Token": key },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (res.ok) return res;
+      const body = await res.text();
+      lastError = new Error(`Brave Search error ${res.status}: ${body.slice(0, 200)}`);
+      if (res.status !== 429 && res.status < 500) break;
+      if (attempt === 2) break;
+      const reset = res.status === 429 ? Number(res.headers.get("x-ratelimit-reset")?.split(",")[0] ?? 1) : 1;
+      await Bun.sleep(Math.max(1, Math.min(reset, 10)) * 1000 * (attempt + 1));
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2) break;
+      await Bun.sleep(1000 * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
+
+export async function braveSearch(query: string, count = 5, options: BraveSearchOptions = {}): Promise<BraveSearchResponse> {
+  const kind = options.kind ?? "web";
+  const url = new URL(`${BASE_URL}/${kind}/search`);
   url.searchParams.set("q", query);
   url.searchParams.set("count", String(count));
-  url.searchParams.set("freshness", "pd"); // past day preferred
+  url.searchParams.set("freshness", options.freshness ?? "pd");
+  if (options.country) url.searchParams.set("country", options.country);
+  if (options.extraSnippets) url.searchParams.set("extra_snippets", "true");
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      "Accept-Encoding": "gzip",
-      "X-Subscription-Token": API_KEY,
-    },
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Brave Search error ${res.status}: ${body.slice(0, 200)}`);
-  }
-
-  const data = await res.json() as { web?: { results?: { title: string; url: string; description: string; page_age?: string }[] } };
-  const raw = data.web?.results ?? [];
+  const res = await braveRequest(url);
+  const data = await res.json() as {
+    web?: { results?: RawResult[] };
+    results?: RawResult[];
+  };
+  const raw = kind === "news" ? data.results ?? [] : data.web?.results ?? [];
 
   return {
     query,
@@ -43,7 +84,48 @@ export async function braveSearch(query: string, count = 5): Promise<BraveSearch
       title: r.title,
       url: r.url,
       description: r.description ?? "",
-      age: r.page_age,
+      age: r.age ?? r.page_age,
+      publishedAt: r.page_age,
+      extraSnippets: r.extra_snippets,
     })),
   };
+}
+
+/** One search with page text extracted by Brave, within the same request budget. */
+export async function braveContext(query: string, options: Pick<BraveSearchOptions, "country" | "freshness"> = {}): Promise<BraveSearchResponse> {
+  const url = new URL(`${BASE_URL}/llm/context`);
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", "20");
+  url.searchParams.set("maximum_number_of_urls", "12");
+  url.searchParams.set("maximum_number_of_tokens", "4096");
+  url.searchParams.set("maximum_number_of_tokens_per_url", "600");
+  url.searchParams.set("context_threshold_mode", "lenient");
+  url.searchParams.set("enable_source_metadata", "true");
+  if (options.country) url.searchParams.set("country", options.country);
+  if (options.freshness) url.searchParams.set("freshness", options.freshness);
+  const res = await braveRequest(url);
+  const data = await res.json() as {
+    grounding?: { generic?: { title: string; url: string; snippets?: string[] }[] };
+    sources?: Record<string, { age?: string[]; description?: string }>;
+  };
+  return {
+    query,
+    results: (data.grounding?.generic ?? []).map((item) => ({
+      title: item.title,
+      url: item.url,
+      description: data.sources?.[item.url]?.description ?? "",
+      age: data.sources?.[item.url]?.age?.[2],
+      publishedAt: data.sources?.[item.url]?.age?.[3],
+      extraSnippets: item.snippets ?? [],
+    })),
+  };
+}
+
+interface RawResult {
+  title: string;
+  url: string;
+  description?: string;
+  age?: string;
+  page_age?: string;
+  extra_snippets?: string[];
 }

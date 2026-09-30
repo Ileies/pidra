@@ -7,6 +7,7 @@ import { db, extractions, rawItems, sourceQuality, sourceDailyScores, skillExecu
 import { answerQuestion, dismissQuestion, reopenQuestion, QuestionError } from "../questions/store";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
+import { braveSearch } from "../search/brave";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { executeSkill, resolvePendingSkill } from "../skills/execute";
 import { listEffectiveSkills, patchSkill, resetSkill, SkillOverrideError } from "../skills/overrides";
@@ -176,7 +177,9 @@ app.post("/api/deepen", async (c) => {
   const topEntities = ((topJson?.entities ?? []) as string[]).slice(0, 3).join(" ");
   const searchQuery = [headline, topEntities].filter(Boolean).join(" ").slice(0, 200);
 
-  const webResults = await braveSearch(searchQuery);
+  const webResults = searchQuery
+    ? (await braveSearch(searchQuery, 5, { kind: "news" })).results.map((r) => `${r.title} - ${r.description}` ).join("\n")
+    : "";
 
   const userContent = JSON.stringify({
     items: rows.map((r) => ({
@@ -276,24 +279,6 @@ app.post("/api/questions/:id/:op", async (c) => {
     throw err;
   }
 });
-
-async function braveSearch(query: string): Promise<string> {
-  const key = process.env.BRAVE_SEARCH_API_KEY;
-  if (!key || !query) return "";
-  try {
-    const url = `https://api.search.brave.com/res/v1/news/search?q=${encodeURIComponent(query)}&count=5&freshness=pd`;
-    const res = await fetch(url, {
-      headers: { "X-Subscription-Token": key, "Accept": "application/json" },
-    });
-    if (!res.ok) return "";
-    const data = await res.json() as { results?: Array<{ title: string; description?: string }> };
-    return (data.results ?? [])
-      .map((r) => `${r.title} - ${r.description ?? ""}`)
-      .join("\n");
-  } catch {
-    return "";
-  }
-}
 
 // --- Prompt Versions ---
 

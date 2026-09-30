@@ -5,9 +5,8 @@
  * and none of the 32 is a general news source: nothing covers the world's front page, the
  * reader's own city, or what people around them are talking about. On a weekend they deliver
  * almost nothing. So the briefing could run for weeks without mentioning a war, an election or a
- * fire down the street, while the reader relies on it as their only news. A desk is one
- * web-search call with one mandate, and there are five because a single "find the news" call runs
- * a few searches and stops: recall comes from separate mandates, not from a longer prompt.
+ * fire down the street, while the reader relies on it as their only news. Separate desks with
+ * fixed Brave query budgets cover these mandates systematically.
  *
  * Pure on purpose, so the configuration is testable without a database or an API key.
  */
@@ -23,18 +22,14 @@ export interface Desk {
   /** Each desk's mandate is its own prompt section, overridable on /prompts like any other. */
   section: Extract<PromptSection, `news_${string}`>;
   /**
-   * How far web search is localised to the reader's home. The world, field and serendipity desks
+   * How far Brave search is localised to the reader's home. The world, field and serendipity desks
    * must see the world rather than one country's view of it; home is about the city, talk about
    * the country.
    */
   locality: "city" | "country" | null;
   /**
-   * How hard the desk thinks before and between searches, which on the probes decided how many
-   * searches it ran. High paid for itself where recall is the point: the world desk found an Ebola
-   * surge and a typhoon it had missed at medium, the beat desk found the day's model releases, talk
-   * found the football and the album everyone discussed. On the fields desk it mostly re-found the
-   * world desk's stories, and something different spent fourteen searches on one story, so those
-   * two stay at medium. `NEWS_REASONING_EFFORT` overrides all of them at once.
+   * Reasoning effort for the final structured answer. Search count is fixed separately in
+   * `research.ts`; `NEWS_REASONING_EFFORT` overrides this without changing the Brave budget.
    */
   effort: "medium" | "high";
 }
@@ -54,6 +49,11 @@ export const DESKS: readonly Desk[] = [
   { id: "serendipity", label: "Something different desk", section: "news_serendipity", locality: null, effort: "medium" },
 ];
 
+/** 27 desk requests plus up to three Section 1 search slots make a full run's 30. */
+export const SEARCH_BUDGET: Record<DeskId, readonly [number, number]> = {
+  world: [4, 2], home: [3, 2], beat: [3, 3], field: [2, 2], talk: [2, 1], serendipity: [1, 2],
+};
+
 /** `raw_items.source_type` for a desk's delivery. */
 export const NEWS_SOURCE_TYPE = "web_news";
 
@@ -66,7 +66,7 @@ export const deskMessageId = (runDate: string, id: DeskId): string => `news:${ru
 export interface HomeConfig {
   city: string | null;
   region: string | null;
-  /** ISO 3166-1 alpha-2, as the web search tool's `user_location` wants it. */
+  /** ISO 3166-1 alpha-2, as Brave's `country` parameter wants it. */
   country: string;
   countryName: string;
   /** Countries whose national headlines matter from abroad: citizenship, family. */
@@ -89,7 +89,7 @@ function countryName(code: string): string | null {
 
 /**
  * The reader's home, from the environment. Configuration rather than profile text for two
- * reasons: the search tool wants structured fields, and the profile carries far more than a
+ * reasons: Brave wants structured fields, and the profile carries far more than a
  * location, none of which a web-search call needs. Returns null when no country is set, which
  * switches the home desk off (and says so on the report, see `enabledDesks`).
  */

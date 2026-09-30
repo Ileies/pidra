@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { enabledDesks, homeConfig, newsWindow } from "../src/news/config";
+import { enabledDesks, homeConfig, newsWindow, SEARCH_BUDGET } from "../src/news/config";
 import {
   articleKey, cleanText, cleanUrl, findAlreadyReported, isAbroad, looksLikeArticle, markDuplicates, sameStory,
-  tidyStory, verifySources, withinWindow, type Candidate, type DeskStory, type NewsExtraction, type NewsValidation,
+  resolveStorySources, tidyStory, toExtraction, verifySources, withinWindow,
+  type Candidate, type DeskStory, type NewsExtraction, type NewsValidation,
 } from "../src/news/validate";
 import { editorStories, finishNewsSection, renderNewsFallback, sourceLinks, type NewsItem } from "../src/news/format";
 import { decideGate } from "../src/pipeline/gate";
@@ -32,6 +33,10 @@ const clean: NewsValidation = { verified: true, unverifiedUrls: [], inWindow: tr
 const WINDOW = { start: "2026-09-24T04:30:00.000Z", end: "2026-09-25T04:30:00.000Z" };
 
 describe("configuration", () => {
+  test("the scheduled desk and Section 1 budgets total 30 Brave calls", () => {
+    const deskCalls = Object.values(SEARCH_BUDGET).reduce((sum, [first, followup]) => sum + first + followup, 0);
+    expect(deskCalls + 3).toBe(30);
+  });
   test("no home country means no home desk, and says so", () => {
     const plan = enabledDesks({});
     expect(plan.desks.map((d) => d.id)).toEqual(["world", "beat", "field", "talk", "serendipity"]);
@@ -129,6 +134,22 @@ describe("cleaning", () => {
 });
 
 describe("checks", () => {
+  test("source ids resolve to exact Brave URLs even if a model supplies an unknown id", () => {
+    const exact = "https://news.example.com/politics/budget-vote-passes";
+    const cited = { ...story(), sources: [{ id: "s1", publisher: "Example Wire" }, { id: "s99", publisher: "Fake" }] };
+    const result = resolveStorySources(cited, new Map([["s1", { title: "Budget passes", url: exact, description: "" }]]));
+    expect(result.sources).toEqual([{ publisher: "Example Wire", title: "Budget passes", url: exact }]);
+  });
+
+  test("unverified source URLs never reach the report's links", () => {
+    const unverified = "https://invented.example.com/fake-article";
+    const proposed = story({ sources: [...story().sources, { publisher: "Invented", title: "Fake", url: unverified }] });
+    const validation = verifySources(proposed, [story().sources[0].url]);
+    const extraction = toExtraction("world", proposed, { ...clean, ...validation });
+    expect(extraction.sources.map((source) => source.url)).toEqual([story().sources[0].url]);
+    expect(extraction.validation.unverifiedUrls).toEqual([unverified]);
+  });
+
   test("a story is verified when one of its sources is a URL the search returned", () => {
     const consulted = ["https://www.news.example.com/politics/budget-vote-passes/", "https://other.example.com/x"];
     expect(verifySources(story(), consulted)).toEqual({ verified: true, unverifiedUrls: [] });

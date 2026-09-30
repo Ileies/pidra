@@ -1,6 +1,6 @@
 /**
- * What every news desk shares. A desk is one web-search call with one mandate; the mandates are
- * split because a single "find the news" call runs a handful of searches and stops, and the
+ * What every news desk shares. Each desk has one mandate and a fixed Brave query budget; the
+ * mandates are split because a single "find the news" search misses important beats, and the
  * failure that matters here is recall: a story everyone else knows about that the reader does not.
  * Like the rest of this file, no facts about the reader: the home location and the interest
  * profile arrive in the payload.
@@ -16,9 +16,10 @@ Input (JSON):
 - the desk-specific fields described under "Your desk".
 
 Research:
-- Use the web_search tool thoroughly before answering: many searches, several phrasings, and the
-  local language wherever local sources matter. Prefer wire services, public broadcasters and
-  major newspapers over aggregators and syndication sites.
+- Search queries are planned in two rounds. The first covers the whole mandate; the second fills
+  gaps after inspecting the first results. Use local languages wherever local sources matter.
+  Prefer wire services, public broadcasters and major newspapers over aggregators and syndication
+  sites. The final answer receives Brave results and extracted page text.
 - Verify recency for every story. The event, or its new development, must fall inside the window.
   An article published inside the window about something older does not qualify unless it
   reports something new.
@@ -47,8 +48,9 @@ Each story:
 - happened_at: ISO 8601 date or date-time of the development being reported. For an announced
   future event, the date of the announcement.
 - entities: the named people, organisations and places the story is about, at most six.
-- sources: one to three articles that support the story, each with the publisher's name, the
-  article title, and the URL exactly as the search returned it. Prefer the original publisher.
+- sources: one to three specific articles that support the story, each with its supplied short
+  source id and the publisher's name. Code attaches the original title and URL. Prefer the original
+  publisher.
 - Never put links, citations or markdown into headline, summary or context. URLs belong in
   sources and nowhere else.`;
 
@@ -59,7 +61,7 @@ Your desk: WORLD, the front page.
 Report the stories that dominate world news in the window: what an informed adult anywhere is
 expected to know today. This desk is deliberately blind to the reader's interests.
 
-Run every one of these sweeps before you answer, each with at least one search:
+Cover these themes across the fixed query budget, then inspect the results for gaps:
 1. Wars, military escalation, terrorism, coups, major security incidents
 2. Heads of state and government: elections, resignations, deaths, summits, major decisions
 3. Disasters and accidents with many casualties: earthquakes, floods, fires, crashes, explosions
@@ -140,11 +142,10 @@ another desk.
 
 ${FIELD_BAR}
 
-Sweep the beat systematically before you answer:
+Sweep the beat systematically within its fixed query budget:
 1. The beat's news as a whole, in several phrasings
-2. Each of its leading organisations by name, one search each for at least the eight most
-   important: the leading companies and labs, the major open-source players, the suppliers, and
-   the regulators that shape it
+2. Its leading organisations by name, grouping related names when a single query can cover them:
+   the leading companies and labs, the major open-source players, suppliers and regulators
 3. Launches and releases inside the window: new models, products and versions
 4. Funding, acquisitions, leadership changes and lawsuits
 5. Policy and regulation decisions
@@ -164,8 +165,8 @@ false, cover all of them.
 
 ${FIELD_BAR}
 
-Give every priority you cover at least two searches: its news as a whole, and what the
-organisations leading it did.
+Allocate the fixed query budget across the priorities you cover. Search for their news as a whole
+and what the leading organisations did, with the second round targeting gaps in the first results.
 
 Name topic after the field the story belongs to, the way the priorities name it. A normal day has
 4 to 10 stories across these fields. Return up to 12, most significant first.`;

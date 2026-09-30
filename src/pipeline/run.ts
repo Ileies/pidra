@@ -42,11 +42,9 @@ async function tolerantQuickActions(ctx: ContextPayload, date: string, errors: S
  */
 async function tolerantNewsDesk(date: string): Promise<NewsDeskOutcome> {
   try {
-    return await withRetry("news", () => runNewsDesk(date));
+    return await runNewsDesk(date);
   } catch (err) {
-    const error = err instanceof StepError
-      ? err.attempts.at(-1)?.error ?? err.message
-      : err instanceof Error ? err.message : String(err);
+    const error = err instanceof Error ? err.message : String(err);
     console.error(`[News] Giving up on the news desks: ${error}`);
     return { ...EMPTY_NEWS_DESK, failures: [{ source: "news", error }] };
   }

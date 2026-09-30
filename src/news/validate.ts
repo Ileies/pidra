@@ -15,6 +15,7 @@
  */
 
 import type { DeskId, HomeConfig, NewsWindow } from "./config";
+import type { BraveResult } from "../search/brave";
 
 /** A story as the desk's JSON schema returns it. */
 export interface DeskStory {
@@ -70,6 +71,39 @@ export interface NewsExtraction {
   entities: string[];
   sources: DeskStory["sources"];
   validation: NewsValidation;
+}
+
+export type CitedStory = Omit<DeskStory, "sources"> & { sources: { id: string; publisher: string }[] };
+
+/** The model selects source ids; code supplies the exact Brave URL and title. */
+export function resolveStorySources(story: CitedStory, sourceById: Map<string, BraveResult>): DeskStory {
+  return {
+    ...story,
+    sources: story.sources.flatMap(({ id, publisher }) => {
+      const result = sourceById.get(id);
+      if (!result || !URL.canParse(result.url)) return [];
+      return [{ publisher: publisher.trim() || new URL(result.url).hostname.replace(/^www\./, ""), title: result.title, url: result.url }];
+    }),
+  };
+}
+
+/** A checked story as its extraction row stores it. */
+export function toExtraction(desk: DeskId, story: DeskStory, validation: NewsValidation): NewsExtraction {
+  return {
+    desk,
+    headline: story.headline,
+    key_claim: story.summary,
+    context: story.context,
+    significance: story.significance,
+    status: story.status,
+    confidence: story.confidence,
+    region: story.region,
+    topic: story.topic,
+    happened_at: story.happened_at,
+    entities: story.entities,
+    sources: story.sources.filter((source) => !validation.unverifiedUrls.includes(source.url)),
+    validation,
+  };
 }
 
 /** A story from a previous briefing that the reader actually saw. */

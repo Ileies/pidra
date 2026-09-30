@@ -72,9 +72,9 @@ PIDRA is three tools sharing one Postgres database:
 
 ## Deploying
 
-`bun run deploy` sends the committed tree to pronix: pull, sync the gitignored config and harvest files, install, build the dashboard, restart the two long-lived units, then verify that the pages actually render rather than that systemd calls them active. `--dry-run` shows the whole plan without touching anything.
+`bun run deploy` sends the committed tree to pronix: pull, sync the gitignored config and harvest files, install, build the dashboard, restart the two long-lived units, then verify that the pages actually render rather than that systemd calls them active. `--dry-run` shows the whole plan without touching anything; `--quick-check` runs `bun run check --quick` (skips the offline blackhole suite) instead of the full check, for a small change you're confident can't affect routing, offline behavior or rendering; `--force` deploys past an uncommitted working tree (it still only deploys the last commit, never the uncommitted edits).
 
-It refuses an uncommitted tree, commits not on origin, a branch behind origin, a dirty checkout on the server, or a failing `bun run check`. It does not carry `.env` (same keys, different values per machine) and it does not carry the systemd units, which live in the NixOS flake and need a `nixos-rebuild` on pronix.
+It refuses an uncommitted tree (unless `--force`), commits not on origin, a branch behind origin, a dirty checkout on the server, or a failing `bun run check`. It does not carry `.env` (same keys, different values per machine) and it does not carry the systemd units, which live in the NixOS flake and need a `nixos-rebuild` on pronix.
 
 ## Reference Docs
 

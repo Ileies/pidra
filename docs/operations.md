@@ -4,9 +4,11 @@
 
 **`bun run deploy` is how pronix gets new code. Never assemble the steps by hand.** A deploy is a pull plus the three things a pull cannot carry - the gitignored config and harvest files, the dependency install, and the dashboard build - and doing it manually is how `dashboard/build/` ends up a version behind its source, silently, because nothing about a stale build looks broken. `scripts/deploy.ts` also verifies more than systemd does: it follows `/` past its redirect and requests `/context-builder`, because a broken page still leaves a unit reporting `active`.
 
-Flags: `--dry-run` prints every step without touching the server, `--push` pushes the branch instead of refusing, `--skip-check` skips `bun run check`, `--host <alias>` targets something other than `ros`.
+Flags: `--dry-run` prints every step without touching the server, `--push` pushes the branch instead of refusing, `--skip-check` skips `bun run check` entirely, `--quick-check` runs `bun run check --quick` instead of the full check, `--force` deploys past an uncommitted working tree, `--host <alias>` targets something other than `ros`.
 
-It refuses rather than improvises: an uncommitted tree, commits not on origin (the server pulls from a *public* repo, so a deploy publishes them), a local branch behind origin, a dirty tree on the server, or a failing check in either the root or `dashboard/`.
+It refuses rather than improvises: an uncommitted tree (unless `--force`), commits not on origin (the server pulls from a *public* repo, so a deploy publishes them), a local branch behind origin, a dirty tree on the server, or a failing check in either the root or `dashboard/`. `--force` only lifts the uncommitted-tree refusal - it still deploys the last *commit*, never the uncommitted edits themselves, so it exists to acknowledge that gap, not to ship uncommitted work.
+
+**`bun run check` has a `--quick` / `-q` mode** (`scripts/check.ts`, `dashboard/scripts/check.ts`; also `bun run check:quick` in either `package.json`) that skips `dashboard/scripts/blackhole/run.ts`, the one step that dominates the full check's wall time (~65-70s against well under 4s for everything else combined). Use it while iterating on a change that plainly can't affect routing, offline behavior or rendering. It is not a substitute for the full check: the `commit` skill and a plain `bun run deploy` both run the full check by default, and `--quick-check` on deploy is an explicit, named trade of coverage for speed - not the default.
 
 Two things it deliberately does not carry:
 

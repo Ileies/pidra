@@ -9,9 +9,18 @@
  * time is `max(root steps, dashboard check)` instead of their sum, and each side still fails
  * loudly and independently on its own errors.
  *
+ * `--quick` / `-q` forwards to the dashboard check, which skips `blackhole/run.ts` (see
+ * `dashboard/scripts/check.ts`). Root's own steps are all under a second regardless, so `--quick`
+ * has nothing else to skip here. Use it while iterating on a change that plainly can't affect
+ * routing, offline behavior or rendering - `bun run deploy` and the `commit` skill both require
+ * the full run, not this one.
+ *
  * Wired as the root `check` script; `scripts/deploy.ts` calls it once via `bun run check`.
  */
 import { $ } from "bun";
+
+const quick = process.argv.includes("--quick") || process.argv.includes("-q");
+const dashboardArgs = quick ? ["--quick"] : [];
 
 async function run(label: string, task: () => Promise<unknown>): Promise<string | null> {
   try {
@@ -28,7 +37,7 @@ const [rootFailure, dashboardFailure] = await Promise.all([
     await $`bun run scripts/check-skill-writes.ts`;
     await $`bun run scripts/check-route-surfaces.ts`;
   }),
-  run("dashboard", () => $`bun run check`.cwd("dashboard")),
+  run("dashboard", () => $`bun run check ${dashboardArgs}`.cwd("dashboard")),
 ]);
 
 const failures = [rootFailure, dashboardFailure].filter((f): f is string => f !== null);

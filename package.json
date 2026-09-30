@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "check": "bun run scripts/check.ts",
+    "check:quick": "bun run scripts/check.ts --quick",
     "test": "bun test",
     "dev": "bun run src/index.ts",
     "run:pipeline": "bun run src/pipeline/run.ts",

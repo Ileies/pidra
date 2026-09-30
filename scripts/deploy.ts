@@ -12,7 +12,14 @@
  *   bun run deploy                 preflight, sync, build, restart, verify
  *   bun run deploy --push          push the current branch first, instead of refusing
  *   bun run deploy --dry-run       print every step without touching the server
- *   bun run deploy --skip-check    skip `bun run check` (for a deploy that only syncs files)
+ *   bun run deploy --skip-check    skip `bun run check` entirely (for a deploy that only syncs files)
+ *   bun run deploy --quick-check   run `bun run check --quick` instead of the full check (skips
+ *                                  `blackhole/run.ts`) - for a small change you're confident can't
+ *                                  touch routing, offline behavior or rendering. Prefer the full
+ *                                  check by default; this trades coverage for speed
+ *   bun run deploy --force         deploy with an uncommitted working tree. Still deploys the last
+ *                                  *commit*, never the uncommitted edits themselves - use this to
+ *                                  acknowledge that gap, not to ship uncommitted work
  *   bun run deploy --host <alias>  deploy somewhere other than `ros`
  */
 import { $ } from "bun";
@@ -79,7 +86,10 @@ step("Preflight (local)");
 const dirty = (await $`git status --porcelain`.text()).trim();
 if (dirty) {
   console.error(dirty);
-  fail("working tree has uncommitted changes - the server deploys a commit, so it would get something else");
+  if (!flag("force")) {
+    fail("working tree has uncommitted changes - the server deploys a commit, so it would get something else");
+  }
+  console.log("  --force: deploying HEAD anyway - the uncommitted changes above will NOT be on the server");
 }
 
 const branch = (await $`git rev-parse --abbrev-ref HEAD`.text()).trim();
@@ -113,14 +123,16 @@ if (ahead !== "0") {
 }
 
 if (!flag("skip-check")) {
-  step("bun run check");
+  const quickCheck = flag("quick-check");
+  step(quickCheck ? "bun run check --quick" : "bun run check");
   if (DRY) {
-    console.log("  [dry-run] bun run check (root + dashboard)");
+    console.log(`  [dry-run] bun run check${quickCheck ? " --quick" : ""} (root + dashboard)`);
   } else {
     // Root's own `check` script already ends by running the dashboard's, blackhole included - a
     // second, separately-scoped call here would just rerun that same suite a second time.
-    await $`bun run check`.quiet().catch(() => fail("`bun run check` failed - not deploying"));
-    console.log("  root and dashboard both pass");
+    const checkArgs = quickCheck ? ["--quick"] : [];
+    await $`bun run check ${checkArgs}`.quiet().catch(() => fail("`bun run check` failed - not deploying"));
+    console.log(quickCheck ? "  root and dashboard both pass (quick - blackhole was skipped)" : "  root and dashboard both pass");
   }
 }
 

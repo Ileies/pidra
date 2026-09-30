@@ -6,12 +6,18 @@
  * types `svelte-check` reads. `svelte-check`, `contrast.ts`, `check-offline.ts`, the source-links
  * test, and `blackhole/run.ts` (which does its own production build internally) don't read each
  * other's output, so chaining them with `&&` was pure waste - `blackhole/run.ts` alone is the
- * dominant cost of the whole check suite.
+ * dominant cost of the whole check suite (~65-70s against under 4s for everything else combined).
+ *
+ * `--quick` / `-q` skips `blackhole/run.ts`, for iterating on a change that plainly can't affect
+ * routing, offline behavior or rendering. It is not a substitute for the full check before a
+ * commit or a deploy - `bun run deploy` and the `commit` skill both require the full run.
  *
  * Wired as the dashboard `check` script; the root `scripts/check.ts` runs this concurrently with
- * root's own checks.
+ * root's own checks and forwards `--quick` down to it.
  */
 import { $ } from "bun";
+
+const quick = process.argv.includes("--quick") || process.argv.includes("-q");
 
 await $`svelte-kit sync`;
 
@@ -20,8 +26,10 @@ const steps: [string, () => Promise<unknown>][] = [
   ["contrast", () => $`bun run scripts/contrast.ts`],
   ["check-offline", () => $`bun run scripts/check-offline.ts`],
   ["source-links", () => $`bun test scripts/source-links.test.ts`],
-  ["blackhole", () => $`bun run scripts/blackhole/run.ts`],
+  ...(quick ? [] : ([["blackhole", () => $`bun run scripts/blackhole/run.ts`]] as [string, () => Promise<unknown>][])),
 ];
+
+if (quick) console.log("check --quick: skipping blackhole/run.ts");
 
 const failures = (
   await Promise.all(

@@ -25,42 +25,41 @@
 <svelte:window onkeydown={onKeydown} />
 
 <Page title="Newsletter sources" size="app" class="flex flex-col gap-6">
-  <div>
-    <h1 class="text-xl font-bold text-surface-50">Newsletter sources</h1>
-    <p class="mt-1 text-xs text-surface-400">Changes take effect on the next pipeline run. A feed listed here takes precedence over its email copy.</p>
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="flex flex-col gap-1">
+      <h1 class="text-xl font-bold text-surface-50">Newsletter sources <Badge tone="muted">{data.feeds.length}</Badge></h1>
+      <p class="text-xs text-surface-400 max-w-prose">
+        Changes take effect on the next pipeline run. A feed listed here takes precedence over its
+        email copy, and a failed fetch appears below its link and in Notifications.
+      </p>
+    </div>
+    <a href="/settings/newsletters/rules" class="tap shrink-0 text-xs text-surface-400 hover:text-primary-300">Email sender rules &rarr;</a>
   </div>
 
-  <section class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 class="text-base font-semibold text-surface-100">RSS feeds <Badge tone="muted">{data.feeds.length}</Badge></h2>
-      <a href="/settings/newsletters/rules" class="tap text-xs text-surface-400 hover:text-primary-300">Email sender rules &rarr;</a>
-    </div>
-    <p class="text-xs text-surface-400">A failed fetch appears below its link and in Notifications after the run.</p>
-    <form method="POST" action="?/createFeed" use:enhance class="rounded-lg border border-surface-700 bg-surface-900 p-4 flex flex-col sm:flex-row gap-2">
-      <input name="sourceName" required maxlength="120" placeholder="Source name" aria-label="New feed source name" class="input-base-flush min-w-0 sm:w-1/3" />
-      <input name="url" type="url" required placeholder="https://example.com/feed" aria-label="New feed URL" class="input-base-flush min-w-0 flex-1 font-mono" />
-      <button class="tap rounded border border-primary-700 bg-primary-900 px-3 py-2 text-xs text-primary-200 cursor-pointer">Add feed</button>
-    </form>
-    <!-- A grid, not a single stretched column (M14, 2026-10-01): these cards have a short header
-         and a link, so one column at `app` width left most of the row empty. -->
-    <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-3">
-      {#each data.feeds as feed (feed.sourceName)}
-        <li class="rounded-lg border border-surface-700 bg-surface-900 p-4">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex min-w-0 flex-wrap items-center gap-2">
-              <strong class="text-sm text-surface-100">{feed.sourceName}</strong>
-              {#if feed.lastError}<Badge tone="error">Fetch failed</Badge>{:else if feed.lastSuccessAt}<Badge tone="success">Fetched</Badge>{/if}
-            </div>
-            <button type="button" onclick={() => (editingFeed = feed)} class="tap shrink-0 rounded border border-surface-600 px-3 py-1.5 text-xs text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors">Edit</button>
+  <form method="POST" action="?/createFeed" use:enhance class="rounded-lg border border-surface-700 bg-surface-900 p-4 flex flex-col sm:flex-row gap-2">
+    <input name="sourceName" required maxlength="120" placeholder="Source name" aria-label="New feed source name" class="input-base-flush min-w-0 sm:w-1/3" />
+    <input name="url" type="url" required placeholder="https://example.com/feed" aria-label="New feed URL" class="input-base-flush min-w-0 flex-1 font-mono" />
+    <button class="tap rounded border border-primary-700 bg-primary-900 px-3 py-2 text-xs text-primary-200 cursor-pointer">Add feed</button>
+  </form>
+  <!-- A grid, not a single stretched column (M14, 2026-10-01): these cards have a short header
+       and a link, so one column at `app` width left most of the row empty. -->
+  <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-3">
+    {#each data.feeds as feed (feed.sourceName)}
+      <li class="rounded-lg border border-surface-700 bg-surface-900 p-4">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <strong class="text-sm text-surface-100">{feed.sourceName}</strong>
+            {#if feed.lastError}<Badge tone="error">Fetch failed</Badge>{:else if feed.lastSuccessAt}<Badge tone="success">Fetched</Badge>{/if}
           </div>
-          <a href={feed.url} target="_blank" rel="noopener noreferrer" class="mt-1 block break-all font-mono text-xs text-primary-300 hover:text-primary-200">{feed.url}</a>
-          {#if feed.lastError}
-            <p class="mt-2 text-xs text-error-400 break-words" role="alert">{feed.lastError}{feed.lastErrorAt ? ` · ${fmtDateTimeShort(feed.lastErrorAt)}` : ""}</p>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  </section>
+          <button type="button" onclick={() => (editingFeed = feed)} class="tap shrink-0 rounded border border-surface-600 px-3 py-1.5 text-xs text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors">Edit</button>
+        </div>
+        <a href={feed.url} target="_blank" rel="noopener noreferrer" class="mt-1 block break-all font-mono text-xs text-primary-300 hover:text-primary-200">{feed.url}</a>
+        {#if feed.lastError}
+          <p class="mt-2 text-xs text-error-400 break-words" role="alert">{feed.lastError}{feed.lastErrorAt ? ` · ${fmtDateTimeShort(feed.lastErrorAt)}` : ""}</p>
+        {/if}
+      </li>
+    {/each}
+  </ul>
 </Page>
 
 {#if editingFeed}

@@ -2,12 +2,12 @@
  * The layout scale (A3).
  *
  * Before this file the page frame was hand-rolled ten times, with seven different container
- * widths and two paddings chosen per page. There are three widths, one padding rule, and
+ * widths and two paddings chosen per page. There are four widths, one padding rule, and
  * `<Page>` is the only thing that should consume them - a page that needs a different frame
  * needs a reason first.
  *
- * The widths are also Tailwind theme containers (`--container-read|app|form` in `app.css`), so
- * `max-w-read` works anywhere a class is more convenient than importing this.
+ * The widths are also Tailwind theme containers (`--container-read|app|form|legal` in
+ * `app.css`), so `max-w-read` works anywhere a class is more convenient than importing this.
  */
 
 export const PAGE_SIZES = {
@@ -15,7 +15,7 @@ export const PAGE_SIZES = {
   read: "max-w-read",
   /** Tables and dashboards. */
   app: "max-w-app",
-  /** Single-column forms: the question gate, passkey/PIN, settings. */
+  /** Single-column forms: the login gate. */
   form: "max-w-form",
   /**
    * Long-form legal text (privacy policy, terms): wider than `read`'s 68ch, since these are a

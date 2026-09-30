@@ -138,7 +138,7 @@ export function fmtElapsed(since: DateInput): string {
 /**
  * "$0.412". Takes dollars, not tokens: `costUsd()` in `#lib/pricing.js` is what turns token counts
  * into a figure, and it returns null when no price is configured. The old inline version
- * multiplied `gpt-5.6-luna` token counts by Sonnet's $3/$15 per Mtok, which made the one cost
+ * multiplied OpenAI token counts by Sonnet's $3/$15 per Mtok, which made the one cost
  * number in the app wrong.
  */
 export function fmtCost(usd: number | null | undefined): string {

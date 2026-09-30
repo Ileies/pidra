@@ -2,7 +2,7 @@
  * Token cost, in one place.
  *
  * The Context Builder page used to compute its cost with $3.00 / $15.00 per Mtok - Sonnet's
- * prices - applied to `gpt-5.6-luna` token counts, and that was the only cost figure in the app.
+ * prices - applied to OpenAI token counts, and that was the only cost figure in the app.
  *
  * Prices are configuration, not a constant: they change, and guessing one produces a number that
  * looks authoritative and is not. Both come from the shared root `.env`, and when either is
@@ -19,7 +19,7 @@ import {
 } from "$app/env/public";
 
 /** The model these prices describe. Kept beside them so a model swap is visibly a price change. */
-export const COST_MODEL = "gpt-5.6-luna";
+export const COST_MODEL = "gpt-6-luna";
 
 function price(raw: string | undefined): number | null {
   if (raw == null || raw.trim() === "") return null;

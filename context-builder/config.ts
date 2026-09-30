@@ -34,8 +34,8 @@ export async function loadConfig(): Promise<Config> {
     emailAccounts: await loadEmailAccounts(),
     emailYears: Number(process.env.CONTEXT_BUILDER_EMAIL_YEARS ?? 3),
     githubToken: resolveGithubToken(),
-    extractionModel: process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-5.6-luna",
-    synthesisModel: process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-5.6-luna",
+    extractionModel: process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-6-luna",
+    synthesisModel: process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-6-luna",
     outputDir: process.env.CONTEXT_BUILDER_OUTPUT_DIR
       ? resolve(process.env.CONTEXT_BUILDER_OUTPUT_DIR)
       : resolve(import.meta.dir, "output"),

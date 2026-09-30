@@ -7,11 +7,11 @@ if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
 
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export const EXTRACTION_MODEL = process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-5.6-luna";
-export const SYNTHESIS_MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-5.6-luna";
+export const EXTRACTION_MODEL = process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-6-luna";
+export const SYNTHESIS_MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-6-luna";
 
-// gpt-5.6-luna rejects `temperature` and `max_tokens` with a hard 400. Determinism comes from
-// strict JSON schemas plus low reasoning effort instead; the output cap is `max_output_tokens`
+// With reasoning enabled, gpt-6-luna rejects `temperature`; `max_tokens` is unsupported.
+// Use strict JSON schemas plus low reasoning effort instead; the output cap is `max_output_tokens`
 // on the Responses API and `max_completion_tokens` on Chat Completions.
 
 // Flex processing trades latency for ~50% lower cost; 429s mean "no flex capacity right now",

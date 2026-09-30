@@ -19,7 +19,7 @@ Success means more must-cover stories reach the reader, fewer unhelpful items co
 ## P0: make the baseline trustworthy
 
 - [ ] Finish and verify the Phase 2 rerun dedup fix already in progress in `src/pipeline/phase2-extract.ts`. Repeated runs must preserve successful extraction IDs and must not inflate source scores or corroboration. Do not fold that separate work into the Jev change.
-- [ ] Close the Section 1 handoff gap in `src/pipeline/phase5-synthesis.ts`: `ctx.newsletterItems.slice(0, 30)` can omit gate-passed items without recording that they were never sent to synthesis. Define an explicit, stable ordering and persist a distinct `outside_synthesis_capacity` handoff outcome for every such item. `/[date]/triage` must distinguish it from a story that synthesis saw and passed over.
+- [x] Close the Section 1 handoff gap in `src/pipeline/phase5-synthesis.ts`: `ctx.newsletterItems.slice(0, 30)` can omit gate-passed items without recording that they were never sent to synthesis. Define an explicit, stable ordering and persist a distinct `outside_synthesis_capacity` handoff outcome for every such item. `/[date]/triage` must distinguish it from a story that synthesis saw and passed over.
 - [ ] Record the actual candidate set, order, gate verdict, synthesis handoff, report citation, and later feedback for each evaluated item. Preserve the pipeline's final report and extraction ownership rules.
 - [ ] Complete the planned Brave news-desk research build before using Jev results to judge news coverage. Search recall and URL provenance must be measured independently of Jev's judgment.
 - [ ] Collect at least 14 representative completed mornings for evaluation, including light and heavy days, home and world news, essays and short newsletters, repeats, and cross-domain stories. Track missing newsletter deliveries and failed desks separately so a missing source is not counted as a ranking error.
@@ -29,6 +29,7 @@ Done when the baseline can answer, for every sampled story, whether it was never
 
 ## P1: build a controlled Jev decision layer
 
+- [x] Confirm `JEV_KEY` is configured in the local `.env`. This verifies the existing setup only; SDK calls and missing-key fallback remain untested.
 - [ ] Add the official `@typesafe-ai/sdk` as a server-only dependency. Pin a tested SDK release and a versioned model ID such as `jev-1.13.0`, rather than relying on the moving `jev-latest` alias for production thresholds.
 - [ ] Smoke-test the SDK under Bun with a synthetic state, a Choice, a Score, and a Noul. Check response validation, timeout, cancellation, 429 and 529 retries, and behavior when the API key is absent. Keep credentials on the server; never add them to dashboard code or the offline snapshot.
 - [ ] Add a single `src/ai/jev.ts` adapter. Give it bounded concurrency, a total call deadline, explicit model and rubric versions, response validation, usage and latency accounting, and a typed error result. Do not route Jev through the OpenAI client or give it OpenAI-only options such as `store: false`.

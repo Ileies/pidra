@@ -15,8 +15,14 @@ export const PAGE_SIZES = {
   read: "max-w-read",
   /** Tables and dashboards. */
   app: "max-w-app",
-  /** Single-column forms: the question gate, settings. */
+  /** Single-column forms: the question gate, passkey/PIN, settings. */
   form: "max-w-form",
+  /**
+   * Long-form legal text (privacy policy, terms): wider than `read`'s 68ch, since these are a
+   * once-in-a-while reference read rather than the daily report's main event, but still a capped,
+   * centered measure rather than `app` - it is prose, not a dashboard.
+   */
+  legal: "max-w-legal",
   /** Deliberately unconstrained: the chat's three-pane grid manages its own width. */
   full: "max-w-none",
 } as const;

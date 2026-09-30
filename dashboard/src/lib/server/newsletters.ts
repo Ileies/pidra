@@ -50,17 +50,16 @@ function senderRule(kind: string, value: string, source: string) {
   return { kind, pattern, name };
 }
 
-export async function listNewsletterSettings(): Promise<{ feeds: FeedRow[]; rules: SenderRuleRow[] }> {
-  const db = sql();
-  const [feeds, rules] = await Promise.all([
-    db<FeedRow[]>`SELECT source_name AS "sourceName", url, last_error AS "lastError",
-      last_error_at AS "lastErrorAt", last_success_at AS "lastSuccessAt"
-      FROM rss_feeds ORDER BY source_name`,
-    db<SenderRuleRow[]>`SELECT id::text, match_kind AS "matchKind", pattern,
-      source_name AS "sourceName" FROM newsletter_sender_rules
-      ORDER BY match_kind, pattern`,
-  ]);
-  return { feeds, rules };
+export async function listFeeds(): Promise<FeedRow[]> {
+  return sql()<FeedRow[]>`SELECT source_name AS "sourceName", url, last_error AS "lastError",
+    last_error_at AS "lastErrorAt", last_success_at AS "lastSuccessAt"
+    FROM rss_feeds ORDER BY source_name`;
+}
+
+export async function listSenderRules(): Promise<SenderRuleRow[]> {
+  return sql()<SenderRuleRow[]>`SELECT id::text, match_kind AS "matchKind", pattern,
+    source_name AS "sourceName" FROM newsletter_sender_rules
+    ORDER BY match_kind, pattern`;
 }
 
 export async function createFeed(name: string, url: string): Promise<void> {

@@ -243,7 +243,7 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.settings,
     mobileHeader: true,
-    children: ["/settings/email-accounts", "/settings/newsletters"],
+    children: ["/settings/email-accounts", "/settings/newsletters", "/settings/newsletters/rules"],
   },
   {
     href: "/chat",
@@ -295,6 +295,15 @@ export const ROUTES: RouteDef[] = [
     href: "/settings/newsletters",
     id: "/settings/newsletters",
     label: "Newsletter sources",
+    surface: "global",
+    group: "system",
+    icon: ICON.settings,
+    hidden: true,
+  },
+  {
+    href: "/settings/newsletters/rules",
+    id: "/settings/newsletters/rules",
+    label: "Email sender rules",
     surface: "global",
     group: "system",
     icon: ICON.settings,
@@ -389,7 +398,11 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   },
   "/settings/newsletters": {
     label: "Newsletter sources",
-    reason: "Newsletter sender rules and RSS feed health need a live connection.",
+    reason: "RSS feed health is a live query against the pipeline's own tables.",
+  },
+  "/settings/newsletters/rules": {
+    label: "Email sender rules",
+    reason: "Sender rules route mail into extraction on the next run and need a live connection to edit.",
   },
 };
 

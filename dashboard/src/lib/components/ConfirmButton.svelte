@@ -23,6 +23,10 @@
     tone?: "error" | "success";
     /** Skips the confirmation step entirely - for the reversible direction of a toggle. */
     immediate?: boolean;
+    /** `"input"` matches `input-base`'s box model exactly, for a trigger that sits in the same
+     *  row as text fields (e.g. a per-row Save) and would otherwise read as a smaller, different
+     *  kind of control there. Default `"xs"` is every other call site, unchanged. */
+    size?: "xs" | "input";
     /** Runs after a successful submit, once `update()` has applied the result - for a caller
      *  that has client-side state of its own to reconcile (e.g. the active row was just deleted). */
     onSuccess?: () => void;
@@ -37,6 +41,7 @@
     reasonPlaceholder = "Reason (optional)",
     tone = "error",
     immediate = false,
+    size = "xs",
     onSuccess,
   }: Props = $props();
 
@@ -47,6 +52,8 @@
     armed = false;
     reason = "";
   }
+
+  const SIZE = { xs: "px-3 py-1.5 text-xs", input: "px-3 py-2 sm:py-1.5 text-base sm:text-sm" } as const;
 
   const TRIGGER = {
     error: "border-surface-500 text-surface-300 hover:border-error-500 hover:text-error-400",
@@ -71,7 +78,7 @@
     {#each Object.entries(fields) as [name, value] (name)}
       <input type="hidden" {name} {value} />
     {/each}
-    <button type="submit" class="tap px-3 py-1.5 rounded text-xs border bg-transparent cursor-pointer transition-colors {TRIGGER[tone]}">
+    <button type="submit" class="tap rounded border bg-transparent cursor-pointer transition-colors {SIZE[size]} {TRIGGER[tone]}">
       {label}
     </button>
   </form>
@@ -79,7 +86,7 @@
   <button
     type="button"
     onclick={() => (armed = true)}
-    class="tap px-3 py-1.5 rounded text-xs border bg-transparent cursor-pointer transition-colors {TRIGGER[tone]}"
+    class="tap rounded border bg-transparent cursor-pointer transition-colors {SIZE[size]} {TRIGGER[tone]}"
   >
     {label}
   </button>

@@ -31,52 +31,59 @@
   }
 </script>
 
-<Page title="Settings" size="form" class="flex flex-col gap-6">
+<Page title="Settings" size="app" class="flex flex-col gap-6">
   <h1 class="text-xl font-bold text-surface-50">Settings</h1>
 
-  <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
-    <h2 class="text-sm font-semibold text-surface-100">Notifications</h2>
-    <p class="text-xs text-surface-400">Push a notification to this device when the morning briefing is ready.</p>
-    <NotifyButton variant="row" />
-  </section>
+  <!-- Capped rather than left to fill `app`'s full width (M14, 2026-10-01): a menu of four tiles
+       and a notification toggle has no content to grow into, and stretching the rows edge to edge
+       on a wide monitor just put empty space between each label and its description. -->
+  <div class="flex flex-1 flex-col gap-6 max-w-3xl mx-auto w-full">
+    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+      <h2 class="text-sm font-semibold text-surface-100">Notifications</h2>
+      <p class="text-xs text-surface-400">Push a notification to this device when the morning briefing is ready.</p>
+      <NotifyButton variant="row" />
+    </section>
 
-  <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
-    <h2 class="text-sm font-semibold text-surface-100">Account</h2>
-    <a
-      href="/setup"
-      class="tap flex items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-    >
-      <span>Passkey and PIN</span>
-      <span class="text-xs text-surface-400">Register a device, change the PIN</span>
-    </a>
-    <a
-      href="/settings/email-accounts"
-      class="tap flex items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-    >
-      <span>Email accounts</span>
-      <span class="text-xs text-surface-400">IMAP/SMTP accounts the pipeline reads</span>
-    </a>
-    <a
-      href="/settings/newsletters"
-      class="tap flex items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-    >
-      <span>Newsletter sources</span>
-      <span class="text-xs text-surface-400">RSS feeds, errors, and email sender rules</span>
-    </a>
-    <button
-      type="button"
-      onclick={logOut}
-      disabled={loggingOut || isOffline}
-      title={isOffline ? "Needs the connection" : undefined}
-      class="tap flex w-full items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 text-left text-sm text-surface-200 hover:bg-surface-800 cursor-pointer disabled:opacity-50"
-    >
-      <span>Log out</span>
-      {#if isOffline}<span class="text-xs text-surface-400">Needs the connection</span>{/if}
-    </button>
-  </section>
+    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+      <h2 class="text-sm font-semibold text-surface-100">Account</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <a
+          href="/setup"
+          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+        >
+          <span>Passkey and PIN</span>
+          <span class="text-xs text-surface-400">Register a device, change the PIN</span>
+        </a>
+        <a
+          href="/settings/email-accounts"
+          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+        >
+          <span>Email accounts</span>
+          <span class="text-xs text-surface-400">IMAP/SMTP accounts the pipeline reads</span>
+        </a>
+        <a
+          href="/settings/newsletters"
+          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+        >
+          <span>Newsletter sources</span>
+          <span class="text-xs text-surface-400">RSS feeds, errors, and email sender rules</span>
+        </a>
+        <button
+          type="button"
+          onclick={logOut}
+          disabled={loggingOut || isOffline}
+          title={isOffline ? "Needs the connection" : undefined}
+          class="tap flex w-full flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 text-left text-sm text-surface-200 hover:bg-surface-800 cursor-pointer disabled:opacity-50"
+        >
+          <span>Log out</span>
+          {#if isOffline}<span class="text-xs text-surface-400">Needs the connection</span>{/if}
+        </button>
+      </div>
+    </section>
 
-  <nav aria-label="Legal" class="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-    <a href="/privacy" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>
-    <a href="/terms" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Terms of service</a>
-  </nav>
+    <nav aria-label="Legal" class="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+      <a href="/privacy" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>
+      <a href="/terms" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Terms of service</a>
+    </nav>
+  </div>
 </Page>

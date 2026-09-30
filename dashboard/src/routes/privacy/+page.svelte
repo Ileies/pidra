@@ -2,7 +2,7 @@
   import Page from "#lib/components/Page.svelte";
 </script>
 
-<Page title="Privacy Policy" size="read" class="space-y-7 text-sm leading-7 text-surface-300">
+<Page title="Privacy Policy" size="legal" class="space-y-7 text-sm leading-7 text-surface-300">
   <header class="space-y-3">
     <h1 class="text-2xl font-bold text-surface-50">Privacy Policy</h1>
     <p>Effective September 25, 2026</p>

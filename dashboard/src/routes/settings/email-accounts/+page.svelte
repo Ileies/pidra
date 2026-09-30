@@ -50,8 +50,9 @@
     if (event.key === "Escape" && modalAccount !== null) closeModal();
   }
 
-  function summary(a: EmailAccountRow): string {
-    const parts = [a.host];
+  /** Everything that doesn't fit a column - behind the row's "Details" disclosure. */
+  function rowDetails(a: EmailAccountRow): string {
+    const parts = [];
     if (a.folder !== "INBOX") parts.push(`folder ${a.folder}`);
     if (a.aliases?.length) parts.push(`aliases ${a.aliases.join(", ")}`);
     if (a.ignore?.length) parts.push(`ignores ${a.ignore.join(", ")}`);
@@ -118,7 +119,7 @@
   </div>
 {/snippet}
 
-<Page title="Email accounts" size="form" class="flex flex-col gap-6">
+<Page title="Email accounts" size="app" class="flex flex-col gap-6">
   <div class="flex items-start justify-between gap-3">
     <div class="flex flex-col gap-1">
       <h1 class="text-xl font-bold text-surface-50">Email accounts</h1>
@@ -137,32 +138,53 @@
   {#if data.accounts.length === 0}
     <EmptyState title="No email accounts configured." hint="Add one above - the pipeline has nothing to ingest until it does." />
   {:else}
-    <ul class="flex flex-col gap-3">
-      {#each data.accounts as account (account.id)}
-        <li class="rounded-lg border border-surface-700 bg-surface-900 overflow-hidden">
-          <div class="flex items-center gap-3 px-4 sm:px-5 py-3">
-            <div class="min-w-0 flex-1 flex flex-col gap-0.5">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-sm font-medium text-surface-100 truncate">{account.label}</span>
-                {#if account.isNewsAccount}<Badge tone="muted">Newsletter</Badge>{/if}
-              </div>
-              <span class="text-xs text-surface-400 font-mono truncate">{account.user}</span>
-            </div>
-            <button
-              type="button"
-              onclick={() => (modalAccount = account)}
-              class="tap shrink-0 px-3 py-1.5 rounded text-xs border border-surface-600 text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors"
-            >Edit</button>
-          </div>
-          <div class="border-t border-surface-800 px-4 sm:px-5 py-2.5 flex flex-col gap-1">
-            <span class="text-xs text-surface-500">{summary(account)}</span>
-            {#if account.customInstructions}
-              <span class="text-xs text-surface-500 whitespace-pre-wrap break-words max-w-prose">{account.customInstructions}</span>
-            {/if}
-          </div>
-        </li>
-      {/each}
-    </ul>
+    <div class="overflow-x-auto rounded-lg border border-surface-700">
+      <table class="w-full border-collapse text-left text-sm">
+        <thead>
+          <tr class="bg-surface-900 text-xs text-surface-400">
+            <th class="px-4 py-2 font-medium">Label</th>
+            <th class="px-4 py-2 font-medium">Account</th>
+            <th class="px-4 py-2 font-medium">Host</th>
+            <th class="px-4 py-2 font-medium">Details</th>
+            <th class="px-4 py-2 font-medium"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.accounts as account (account.id)}
+            <tr class="border-t border-surface-800 bg-surface-900 align-top hover:bg-surface-800/40">
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-surface-100">{account.label}</span>
+                  {#if account.isNewsAccount}<Badge tone="muted">Newsletter</Badge>{/if}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-surface-300">{account.user}</td>
+              <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-surface-400">{account.host}</td>
+              <td class="px-4 py-3 text-xs text-surface-500">
+                {#if rowDetails(account) || account.customInstructions}
+                  <details>
+                    <summary class="w-fit cursor-pointer select-none text-surface-400 hover:text-surface-200">Details</summary>
+                    <div class="mt-1.5 flex max-w-sm flex-col gap-1">
+                      {#if rowDetails(account)}<span>{rowDetails(account)}</span>{/if}
+                      {#if account.customInstructions}
+                        <span class="whitespace-pre-wrap break-words">{account.customInstructions}</span>
+                      {/if}
+                    </div>
+                  </details>
+                {/if}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  onclick={() => (modalAccount = account)}
+                  class="tap shrink-0 rounded border border-surface-600 px-3 py-1.5 text-xs text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors"
+                >Edit</button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
   {/if}
 </Page>
 

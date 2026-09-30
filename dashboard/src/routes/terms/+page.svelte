@@ -2,7 +2,7 @@
   import Page from "#lib/components/Page.svelte";
 </script>
 
-<Page title="Terms of Service" size="read" class="space-y-7 text-sm leading-7 text-surface-300">
+<Page title="Terms of Service" size="legal" class="space-y-7 text-sm leading-7 text-surface-300">
   <header class="space-y-3">
     <h1 class="text-2xl font-bold text-surface-50">Terms of Service</h1>
     <p>Effective September 25, 2026</p>

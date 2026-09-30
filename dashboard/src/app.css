@@ -55,10 +55,11 @@
   --text-2xl: 1.75rem;
   --text-2xl--line-height: 1.2;
 
-  /* Three container widths, no more. See `$lib/ui/layout.ts`. */
+  /* Container widths. See `$lib/ui/layout.ts`. */
   --container-read: 68ch; /* report and detail: a comfortable measure */
   --container-app: 72rem; /* tables and dashboards */
   --container-form: 40rem; /* questions and single-column forms */
+  --container-legal: 90ch; /* privacy policy, terms: wider prose, still a capped measure */
 }
 
 /* ==========================================================================

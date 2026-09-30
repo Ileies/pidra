@@ -14,6 +14,8 @@ The actual profile lives in Postgres now (`standing_context`, `profile_*` keys) 
 
 ## Intelligence priorities (Section 1 / newsletter path)
 
+Extraction's `relevance_score` feeds the gate directly (`effective_relevance = relevance_score * trust_score`, threshold 3.0 - `docs/scoring-formulas.md`), so it has to actually discriminate, not just express these priorities in words. A week of real mornings (2026-09-24 to 2026-09-30) showed it clustering at 3 for 68% of newsletter items, which put most items on the pass/fail line by construction; the rubric in `src/ai/prompts/extraction.ts` was tightened 2026-09-30 to anchor all five levels and tell the model not to default to the middle.
+
 Ordered - when forced to choose between two stories, rank by this list:
 
 1. AI/LLM - breakthroughs, model releases, capability jumps, safety developments, policy changes
@@ -51,7 +53,7 @@ Functional requirements, not style preferences:
 ## Newsletter processing tiers
 
 - **Daily/high-volume sources** (TLDR AI, Money Stuff, Term Sheet, MIT Tech Review, The Diff, War on the Rocks, Sinocism, Noahpinion): short extraction pass, focused on claim + entity identification.
-- **Weekly/irregular, dense sources** (Astral Codex Ten, The Intrinsic Perspective, Not Boring, The Generalist, Works in Progress, SemiAnalysis): richer extraction prompt capturing the central argument, not just claims. Extraction output gets `source_format: "essay"`; synthesis gives essay items more depth in the report.
+- **Weekly/irregular, dense sources** (Astral Codex Ten, The Intrinsic Perspective, Not Boring, The Generalist, Works in Progress, SemiAnalysis): intended to get a richer extraction prompt capturing the central argument, not just claims, with `source_format: "essay"` giving synthesis room for more depth. **Not implemented** - `phase2-extract.ts` runs the one newsletter extraction prompt for every source regardless of tier (confirmed 2026-09-30, see `docs/todo/now.md`).
 
 ## Ongoing stories
 

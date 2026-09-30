@@ -68,11 +68,8 @@
     </button>
   </section>
 
-  <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-2">
-    <h2 class="text-sm font-semibold text-surface-100">Legal</h2>
-    <div class="flex items-center gap-4">
-      <a href="/privacy" class="tap text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>
-      <a href="/terms" class="tap text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Terms of service</a>
-    </div>
-  </section>
+  <nav aria-label="Legal" class="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+    <a href="/privacy" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>
+    <a href="/terms" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Terms of service</a>
+  </nav>
 </Page>

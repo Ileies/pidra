@@ -35,20 +35,9 @@
 </script>
 
 <Page title="Prompts" size="app" class="flex flex-col gap-6">
-  <p class="text-xs text-surface-400 max-w-prose">
-    Every section runs on the active version from the database. Where there is none, the prompt
-    from the code baseline runs instead. Activating a version takes effect on the next pipeline
-    run, without a deploy.
-  </p>
-
   {#if data.sections.length === 0}
     <EmptyState title="No prompt sections available." />
   {:else}
-    {#if !anyActiveOverride}
-      <p class="text-xs text-surface-400">
-        No section has an active override yet - every prompt below is running its code baseline.
-      </p>
-    {/if}
     <div class="grid grid-cols-1 xl:grid-cols-2 items-start gap-6">
       {#each data.sections as group (group.section)}
         <section>
@@ -65,15 +54,13 @@
 
           <div class="flex flex-col gap-3">
             {#if group.effective?.source === "code"}
-              <article class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4">
+              <article class="bg-surface-900 border border-surface-700 rounded-lg p-3">
                 {#if anyActiveOverride}
                   <div class="flex flex-wrap items-center gap-2 mb-3">
                     <span class="font-mono text-xs text-surface-300">Code</span>
                     <Badge tone="neutral">In use</Badge>
                     <span class="text-xs text-surface-400 italic">src/ai/prompts/ - changeable only by deploy</span>
                   </div>
-                {:else}
-                  <span class="font-mono text-xs text-surface-300 block mb-3">Code baseline</span>
                 {/if}
                 <pre class="text-xs text-surface-200 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">{group.effective.text}</pre>
               </article>
@@ -81,7 +68,7 @@
 
             {#each group.versions as prompt (prompt.id)}
               {@const full = !!showFullText[prompt.id]}
-              <article class="bg-surface-900 border {prompt.active ? 'border-success-700' : 'border-surface-700'} rounded-lg px-4 sm:px-5 py-4">
+              <article class="bg-surface-900 border {prompt.active ? 'border-success-700' : 'border-surface-700'} rounded-lg p-3">
                 <div class="flex flex-wrap items-center gap-2 mb-3">
                   <span class="font-mono text-xs text-surface-300">v{prompt.version}</span>
                   {#if prompt.active}

@@ -85,7 +85,6 @@ It refuses an uncommitted tree, commits not on origin, a branch behind origin, a
 - [`docs/google-integration-notes.md`](./docs/google-integration-notes.md) - Google Tasks list and Keep category meanings
 - [`docs/context-builder.md`](./docs/context-builder.md) - Context Builder architecture, run modes, output contract, and daily integration
 - [`docs/scoring-formulas.md`](./docs/scoring-formulas.md) - the gate, trust-score and entity-pruning formulas as currently implemented
-- [`docs/phase7-passive-context-plan.md`](./docs/phase7-passive-context-plan.md) - undone design for Keep/chat/diary as future context sources
 
 ## Build Status
 

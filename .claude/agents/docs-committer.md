@@ -22,7 +22,7 @@ Given the diff and the stated reason:
 
 1. Check whether any bullet in `CLAUDE.md` now describes something that changed (a rule, a file path, a decision) - update it in place, matching the terse, dense, no-padding voice already used throughout that file. Don't add a new bullet for something that isn't architecturally significant.
 2. Check whether the change closes, changes, or should add an item in `docs/todo/now.md` / `soon.md` / `later.md` - closed items are **removed on sight**, never struck through (matches `docs/todo/README.md`'s own rule).
-3. Check whether any `docs/*.md` reference file (`prompt-tuning-context`, `newsletter-sources`, `google-integration-notes`, `scoring-formulas`, `phase7-passive-context-plan`) states something the diff just made false.
+3. Check whether any `docs/*.md` reference file (`prompt-tuning-context`, `newsletter-sources`, `google-integration-notes`, `scoring-formulas`) states something the diff just made false.
 4. Check whether `CLAUDE.md`'s "Reference docs" index still lists every file actually in `docs/**` - if this diff added or removed a doc file, fix the index there.
 5. If none of the above apply, don't touch any doc - most commits shouldn't need one. Say so plainly in your report rather than inventing an edit to justify having run.
 

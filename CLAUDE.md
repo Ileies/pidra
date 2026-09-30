@@ -29,7 +29,6 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/google-integration-notes.md` - Google Tasks list / Keep category meanings
 - `docs/context-builder.md` - Context Builder data flow, run modes, recovery state, output contract, and daily integration
 - `docs/scoring-formulas.md` - the gate, trust-score and entity-pruning formulas as currently implemented
-- `docs/phase7-passive-context-plan.md` - the undone design for Keep/chat/diary as future context sources
 - `docs/todo/README.md` - how the open-work list is split and what doesn't belong in it
 - `docs/todo/now.md` - active or near-term open work
 - `docs/todo/soon.md` - queued work, mostly Phase 7 sources plus the 30-day web-search check-in
@@ -64,4 +63,4 @@ Use the `commit` skill (`.claude/skills/commit/SKILL.md`, `args: "<why>"`) for n
 
 `docs/todo/` holds all open work, split by horizon (see `docs/todo/README.md`); closed entries are removed rather than struck through. Phases 0-6 are complete and the pipeline runs unattended end to end. The thing that most wants doing: running the pipeline and the News section against real mornings for a week or more to tune the extraction and news-desk prompts, which have never been judged on much material.
 
-Deliberately not building yet: Phase 7 passive context sources (`docs/phase7-passive-context-plan.md`), slots 4 and 5 of the web search module, any `critical`-risk skill (blocked on the approval-flow and agentic-loop designs in `docs/todo/later.md`), and Netzpolitik.org as a 33rd source (declined 2026-09-10, no re-evaluation).
+Deliberately not building yet: Phase 7 passive context sources (`docs/todo/soon.md`), slots 4 and 5 of the web search module, any `critical`-risk skill (blocked on the approval-flow and agentic-loop designs in `docs/todo/later.md`), and Netzpolitik.org as a 33rd source (declined 2026-09-10, no re-evaluation).

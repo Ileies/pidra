@@ -117,10 +117,9 @@ if (!flag("skip-check")) {
   if (DRY) {
     console.log("  [dry-run] bun run check (root + dashboard)");
   } else {
-    // Both, because either can fail on its own and the dashboard's is the one that catches a
-    // broken page before it replaces a working one.
-    await $`bun run check`.quiet().catch(() => fail("root `bun run check` failed - not deploying"));
-    await $`bun run check`.cwd("dashboard").quiet().catch(() => fail("dashboard `bun run check` failed - not deploying"));
+    // Root's own `check` script already ends by running the dashboard's, blackhole included - a
+    // second, separately-scoped call here would just rerun that same suite a second time.
+    await $`bun run check`.quiet().catch(() => fail("`bun run check` failed - not deploying"));
     console.log("  root and dashboard both pass");
   }
 }

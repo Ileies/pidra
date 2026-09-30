@@ -16,7 +16,7 @@
 - `/contacts` - the sender directory. Edits go through `recordCorrection`, so they behave exactly as the assistant's do
 - `/notes` - notes management: click-to-edit content, inline scope and expiry, search, sort, trash with restore, per-revision history with revert, bulk actions, undo on delete. System notes are editable too; provenance stays visible via `created_by` / `updated_by`
 - `/rules` - `standing_context` CRUD, with a preview of the block as the Section 2 prompt receives it
-- `/context-builder` - the harvested context document and source summaries, run controls, and a details sheet for quick links, run progress, and errors (standing rules and corrections are linked out to their own pages, not duplicated here)
+- `/context-builder` - the harvested context document and source summaries, run controls, and a details sheet for run progress and errors; at `xl`+ Quick Links (document headings and source summaries, with scrollspy highlighting) is a persistent nav rail beside the document instead of living in the sheet, since below `xl` there's no room for both (standing rules and corrections are linked out to their own pages, not duplicated here)
 - `/skills` - the pending high-risk approval queue, the read-only registry with an enable/disable toggle, and the execution log
 - `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log

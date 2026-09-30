@@ -4,8 +4,7 @@ import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
 const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
-/** Actions only. The read side moved to `+page.ts`; see `[date]/+page.server.ts`
- *  for why a co-located `load` here would never run for a client-side navigation now. */
+/** Moved from the parent page's actions: the revert button now lives only here. */
 export const actions: Actions = {
   revertCorrection: async ({ request }) => {
     const form = await request.formData();

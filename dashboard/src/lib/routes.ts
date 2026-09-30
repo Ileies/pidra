@@ -181,6 +181,7 @@ export const ROUTES: RouteDef[] = [
     surface: "context",
     group: "memory",
     icon: ICON.context,
+    children: ["/context-builder/corrections"],
   },
   {
     href: "/skills",
@@ -330,6 +331,7 @@ export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/notes",
   "/rules",
   "/context-builder",
+  "/context-builder/corrections",
   "/entities",
   "/entities/[id]",
   "/contacts",

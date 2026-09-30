@@ -8,11 +8,11 @@ PIDRA consists of three tools that share one Postgres database:
 
 2. **Dashboard** (`dashboard/`) - SvelteKit frontend for reading reports, rating items, viewing the entity graph, managing notes, reviewing skill executions, and approving prompt changes.
 
-3. **Context Builder** (`context-builder/`) - performs a comprehensive scan of all personal data sources (all email accounts, Google Keep, Google Tasks, GitHub) and builds a structured long-term context document. Seeds the `entities`, `contacts`, and `standing_context` tables before the first pipeline run - so the system is calibrated from day one instead of learning from scratch. Re-runs monthly in update mode (delta only, proportional merge), as the `context-builder` job. Full plan in `CONTEXT_BUILDER_PLAN.md`.
+3. **Context Builder** (`context-builder/`) - performs a comprehensive scan of all personal data sources (all email accounts, Google Keep, Google Tasks, GitHub) and builds a structured long-term context document. Seeds the `entities`, `contacts`, and `standing_context` tables before the first pipeline run - so the system is calibrated from day one instead of learning from scratch. Re-runs monthly in update mode (delta only, proportional merge), as the `context-builder` job. Architecture in `docs/context-builder.md`.
 
    **The output document's `# 1.` to `# 5.` headings are an interface, not formatting.** `pickSections` (`src/pipeline/long-term-context.ts`) splits on them to route each section to one of the two daily synthesis calls, so a document that answers in any other shape reaches synthesis as an empty string. Both synthesis prompts share one `DOCUMENT_STRUCTURE` constant stating the contract, and `run.ts` verifies the result before recording it: a patch that comes back malformed is rebuilt in full, and one that still fails leaves `output_path` null so the last good harvest stays the newest document the pipeline can find. Never write a prompt or a consumer that assumes a different shape on either side.
 
-Read `CONTEXT_BUILDER_PLAN.md` before touching anything in `context-builder/`. See "Reference docs" below for everything else.
+Read `docs/context-builder.md` and `context-builder/README.md` before touching anything in `context-builder/`. See "Reference docs" below for everything else.
 
 ## Reference docs
 
@@ -21,6 +21,7 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/prompt-tuning-context.md` - intelligence priorities, report format rules, newsletter processing tiers. Read before touching extraction/synthesis prompts
 - `docs/newsletter-sources.md` - all 32 newsletters with tier and selection rationale
 - `docs/google-integration-notes.md` - Google Tasks list / Keep category meanings
+- `docs/context-builder.md` - Context Builder data flow, run modes, recovery state, output contract, and daily integration
 - `docs/scoring-formulas.md` - the gate, trust-score and entity-pruning formulas as currently implemented
 - `docs/phase7-passive-context-plan.md` - the undone design for Keep/chat/diary as future context sources
 - `docs/todo/README.md` - how the open-work list is split and what doesn't belong in it

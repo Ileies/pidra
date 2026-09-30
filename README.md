@@ -83,9 +83,9 @@ It refuses an uncommitted tree, commits not on origin, a branch behind origin, a
 - [`docs/prompt-tuning-context.md`](./docs/prompt-tuning-context.md) - intelligence priorities, report format requirements, newsletter processing tiers
 - [`docs/newsletter-sources.md`](./docs/newsletter-sources.md) - all 32 newsletters with tier and selection rationale
 - [`docs/google-integration-notes.md`](./docs/google-integration-notes.md) - Google Tasks list and Keep category meanings
+- [`docs/context-builder.md`](./docs/context-builder.md) - Context Builder architecture, run modes, output contract, and daily integration
 - [`docs/scoring-formulas.md`](./docs/scoring-formulas.md) - the gate, trust-score and entity-pruning formulas as currently implemented
 - [`docs/phase7-passive-context-plan.md`](./docs/phase7-passive-context-plan.md) - undone design for Keep/chat/diary as future context sources
-- [`CONTEXT_BUILDER_PLAN.md`](./CONTEXT_BUILDER_PLAN.md) - Context Builder architecture, run modes (full/update/resume), pipeline phases, cost analysis, testing checklist
 
 ## Build Status
 
@@ -110,6 +110,6 @@ A **partial** ingest failure is not a failed run. Phase 1 settles all 16 sources
 
 Measured, and only for what the system actually tracks. `daily_reports` records synthesis tokens: the 2026-09-12 run was 25.6k in / 3.9k out, about a cent at `gpt-5.6-luna` list prices ($0.20 / $1.20 per Mtok). Every call runs on `service_tier: "flex"`, so the real spend is below the dashboard's figure, which prices at list.
 
-Extraction is not tracked per run and sits on top of that. The Context Builder prints its own running total: the 2026-09-12 monthly update was $0.05 for 177 items; a full harvest is the expensive one, estimated in `CONTEXT_BUILDER_PLAN.md`.
+Extraction is not tracked per run and sits on top of that. The Context Builder prints its own running total: the 2026-09-12 monthly update was $0.05 for 177 items. A full harvest processes the entire eligible corpus and costs more; its actual cost depends on the configured models and token rates.
 
 The news desks are the largest daily cost, and their tokens are in the report's figures. On the 2026-09-25 probes they took 250k to 670k input tokens a morning depending on reasoning effort, most of it search results. Their web search calls, 26 to 77 a morning on the same probes, are billed per call on top of tokens and appear in the report's "web searches" figure, not in its cost.

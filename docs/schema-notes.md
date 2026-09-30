@@ -1,0 +1,31 @@
+# Schema notes
+
+See `src/db/schema.ts` for the full schema - it is the single source of truth and nothing duplicates it.
+
+## Shared configs - don't duplicate
+
+- **Email accounts:** the `email_accounts` table, managed from `/settings/email-accounts` and loaded via `src/config/email-accounts.ts` → `loadEmailAccounts()` (async - it queries Postgres). Both the pipeline and the Context Builder use this. `password` is AES-256-GCM ciphertext (`src/config/crypto.ts`), keyed by `CONFIG_ENCRYPTION_KEY` - a per-machine secret in `.env`, never in the table itself. The dashboard's own writer, `dashboard/src/lib/server/emailAccounts.ts`, is write-only for passwords: a saved one is never read back or shown again, only replaced. Never create a separate email config in `context-builder/`.
+- **RSS feeds:** `src/config/rss-feeds.ts`
+- **DB:** `src/db/index.ts` - re-export everything from there, don't create new DB connections elsewhere.
+
+## Key schema tables
+
+- `raw_items` - all ingested content before processing, including one delivery per news desk per day (`source_type = 'web_news'`, with the desk's queries and consulted URLs in `raw_content`)
+- `extractions` - the extraction stage's structured output per item, with effective relevance scores and the Phase 3 gate verdict (`gate_passed`, `gate_reason`, `gate_detail`); a news story carries its checks in `extracted_json.validation`
+- `ingest_drops` - mail the IMAP ingest discarded before it became a `raw_items` row, with the rule that discarded it
+- `active_topics` - running story summaries, continuity across days
+- `report_actions` - the quick actions a report offers, with their state (`proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code threw a proposal out)
+- `questions` - the standing question queue (`open | answered | dismissed | resolved | merged`), with the mails behind each question, earlier wordings in `history` and the reason a question was closed
+- `entities` / `entity_relations` - knowledge graph nodes and edges
+- `source_quality` / `source_daily_scores` - per-source trust scores and 30-day rolling history
+- `brave_daily_usage` - atomic shared count of actual Brave API attempts per Europe/Berlin day, capped at 30
+- `prompt_versions` - versioned prompts, only one active per section at a time
+- `skill_executions` - audit log for all skills-bridge calls
+- `standing_context` - persistent rules/preferences injected into Section 2 prompt; seeded by Context Builder from Google Keep "Daily Life Rules" and other standing rules
+- `context_builder_runs` / `context_builder_indexed_items` - Context Builder run history and per-item index state; used for delta detection on re-runs
+- `context_corrections` - append-only correction layer over the harvested long-term context; injected into both synthesis prompts and authoritative over them
+- `chat_conversations` / `chat_messages` - the context revision chat's transcript, and the provenance trail for every correction it made
+- `notes` - user and system notes, scoped by `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`
+- `note_revisions` - append-only pre-change state per note mutation, with the skill execution and conversation that caused it; drives the undo and the history panel on `/notes`
+- `feedback_events` - explicit +/- ratings and implicit behavioral signals per extraction
+- `push_subscriptions` - Web Push VAPID subscriptions for PWA notifications

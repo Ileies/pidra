@@ -4,7 +4,7 @@ import { extractJson } from "../ai/openai";
 import { buildPersonalEmailPrompt } from "../ai/prompts";
 import { loadEmailAccounts } from "../config/email-accounts";
 import { emailEffectiveRelevance } from "./email-category";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const CONCURRENCY = 4;
 
@@ -49,6 +49,36 @@ interface PersonalEmailClassification {
 // Resolved once per run, not per item: the whole point is that every item in a run is extracted
 // with the same prompt, and 300 items must not mean 900 lookups.
 type ExtractionPrompts = Record<Extract<PromptSection, "extraction" | "entity_extraction" | "personal_classification">, EffectivePrompt>;
+type ExtractionValues = typeof extractions.$inferInsert;
+
+async function hasSuccessfulExtraction(rawItemId: string): Promise<boolean> {
+  const rows = await db
+    .select({ aiFailed: extractions.aiFailed })
+    .from(extractions)
+    .where(eq(extractions.rawItemId, rawItemId));
+  return rows.some((row) => row.aiFailed !== true);
+}
+
+async function saveExtraction(item: typeof rawItems.$inferSelect, values: ExtractionValues[], succeeded: boolean): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    // Serialise overlapping runs for this item. The second run keeps the first run's IDs,
+    // which may already be referenced by a report, an action or feedback.
+    await tx.execute(sql`SELECT id FROM raw_items WHERE id = ${item.id} FOR UPDATE`);
+    const existing = await tx
+      .select({ aiFailed: extractions.aiFailed })
+      .from(extractions)
+      .where(eq(extractions.rawItemId, item.id));
+    if (existing.some((row) => row.aiFailed !== true)) return true;
+
+    // A failed attempt is one placeholder. Replace it and the new result in one transaction,
+    // so a retry cannot leave half of a newsletter's stories behind.
+    if (existing.length > 0) {
+      await tx.delete(extractions).where(eq(extractions.rawItemId, item.id));
+    }
+    await tx.insert(extractions).values(values);
+    return succeeded;
+  });
+}
 
 async function extractItem(
   item: typeof rawItems.$inferSelect,
@@ -56,6 +86,10 @@ async function extractItem(
   accountCustomInstructions: string | null,
   prompts: ExtractionPrompts
 ): Promise<boolean> {
+  if (await hasSuccessfulExtraction(item.id)) return true;
+
+  let values: ExtractionValues[];
+  let succeeded = true;
   try {
     if (item.sourceType === "newsletter") {
       const [newsletterData, entityData] = await Promise.all([
@@ -63,21 +97,19 @@ async function extractItem(
         extractJson<EntityExtraction>(prompts.entity_extraction.text, item.rawContent ?? ""),
       ]);
 
-      for (const extracted of newsletterData.items) {
-        await db.insert(extractions).values({
-          rawItemId: item.id,
-          runDate,
-          extractedJson: { ...extracted, entities_graph: entityData },
-          relevanceScore: extracted.relevance_score,
-          effectiveRelevance: extracted.relevance_score,
-          novelty: "new",
-          includedInReport: false,
-          aiFailed: false,
-        });
-      }
+      values = newsletterData.items.map((extracted) => ({
+        rawItemId: item.id,
+        runDate,
+        extractedJson: { ...extracted, entities_graph: entityData },
+        relevanceScore: extracted.relevance_score,
+        effectiveRelevance: extracted.relevance_score,
+        novelty: "new",
+        includedInReport: false,
+        aiFailed: false,
+      }));
 
       if (newsletterData.items.length === 0) {
-        await db.insert(extractions).values({
+        values = [{
           rawItemId: item.id,
           runDate,
           extractedJson: { skip_reason: newsletterData.skip_reason },
@@ -86,7 +118,7 @@ async function extractItem(
           novelty: "new",
           includedInReport: false,
           aiFailed: false,
-        });
+        }];
       }
     } else if (item.sourceType === "personal_email" || item.sourceType === "sms") {
       const prompt = buildPersonalEmailPrompt(prompts.personal_classification.text, accountCustomInstructions);
@@ -97,7 +129,7 @@ async function extractItem(
 
       const effectiveRelevance = emailEffectiveRelevance(classification.email_category, classification.urgency);
 
-      await db.insert(extractions).values({
+      values = [{
         rawItemId: item.id,
         runDate,
         extractedJson: classification,
@@ -108,12 +140,14 @@ async function extractItem(
         questionForUser: classification.question_for_user,
         includedInReport: false,
         aiFailed: false,
-      });
+      }];
+    } else {
+      throw new Error(`Unsupported extraction source type: ${item.sourceType}`);
     }
-    return true;
   } catch (err) {
     console.error(`Extraction failed for item ${item.id}:`, err);
-    await db.insert(extractions).values({
+    succeeded = false;
+    values = [{
       rawItemId: item.id,
       runDate,
       extractedJson: null,
@@ -121,9 +155,9 @@ async function extractItem(
       effectiveRelevance: null,
       novelty: "new",
       aiFailed: true,
-    });
-    return false;
+    }];
   }
+  return saveExtraction(item, values, succeeded);
 }
 
 export async function runPhase2(runDate: string): Promise<void> {
@@ -168,7 +202,9 @@ export async function runPhase2(runDate: string): Promise<void> {
     }
   });
 
-  await Promise.allSettled(workers);
+  const settled = await Promise.allSettled(workers);
+  const rejected = settled.find((result) => result.status === "rejected");
+  if (rejected?.status === "rejected") throw rejected.reason;
 
   const failed = results.filter((ok) => !ok).length;
   if (results.length > 0 && failed / results.length > 0.5) {

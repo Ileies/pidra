@@ -35,10 +35,7 @@
   <div class="flex flex-col gap-1">
     <h1 class="text-xl font-bold text-surface-50">Rating log</h1>
     <p class="text-xs text-surface-400 max-w-prose">
-      What you rated, and what the pipeline had decided about it. The per-source totals on a
-      source's own page are the sum of these. Implicit signals - the behavioural ones written at
-      22:00 daily - feed the same scoring, so they are shown too rather than left out to make the
-      explicit ratings look more influential than they are.
+      Implicit signals are recorded at 22:00 daily and count toward source scores.
     </p>
   </div>
 

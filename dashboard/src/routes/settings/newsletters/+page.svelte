@@ -9,7 +9,20 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   $effect(() => toastFormResult(form));
+
+  let editingFeed = $state<PageData["feeds"][number] | null>(null);
+  let submitting = $state(false);
+
+  function closeFeedModal() {
+    editingFeed = null;
+  }
+
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" && editingFeed) closeFeedModal();
+  }
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <Page title="Newsletter sources" size="form" class="flex flex-col gap-6">
   <div>
@@ -31,23 +44,16 @@
       {#each data.feeds as feed (feed.sourceName)}
         <li class="rounded-lg border border-surface-700 bg-surface-900 p-4">
           <div class="flex items-center justify-between gap-2">
-            <strong class="text-sm text-surface-100">{feed.sourceName}</strong>
-            {#if feed.lastError}<Badge tone="error">Fetch failed</Badge>{:else if feed.lastSuccessAt}<Badge tone="success">Fetched</Badge>{/if}
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <strong class="text-sm text-surface-100">{feed.sourceName}</strong>
+              {#if feed.lastError}<Badge tone="error">Fetch failed</Badge>{:else if feed.lastSuccessAt}<Badge tone="success">Fetched</Badge>{/if}
+            </div>
+            <button type="button" onclick={() => (editingFeed = feed)} class="tap shrink-0 rounded border border-surface-600 px-3 py-1.5 text-xs text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors">Edit</button>
           </div>
           <a href={feed.url} target="_blank" rel="noopener noreferrer" class="mt-1 block break-all font-mono text-xs text-primary-300 hover:text-primary-200">{feed.url}</a>
           {#if feed.lastError}
             <p class="mt-2 text-xs text-error-400 break-words" role="alert">{feed.lastError}{feed.lastErrorAt ? ` · ${fmtDateTimeShort(feed.lastErrorAt)}` : ""}</p>
           {/if}
-          <details class="mt-3 border-t border-surface-800 pt-2">
-            <summary class="cursor-pointer text-xs text-surface-300">Edit or remove</summary>
-            <form method="POST" action="?/updateFeed" use:enhance class="mt-3 flex flex-col gap-2">
-              <input type="hidden" name="oldName" value={feed.sourceName} />
-              <label class="text-xs text-surface-400">Source name<input name="sourceName" required maxlength="120" value={feed.sourceName} class="input-base-flush mt-1 w-full" /></label>
-              <label class="text-xs text-surface-400">Feed URL<input name="url" type="url" required value={feed.url} class="input-base-flush mt-1 w-full font-mono" /></label>
-              <button class="tap self-start rounded border border-primary-700 bg-primary-900 px-3 py-1.5 text-xs text-primary-200 cursor-pointer">Save feed</button>
-            </form>
-            <div class="mt-3"><ConfirmButton label="Remove feed" action="?/deleteFeed" fields={{ sourceName: feed.sourceName }} /></div>
-          </details>
         </li>
       {/each}
     </ul>
@@ -80,3 +86,48 @@
     </ul>
   </section>
 </Page>
+
+{#if editingFeed}
+  <div class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10dvh]">
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-surface-950/80 cursor-default" onclick={closeFeedModal}></button>
+
+    <div role="dialog" aria-modal="true" aria-labelledby="edit-feed-title" class="relative w-full max-w-xl max-h-[88dvh] rounded-lg border border-surface-600 bg-surface-900 shadow-2xl overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between gap-3 border-b border-surface-700 px-4 sm:px-5 py-3 shrink-0">
+        <h2 id="edit-feed-title" class="text-sm font-semibold text-surface-100">Edit {editingFeed.sourceName}</h2>
+        <button type="button" onclick={closeFeedModal} aria-label="Close" class="tap text-surface-400 hover:text-surface-200 cursor-pointer bg-transparent border-none px-1">✕</button>
+      </div>
+
+      <form
+        id="feed-form"
+        method="POST"
+        action="?/updateFeed"
+        use:enhance={() => {
+          submitting = true;
+          return async ({ update, result }) => {
+            try {
+              if (result.type === "success") closeFeedModal();
+              await update();
+            } finally {
+              submitting = false;
+            }
+          };
+        }}
+        class="contents"
+      >
+        <input type="hidden" name="oldName" value={editingFeed.sourceName} />
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col gap-3">
+          <label class="flex flex-col gap-1 text-xs text-surface-400">Source name<input name="sourceName" required maxlength="120" value={editingFeed.sourceName} class="input-base-flush w-full" /></label>
+          <label class="flex flex-col gap-1 text-xs text-surface-400">Feed URL<input name="url" type="url" required value={editingFeed.url} class="input-base-flush w-full font-mono" /></label>
+        </div>
+      </form>
+
+      <div class="flex items-center justify-between gap-3 border-t border-surface-700 px-4 sm:px-5 py-3 shrink-0">
+        <ConfirmButton label="Remove feed" action="?/deleteFeed" fields={{ sourceName: editingFeed.sourceName }} onSuccess={closeFeedModal} />
+        <div class="flex gap-2">
+          <button type="button" onclick={closeFeedModal} class="tap px-3 py-1.5 rounded text-xs bg-surface-800 border border-surface-500 text-surface-200 hover:bg-surface-700 cursor-pointer">Cancel</button>
+          <button type="submit" form="feed-form" disabled={submitting} class="tap px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? "Saving…" : "Save feed"}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}

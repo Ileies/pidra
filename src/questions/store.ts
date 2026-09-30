@@ -10,9 +10,14 @@
  * Nothing is deleted. A closed question keeps its status and the reason, and a rephrased one keeps
  * each earlier wording on `history`, so the page can say what changed and a wrong close can be
  * reopened.
+ *
+ * Every write here also appends to `question_events`, an append-only outcome log: `questions`
+ * itself only ever holds the current status and its reason, so a question asked three times then
+ * merged loses every earlier reason the moment the next thing happens to it. The log is what lets
+ * the reconcile step's merge/resolve/drop calls be judged against real history instead of guessed.
  */
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { contacts, db, questions, type QuestionRevision, type QuestionSource } from "../db";
+import { contacts, db, questionEvents, questions, type QuestionRevision, type QuestionSource } from "../db";
 import { activePrompt } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
 
@@ -91,6 +96,29 @@ function sourcesOf(candidates: Candidate[]): QuestionSource[] {
   return candidates.flatMap((c) => (c.source ? [c.source] : []));
 }
 
+/** Only the method the outcome log needs, so it takes either `db` or a transaction inside it. */
+type DbLike = Pick<typeof db, "insert">;
+
+/**
+ * Appends one row to the outcome log. Never throws: a logging failure must not lose the answer,
+ * merge or resolve it is explaining, only be missing from the log of it. Always awaited, though -
+ * inside `applyPlan`'s transaction, a fire-and-forget insert would run concurrently with the next
+ * statement on the same connection.
+ */
+async function logEvent(
+  exec: DbLike,
+  questionId: string,
+  event: string,
+  reason: string | null = null,
+  detail?: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await exec.insert(questionEvents).values({ questionId, event, reason, detail: detail ?? null });
+  } catch (err) {
+    console.error(`[questions] Failed to log ${event} for ${questionId}:`, err);
+  }
+}
+
 /**
  * Applies a plan in one transaction. Returns the ids of the open questions that took one of this
  * run's candidates: those are what the run's Section 2 waits for.
@@ -112,6 +140,7 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
         .update(questions)
         .set({ question: row.question, history: row.history, updatedAt: now })
         .where(and(eq(questions.id, r.id), eq(questions.status, "open")));
+      await logEvent(tx, r.id, "rewritten", r.reason);
     }
 
     for (const r of plan.resolves) {
@@ -120,6 +149,7 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
         .update(questions)
         .set({ status: "resolved", statusDetail: r.reason, updatedAt: now })
         .where(and(eq(questions.id, r.id), eq(questions.status, "open")));
+      await logEvent(tx, r.id, "resolved", r.reason);
       open.delete(r.id);
     }
 
@@ -139,6 +169,7 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
         .update(questions)
         .set({ status: "merged", mergedInto: target.id, statusDetail: m.reason, updatedAt: now })
         .where(and(eq(questions.id, m.id), eq(questions.status, "open")));
+      await logEvent(tx, m.id, "merged", m.reason, { merged_into: target.id });
       open.delete(m.id);
     }
 
@@ -157,6 +188,7 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
           updatedAt: now,
         })
         .where(and(eq(questions.id, id), eq(questions.status, "open")));
+      await logEvent(tx, id, "reasked", null, { candidates: candidates.length });
       touched.add(id);
     }
 
@@ -165,20 +197,25 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
         .insert(questions)
         .values({ kind: c.kind, question: c.question, sources: sourcesOf(c.candidates), firstAsked: today, lastAsked: today })
         .returning({ id: questions.id });
+      await logEvent(tx, row!.id, "asked");
       touched.add(row!.id);
     }
 
     // Kept, not skipped: "the assistant decided not to ask this" is itself worth being able to see.
     for (const d of plan.dropped) {
-      await tx.insert(questions).values({
-        kind: d.candidate.kind,
-        question: d.candidate.question,
-        status: "resolved",
-        statusDetail: d.reason,
-        sources: sourcesOf([d.candidate]),
-        firstAsked: today,
-        lastAsked: today,
-      });
+      const [row] = await tx
+        .insert(questions)
+        .values({
+          kind: d.candidate.kind,
+          question: d.candidate.question,
+          status: "resolved",
+          statusDetail: d.reason,
+          sources: sourcesOf([d.candidate]),
+          firstAsked: today,
+          lastAsked: today,
+        })
+        .returning({ id: questions.id });
+      await logEvent(tx, row!.id, "dropped", d.reason);
     }
 
     return [...touched];
@@ -226,6 +263,7 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
     .where(and(eq(questions.id, id), eq(questions.status, "open")))
     .returning();
   if (!updated) throw new QuestionError("conflict", "This question was closed in the meantime");
+  await logEvent(db, id, "answered");
 
   const senders = [...new Set(updated.sources.map((s) => s.from.toLowerCase()))];
   if (updated.kind === "item" && senders.length === 1 && senders[0]!.includes("@")) {
@@ -266,7 +304,10 @@ export async function dismissQuestion(id: string): Promise<Question> {
     .set({ status: "dismissed", statusDetail: "Dismissed by the reader.", blocksUntil: null, updatedAt: sql`now()` })
     .where(and(eq(questions.id, id), eq(questions.status, "open")))
     .returning();
-  if (updated) return updated;
+  if (updated) {
+    await logEvent(db, id, "dismissed", "Dismissed by the reader.");
+    return updated;
+  }
   const row = await getQuestion(id);
   throw new QuestionError("conflict", `This question is already ${row.status}`);
 }
@@ -289,6 +330,7 @@ export async function reopenQuestion(id: string): Promise<Question> {
     .where(and(eq(questions.id, id), inArray(questions.status, REOPENABLE)))
     .returning();
   if (!updated) throw new QuestionError("conflict", "This question changed in the meantime");
+  await logEvent(db, id, "reopened");
   return updated;
 }
 

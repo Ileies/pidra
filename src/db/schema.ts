@@ -404,6 +404,30 @@ export const questions = pgTable("questions", {
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
 
+/**
+ * Append-only outcome log for `questions`: one row per thing that happened to a question - asked,
+ * asked again, rewritten, answered, dismissed, reopened, merged, resolved, dropped - each with the
+ * reason it happened, if there was one. `questions.status`/`status_detail` only ever hold the
+ * current state, so a row asked three times then merged into another loses every reason but the
+ * last the moment the next thing happens to it; this table exists so the reconcile step's merge,
+ * resolve and drop calls can be judged against a week of real decisions instead of guessed at.
+ *
+ * `src/questions/store.ts` is the only writer, and every insert happens in the same transaction as
+ * the `questions` row change it explains.
+ */
+export const questionEvents = pgTable("question_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  questionId: uuid("question_id")
+    .notNull()
+    .references(() => questions.id, { onDelete: "cascade" }),
+  // asked | reasked | rewritten | answered | dismissed | reopened | merged | resolved | dropped
+  event: text("event").notNull(),
+  reason: text("reason"),
+  /** Extra context an event needs, e.g. `{"merged_into": "<id>"}` on a merge. Never another table's data. */
+  detail: jsonb("detail"),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+});
+
 export interface StepAttemptError {
   step: string;
   attempt: number;

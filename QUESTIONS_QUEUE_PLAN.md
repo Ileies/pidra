@@ -49,7 +49,7 @@ Done when at least one non-email, non-weekly-review source can produce a candida
 
 ## P3: observability and tuning
 
-- [ ] Add an outcome log for questions (mirroring `report_actions`): asked, answered, dismissed, merged, resolved, with reasons, so the reconcile step's merge/resolve/drop decisions can be judged on real data rather than assumption.
+- [x] Added `question_events` (migration `migrations/0031_question_events.sql`, applied live), an append-only log distinct from `report_actions`' own shape: that table mutates one row's `status` in place, which is exactly the thing `questions` already does and exactly what loses history (a question asked three times then merged only ever shows the last reason). `question_events` instead gets one row per thing that happens - `asked`, `reasked`, `rewritten`, `answered`, `dismissed`, `reopened`, `merged`, `resolved`, `dropped` - each with the reason from the reconcile call (or the reader) that caused it, plus a `detail` jsonb for the one or two events that need more context (`merged` carries `merged_into`, `reasked` carries how many candidates attached). `src/questions/store.ts` stays the only writer: every branch of `applyPlan()` logs inside the same transaction as the row change it explains, and `answerQuestion`/`dismissQuestion`/`reopenQuestion` log right after their own update commits. A logging failure is caught and reported, never allowed to roll back or lose the answer/merge/resolve it was explaining. Verified live: `bun run check` (root and dashboard, 103 tests) green, and a throwaway dismiss/reopen round-trip against the real DB produced exactly the two expected `question_events` rows with the right reasons before being deleted.
 - [ ] Run the pipeline for at least a week after P0-P2 land and review `scripts/questions-dry-run.ts` output plus the new outcome log with the owner before tuning further, consistent with CLAUDE.md's standing direction to judge the system against real mornings rather than untested assumptions.
 
 Done when a week of real question-queue behavior (counts, quality, resolution reasons) can be reviewed from data instead of gut feel.
@@ -65,7 +65,7 @@ Done when a week of real question-queue behavior (counts, quality, resolution re
 - `src/pipeline/phase2-extract.ts`, `src/ai/prompts/extraction.ts` - `PERSONAL_EMAIL_PROMPT`, `unknown_context`/`question_for_user` fields
 - `src/pipeline/phase4-questiongate.ts` - `candidatesFor()`, blocking/poll loop for Section 2
 - `src/pipeline/weekly-review.ts` - `WEEKLY_REVIEW_PROMPT`, `SYNTHESIS_PROMPT`, `absorbReviewAnswers()`
-- `src/db/schema.ts` - `questions` table and `QuestionSource`/`QuestionRevision` types
+- `src/db/schema.ts` - `questions` table and `QuestionSource`/`QuestionRevision` types; `question_events`, the append-only outcome log (P3)
 - `docs/architecture-rules.md` - "Questions are one standing queue, answered one at a time" (owner decision, 2026-09-28)
 - `docs/operations.md` - cron schedule (daily pipeline 06:30, weekly review Sunday 20:00, entity pruning Sunday 02:00)
 - `docs/todo/now.md` - adjacent quick-actions mismatch and question-gate test-coverage gaps

@@ -416,7 +416,8 @@
     </section>
   {/if}
 
-  <div class="flex flex-col gap-4 min-w-0" bind:this={contentRoot}>
+  <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_14rem] xl:items-start xl:gap-6">
+    <div class="flex flex-col gap-4 min-w-0" bind:this={contentRoot}>
     {#if data.doc}
       <!-- Search reaches into both tabs at once: the highlighted HTML for a tab still renders
            fine while that tab is hidden, so a match in the tab you are not looking at is found
@@ -528,6 +529,42 @@
         </p>
       </section>
     {/if}
+    </div>
+
+    {#if docHeadings.length > 0 || summarySections.length > 0}
+      <nav
+        aria-label="Quick links"
+        class="hidden xl:flex xl:flex-col gap-3 sticky top-[calc(var(--header-h)+1rem)] max-h-[calc(100dvh-var(--header-h)-2rem)] overflow-y-auto text-sm"
+      >
+        {#if docHeadings.length > 0}
+          <div class="flex flex-col gap-0.5">
+            <span class="text-surface-500 text-xs uppercase tracking-wide font-semibold">Document</span>
+            {#each docHeadings as heading (heading.id)}
+              <button
+                type="button"
+                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer {activeSectionId === heading.id ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
+                onclick={() => jumpTo(heading.id, "document")}
+              >{heading.title}</button>
+            {/each}
+          </div>
+        {/if}
+        {#if summarySections.length > 0}
+          <div class="flex flex-col gap-0.5">
+            <span class="text-surface-500 text-xs uppercase tracking-wide font-semibold">Source summaries</span>
+            {#each summarySections as section (section.key)}
+              <button
+                type="button"
+                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer flex items-baseline justify-between gap-2 {activeSectionId === `summary-${section.key}` ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
+                onclick={() => jumpTo(`summary-${section.key}`, "summaries")}
+              >
+                <span>{section.title}</span>
+                <span class="text-surface-500 tabular-nums shrink-0">{fmtNum(section.chars)}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </nav>
+    {/if}
   </div>
 </Page>
 
@@ -548,7 +585,7 @@
 {#if showBackToTop}
   <button
     type="button"
-    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-30 right-4 top-1/2 -translate-y-1/2 transition-opacity"
+    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-30 left-1/2 -translate-x-1/2 bottom-[calc(4.5rem+var(--safe-b))] xl:bottom-[calc(1.5rem+var(--safe-b))] transition-opacity"
     onclick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
     aria-label="Back to top"
   >↑ Top</button>

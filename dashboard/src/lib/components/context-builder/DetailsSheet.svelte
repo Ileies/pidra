@@ -117,7 +117,9 @@
     </div>
 
     {#if docHeadings.length > 0 || sections.length > 0}
-      <div class="flex flex-col gap-3 text-sm">
+      <!-- xl+ already has a persistent Quick Links rail alongside the document; this stays for
+           mobile, where there is no room for it. -->
+      <div class="flex flex-col gap-3 text-sm xl:hidden">
         <span class="text-surface-500 text-xs uppercase tracking-wide font-semibold">Quick links</span>
         {#if docHeadings.length > 0}
           <div class="flex flex-col gap-0.5">

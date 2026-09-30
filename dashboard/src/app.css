@@ -436,6 +436,10 @@
   border: 1px solid var(--app-border);
   border-radius: 3px;
   padding: 0.1em 0.35em;
+  /* Skeleton's own `code` utility sets `white-space: nowrap` globally (short inline snippets,
+     not prose). Undone here, specifically, or every inline `<code>` span in rendered markdown
+     - which never guarantees a break - overflows its container regardless of `overflow-wrap`. */
+  white-space: normal;
 }
 .report-body pre {
   background: var(--app-panel);

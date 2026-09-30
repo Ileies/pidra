@@ -69,14 +69,27 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+// A deploy makes about ten `remote()` calls; without reuse each pays its own SSH handshake
+// (~170-250ms measured). `ControlMaster` multiplexes them all over one connection, opened once
+// below so it doesn't depend on the workstation's `~/.ssh/config`.
+const SSH_CONTROL_PATH = `${process.env.TMPDIR ?? "/tmp"}/pidra-deploy-${HOST}.sock`;
+const SSH_OPTS = ["-o", "ConnectTimeout=10", "-o", "ControlMaster=auto", "-o", `ControlPath=${SSH_CONTROL_PATH}`, "-o", "ControlPersist=60s"];
+
 /** Runs a command on the server. Quoted as one argv entry, so the remote shell sees it verbatim. */
 async function remote(script: string): Promise<string> {
   if (DRY) {
     console.log(`  [dry-run] ssh ${HOST}: ${script}`);
     return "";
   }
-  const out = await $`ssh -o ConnectTimeout=10 ${HOST} ${script}`.text();
+  const out = await $`ssh ${SSH_OPTS} ${HOST} ${script}`.text();
   return out.trim();
+}
+
+if (!DRY) {
+  // Opens the shared connection up front and waits for it, so the calls below that run
+  // concurrently (install/build, the verify loops) multiplex an existing master instead of
+  // racing each other to become it.
+  await $`ssh ${SSH_OPTS} -MNf ${HOST}`.quiet();
 }
 
 // === PREFLIGHT: LOCAL ===
@@ -122,30 +135,47 @@ if (ahead !== "0") {
   else await $`git push origin ${branch}`;
 }
 
-if (!flag("skip-check")) {
-  const quickCheck = flag("quick-check");
-  step(quickCheck ? "bun run check --quick" : "bun run check");
-  if (DRY) {
-    console.log(`  [dry-run] bun run check${quickCheck ? " --quick" : ""} (root + dashboard)`);
-  } else {
-    // Root's own `check` script already ends by running the dashboard's, blackhole included - a
-    // second, separately-scoped call here would just rerun that same suite a second time.
-    const checkArgs = quickCheck ? ["--quick"] : [];
-    await $`bun run check ${checkArgs}`.quiet().catch(() => fail("`bun run check` failed - not deploying"));
+// === PREFLIGHT: LOCAL CHECK + REMOTE DIRTY CHECK (concurrent) ===
+
+step(`Local check + preflight (${HOST})`);
+
+const quickCheck = flag("quick-check");
+
+const localCheckFailure = flag("skip-check")
+  ? Promise.resolve(null as string | null)
+  : (async (): Promise<string | null> => {
+      if (DRY) {
+        console.log(`  [dry-run] bun run check${quickCheck ? " --quick" : ""} (root + dashboard)`);
+        return null;
+      }
+      // Root's own `check` script already ends by running the dashboard's, blackhole included - a
+      // second, separately-scoped call here would just rerun that same suite a second time.
+      const checkArgs = quickCheck ? ["--quick"] : [];
+      return $`bun run check ${checkArgs}`
+        .quiet()
+        .then(() => null)
+        .catch(() => "`bun run check` failed - not deploying");
+    })();
+
+const remoteDirtyFailure = (async (): Promise<string | null> => {
+  const remoteDirty = await remote(`cd ${REMOTE_ROOT} && git status --porcelain`);
+  if (!remoteDirty) return null;
+  console.error(remoteDirty);
+  return `${HOST}:${REMOTE_ROOT} has local modifications - a pull would conflict. Resolve them there first.`;
+})();
+
+const [localFailure, remoteFailure] = await Promise.all([localCheckFailure, remoteDirtyFailure]);
+for (const failure of [localFailure, remoteFailure]) {
+  if (failure) console.error(`\n\x1b[31m✗ ${failure}\x1b[0m`);
+}
+if (localFailure || remoteFailure) process.exit(1);
+
+if (!DRY) {
+  if (!flag("skip-check")) {
     console.log(quickCheck ? "  root and dashboard both pass (quick - blackhole was skipped)" : "  root and dashboard both pass");
   }
+  console.log(`  ${REMOTE_ROOT} is clean`);
 }
-
-// === PREFLIGHT: REMOTE ===
-
-step(`Preflight (${HOST})`);
-
-const remoteDirty = await remote(`cd ${REMOTE_ROOT} && git status --porcelain`);
-if (remoteDirty) {
-  console.error(remoteDirty);
-  fail(`${HOST}:${REMOTE_ROOT} has local modifications - a pull would conflict. Resolve them there first.`);
-}
-if (!DRY) console.log(`  ${REMOTE_ROOT} is clean`);
 
 // === PULL ===
 
@@ -171,8 +201,11 @@ for (const { path, filters = [] } of SYNC) {
 // === INSTALL AND BUILD ===
 
 step("Installing dependencies and building the dashboard");
-await remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile`);
-await remote(`cd ${REMOTE_ROOT}/dashboard && bun install --frozen-lockfile && bun run build`);
+// Separate `node_modules`, no shared writes - root's install has nothing the dashboard build reads.
+await Promise.all([
+  remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile`),
+  remote(`cd ${REMOTE_ROOT}/dashboard && bun install --frozen-lockfile && bun run build`),
+]);
 if (!DRY) console.log("  built");
 
 // === RESTART ===
@@ -184,8 +217,10 @@ await remote(`systemctl restart ${SERVICES.join(" ")}`);
 
 step("Verifying");
 
-for (const service of SERVICES) {
-  const state = await remote(`systemctl is-active ${service} || true`);
+const serviceStates = await Promise.all(
+  SERVICES.map(async (service) => ({ service, state: await remote(`systemctl is-active ${service} || true`) })),
+);
+for (const { service, state } of serviceStates) {
   if (DRY) continue;
   const ok = state === "active";
   console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${service}: ${state}`);
@@ -203,8 +238,13 @@ for (const service of SERVICES) {
 // to get wrong in a build. `/context-builder` is requested too: it is the one route that reads a
 // file off disk, so it fails when the harvest did not come across.
 const port = (await remote(`systemctl show pidra-dashboard -p Environment --value | tr ' ' '\\n' | grep '^PORT=' | cut -d= -f2`)) || "3009";
-for (const path of ["/", "/context-builder"]) {
-  const code = await remote(`curl -fsSL -o /dev/null -w '%{http_code}' --max-time 30 http://localhost:${port}${path} || true`);
+const verifyResults = await Promise.all(
+  ["/", "/context-builder"].map(async (path) => ({
+    path,
+    code: await remote(`curl -fsSL -o /dev/null -w '%{http_code}' --max-time 30 http://localhost:${port}${path} || true`),
+  })),
+);
+for (const { path, code } of verifyResults) {
   if (DRY) continue;
   const ok = code === "200";
   console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${path} on :${port} answered ${code || "nothing"}`);
@@ -223,6 +263,12 @@ const context = await remote(
 if (!DRY) {
   const ok = !context.includes("0 chars") && context.endsWith("ok");
   console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[33m!\x1b[0m"} long-term context: ${context}`);
+}
+
+if (!DRY) {
+  // Tears down the shared connection rather than waiting out `ControlPersist=60s` - nothing left
+  // to reuse it after this.
+  await $`ssh ${SSH_OPTS} -O exit ${HOST}`.quiet().catch(() => {});
 }
 
 console.log(

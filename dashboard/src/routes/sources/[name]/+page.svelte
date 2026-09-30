@@ -9,6 +9,7 @@
   import type { Column } from "#lib/components/table.js";
   import { fmtDate, fmtDateTime, fmtPct, fmtScore } from "#lib/format.js";
   import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
+  import { sourceItemDetailHref } from "#lib/sourceLinks.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -226,7 +227,7 @@
                   </span>
                   <div class="flex-1 min-w-0 flex flex-col gap-1">
                     <a
-                      href="/{item.runDate ?? delivery.runDate}/detail/{item.id}"
+                      href={sourceItemDetailHref(item.runDate ?? delivery.runDate, item.id)}
                       class="text-sm leading-snug no-underline hover:text-primary-400 transition-colors
                         {skipped ? 'text-surface-400 italic' : 'text-surface-200'}"
                     >

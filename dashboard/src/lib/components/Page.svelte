@@ -11,10 +11,7 @@
    * the viewport: the report's stats bar.
    */
   import type { Snippet } from "svelte";
-  import { page } from "$app/state";
   import { PAGE_PADDING, PAGE_SIZES, PAGE_VERTICAL, type PageSize } from "#lib/ui/layout.js";
-  import { MIRRORED_ROUTES } from "#lib/routes.js";
-  import SyncAge from "#lib/offline/SyncAge.svelte";
 
   interface Props {
     size?: PageSize;
@@ -28,9 +25,6 @@
   }
 
   let { size = "app", title, bleed, class: extra = "", children }: Props = $props();
-
-  // Here rather than per page, so a new mirrored page cannot forget to say how old its data is.
-  const mirrored = $derived(MIRRORED_ROUTES.has(page.route.id ?? ""));
 </script>
 
 <svelte:head>
@@ -40,7 +34,6 @@
 <div class="flex flex-1 flex-col min-h-0">
   {@render bleed?.()}
   <main class="flex-1 w-full mx-auto {PAGE_SIZES[size]} {PAGE_PADDING} {PAGE_VERTICAL} {extra}">
-    {#if mirrored}<div class="col-span-full"><SyncAge /></div>{/if}
     {@render children()}
   </main>
 </div>

@@ -574,7 +574,6 @@ async function runLane(browser: Awaited<ReturnType<typeof chromium.launch>>, lan
         async (deadline) => {
           await page.goto(`${proxy.origin}${path}`, { waitUntil: "commit", timeout: remaining(deadline) });
           await visible(page.getByText(text), deadline);
-          if (MIRRORED_ROUTES.has(id)) await visible(page.getByText(/^(Synced|Offline copy, synced)/), deadline);
           if (id === "/" && new URL(page.url()).pathname !== `/${F.TODAY}`) throw new Error(`/ resolved to ${page.url()}`);
         },
         page,

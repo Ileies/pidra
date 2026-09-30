@@ -36,7 +36,6 @@ const BACKOFF_AFTER = 10;
 const RESUME_SYNC_AFTER_MS = 5 * 60_000;
 /** The worker's periodic refresh. A hint: the browser decides the real cadence from engagement. */
 const PERIODIC_SYNC_MS = 12 * 60 * 60_000;
-const CLOCK_MS = 30_000;
 
 /** Periodic Background Sync, which lib.dom does not type. */
 interface PeriodicSyncRegistration {
@@ -69,8 +68,6 @@ class OfflineState {
   lastResult = $state<SyncResult | null>(null);
   /** Whether the browser promised not to evict the mirror and the outbox. Null: not known. */
   persisted = $state<boolean | null>(null);
-  /** Ticks while visible, so a "synced 5 min ago" on an open page does not stay 5 min forever. */
-  now = $state(Date.now());
 
   #started = false;
   #consecutiveFailures = 0;
@@ -120,9 +117,6 @@ class OfflineState {
       });
       void registerPeriodicSync();
     }
-    setInterval(() => {
-      if (!document.hidden) this.now = Date.now();
-    }, CLOCK_MS);
     const probeAndReschedule = () => this.probe().then(() => this.#reschedule());
     window.addEventListener("online", probeAndReschedule);
     window.addEventListener("offline", () => net.markOffline());
@@ -131,7 +125,6 @@ class OfflineState {
         this.#hiddenAt = Date.now();
         clearTimeout(this.#pollTimer);
       } else {
-        this.now = Date.now();
         const longAway = this.#hiddenAt > 0 && Date.now() - this.#hiddenAt > RESUME_SYNC_AFTER_MS;
         probeAndReschedule().then(() => void sync({ force: longAway }));
         this.refresh();
@@ -150,7 +143,6 @@ class OfflineState {
     this.pending = pending;
     this.failed = failed;
     this.lastSyncedAt = lastSyncedAt;
-    this.now = Date.now();
     this.mirroredReportCount = reports.length;
     this.oldestMirroredDate = reports.map((r) => r.date).sort()[0] ?? null;
     this.persisted = persisted;

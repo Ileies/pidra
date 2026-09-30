@@ -278,6 +278,12 @@ export const notes = pgTable("notes", {
   updatedBy: text("updated_by"), // user | chat | system - never rewrites createdBy
   /** Soft delete. Every consumer must filter `deleted_at IS NULL`. */
   deletedAt: timestamptz("deleted_at"),
+  /**
+   * The review question(s) `absorbReviewAnswers` (`src/pipeline/weekly-review.ts`) drew this note
+   * from, so a bad insight can be traced back to what was actually asked and answered. Empty for a
+   * note from any other source.
+   */
+  sourceQuestionIds: uuid("source_question_ids").array().notNull().default(sql`'{}'::uuid[]`),
 });
 
 /**

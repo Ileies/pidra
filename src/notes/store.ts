@@ -34,6 +34,8 @@ export interface NoteWrite {
   scope?: string;
   /** `null` clears the expiry; omitted leaves it untouched. */
   expiresAt?: string | null;
+  /** The review question(s) this note was drawn from (`absorbReviewAnswers`). Create-only. */
+  sourceQuestionIds?: string[];
 }
 
 export interface ListOptions {
@@ -120,6 +122,7 @@ export async function createNote(input: NoteWrite & { content: string; id?: stri
       content,
       scope: normaliseScope(input.scope ?? "global"),
       expiresAt: input.expiresAt === undefined ? null : normaliseExpiry(input.expiresAt),
+      ...(input.sourceQuestionIds?.length ? { sourceQuestionIds: input.sourceQuestionIds } : {}),
       // Provenance of the *creation*, and never rewritten afterwards. A later edit only sets
       // `updated_by`, so a Phase 6 note the user fixed still reads as pipeline-written.
       createdBy: actor.by,

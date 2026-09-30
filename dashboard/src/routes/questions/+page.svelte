@@ -53,6 +53,11 @@
   }
 
   const waiting = $derived(data.open.filter((q) => q.blockingMinutesLeft !== null));
+
+  function kindBadge(q: PageData["open"][number]): string {
+    if (q.kind === "review") return "Weekly review";
+    return q.sources[0]?.source_type === "entity" ? "Entity" : "Mail";
+  }
 </script>
 
 {#snippet sources(list: PageData["open"][number]["sources"])}
@@ -79,7 +84,7 @@
   {#if data.open.length === 0}
     <EmptyState
       title="No open questions."
-      hint="Questions come in when mail arrives from a sender the system cannot place, and with the weekly review. They wait here until you answer them."
+      hint="Questions come in when mail arrives from a sender the system cannot place, when an entity keeps recurring without the system ever placing it, and with the weekly review. They wait here until you answer them."
     />
   {:else}
     <div class="flex flex-col gap-1">
@@ -98,7 +103,7 @@
       {#each data.open.slice(0, visibleOpen) as q (q.id)}
         <li class="rounded-lg border bg-surface-900 p-4 sm:p-5 {q.blockingMinutesLeft !== null ? 'border-warning-800' : 'border-surface-700'}">
           <div class="flex flex-wrap items-center gap-2 mb-2">
-            <Badge tone="muted">{q.kind === "review" ? "Weekly review" : "Mail"}</Badge>
+            <Badge tone="muted">{kindBadge(q)}</Badge>
             {#if q.blockingMinutesLeft !== null}
               <Badge tone="warning">Briefing waiting · {q.blockingMinutesLeft}m left</Badge>
             {/if}

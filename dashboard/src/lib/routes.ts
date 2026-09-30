@@ -189,6 +189,7 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.skills,
     secondary: true,
+    children: ["/skills/executions"],
   },
   {
     href: "/prompts",
@@ -360,6 +361,7 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/sources/[name]": { label: "Sources", reason: "A source's delivery history is a live query against the pipeline's own tables." },
   "/feedback": { label: "Feedback", reason: "The rating log is a live query against the pipeline's own tables." },
   "/skills": { label: "Skills", reason: "The approval queue and execution log are live state, not something a cache can represent honestly." },
+  "/skills/executions": { label: "Recent executions", reason: "Skill execution history is live state and may contain results that are not available offline." },
   "/prompts": { label: "Prompts", reason: "Prompt versions are a live query against the pipeline's own tables." },
   "/runs": { label: "Runs", reason: "Pipeline run history is a live query against the pipeline's own tables." },
   "/questions": { label: "Questions", reason: "The question queue is live state: an answer queued offline could land on a question the pipeline has since merged or closed." },

@@ -24,7 +24,7 @@ export interface SkillInfo {
   overridden: boolean;
 }
 
-interface SkillExecution {
+interface PendingExecution {
   id: string;
   run_date: string;
   skill_name: string;
@@ -36,11 +36,12 @@ interface SkillExecution {
 }
 
 export const load: PageServerLoad = async () => {
-  const [skillsRes, rows] = await Promise.all([
+  const [skillsRes, pendingRows] = await Promise.all([
     fetch(`${API}/skills`).catch(() => null),
     sql()`
       SELECT id, run_date, skill_name, parameters, status, result, triggered_by, created_at
       FROM skill_executions
+      WHERE status = 'pending'
       ORDER BY created_at DESC
       LIMIT 100
     `,
@@ -48,17 +49,16 @@ export const load: PageServerLoad = async () => {
 
   const skills: SkillInfo[] = skillsRes?.ok ? await skillsRes.json() : [];
 
-  const executions = rows.map((row) => ({
+  const pending = pendingRows.map((row) => ({
     ...row,
     parameters: parseJsonb<Record<string, unknown> | null>(row.parameters, null),
-  })) as SkillExecution[];
+  })) as PendingExecution[];
 
   // `pending` means a high-risk call is waiting for the owner. It leads the page rather than
   // sitting somewhere in a reverse-chronological log: it is the one thing here that blocks.
   return {
     skills,
-    executions: executions.filter((execution) => execution.status !== "pending"),
-    pending: executions.filter((execution) => execution.status === "pending"),
+    pending,
   };
 };
 

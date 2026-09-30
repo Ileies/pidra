@@ -12,7 +12,6 @@
   import Badge from "#lib/components/Badge.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { SkillInfo } from "./+page.server";
   import type { PageData, ActionData } from "./$types";
@@ -30,23 +29,6 @@
     critical: "error",
   } as const;
 
-  const STATUS_TONE = {
-    pending: "warning",
-    executed: "success",
-    failed: "error",
-    rejected: "muted",
-  } as const;
-
-  let usageBySkill = $derived.by(() => {
-    const map = new Map<string, { count: number; lastAt: string }>();
-    for (const exec of data.executions) {
-      const existing = map.get(exec.skill_name);
-      if (existing) existing.count += 1;
-      else map.set(exec.skill_name, { count: 1, lastAt: exec.created_at });
-    }
-    return map;
-  });
-
   let searchQuery = $state("");
 
   let filteredSkills = $derived.by(() => {
@@ -57,11 +39,6 @@
   });
 
   let expandedSkills = $state<Record<string, boolean>>({});
-  let expandedExecs = $state<Record<string, boolean>>({});
-
-  const EXECS_PAGE = 20;
-  let visibleExecs = $state(EXECS_PAGE);
-
   function params(skill: SkillInfo) {
     return Object.entries(skill.parameters ?? {});
   }
@@ -147,7 +124,6 @@
       <ul class="flex flex-col gap-2">
         {#each filteredSkills as skill (skill.name)}
           {@const open = !!expandedSkills[skill.name]}
-          {@const usage = usageBySkill.get(skill.name)}
           <li class="rounded-lg border border-surface-700 bg-surface-900 {skill.enabled ? '' : 'opacity-60'}">
             <button
               type="button"
@@ -170,13 +146,6 @@
                 {#if skill.overridden}<Badge tone="primary">Edited</Badge>{/if}
               </span>
               <span class="text-sm text-surface-300">{skill.description}</span>
-              <span class="text-xs text-surface-400">
-                {#if usage}
-                  {usage.count}x · last {fmtDateTimeShort(usage.lastAt)}
-                {:else}
-                  Not used yet
-                {/if}
-              </span>
             </button>
 
             {#if open}
@@ -254,57 +223,5 @@
     {/if}
   </section>
 
-  <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold text-surface-100">Recent executions</h2>
-
-    {#if data.executions.length === 0}
-      <EmptyState title="No skill executions yet." compact />
-    {:else}
-      <ul class="flex flex-col gap-2">
-        {#each data.executions.slice(0, visibleExecs) as exec (exec.id)}
-          {@const open = !!expandedExecs[exec.id]}
-          <li class="rounded-lg border border-surface-800 bg-surface-900">
-            <button
-              type="button"
-              aria-expanded={open}
-              onclick={() => (expandedExecs[exec.id] = !open)}
-              class="tap w-full text-left px-4 py-2.5 flex flex-wrap items-center gap-2 cursor-pointer bg-transparent border-none"
-            >
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                class="w-3 h-3 shrink-0 text-surface-400 transition-transform {open ? 'rotate-90' : ''}"
-                aria-hidden="true"
-              ><path d="M7 5l6 5-6 5V5z" /></svg>
-              <span class="font-mono text-surface-100 text-sm break-all">{exec.skill_name}</span>
-              <Badge tone={STATUS_TONE[exec.status as keyof typeof STATUS_TONE] ?? "muted"}>
-                {displayLabel(exec.status)}
-              </Badge>
-              <span class="text-xs text-surface-400">{exec.triggered_by ?? "-"}</span>
-              <span class="text-xs text-surface-400 ml-auto whitespace-nowrap">{fmtDateTimeShort(exec.created_at)}</span>
-            </button>
-
-            {#if open}
-              <div class="border-t border-surface-800 px-4 py-3 bg-surface-950 rounded-b-lg">
-                {#if exec.parameters && Object.keys(exec.parameters).length > 0}
-                  <pre class="text-xs text-surface-200 bg-surface-950 border border-surface-800 rounded px-3 py-2 overflow-x-auto mb-2">{JSON.stringify(exec.parameters, null, 2)}</pre>
-                {/if}
-                {#if exec.result}
-                  <p class="text-sm {exec.status === 'failed' ? 'text-error-400' : 'text-surface-200'} break-words">{exec.result}</p>
-                {/if}
-                <p class="text-xs text-surface-400 mt-2 break-all">{exec.run_date} · id {exec.id}</p>
-              </div>
-            {/if}
-          </li>
-        {/each}
-      </ul>
-      {#if visibleExecs < data.executions.length}
-        <button
-          type="button"
-          onclick={() => (visibleExecs += EXECS_PAGE)}
-          class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer"
-        >Show more ({data.executions.length - visibleExecs} more)</button>
-      {/if}
-    {/if}
-  </section>
+  <a href="/skills/executions" class="tap self-start text-sm text-primary-400 hover:text-primary-300">Recent executions →</a>
 </Page>

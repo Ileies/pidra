@@ -176,22 +176,14 @@
                   class="tap px-3 py-1.5 rounded text-xs border border-success-600 text-success-400 hover:bg-success-950 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >Reactivate</button>
               {/if}
-              {#if topic.status === "active"}
-                <button
-                  type="submit"
-                  disabled={isOffline}
-                  name="status"
-                  value="dormant"
-                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                >Dormant</button>
-              {:else if topic.status === "dormant"}
+              {#if topic.status === "active" || topic.status === "dormant"}
                 <button
                   type="submit"
                   disabled={isOffline}
                   name="status"
                   value="archived"
                   class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                >Archive</button>
+                >Remove</button>
               {/if}
               {#if topic.status !== "resolved"}
                 <button

@@ -71,7 +71,6 @@ export async function executeSkill(
     return { status: "rejected", message, executionId: execRow.id };
   }
 
-  // Risk level: the dashboard override (if any) always wins over the code-defined default.
   if (riskLevel === "critical") {
     await db.update(skillExecutions).set({ status: "rejected" }).where(eq(skillExecutions.id, execRow.id));
     return {

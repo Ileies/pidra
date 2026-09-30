@@ -10,7 +10,7 @@ import { synthesize } from "../ai/openai";
 import { braveSearch } from "../search/brave";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { executeSkill, resolvePendingSkill } from "../skills/execute";
-import { listEffectiveSkills, patchSkill, resetSkill, SkillOverrideError } from "../skills/overrides";
+import { listEffectiveSkills, setSkillEnabled, SkillToggleError } from "../skills/overrides";
 import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
 import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
 import { ActionError, dismissAction, restoreAction, runAction } from "../actions/store";
@@ -30,27 +30,13 @@ app.get("/skills", async (c) => c.json(await listEffectiveSkills()));
 
 app.patch("/skills/:name", async (c) => {
   const name = c.req.param("name");
-  const body = await c.req.json().catch(() => ({})) as {
-    enabled?: boolean;
-    risk_level?: "low" | "medium" | "high" | "critical";
-    description?: string;
-    parameter_descriptions?: Record<string, string>;
-  };
+  const body = await c.req.json().catch(() => ({})) as { enabled?: boolean };
+  if (typeof body.enabled !== "boolean") return c.json({ error: "enabled must be a boolean" }, 400);
 
   try {
-    return c.json(await patchSkill(name, body));
+    return c.json(await setSkillEnabled(name, body.enabled));
   } catch (err) {
-    if (err instanceof SkillOverrideError) return c.json({ error: err.message }, 400);
-    throw err;
-  }
-});
-
-app.delete("/skills/:name/override", async (c) => {
-  const name = c.req.param("name");
-  try {
-    return c.json(await resetSkill(name));
-  } catch (err) {
-    if (err instanceof SkillOverrideError) return c.json({ error: err.message }, 404);
+    if (err instanceof SkillToggleError) return c.json({ error: err.message }, 400);
     throw err;
   }
 });

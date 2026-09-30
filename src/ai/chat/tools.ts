@@ -17,8 +17,7 @@ function toJsonSchema(skill: EffectiveSkill): Record<string, unknown> {
 
 /**
  * Only this surface's skills, so the model cannot announce an edit it is not allowed to make.
- * Goes through the override layer so a skill disabled from /skills is never offered, and an
- * edited description/risk level reaches the model exactly as an operator set it.
+ * Goes through the effective-skill layer so a skill disabled from /skills is never offered.
  */
 export async function skillTools(surface: Surface): Promise<FunctionTool[]> {
   const allowed = new Set(SURFACES[surface].skills);

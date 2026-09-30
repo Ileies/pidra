@@ -1,123 +1,50 @@
 import { eq } from "drizzle-orm";
-import { db, skillOverrides } from "../db";
+import { db, disabledSkills } from "../db";
 import { getSkill, listSkills, type RiskLevel, type Skill } from "./loader";
 
-export interface SkillOverrideRow {
-  skillName: string;
-  enabled: boolean;
-  riskLevelOverride: RiskLevel | null;
-  descriptionOverride: string | null;
-  parameterDescriptionOverrides: Record<string, string> | null;
-}
+export class SkillToggleError extends Error {}
 
-export interface SkillPatch {
-  enabled?: boolean;
-  risk_level?: RiskLevel;
-  description?: string;
-  parameter_descriptions?: Record<string, string>;
-}
-
-const RISK_LEVELS: RiskLevel[] = ["low", "medium", "high", "critical"];
-
-export class SkillOverrideError extends Error {}
-
-export async function getOverride(skillName: string): Promise<SkillOverrideRow | null> {
-  const [row] = await db.select().from(skillOverrides).where(eq(skillOverrides.skillName, skillName)).limit(1);
-  return row ? (row as SkillOverrideRow) : null;
-}
-
-async function allOverrides(): Promise<Map<string, SkillOverrideRow>> {
-  const rows = await db.select().from(skillOverrides);
-  return new Map(rows.map((row) => [row.skillName, row as SkillOverrideRow]));
-}
-
-/** The code-defined skill merged with whatever the dashboard has overridden on top of it. */
+/** The code-defined skill plus whether an operator has disabled it from the dashboard. */
 export interface EffectiveSkill {
   name: string;
   description: string;
   risk_level: RiskLevel;
   parameters: Record<string, { type: string; required: boolean; description?: string }>;
   enabled: boolean;
-  base: {
-    description: string;
-    risk_level: RiskLevel;
-  };
-  overridden: boolean;
 }
 
-function applyOverride(skill: Skill, override: SkillOverrideRow | undefined): EffectiveSkill {
-  const parameters: EffectiveSkill["parameters"] = {};
-  for (const [name, param] of Object.entries(skill.parameters)) {
-    parameters[name] = {
-      ...param,
-      description: override?.parameterDescriptionOverrides?.[name] ?? param.description,
-    };
-  }
-
+function withEnabled(skill: Skill, enabled: boolean): EffectiveSkill {
   return {
     name: skill.name,
-    description: override?.descriptionOverride ?? skill.description,
-    risk_level: override?.riskLevelOverride ?? skill.risk_level,
-    parameters,
-    enabled: override?.enabled ?? true,
-    base: { description: skill.description, risk_level: skill.risk_level },
-    overridden: !!override && (
-      override.enabled === false ||
-      !!override.riskLevelOverride ||
-      !!override.descriptionOverride ||
-      !!(override.parameterDescriptionOverrides && Object.keys(override.parameterDescriptionOverrides).length > 0)
-    ),
+    description: skill.description,
+    risk_level: skill.risk_level,
+    parameters: skill.parameters,
+    enabled,
   };
 }
 
 export async function listEffectiveSkills(): Promise<EffectiveSkill[]> {
-  const overrides = await allOverrides();
-  return listSkills().map((skill) => applyOverride(skill, overrides.get(skill.name)));
+  const rows = await db.select({ skillName: disabledSkills.skillName }).from(disabledSkills);
+  const disabled = new Set(rows.map((row) => row.skillName));
+  return listSkills().map((skill) => withEnabled(skill, !disabled.has(skill.name)));
 }
 
 export async function getEffectiveSkill(name: string): Promise<EffectiveSkill | null> {
   const skill = getSkill(name);
   if (!skill) return null;
-  const override = await getOverride(name);
-  return applyOverride(skill, override ?? undefined);
+  const [row] = await db.select().from(disabledSkills).where(eq(disabledSkills.skillName, name)).limit(1);
+  return withEnabled(skill, !row);
 }
 
-export async function patchSkill(skillName: string, patch: SkillPatch): Promise<EffectiveSkill> {
+export async function setSkillEnabled(skillName: string, enabled: boolean): Promise<EffectiveSkill> {
   const skill = getSkill(skillName);
-  if (!skill) throw new SkillOverrideError(`Unknown skill: ${skillName}`);
-  if (patch.risk_level && !RISK_LEVELS.includes(patch.risk_level)) {
-    throw new SkillOverrideError(`Invalid risk_level: ${patch.risk_level}`);
-  }
-  // Only known parameter names can get an overridden description - an override that names a
-  // parameter the code doesn't have would silently do nothing at execution time.
-  if (patch.parameter_descriptions) {
-    for (const paramName of Object.keys(patch.parameter_descriptions)) {
-      if (!(paramName in skill.parameters)) throw new SkillOverrideError(`Unknown parameter: ${paramName}`);
-    }
+  if (!skill) throw new SkillToggleError(`Unknown skill: ${skillName}`);
+
+  if (enabled) {
+    await db.delete(disabledSkills).where(eq(disabledSkills.skillName, skillName));
+  } else {
+    await db.insert(disabledSkills).values({ skillName }).onConflictDoNothing();
   }
 
-  const existing = await getOverride(skillName);
-  const merged: SkillOverrideRow = {
-    skillName,
-    enabled: patch.enabled ?? existing?.enabled ?? true,
-    riskLevelOverride: patch.risk_level !== undefined ? (patch.risk_level === skill.risk_level ? null : patch.risk_level) : (existing?.riskLevelOverride ?? null),
-    descriptionOverride: patch.description !== undefined ? (patch.description.trim() === skill.description ? null : patch.description.trim()) : (existing?.descriptionOverride ?? null),
-    parameterDescriptionOverrides: patch.parameter_descriptions !== undefined
-      ? { ...(existing?.parameterDescriptionOverrides ?? {}), ...patch.parameter_descriptions }
-      : (existing?.parameterDescriptionOverrides ?? null),
-  };
-
-  await db
-    .insert(skillOverrides)
-    .values(merged)
-    .onConflictDoUpdate({ target: skillOverrides.skillName, set: { ...merged, updatedAt: new Date().toISOString() } });
-
-  return applyOverride(skill, merged);
-}
-
-export async function resetSkill(skillName: string): Promise<EffectiveSkill> {
-  const skill = getSkill(skillName);
-  if (!skill) throw new SkillOverrideError(`Unknown skill: ${skillName}`);
-  await db.delete(skillOverrides).where(eq(skillOverrides.skillName, skillName));
-  return applyOverride(skill, undefined);
+  return withEnabled(skill, enabled);
 }

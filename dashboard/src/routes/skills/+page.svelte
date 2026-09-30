@@ -2,10 +2,9 @@
   /**
    * The skill registry and the execution log.
    *
-   * This was two four-column tables plus an edit form in a `colspan="4"` row with fixed-width
-   * fields (`w-44`, `w-32`), which is unusable on a phone (M-4, M-5). Both are expandable cards
-   * now: a registry entry is an object with a name and some facts about it, and the editor is a
-   * full-width panel rather than a cell.
+   * Skills are code-defined and not editable from here - the registry is a read-only catalog plus
+   * one switch per skill for turning it off. No expand, no form: flipping the switch submits
+   * immediately.
    */
   import { enhance } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
@@ -13,14 +12,11 @@
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
-  import type { SkillInfo } from "./+page.server";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   $effect(() => toastFormResult(form));
-
-  const RISK_OPTIONS = ["low", "medium", "high", "critical"] as const;
 
   const RISK_TONE = {
     low: "success",
@@ -37,11 +33,6 @@
       .filter((skill) => !q || skill.name.toLowerCase().includes(q) || skill.description.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
-
-  let expandedSkills = $state<Record<string, boolean>>({});
-  function params(skill: SkillInfo) {
-    return Object.entries(skill.parameters ?? {});
-  }
 </script>
 
 <Page title="Skills" size="app" class="flex flex-col gap-8">
@@ -123,100 +114,36 @@
     {:else}
       <ul class="flex flex-col gap-2">
         {#each filteredSkills as skill (skill.name)}
-          {@const open = !!expandedSkills[skill.name]}
-          <li class="rounded-lg border border-surface-700 bg-surface-900 {skill.enabled ? '' : 'opacity-60'}">
-            <button
-              type="button"
-              aria-expanded={open}
-              onclick={() => (expandedSkills[skill.name] = !open)}
-              class="tap w-full text-left px-4 py-3 flex flex-col gap-1.5 cursor-pointer bg-transparent border-none"
-            >
+          <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex items-center gap-3 {skill.enabled ? '' : 'opacity-60'}">
+            <div class="flex-1 min-w-0 flex flex-col gap-1.5">
               <span class="flex items-center gap-2 flex-wrap">
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="w-3 h-3 shrink-0 text-surface-400 transition-transform {open ? 'rotate-90' : ''}"
-                  aria-hidden="true"
-                ><path d="M7 5l6 5-6 5V5z" /></svg>
                 <span class="font-mono text-surface-100 text-sm break-all">{skill.name}</span>
                 <!-- The risk level was a 6px coloured dot with a title=. On a touch device that
                      is nothing at all (P7, M13), so it is a word with a hue behind it. -->
                 <Badge tone={RISK_TONE[skill.risk_level] ?? "muted"}>{skill.risk_level}</Badge>
-                {#if !skill.enabled}<Badge tone="muted">Disabled</Badge>{/if}
-                {#if skill.overridden}<Badge tone="primary">Edited</Badge>{/if}
               </span>
               <span class="text-sm text-surface-300">{skill.description}</span>
-            </button>
+            </div>
 
-            {#if open}
-              <div class="border-t border-surface-800 px-4 py-4 bg-surface-950 rounded-b-lg">
-                {#if skill.overridden}
-                  <p class="text-xs text-surface-400 mb-3">
-                    Changed from the default: risk <span class="text-surface-200">{skill.base.risk_level}</span>,
-                    description <span class="text-surface-200">"{skill.base.description}"</span>.
-                  </p>
-                {/if}
-
-                <form method="POST" action="?/update" use:enhance class="flex flex-col gap-3 max-w-2xl">
-                  <input type="hidden" name="skillName" value={skill.name} />
-
-                  <label class="tap-check text-sm text-surface-200 w-fit">
-                    <input type="checkbox" name="enabled" value="true" checked={skill.enabled} class="accent-primary-500 h-4 w-4" />
-                    Enabled
-                  </label>
-
-                  <label class="flex flex-col gap-1 text-xs text-surface-400">
-                    Risk level
-                    <select name="riskLevel" value={skill.risk_level} class="input-base w-full sm:w-52">
-                      {#each RISK_OPTIONS as level (level)}
-                        <option value={level}>{level}{level === skill.base.risk_level ? " (default)" : ""}</option>
-                      {/each}
-                    </select>
-                  </label>
-
-                  <label class="flex flex-col gap-1 text-xs text-surface-400">
-                    Description
-                    <textarea name="description" rows="2" class="input-base resize-y">{skill.description}</textarea>
-                  </label>
-
-                  {#if params(skill).length > 0}
-                    <div class="flex flex-col gap-1.5">
-                      <span class="text-xs text-surface-400">Parameter descriptions</span>
-                      {#each params(skill) as [paramName, param] (paramName)}
-                        <label class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs">
-                          <span class="font-mono text-surface-300 sm:w-32 shrink-0 truncate" title={paramName}>
-                            {paramName}{#if param.required}<span class="text-error-400">*</span>{/if}
-                          </span>
-                          <input
-                            type="text"
-                            name="param:{paramName}"
-                            value={param.description ?? ""}
-                            aria-label="Description for {paramName}"
-                            class="input-base flex-1"
-                          />
-                        </label>
-                      {/each}
-                    </div>
-                  {:else}
-                    <p class="text-xs text-surface-400">No parameters.</p>
-                  {/if}
-
-                  <div class="flex flex-wrap items-center gap-2 mt-1">
-                    <button
-                      type="submit"
-                      class="tap px-4 py-1.5 rounded text-xs bg-primary-700 border border-primary-600 text-primary-50 hover:bg-primary-600 transition-colors cursor-pointer"
-                    >Save</button>
-                    {#if skill.overridden}
-                      <button
-                        formaction="?/reset"
-                        type="submit"
-                        class="tap px-4 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:text-error-400 hover:border-error-500 transition-colors cursor-pointer"
-                      >Reset to default</button>
-                    {/if}
-                  </div>
-                </form>
-              </div>
-            {/if}
+            <form method="POST" action="?/update" use:enhance class="shrink-0">
+              <input type="hidden" name="skillName" value={skill.name} />
+              <label
+                class="tap relative inline-flex items-center cursor-pointer"
+                title={skill.enabled ? "Enabled - click to disable" : "Disabled - click to enable"}
+              >
+                <input
+                  type="checkbox"
+                  name="enabled"
+                  value="true"
+                  checked={skill.enabled}
+                  onchange={(e) => e.currentTarget.form?.requestSubmit()}
+                  class="sr-only peer"
+                  aria-label="{skill.enabled ? 'Disable' : 'Enable'} {skill.name}"
+                />
+                <span class="block w-10 h-5 rounded-full bg-surface-700 peer-checked:bg-success-700 transition-colors"></span>
+                <span class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-surface-200 transition-transform peer-checked:translate-x-5"></span>
+              </label>
+            </form>
           </li>
         {/each}
       </ul>

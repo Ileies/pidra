@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { setPageContext } from '#lib/assistant/state.svelte.js';
 	import Page from '#lib/components/Page.svelte';
 	import StatBar from '#lib/components/StatBar.svelte';
@@ -27,6 +27,7 @@
 	import { netJson } from '#lib/offline/net.js';
 	import { poll } from '#lib/offline/poll.js';
 	import { sync } from '#lib/offline/sync.js';
+	import { navBadges } from '#lib/navBadges.svelte.js';
 	import { offline } from '#lib/offline/state.svelte.js';
 	import type { PageData, ActionData } from './$types';
 
@@ -262,6 +263,33 @@
 			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		document.getElementById(id)?.focus({ preventScroll: true });
 	}
+
+	// A report is acknowledged only once the reader reaches its actual end.
+	onMount(() => {
+		let marked = false;
+		let sending = false;
+		const checkBottom = async () => {
+			if (marked || sending || !data.report) return;
+			if (window.scrollY + window.innerHeight < document.documentElement.scrollHeight - 2) return;
+			sending = true;
+			try {
+				await netJson(`/api/notifications/report-read/${data.date}`, { method: 'POST' });
+				marked = true;
+				void navBadges.refresh();
+			} catch {
+				// Stay eligible for another attempt if the connection is unavailable.
+			} finally {
+				sending = false;
+			}
+		};
+		window.addEventListener('scroll', checkBottom, { passive: true });
+		window.addEventListener('resize', checkBottom);
+		void checkBottom();
+		return () => {
+			window.removeEventListener('scroll', checkBottom);
+			window.removeEventListener('resize', checkBottom);
+		};
+	});
 </script>
 
 {#snippet statsBar()}

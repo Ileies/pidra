@@ -61,6 +61,8 @@ Never use real personal information in code, comments, or examples - no real ema
 
 Use the `commit` skill (`.claude/skills/commit/SKILL.md`, `args: "<why>"`) for non-trivial changes - it runs checks and keeps docs in sync via `docs-committer`. For small changes (typos, one-liners, no doc impact), a plain `git commit` is fine.
 
+Don't pre-edit `docs/**`, `README.md`, or `CLAUDE.md` yourself while implementing a change you intend to run through `/commit` - that's `docs-committer`'s entire job, and doing it twice pays the token/time cost of the doc-sync pass twice for no added safety: its own instructions only re-verify a file the calling prompt already frames as correct, rather than writing it independently, so a pre-written mistake (e.g. a todo entry "closed" by annotation instead of by deletion, which this repo's convention requires) has an actual chance of surviving review instead of being caught. Note what changed and why as you go, then hand that reasoning to `/commit`'s args and let `docs-committer` write the prose.
+
 ## What's next
 
 `docs/todo/` holds all open work, split by horizon (see `docs/todo/README.md`); closed entries are removed rather than struck through. Phases 0-6 are complete and the pipeline runs unattended end to end. The thing that most wants doing: running the pipeline and the News section against real mornings for a week or more to tune the extraction and news-desk prompts, which have never been judged on much material.

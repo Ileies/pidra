@@ -29,10 +29,12 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/google-integration-notes.md` - Google Tasks list / Keep category meanings
 - `docs/context-builder.md` - Context Builder data flow, run modes, recovery state, output contract, and daily integration
 - `docs/scoring-formulas.md` - the gate, trust-score and entity-pruning formulas as currently implemented
+- `docs/security.md` - current security controls, trust boundaries, and known gaps; read before changing auth, routes, skills, secrets, or deployment
 - `docs/todo/README.md` - how the open-work list is split and what doesn't belong in it
 - `docs/todo/now.md` - active or near-term open work
 - `docs/todo/soon.md` - queued work, mostly Phase 7 sources plus the 30-day web-search check-in
 - `docs/todo/later.md` - Phase 8, the critical-skills design, semantic search, and other deliberately-deferred work
+- `docs/todo/security.md` - remaining security work ordered by impact
 
 ## Stack
 

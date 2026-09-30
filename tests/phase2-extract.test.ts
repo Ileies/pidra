@@ -24,10 +24,14 @@ let calls = 0;
 let failNext = false;
 let nextId = 0;
 
+// `loadClassificationContext` awaits `.from(contacts)`/`.from(notes)` directly, with no `.where()`
+// chained - `then` makes that resolve too, alongside the `.where()` the rawItems/extractions
+// queries chain.
 const select = () => ({
-  from: (table: unknown) => ({
-    where: async () => table === schema.rawItems ? [item] : table === schema.extractions ? saved : [],
-  }),
+  from: (table: unknown) => {
+    const rows = table === schema.rawItems ? [item] : table === schema.extractions ? saved : [];
+    return { where: async () => rows, then: (resolve: (rows: unknown[]) => void) => resolve(rows) };
+  },
 });
 
 const db = {

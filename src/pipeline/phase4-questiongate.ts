@@ -2,10 +2,11 @@
  * Phase 4: the question gate, over the standing question queue (`src/questions/`).
  *
  * The run no longer opens a session of its own. Its candidates - personal mail the classifier
- * flagged as missing context, and entities the graph keeps citing without ever placing
- * (`entity-questions.ts`) - go through the reconcile call against every question still open, so a
- * sender or entity asked about already is not asked again, and an open question that a note or a
- * correction has settled in the meantime is closed. Section 2 then waits, up to
+ * flagged as missing context, entities the graph keeps citing without ever placing
+ * (`entity-questions.ts`), and known contacts a mail now sits oddly against
+ * (`stale-context-questions.ts`) - go through the reconcile call against every question still
+ * open, so a sender or entity asked about already is not asked again, and an open question that a
+ * note or a correction has settled in the meantime is closed. Section 2 then waits, up to
  * `TIMEOUT_MINUTES`, for the questions this run's candidates landed on, and for nothing else: an
  * old review question left open does not hold up the morning. The reader answers one at a time on
  * `/questions`, and each answer counts the moment it is sent.
@@ -16,6 +17,7 @@
 import { and, eq } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { lowConfidenceEntityCandidates } from "./entity-questions";
+import { staleContextCandidates } from "./stale-context-questions";
 import { mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
 import { applyPlan, askedExtractionIds, listOpen, listRecentlyAnswered, setBlocking, stillOpen } from "../questions/store";
 import type { ContextPayload } from "./phase3-context";
@@ -112,8 +114,12 @@ async function tolerantAbsorb(errors: StepAttemptError[]) {
  * candidates through `mechanicalPlan`, and its attempts go to `step_errors`.
  */
 async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepAttemptError[]) {
-  const [mailCandidates, entityCandidates] = await Promise.all([candidatesFor(runDate), lowConfidenceEntityCandidates(runDate)]);
-  const candidates = [...mailCandidates, ...entityCandidates];
+  const [mailCandidates, entityCandidates, staleCandidates] = await Promise.all([
+    candidatesFor(runDate),
+    lowConfidenceEntityCandidates(runDate),
+    staleContextCandidates(runDate),
+  ]);
+  const candidates = [...mailCandidates, ...entityCandidates, ...staleCandidates];
   const absorbed = await tolerantAbsorb(errors);
 
   let usage = { tokensIn: 0, tokensOut: 0, aiCalls: 0 };

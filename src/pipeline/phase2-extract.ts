@@ -10,6 +10,8 @@ const CONCURRENCY = 4;
 /** Recent notes cost tokens on every personal/sms item in a run; cap rather than send the archive. */
 const MAX_CLASSIFICATION_NOTES = 30;
 const NOTE_CHARS = 400;
+/** The whole directory goes out on every personal/sms item; cap each entry's notes, not just the count. */
+const CONTACT_NOTE_CHARS = 300;
 
 // The only source types `extractItem` has a branch for. Todos and calendar events are read
 // straight out of `raw_items` by Phase 3, so they never need a model call, and a news desk
@@ -44,6 +46,8 @@ interface PersonalEmailClassification {
   unknown_context: boolean;
   question_for_user: string | null;
   sender_known: boolean;
+  context_conflict: boolean;
+  context_conflict_detail: string | null;
   calendar_event_suggested: boolean;
   todo_suggested: boolean;
 }
@@ -85,7 +89,9 @@ async function saveExtraction(item: typeof rawItems.$inferSelect, values: Extrac
 /** Loaded once per run, not per item - the same reasoning as `prompts` in `runPhase2`. */
 async function loadClassificationContext(): Promise<ClassificationContext> {
   const [contactRows, noteRows] = await Promise.all([
-    db.select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship }).from(contacts),
+    db
+      .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, contextNotes: contacts.contextNotes })
+      .from(contacts),
     db
       .select({ content: notes.content, createdAt: notes.createdAt })
       .from(notes)
@@ -97,7 +103,12 @@ async function loadClassificationContext(): Promise<ClassificationContext> {
     .slice(0, MAX_CLASSIFICATION_NOTES)
     .map((n) => n.content.replace(/\s+/g, " ").trim().slice(0, NOTE_CHARS));
 
-  return { knownContacts: contactRows, notes: recentNotes };
+  const knownContacts = contactRows.map((c) => ({
+    ...c,
+    contextNotes: c.contextNotes ? c.contextNotes.replace(/\s+/g, " ").trim().slice(0, CONTACT_NOTE_CHARS) : null,
+  }));
+
+  return { knownContacts, notes: recentNotes };
 }
 
 async function extractItem(

@@ -48,6 +48,8 @@ export const PERSONAL_EMAIL_PROMPT = `Classify this email. Return ONLY valid JSO
   "unknown_context": false,
   "question_for_user": "specific question about missing context, or null",
   "sender_known": false,
+  "context_conflict": false,
+  "context_conflict_detail": "one sentence naming the specific mismatch, or null",
   "calendar_event_suggested": false,
   "todo_suggested": false
 }
@@ -64,13 +66,20 @@ Rules:
   plausible-sounding signature
 - unknown_context = true only if sender_known is false AND the content suggests a real
   relationship worth remembering (not spam, not a one-off automated notice)
+- context_conflict = true only if sender_known is true AND this email states something about the
+  sender that contradicts, or does not cleanly fit, what the known contacts entry's relationship
+  or notes already say about them (a different role, employer, relationship, or situation) - never
+  true just because the email adds new information that simply extends what is already on file, or
+  because the entry has no relationship/notes to conflict with. context_conflict and
+  unknown_context are never both true. context_conflict_detail names the specific mismatch in one
+  sentence, or null when context_conflict is false
 - critical = response or action needed within 24h
 - invoice from a sender that is not sender_known always = unknown_context true
 - if known contacts or recent notes already answer what question_for_user would ask, set
   question_for_user to null and unknown_context to false instead of asking again`;
 
 export interface ClassificationContext {
-  knownContacts: { identifier: string; name: string | null; relationship: string | null }[];
+  knownContacts: { identifier: string; name: string | null; relationship: string | null; contextNotes: string | null }[];
   notes: string[];
 }
 

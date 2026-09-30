@@ -3,10 +3,10 @@
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
-  import StatCard from "#lib/components/StatCard.svelte";
-  import { fmtCost, fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
+  import StatBar from "#lib/components/StatBar.svelte";
+  import DetailsSheet from "#lib/components/context-builder/DetailsSheet.svelte";
+  import { fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
-  import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import { toasts } from "#lib/toast.svelte.js";
   import type { ContextBuilderStatus } from "#lib/server/contextBuilder.js";
   import { netJson } from "#lib/offline/net.js";
@@ -118,19 +118,13 @@
     failed: "error",
   } as const;
 
-  const PHASES: { key: "email" | "tasks" | "keep" | "github"; label: string }[] = [
-    { key: "email", label: "Email" },
-    { key: "tasks", label: "Tasks" },
-    { key: "keep", label: "Keep" },
-    { key: "github", label: "GitHub" },
-  ];
-
-  // --- Document + source summaries as tabs, quick links, scrollspy, in-page search ---------
+  // --- Document + source summaries as tabs, a details sheet for everything else -----------------
   //
   // The old page stacked the document, then source summaries, then a sidebar with everything
-  // else - reaching source summaries meant scrolling past the whole (often huge) document first,
-  // and there was no way to jump anywhere. Tabs make summaries one click away; Quick Links make
-  // every section in either tab, plus the sidebar's own sections, one click away too.
+  // else - reaching source summaries meant scrolling past the whole (often huge) document first.
+  // Tabs make summaries one click away. Quick Links, run progress, the numeric breakdown and
+  // errors are all meta-information about the harvest rather than the harvest itself, so they
+  // live in one details sheet instead of a stack of cards with the same weight as the document.
 
   type Tab = "document" | "summaries";
   let activeTab = $state<Tab>("document");
@@ -161,6 +155,7 @@
 
   const docTagged = $derived(data.doc ? withHeadingIds(data.doc.fullContextHtml) : null);
   const docHeadings = $derived(docTagged?.headings ?? []);
+  const summarySections = $derived((data.doc?.sections ?? []).filter((section) => section.chars > 0));
 
   // --- In-page search: highlights matches in both tabs' rendered HTML directly, so it works
   // whichever tab is open and needs no DOM-diffing to undo when the query changes. ---------------
@@ -201,7 +196,7 @@
 
   const docHtml = $derived(highlightHtml(docTagged?.html ?? "", searchQuery));
   const summaryHtml = $derived(
-    new Map((data.doc?.sections ?? []).map((section) => [section.key, highlightHtml(section.html, searchQuery)])),
+    new Map(summarySections.map((section) => [section.key, highlightHtml(section.html, searchQuery)])),
   );
 
   let contentRoot = $state<HTMLElement | undefined>();
@@ -250,18 +245,13 @@
     if (el) revealAndScroll(el);
   }
 
-  // --- Quick Links scrollspy: highlights whichever section is currently in view, in either tab
-  // or the sidebar, so the panel doubles as a live "you are here" rather than a static list. -----
+  // --- Scrollspy: highlights whichever document heading or source summary is currently in view,
+  // so the details sheet's Quick Links double as a live "you are here". -------------------------
 
   let activeSectionId = $state<string | null>(null);
 
   $effect(() => {
-    const ids = [
-      ...docHeadings.map((h) => h.id),
-      ...(data.doc?.sections.map((s) => `summary-${s.key}`) ?? []),
-      "standing-rules",
-      "errors-current",
-    ];
+    const ids = [...docHeadings.map((h) => h.id), ...summarySections.map((s) => `summary-${s.key}`)];
     const elements = ids
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el != null);
@@ -323,6 +313,11 @@
     }
   }
 
+  // --- Details sheet: everything that is meta-information about the harvest rather than the
+  // harvest itself. One overlay instead of a stack of cards with the document's own weight. ------
+
+  let detailsOpen = $state(false);
+
   // --- Back to top: only once there is somewhere to go back from. --------------------------------
 
   let showBackToTop = $state(false);
@@ -337,19 +332,67 @@
   });
 </script>
 
-{#snippet progress(name: string, done: boolean, detail: string, pct: number)}
-  <div>
-    <div class="flex items-center justify-between text-xs mb-1 gap-2">
-      <span class="text-surface-200">{name}</span>
-      <span class="text-surface-400 tabular-nums text-right">{detail}</span>
-    </div>
-    <div class="h-2 rounded-full bg-surface-800 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100" aria-label={name}>
-      <div class="h-full rounded-full transition-all duration-500 {done ? 'bg-success-500' : 'bg-primary-500'}" style="width: {pct}%"></div>
+{#snippet statusBar()}
+  <div class="bg-surface-900 border-b border-surface-700">
+    <div class="mx-auto w-full max-w-app px-4 sm:px-6 lg:px-8 py-2 flex flex-col gap-2">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+          <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
+            {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
+          </Badge>
+          {#if status?.dbRun}
+            <span class="text-surface-400 text-xs">{displayLabel(status.dbRun.mode)} mode</span>
+            <span class="text-surface-400 text-xs tabular-nums">· {fmtElapsed(status.dbRun.started_at)} elapsed</span>
+            <span class="text-surface-400 text-xs tabular-nums">· {fmtNum(status.dbRun.items_indexed)} items indexed</span>
+          {:else if status}
+            <span class="text-surface-400 text-xs">No runs yet.</span>
+          {/if}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={isOffline || starting || status?.running}
+            onclick={() => start(null)}
+          >
+            {starting ? "Starting…" : "Start"}
+          </button>
+          <button
+            class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={isOffline || starting || status?.running}
+            onclick={() => start("full")}
+          >
+            Force full
+          </button>
+          <button
+            class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={isOffline || stopping || !status?.trackedByDashboard}
+            onclick={stop}
+          >
+            {stopping ? "Stopping…" : "Stop"}
+          </button>
+          <button
+            type="button"
+            class="tap nav-btn nav-btn-idle cursor-pointer relative"
+            onclick={() => (detailsOpen = true)}
+          >
+            Details
+            {#if currentErrors.length > 0}
+              <span class="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning-500 px-1 text-[10px] font-semibold text-surface-950">
+                {currentErrors.length}
+              </span>
+            {/if}
+          </button>
+        </div>
+      </div>
+      {#if isOffline}
+        <!-- Live run state is what this strip shows, and a copy of it would be a lie. -->
+        <p class="text-xs text-surface-400">Starting or stopping a run needs the connection. The status above is the last one seen.</p>
+      {/if}
     </div>
   </div>
 {/snippet}
 
-<Page title="Context Builder" size="app" class="flex flex-col gap-6">
+<Page title="Context Builder" size="app" bleed={statusBar} class="flex flex-col gap-4">
   <!-- A newer run exists but is not what is on screen. Shown above the document, not below it:
        the point is that the reader knows before reading which version they are looking at. -->
   {#if data.skipped.length > 0}
@@ -373,390 +416,139 @@
     </section>
   {/if}
 
-  <!-- Document on the left, everything dashboard-shaped in a sidebar that stays alongside it -
-       the doc is often thousands of characters of prose, and making the reader scroll past all
-       of it before reaching Start/Stop or the corrections list was the bug this replaced. -->
-  <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-6">
-    <!-- Main: what the builder actually produced. This is the point of the tool, so it leads.
-         Not capped to the 68ch prose measure: a fixed-width column inside the wider `1fr` track
-         left it stranded away from the sidebar with an ugly gap between them, so it fills the
-         track up to the sidebar instead. -->
-    <div class="flex flex-col gap-4 min-w-0" bind:this={contentRoot}>
-      {#if data.doc}
-        <!-- Search reaches into both tabs at once: the highlighted HTML for a tab still renders
-             fine while that tab is hidden, so a match in the tab you are not looking at is found
-             immediately instead of only after you happen to switch there. -->
-        <div class="bg-surface-900 border border-surface-700 rounded-lg p-2 flex items-center gap-2">
-          <svg viewBox="0 0 24 24" class="size-4 text-surface-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
-          </svg>
-          <input
-            type="search"
-            placeholder="Search the document and source summaries…"
-            value={searchInput}
-            oninput={(e) => onSearchInput(e.currentTarget.value)}
-            class="flex-1 bg-transparent text-surface-100 text-sm placeholder:text-surface-500 outline-none min-w-0"
-          />
-          {#if searchQuery}
-            <span class="text-surface-400 text-xs tabular-nums shrink-0" aria-live="polite">
-              {matchCount > 0 ? `${matchIndex + 1} / ${matchCount}` : "No matches"}
-            </span>
-            <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(-1)} aria-label="Previous match">↑</button>
-            <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(1)} aria-label="Next match">↓</button>
-            <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" onclick={clearSearch} aria-label="Clear search">✕</button>
-          {/if}
-        </div>
-
-        <div role="tablist" aria-label="Context Builder content" class="flex gap-2">
-          <button
-            type="button"
-            role="tab"
-            id="tab-document"
-            aria-selected={activeTab === "document"}
-            aria-controls="panel-document"
-            class="tap nav-btn cursor-pointer {activeTab === 'document' ? 'nav-btn-active' : 'nav-btn-idle'}"
-            onclick={() => (activeTab = "document")}
-          >Document</button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-summaries"
-            aria-selected={activeTab === "summaries"}
-            aria-controls="panel-summaries"
-            class="tap nav-btn cursor-pointer {activeTab === 'summaries' ? 'nav-btn-active' : 'nav-btn-idle'}"
-            onclick={() => (activeTab = "summaries")}
-          >Source summaries</button>
-        </div>
-
-        <div
-          id="panel-document"
-          data-tab-panel="document"
-          role="tabpanel"
-          aria-labelledby="tab-document"
-          hidden={activeTab !== "document"}
-          tabindex="0"
-        >
-          <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-            <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-              <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
-              <span class="text-surface-400 text-xs tabular-nums">
-                {fmtNum(data.doc.chars)} chars
-                {#if data.doc.generatedAt}· built {fmtDateTime(data.doc.generatedAt)}{/if}
-              </span>
-            </div>
-            <p class="text-surface-400 text-xs mb-4">
-              Synthesised from {fmtNum(data.counts.indexed_email)} emails and
-              {fmtNum(data.counts.indexed_keep)} Keep notes. Seeded
-              {fmtNum(data.counts.contacts)} contacts, {fmtNum(data.counts.entities)} entities and
-              {fmtNum(data.counts.standing_context)} standing rules.
-            </p>
-            <article class="report-body text-sm max-w-none">
-              {@html docHtml}
-            </article>
-          </section>
-        </div>
-
-        <div
-          id="panel-summaries"
-          data-tab-panel="summaries"
-          role="tabpanel"
-          aria-labelledby="tab-summaries"
-          hidden={activeTab !== "summaries"}
-          tabindex="0"
-        >
-          <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
-            <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
-            {#each data.doc.sections as section (section.key)}
-              {#if section.chars > 0}
-                <details
-                  id="summary-{section.key}"
-                  class="cb-anchor border-b border-surface-800 pb-2 last:border-0"
-                  open={expandedSummaries.has(section.key)}
-                  ontoggle={(e) => setExpanded(section.key, e.currentTarget.open)}
-                >
-                  <summary class="tap cursor-pointer text-surface-200 text-sm flex items-baseline justify-between gap-3">
-                    <span>{section.title}</span>
-                    <span class="text-surface-400 text-xs tabular-nums shrink-0">{fmtNum(section.chars)} chars</span>
-                  </summary>
-                  <article class="report-body text-sm max-w-none mt-3">{@html summaryHtml.get(section.key) ?? ""}</article>
-                </details>
-              {/if}
-            {/each}
-            <p class="text-surface-400 text-xs break-all">
-              {#if data.doc.path}
-                Source file (legacy row): <code>{data.doc.path}</code>
-              {:else}
-                Source: stored on the run row
-              {/if}
-            </p>
-          </section>
-        </div>
-      {:else}
-        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-          <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
-          <p class="text-surface-300 text-sm">
-            {#if data.docError}
-              The last completed run recorded a document, but it could not be read:
-              <code class="text-warning-400">{data.docError}</code>
-            {:else if data.run}
-              The last completed run recorded no document. Re-run to generate one.
-            {:else}
-              No completed run yet. Start one below to build the context document.
-            {/if}
-          </p>
-        </section>
-      {/if}
-    </div>
-
-    <!-- Sidebar. Run status/controls and Quick Links are both short and bounded (a handful of
-         lines each, however big the document gets), so keeping them sticky together can never
-         repeat last time's mistake. Standing rules and errors are unbounded, so they stay in
-         plain flow below - one page, one scrollbar. Corrections moved off this page entirely:
-         it is the one section here that can grow without limit, and cramming it into a sidebar
-         slot is what made this page monstrous in the first place. -->
-    <aside class="mt-6 xl:mt-0 flex flex-col gap-4">
-      <div class="flex flex-col gap-4 xl:sticky" style="top: calc(var(--header-h) + 1.5rem)">
-        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-          <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
-            <div class="flex items-center gap-3">
-              <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
-                {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
-              </Badge>
-              {#if status?.dbRun}
-                <span class="text-surface-400 text-sm">{displayLabel(status.dbRun.mode)} mode</span>
-              {/if}
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                disabled={isOffline || starting || status?.running}
-                onclick={() => start(null)}
-              >
-                {starting ? "Starting…" : "Start"}
-              </button>
-              <button
-                class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                disabled={isOffline || starting || status?.running}
-                onclick={() => start("full")}
-              >
-                Force full
-              </button>
-              <button
-                class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                disabled={isOffline || stopping || !status?.trackedByDashboard}
-                onclick={stop}
-              >
-                {stopping ? "Stopping…" : "Stop"}
-              </button>
-            </div>
-          </div>
-
-          {#if isOffline}
-            <!-- Live run state is what this section shows, and a copy of it would be a lie. -->
-            <p class="text-xs text-surface-400 mb-3">Starting or stopping a run needs the connection. The run status below is the last one seen.</p>
-          {/if}
-
-          {#if status?.dbRun}
-            <div class="grid grid-cols-2 gap-3">
-              <StatCard label="Elapsed" value={fmtElapsed(status.dbRun.started_at)} />
-              <StatCard label="Items indexed" value={fmtNum(status.dbRun.items_indexed)} />
-              <StatCard
-                label="Memory (RSS)"
-                value={status.trackedByDashboard && status.rssMb != null ? `${fmtNum(status.rssMb)} MB` : "not tracked"}
-              />
-              <!-- This figure used to be computed at Sonnet's $3/$15 per Mtok against gpt-5.6-luna
-                   token counts, so it was simply wrong. It now comes from configured prices, and
-                   says so when there are none rather than inventing a number. -->
-              <StatCard
-                label="OpenAI cost"
-                value={status.checkpoint ? fmtCost(costUsd(status.checkpoint.openaiTokensIn, status.checkpoint.openaiTokensOut)) : "-"}
-                hint={PRICING_CONFIGURED ? undefined : PRICING_HINT}
-              />
-            </div>
-          {:else if status}
-            <p class="text-surface-300 text-sm">No runs yet.</p>
-          {/if}
-        </section>
-
-        <!-- Quick Links: every section in either tab, plus the sidebar's own sections, one click
-             away. The entry for whatever is currently on screen highlights itself. -->
-        <nav aria-label="Quick links" class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3 text-sm">
-          <h2 class="text-surface-200 text-sm font-semibold">Quick links</h2>
-
-          {#if docHeadings.length > 0}
-            <div class="flex flex-col gap-0.5">
-              <span class="text-surface-500 text-xs uppercase tracking-wide">Document</span>
-              {#each docHeadings as heading (heading.id)}
-                <button
-                  type="button"
-                  class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer {activeSectionId === heading.id ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
-                  onclick={() => jumpTo(heading.id, "document")}
-                >{heading.title}</button>
-              {/each}
-            </div>
-          {/if}
-
-          {#if data.doc}
-            <div class="flex flex-col gap-0.5">
-              <span class="text-surface-500 text-xs uppercase tracking-wide">Source summaries</span>
-              {#each data.doc.sections as section (section.key)}
-                {#if section.chars > 0}
-                  <button
-                    type="button"
-                    class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer flex items-baseline justify-between gap-2 {activeSectionId === `summary-${section.key}` ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
-                    onclick={() => jumpTo(`summary-${section.key}`, "summaries")}
-                  >
-                    <span>{section.title}</span>
-                    <span class="text-surface-500 tabular-nums shrink-0">{fmtNum(section.chars)}</span>
-                  </button>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-
-          <div class="flex flex-col gap-0.5 border-t border-surface-800 pt-2">
-            {#if data.standing.length > 0}
-              <button
-                type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer {activeSectionId === 'standing-rules' ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
-                onclick={() => jumpTo("standing-rules")}
-              >Standing rules ({data.standing.length})</button>
-            {/if}
-            {#if currentErrors.length > 0}
-              <button
-                type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer {activeSectionId === 'errors-current' ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
-                onclick={() => jumpTo("errors-current")}
-              >Errors this run ({currentErrors.length})</button>
-            {/if}
-            {#if olderErrors.length > 0}
-              <button
-                type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer text-surface-300 hover:bg-surface-800"
-                onclick={() => jumpTo("errors-older")}
-              >Older errors ({olderErrors.length})</button>
-            {/if}
-            <a
-              href="/context-builder/corrections"
-              class="tap text-left px-2 py-1 rounded text-xs text-primary-400 hover:bg-surface-800 flex items-center justify-between no-underline"
-            >
-              <span>Corrections ({data.corrections.length})</span>
-              <span aria-hidden="true">→</span>
-            </a>
-          </div>
-        </nav>
+  <div class="flex flex-col gap-4 min-w-0" bind:this={contentRoot}>
+    {#if data.doc}
+      <!-- Search reaches into both tabs at once: the highlighted HTML for a tab still renders
+           fine while that tab is hidden, so a match in the tab you are not looking at is found
+           immediately instead of only after you happen to switch there. -->
+      <div class="bg-surface-900 border border-surface-700 rounded-lg p-2 flex items-center gap-2">
+        <svg viewBox="0 0 24 24" class="size-4 text-surface-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search the document and source summaries…"
+          value={searchInput}
+          oninput={(e) => onSearchInput(e.currentTarget.value)}
+          class="flex-1 bg-transparent text-surface-100 text-sm placeholder:text-surface-500 outline-none min-w-0"
+        />
+        {#if searchQuery}
+          <span class="text-surface-400 text-xs tabular-nums shrink-0" aria-live="polite">
+            {matchCount > 0 ? `${matchIndex + 1} / ${matchCount}` : "No matches"}
+          </span>
+          <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(-1)} aria-label="Previous match">↑</button>
+          <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(1)} aria-label="Next match">↓</button>
+          <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" onclick={clearSearch} aria-label="Clear search">✕</button>
+        {/if}
       </div>
 
-      <!-- Phase progress -->
-      {#if status?.checkpoint}
-        {@const checkpoint = status.checkpoint}
-        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-4">
-          <h2 class="text-surface-200 text-sm font-semibold">Steps</h2>
+      <div role="tablist" aria-label="Context Builder content" class="flex gap-4 border-b border-surface-800">
+        <button
+          type="button"
+          role="tab"
+          id="tab-document"
+          aria-selected={activeTab === "document"}
+          aria-controls="panel-document"
+          class="tap cursor-pointer pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'document' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
+          onclick={() => (activeTab = "document")}
+        >Document</button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-summaries"
+          aria-selected={activeTab === "summaries"}
+          aria-controls="panel-summaries"
+          class="tap cursor-pointer pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'summaries' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
+          onclick={() => (activeTab = "summaries")}
+        >Source summaries</button>
+      </div>
 
-          {#each PHASES as phase (phase.key)}
-            {@const p = checkpoint.phases[phase.key]}
-            {@const pct = p.total > 0 ? Math.min(100, Math.round((p.processed / p.total) * 100)) : p.done ? 100 : 0}
-            {@render progress(
-              phase.label,
-              p.done,
-              p.done
-                ? `done${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
-                : p.total > 0
-                  ? `${fmtNum(p.processed)} / ${fmtNum(p.total)}${p.skipped > 0 ? ` · ${fmtNum(p.skipped)} skipped` : ""}`
-                  : "waiting…",
-              pct,
-            )}
+      <div
+        id="panel-document"
+        data-tab-panel="document"
+        role="tabpanel"
+        aria-labelledby="tab-document"
+        hidden={activeTab !== "document"}
+        tabindex="0"
+      >
+        <p class="text-surface-400 text-xs mb-3">
+          {fmtNum(data.doc.chars)} chars
+          {#if data.doc.generatedAt}· built {fmtDateTime(data.doc.generatedAt)}{/if}
+          · synthesised from {fmtNum(data.counts.indexed_email)} emails and {fmtNum(data.counts.indexed_keep)} Keep notes
+        </p>
+        <article class="report-body text-sm max-w-none">
+          {@html docHtml}
+        </article>
+      </div>
+
+      <div
+        id="panel-summaries"
+        data-tab-panel="summaries"
+        role="tabpanel"
+        aria-labelledby="tab-summaries"
+        hidden={activeTab !== "summaries"}
+        tabindex="0"
+      >
+        <div class="flex flex-col gap-3">
+          {#each summarySections as section (section.key)}
+            <details
+              id="summary-{section.key}"
+              class="cb-anchor border-b border-surface-800 pb-2 last:border-0"
+              open={expandedSummaries.has(section.key)}
+              ontoggle={(e) => setExpanded(section.key, e.currentTarget.open)}
+            >
+              <summary class="tap cursor-pointer text-surface-200 text-sm flex items-baseline justify-between gap-3">
+                <span>{section.title}</span>
+                <span class="text-surface-400 text-xs tabular-nums shrink-0">{fmtNum(section.chars)} chars</span>
+              </summary>
+              <article class="report-body text-sm max-w-none mt-3">{@html summaryHtml.get(section.key) ?? ""}</article>
+            </details>
           {/each}
-
-          {@render progress("Synthesis", checkpoint.phases.synthesis.done, checkpoint.phases.synthesis.done ? "done" : "waiting…", checkpoint.phases.synthesis.done ? 100 : 0)}
-          {@render progress("DB seed", checkpoint.phases.dbSeed.done, checkpoint.phases.dbSeed.done ? "done" : "waiting…", checkpoint.phases.dbSeed.done ? 100 : 0)}
-        </section>
-
-        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-          <h2 class="text-surface-200 text-sm font-semibold mb-3">Numbers</h2>
-          <div class="grid grid-cols-2 gap-3">
-            <StatCard label="Tokens in" value={fmtNum(checkpoint.openaiTokensIn)} />
-            <StatCard label="Tokens out" value={fmtNum(checkpoint.openaiTokensOut)} />
-            <StatCard label="Emails extracted" value={fmtNum(checkpoint.phases.email.processed)} />
-            <StatCard label="Notes extracted" value={fmtNum(checkpoint.phases.keep.processed)} />
-            <StatCard label="GitHub repos" value={fmtNum(checkpoint.phases.github.processed || checkpoint.phases.github.total)} />
-            <StatCard
-              label="Errors this run"
-              value={fmtNum(currentErrors.length)}
-              tone={currentErrors.length > 0 ? "warning" : "default"}
-            />
-          </div>
-        </section>
-      {/if}
-
-      {#if data.standing.length > 0}
-        <section id="standing-rules" class="cb-anchor bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
-          <h2 class="text-surface-200 text-sm font-semibold mb-1">Standing rules ({data.standing.length})</h2>
-          <p class="text-surface-400 text-xs mb-3">
-            Persistent rules extracted from your Keep notes, stored in <code>standing_context</code>.
+          <p class="text-surface-400 text-xs break-all">
+            {#if data.doc.path}
+              Source file (legacy row): <code>{data.doc.path}</code>
+            {:else}
+              Source: stored on the run row
+            {/if}
           </p>
-          <ul class="flex flex-col gap-2 text-sm">
-            {#each data.standing as rule (rule.key)}
-              <li class="border-b border-surface-800 pb-2 last:border-0">
-                <div class="text-surface-200 whitespace-pre-wrap break-words">{rule.value}</div>
-                <div class="text-surface-400 text-xs mt-1 break-all"><code>{rule.key}</code> · {rule.source}</div>
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-
-      <!-- errors.json is a persistent log across every run ever made, so it is split here by the
-           current run's start time: showing the whole file undated made errors from runs abandoned
-           days earlier look like the current run's output. -->
-      {#if currentErrors.length > 0}
-        <section id="errors-current" class="cb-anchor bg-surface-900 border border-warning-800 rounded-lg p-4 sm:p-5">
-          <h2 class="text-warning-400 text-sm font-semibold mb-3">Errors this run ({currentErrors.length})</h2>
-          <ul class="flex flex-col gap-2 text-xs">
-            <!-- Keyed on index too: two errors.json entries can share a (ts, source) pair (seen in
-                 production), and a duplicate key crashes Svelte's keyed each with no reported
-                 exception. -->
-            {#each currentErrors as error, i (`${error.ts}-${error.source}-${i}`)}
-              <li class="border-b border-surface-800 pb-2 last:border-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <Badge tone="muted">{error.source}</Badge>
-                  <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
-                </div>
-                <div class="text-surface-300 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-
-      {#if olderErrors.length > 0}
-        <section id="errors-older" class="cb-anchor bg-surface-900 border border-surface-800 rounded-lg p-4 sm:p-5">
-          <details>
-            <summary class="tap text-surface-300 text-sm font-semibold cursor-pointer">
-              Older errors from previous runs ({olderErrors.length})
-            </summary>
-            <ul class="flex flex-col gap-2 text-xs mt-3">
-              {#each olderErrors as error, i (`${error.ts}-${error.source}-${i}`)}
-                <li class="border-b border-surface-800 pb-2 last:border-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <Badge tone="muted">{error.source}</Badge>
-                    <span class="text-surface-400">{fmtDateTime(error.ts)}</span>
-                  </div>
-                  <div class="text-surface-400 mt-1 whitespace-pre-wrap break-words">{error.error}</div>
-                </li>
-              {/each}
-            </ul>
-          </details>
-        </section>
-      {/if}
-    </aside>
+        </div>
+      </div>
+    {:else}
+      <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+        <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
+        <p class="text-surface-300 text-sm">
+          {#if data.docError}
+            The last completed run recorded a document, but it could not be read:
+            <code class="text-warning-400 break-all">{data.docError}</code>
+          {:else if data.run}
+            The last completed run recorded no document. Re-run to generate one.
+          {:else}
+            No completed run yet. Start one below to build the context document.
+          {/if}
+        </p>
+      </section>
+    {/if}
   </div>
 </Page>
+
+<DetailsSheet
+  open={detailsOpen}
+  onClose={() => (detailsOpen = false)}
+  {docHeadings}
+  sections={summarySections}
+  {activeSectionId}
+  onJump={jumpTo}
+  {status}
+  {currentErrors}
+  {olderErrors}
+  standingCount={data.standing.length}
+  correctionsCount={data.corrections.length}
+/>
 
 {#if showBackToTop}
   <button
     type="button"
-    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-40 right-4 xl:right-8 bottom-[calc(5rem+var(--safe-b))] xl:bottom-8 transition-opacity"
+    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-30 right-4 top-1/2 -translate-y-1/2 transition-opacity"
     onclick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
     aria-label="Back to top"
   >↑ Top</button>

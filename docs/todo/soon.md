@@ -2,6 +2,8 @@
 
 See `docs/todo/README.md` for the conventions this list follows.
 
+- **[FEATURE]** Questions queue: a "topic/desk drift" candidate source - ask only when a news desk's items are measurably and consistently rated low over time, never on a fixed interval. Blocked until `report_actions`/feedback data exists to measure this (see `docs/todo/user.md`'s quick-actions judgment item); once it does, this rides the same daily candidate-source pattern as the existing entity-graph and stale-info sources in `docs/todo/now.md`. 2026-09-30
+
 ## Phase 7: passive context sources
 
 Blocked until Phase 6 has run stably for 2+ weeks. Three additional data sources meant to enrich the system's understanding of the user without being active news inputs, all optional: Google Keep notes, AI chat history, and diary. Initial bulk import for Keep and diary content is already handled by the Context Builder (seeds `entities` and `standing_context`); what's below is Phase 7's own fast daily-lookup path on top of that. Sequencing decided 2026-09-10: Keep and diary first, AI chat history last - Keep and diary are denser signal for less privacy surface. Cross-source rule: extraction may read raw content, but synthesis never receives more than matched summaries or abstract signals - never raw notes, chat transcripts, or diary text.

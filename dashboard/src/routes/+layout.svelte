@@ -97,7 +97,7 @@
   </a>
 
   {#if loggedIn}
-    <Navbar onOpenMore={() => (moreOpen = true)} />
+    <Navbar />
     <ServerStatus />
   {/if}
 

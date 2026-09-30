@@ -14,9 +14,9 @@
    *   the mobile sheet uses. `xl` (1280px) rather than `sm`: below that the ten-to-twelve pills
    *   do not fit in one line even grouped, and a wrapped row squeezed the page title down to a
    *   few truncated characters on anything narrower than roughly 1100px - a common laptop width.
-   * - **Below `xl`:** the app icon, the page title, and one overflow button - roughly 52px,
-   *   against the 150-200px the wrapped row used to take. Everything else lives in the bottom
-   *   tab bar and its More sheet.
+   * - **Below `xl`:** the app icon, page title, sync state and notifications stay in the header.
+   *   Navigation lives in the bottom tab bar and its More sheet, so there is one predictable,
+   *   thumb-reachable place to open it.
    *
    * The day steppers are gone from here. They were only ever on one route, they were the two
    * controls that pushed the row over, and they belong next to the date they step.
@@ -29,13 +29,6 @@
   import SyncIndicator from "#lib/offline/SyncIndicator.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
-
-  interface Props {
-    /** Opens the More sheet, which the mobile overflow button shares with the tab bar. */
-    onOpenMore: () => void;
-  }
-
-  let { onOpenMore }: Props = $props();
 
   const routeId = $derived(page.route.id ?? "");
   const current = $derived(routeFor(routeId));
@@ -203,19 +196,5 @@
       {/if}
     </nav>
 
-    <!-- Mobile: one control. Everything else is in the tab bar. -->
-    <button
-      type="button"
-      onclick={onOpenMore}
-      aria-label="Open menu"
-      class="tap xl:hidden ml-auto flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 px-3 text-surface-200 cursor-pointer relative"
-    >
-      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-        <path d="M4 7h16M4 12h16M4 17h16" />
-      </svg>
-      {#if Object.values(badges).some((count) => count > 0)}
-        <span class="absolute top-1 right-1 h-2 w-2 rounded-full bg-warning-500" aria-hidden="true"></span>
-      {/if}
-    </button>
   </div>
 </header>

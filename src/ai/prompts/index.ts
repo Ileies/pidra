@@ -1,5 +1,11 @@
 export { BRIEFING_STYLE } from "./style";
-export { NEWSLETTER_EXTRACTION_PROMPT, ENTITY_EXTRACTION_PROMPT, PERSONAL_EMAIL_PROMPT, buildPersonalEmailPrompt } from "./extraction";
+export {
+  NEWSLETTER_EXTRACTION_PROMPT,
+  ENTITY_EXTRACTION_PROMPT,
+  PERSONAL_EMAIL_PROMPT,
+  buildPersonalEmailPrompt,
+  type ClassificationContext,
+} from "./extraction";
 export { SECTION1_SYSTEM_PROMPT } from "./section1";
 export { DEEPEN_PROMPT } from "./deepen";
 export {

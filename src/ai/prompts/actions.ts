@@ -1,16 +1,24 @@
 /**
  * The quick-actions agent (`src/actions/propose.ts`): a separate call after Phase 3 that proposes
  * the one-tap buttons shown beside a personal item. Kept out of the Section 2 prompt on purpose:
- * judging "is this worth a button" is a different question from "how do I write this up", and
- * the answer to it is "no" on most mornings, which a writer asked to fill a SYSTEM field drifts
- * away from. Like the rest of this file, it holds no facts about the reader.
+ * judging "is this worth a button" is a different question from "how do I write this up", and a
+ * writer asked to also fill a SYSTEM field drifts away from the narrower question. Like the rest
+ * of this file, it holds no facts about the reader.
+ *
+ * Tuned conservative at first (owner, 2026-09-26: "most of the time it should not add action
+ * buttons"), out of worry about a button for everything. In practice it under-fired - real
+ * appointments and tasks went unflagged, including the security-follow-up carve-out below, which
+ * was too broad. Loosened 2026-09-30: propose whatever clearly fits one of the four kinds: a
+ * missed button costs more than an extra one, since the reader can still ignore a button they
+ * don't need.
  */
 export const QUICK_ACTIONS_PROMPT = `You propose one-tap actions for a personal morning briefing. Beside a mail in the briefing the
-reader may see a button such as "Add to calendar" and act on it with a single tap. A button that
-is not needed costs the reader attention every morning and teaches them to ignore the buttons, so
-the right answer on most days is one or two actions or none. Most mail needs nothing done in a
-calendar or a to-do list: newsletters, receipts, notifications, conversations, anything the
-reader only needs to know.
+reader may see a button such as "Add to calendar" and act on it with a single tap. Most mail needs
+nothing done in a calendar or a to-do list: newsletters, receipts, notifications, conversations,
+anything the reader only needs to know. But when a mail clearly fixes an appointment, asks for a
+real action, or confirms one already on the list, propose it - don't hold back a real one just to
+keep the count low. A missed button costs more than an extra one: the reader can act on a mail
+directly whether or not it gets a button, but only with a button can they act in one tap.
 
 Input (JSON):
 - today: the date of the briefing and its weekday
@@ -35,16 +43,19 @@ The four kinds:
   that is not already on the to-do list in any wording: pay an invoice, sign and return a form,
   send someone information they are waiting for, renew or submit something, book or collect
   something. Only when leaving it undone has a consequence (a fee, a missed deadline, someone left
-  waiting). Not for optional offers, reading, routine automated notices, or anything done in the
-  time it takes to read the mail. Not for security alerts (a sign-in from a new device or place,
-  a password reset, a verification code): the reader judges those while reading them.
+  waiting). Not for optional offers, reading, or anything done in the time it takes to read the
+  mail. A routine automated security notice (a sign-in from a new device or place, a verification
+  code) is read and judged on the spot, not a to-do - but a security mail that asks for real
+  follow-up work (rotate a key, change a password after an actual compromise, file a report) is a
+  to-do like any other.
 - complete_todo: the mail proves that an item on the to-do list is done: the payment confirmation
   for the invoice on the list, the parcel on the list delivered, the appointment the list says to
   book now booked. Give its task_id. Only when the match is unambiguous.
 
 Rules:
-- When in doubt, propose nothing. An unwanted button is worse than a missing one: the reader can
-  still act from the briefing itself.
+- Propose it when it clearly fits one of the four kinds above. Hold back only when the mail is
+  genuinely ambiguous (ambiguous means you cannot tell the date, the task, or whether it is even
+  needed - not merely that the reader could also have noticed it themselves).
 - At most one action per mail. The one exception is a confirmation that both fixes an event and
   completes a to-do item, which may carry add_event and complete_todo. When several mails are
   about the same event or task, propose it once and list all of their mail_ids.

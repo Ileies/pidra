@@ -1,12 +1,15 @@
-import { db, rawItems, extractions, sourceQuality } from "../db";
+import { contacts, db, extractions, notes, rawItems, sourceQuality } from "../db";
 import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
-import { buildPersonalEmailPrompt } from "../ai/prompts";
+import { buildPersonalEmailPrompt, type ClassificationContext } from "../ai/prompts";
 import { loadEmailAccounts } from "../config/email-accounts";
 import { emailEffectiveRelevance } from "./email-category";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 const CONCURRENCY = 4;
+/** Recent notes cost tokens on every personal/sms item in a run; cap rather than send the archive. */
+const MAX_CLASSIFICATION_NOTES = 30;
+const NOTE_CHARS = 400;
 
 // The only source types `extractItem` has a branch for. Todos and calendar events are read
 // straight out of `raw_items` by Phase 3, so they never need a model call, and a news desk
@@ -79,11 +82,30 @@ async function saveExtraction(item: typeof rawItems.$inferSelect, values: Extrac
   });
 }
 
+/** Loaded once per run, not per item - the same reasoning as `prompts` in `runPhase2`. */
+async function loadClassificationContext(): Promise<ClassificationContext> {
+  const [contactRows, noteRows] = await Promise.all([
+    db.select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship }).from(contacts),
+    db
+      .select({ content: notes.content, createdAt: notes.createdAt })
+      .from(notes)
+      .where(and(isNull(notes.deletedAt), inArray(notes.scope, ["personal", "contact", "global"]))),
+  ]);
+
+  const recentNotes = [...noteRows]
+    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
+    .slice(0, MAX_CLASSIFICATION_NOTES)
+    .map((n) => n.content.replace(/\s+/g, " ").trim().slice(0, NOTE_CHARS));
+
+  return { knownContacts: contactRows, notes: recentNotes };
+}
+
 async function extractItem(
   item: typeof rawItems.$inferSelect,
   runDate: string,
   accountCustomInstructions: string | null,
-  prompts: ExtractionPrompts
+  prompts: ExtractionPrompts,
+  classificationContext: ClassificationContext,
 ): Promise<boolean> {
   if (await hasSuccessfulExtraction(item.id)) return true;
 
@@ -120,7 +142,7 @@ async function extractItem(
         }];
       }
     } else if (item.sourceType === "personal_email" || item.sourceType === "sms") {
-      const prompt = buildPersonalEmailPrompt(prompts.personal_classification.text, accountCustomInstructions);
+      const prompt = buildPersonalEmailPrompt(prompts.personal_classification.text, accountCustomInstructions, classificationContext);
       const classification = await extractJson<PersonalEmailClassification>(
         prompt,
         item.rawContent ?? ""
@@ -166,6 +188,7 @@ export async function runPhase2(runDate: string): Promise<void> {
   const accountMap = new Map(accounts.map((a) => [a.user, a]));
 
   const prompts = await resolveActivePrompts();
+  const classificationContext = await loadClassificationContext();
 
   const disabledRows = await db
     .select({ sourceName: sourceQuality.sourceName })
@@ -197,7 +220,7 @@ export async function runPhase2(runDate: string): Promise<void> {
       const item = queue.shift()!;
       const account = item.accountId ? accountMap.get(item.accountId) : null;
       const customInstructions = account?.customInstructions ?? null;
-      results.push(await extractItem(item, runDate, customInstructions, prompts));
+      results.push(await extractItem(item, runDate, customInstructions, prompts, classificationContext));
     }
   });
 

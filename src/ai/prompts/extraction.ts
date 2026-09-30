@@ -58,17 +58,47 @@ Rules:
   - general_news: informational content, newsletters, announcements, no action required
   - automated: system notifications, confirmations, receipts (only escalate if urgency is high/critical)
   - spam: unsolicited, no value
-- unknown_context = true if sender is unknown AND content suggests a relationship (not spam)
+- sender_known = true if the From address matches a known contact below, or the email content
+  itself makes clear this is someone already described in the known contacts or recent notes
+  (e.g. a new address for a person already on file, or the body names them) - not just a
+  plausible-sounding signature
+- unknown_context = true only if sender_known is false AND the content suggests a real
+  relationship worth remembering (not spam, not a one-off automated notice)
 - critical = response or action needed within 24h
-- invoice from unknown sender always = unknown_context true`;
+- invoice from a sender that is not sender_known always = unknown_context true
+- if known contacts or recent notes already answer what question_for_user would ask, set
+  question_for_user to null and unknown_context to false instead of asking again`;
+
+export interface ClassificationContext {
+  knownContacts: { identifier: string; name: string | null; relationship: string | null }[];
+  notes: string[];
+}
+
+function contextBlock(context: ClassificationContext | undefined): string | null {
+  if (!context) return null;
+  const parts: string[] = [];
+  if (context.knownContacts.length > 0) {
+    parts.push(`Known contacts (sender directory, JSON): ${JSON.stringify(context.knownContacts)}`);
+  }
+  if (context.notes.length > 0) {
+    parts.push(`Recent personal notes: ${JSON.stringify(context.notes)}`);
+  }
+  return parts.length > 0 ? parts.join("\n\n") : null;
+}
 
 /**
  * `base` is the effective classification prompt for the run, which is the constant above unless
  * a `personal_classification` version is active in `prompt_versions` - see `active-prompts.ts`.
- * The per-account instructions are prepended either way, so activating a version never drops
- * the account context.
+ * `context` (known contacts, recent personal/contact notes) is the same for every item in a run;
+ * the per-account instructions and the context are prepended either way, so activating a version
+ * never drops either.
  */
-export function buildPersonalEmailPrompt(base: string, customInstructions: string | null): string {
-  if (!customInstructions) return base;
-  return `Account context: ${customInstructions}\n\n${base}`;
+export function buildPersonalEmailPrompt(
+  base: string,
+  customInstructions: string | null,
+  context?: ClassificationContext,
+): string {
+  const prefix = [contextBlock(context), customInstructions ? `Account context: ${customInstructions}` : null]
+    .filter((part): part is string => part !== null);
+  return prefix.length > 0 ? `${prefix.join("\n\n")}\n\n${base}` : base;
 }

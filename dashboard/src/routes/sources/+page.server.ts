@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from "./$types";
-import { fail } from "@sveltejs/kit";
+import { error, fail } from "@sveltejs/kit";
 
 const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
@@ -26,9 +26,20 @@ export interface SourceRow {
 }
 
 export const load: PageServerLoad = async () => {
-  const res = await fetch(`${API}/api/sources`);
-  const sources: SourceRow[] = res.ok ? await res.json() : [];
-  return { sources };
+  let res: Response;
+  try {
+    res = await fetch(`${API}/api/sources`, { signal: AbortSignal.timeout(5_000) });
+  } catch {
+    return { sources: [], serverOffline: true };
+  }
+  if (!res.ok) {
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      return { sources: [], serverOffline: true };
+    }
+    throw error(502, "The pipeline server could not load sources.");
+  }
+  const sources: SourceRow[] = await res.json();
+  return { sources, serverOffline: false };
 };
 
 export const actions: Actions = {
@@ -40,13 +51,18 @@ export const actions: Actions = {
 
     if (!sourceName) return fail(400, { error: "sourceName required" });
 
-    const res = await fetch(`${API}/api/sources/${encodeURIComponent(sourceName)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive, reason }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API}/api/sources/${encodeURIComponent(sourceName)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive, reason }),
+      });
+    } catch {
+      return fail(503, { error: "Pipeline server is offline." });
+    }
 
-    if (!res.ok) return fail(500, { error: "API error" });
+    if (!res.ok) return fail(res.status, { error: "API error" });
     return { ok: true };
   },
 };

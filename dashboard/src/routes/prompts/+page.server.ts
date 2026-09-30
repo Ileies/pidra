@@ -1,5 +1,5 @@
 import type { PageServerLoad, Actions } from "./$types";
-import { fail } from "@sveltejs/kit";
+import { error, fail } from "@sveltejs/kit";
 
 const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
@@ -29,13 +29,26 @@ interface SectionGroup {
 }
 
 export const load: PageServerLoad = async () => {
-  const [versionsRes, effectiveRes] = await Promise.all([
-    fetch(`${API}/api/prompts`),
-    fetch(`${API}/api/prompts/effective`),
-  ]);
+  let versionsRes: Response;
+  let effectiveRes: Response;
+  try {
+    [versionsRes, effectiveRes] = await Promise.all([
+      fetch(`${API}/api/prompts`, { signal: AbortSignal.timeout(5_000) }),
+      fetch(`${API}/api/prompts/effective`, { signal: AbortSignal.timeout(5_000) }),
+    ]);
+  } catch {
+    return { sections: [], serverOffline: true };
+  }
 
-  const prompts: PromptVersionRow[] = versionsRes.ok ? await versionsRes.json() : [];
-  const effective: EffectivePrompt[] = effectiveRes.ok ? await effectiveRes.json() : [];
+  if (!versionsRes.ok || !effectiveRes.ok) {
+    if ([versionsRes.status, effectiveRes.status].some((status) => status === 502 || status === 503 || status === 504)) {
+      return { sections: [], serverOffline: true };
+    }
+    throw error(502, "The pipeline server could not load prompt versions.");
+  }
+
+  const prompts: PromptVersionRow[] = await versionsRes.json();
+  const effective: EffectivePrompt[] = await effectiveRes.json();
 
   const versionsBySection = new Map<string, PromptVersionRow[]>();
   for (const p of prompts) {
@@ -59,7 +72,7 @@ export const load: PageServerLoad = async () => {
     if (!known.has(section)) sections.push({ section, effective: null, versions });
   }
 
-  return { sections };
+  return { sections, serverOffline: false };
 };
 
 export const actions: Actions = {
@@ -68,8 +81,13 @@ export const actions: Actions = {
     const id = data.get("id") as string | null;
     if (!id) return fail(400, { error: "id required" });
 
-    const res = await fetch(`${API}/api/prompts/${id}/approve`, { method: "POST" });
-    if (!res.ok) return fail(500, { error: "API error" });
+    let res: Response;
+    try {
+      res = await fetch(`${API}/api/prompts/${id}/approve`, { method: "POST" });
+    } catch {
+      return fail(503, { error: "Pipeline server is offline." });
+    }
+    if (!res.ok) return fail(res.status, { error: "API error" });
     return { approved: true };
   },
 
@@ -78,7 +96,12 @@ export const actions: Actions = {
     const id = data.get("id") as string | null;
     if (!id) return fail(400, { error: "id required" });
 
-    const res = await fetch(`${API}/api/prompts/${id}`, { method: "DELETE" });
+    let res: Response;
+    try {
+      res = await fetch(`${API}/api/prompts/${id}`, { method: "DELETE" });
+    } catch {
+      return fail(503, { error: "Pipeline server is offline." });
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string };
       return fail(res.status, { error: body.error ?? "API error" });

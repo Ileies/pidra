@@ -3,6 +3,7 @@
   import { browser } from "$app/env";
   import { page } from "$app/state";
   import Navbar from "#lib/components/Navbar.svelte";
+  import ServerStatus from "#lib/components/ServerStatus.svelte";
   import TabBar from "#lib/components/TabBar.svelte";
   import Toast from "#lib/components/Toast.svelte";
   import CommandPalette from "#lib/components/CommandPalette.svelte";
@@ -97,6 +98,7 @@
 
   {#if loggedIn}
     <Navbar onOpenMore={() => (moreOpen = true)} />
+    <ServerStatus />
   {/if}
 
   {#if appUpdate.ready}

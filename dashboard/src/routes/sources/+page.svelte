@@ -5,14 +5,18 @@
   import Badge from "#lib/components/Badge.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
   import DataTable from "#lib/components/DataTable.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
   import type { Column } from "#lib/components/table.js";
   import { fmtPct, fmtScore } from "#lib/format.js";
   import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
+  import { toastFormResult } from "#lib/toast.svelte.js";
   import type { SourceRow } from "./+page.server";
-  import type { PageData } from "./$types";
+  import type { ActionData, PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   // Sources are keyed by name, not by id, so that is what the focus list carries.
   $effect(() => {
@@ -109,21 +113,25 @@
     to every delivery the source made, which is where the score comes from.
   </p>
 
-  <DataTable
-    rows={data.sources}
-    key={(source) => source.sourceName}
-    dim={(source) => !source.isActive}
-    mode="cards"
-    caption="Source quality"
-    emptyTitle="No source data yet."
-    emptyHint="Sources appear here after the first pipeline run."
-    columns={[
-      { key: "name", header: "Newsletter", card: "title", cell: nameCell },
-      { key: "score", header: "Score 30d", align: "right", card: "row", cell: scoreCell },
-      { key: "history", header: "History", width: "w-40", showAt: "md", card: "row", cell: historyCell },
-      { key: "rate", header: "Include rate", align: "right", card: "row", cell: rateCell },
-      { key: "trend", header: "Trend", showAt: "sm", card: "row", cell: trendCell },
-      { key: "action", header: "", width: "w-56", align: "right", card: "actions", cell: actionCell },
-    ] as Column<SourceRow>[]}
-  />
+  {#if data.serverOffline}
+    <EmptyState title="Pipeline server is offline." hint="Source scores will be available when the server is running." />
+  {:else}
+    <DataTable
+      rows={data.sources}
+      key={(source) => source.sourceName}
+      dim={(source) => !source.isActive}
+      mode="cards"
+      caption="Source quality"
+      emptyTitle="No source data yet."
+      emptyHint="Sources appear here after the first pipeline run."
+      columns={[
+        { key: "name", header: "Newsletter", card: "title", cell: nameCell },
+        { key: "score", header: "Score 30d", align: "right", card: "row", cell: scoreCell },
+        { key: "history", header: "History", width: "w-40", showAt: "md", card: "row", cell: historyCell },
+        { key: "rate", header: "Include rate", align: "right", card: "row", cell: rateCell },
+        { key: "trend", header: "Trend", showAt: "sm", card: "row", cell: trendCell },
+        { key: "action", header: "", width: "w-56", align: "right", card: "actions", cell: actionCell },
+      ] as Column<SourceRow>[]}
+    />
+  {/if}
 </Page>

@@ -41,8 +41,10 @@
     run, without a deploy.
   </p>
 
-  {#if data.sections.length === 0}
-    <EmptyState title="The skills bridge is not reachable." hint="Prompt versions are served by the bridge on localhost:4000." />
+  {#if data.serverOffline}
+    <EmptyState title="Pipeline server is offline." hint="Prompt versions will be available when the server is running." />
+  {:else if data.sections.length === 0}
+    <EmptyState title="No prompt sections available." />
   {:else}
     {#if !anyActiveOverride}
       <p class="text-xs text-surface-400">

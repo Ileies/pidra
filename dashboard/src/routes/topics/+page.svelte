@@ -28,6 +28,7 @@
     all: data.topics.length,
     active: data.topics.filter((t) => t.status === "active").length,
     dormant: data.topics.filter((t) => t.status === "dormant").length,
+    archived: data.topics.filter((t) => t.status === "archived").length,
     resolved: data.topics.filter((t) => t.status === "resolved").length,
   });
 
@@ -52,7 +53,7 @@
     setPageContext({
       surface: "entities",
       route: "/topics",
-      digest: `Active topics: ${shown.length} shown (${counts.active} active, ${counts.resolved} resolved). Filter: ${statusFilter}.`,
+      digest: `Topics: ${shown.length} shown (${counts.active} active, ${counts.dormant} dormant, ${counts.archived} archived, ${counts.resolved} resolved). Filter: ${statusFilter}.`,
       focus: focusFrom(shown, "topic", (topic) => ({ id: topic.id, label: topic.headline })),
     });
   });
@@ -60,12 +61,14 @@
   const STATUS_TONE = {
     active: "success",
     dormant: "muted",
+    archived: "neutral",
     resolved: "neutral",
   } as const;
 
   const FILTERS: [string, string][] = [
     ["active", "Active"],
     ["dormant", "Dormant"],
+    ["archived", "Archived"],
     ["resolved", "Resolved"],
     ["all", "All"],
   ];
@@ -82,7 +85,7 @@
 
 <Page title="Topics" size="app" class="flex flex-col gap-4">
   <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-bold text-surface-50">Active topics</h1>
+    <h1 class="text-xl font-bold text-surface-50">Topics</h1>
     {#if isOffline}
       <p class="text-xs text-warning-400 max-w-prose">
         Resolving and archiving need the connection: they change what tomorrow's briefing carries
@@ -164,22 +167,33 @@
               class="shrink-0 flex gap-2"
             >
               <input type="hidden" name="id" value={topic.id} />
-              {#if topic.status === "resolved"}
+              {#if topic.status === "resolved" || topic.status === "dormant" || topic.status === "archived"}
                 <button
                   type="submit"
                   disabled={isOffline}
                   name="status"
                   value="active"
                   class="tap px-3 py-1.5 rounded text-xs border border-success-600 text-success-400 hover:bg-success-950 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                >Reopen</button>
-              {:else}
+                >Reactivate</button>
+              {/if}
+              {#if topic.status === "active"}
                 <button
                   type="submit"
                   disabled={isOffline}
                   name="status"
                   value="dormant"
                   class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >Dormant</button>
+              {:else if topic.status === "dormant"}
+                <button
+                  type="submit"
+                  disabled={isOffline}
+                  name="status"
+                  value="archived"
+                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >Archive</button>
+              {/if}
+              {#if topic.status !== "resolved"}
                 <button
                   type="submit"
                   disabled={isOffline}

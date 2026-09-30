@@ -6,7 +6,7 @@ import { sql } from "#lib/server/postgres.js";
  * Topic curation, online-only. The read side moved to `+page.ts`.
  */
 
-const STATUSES = ["active", "dormant", "resolved"] as const;
+const STATUSES = ["active", "dormant", "archived", "resolved"] as const;
 
 export const actions: Actions = {
   /**
@@ -23,7 +23,12 @@ export const actions: Actions = {
     if (!id) return fail(400, { error: "Missing topic id" });
     if (!status || !(STATUSES as readonly string[]).includes(status)) return fail(400, { error: "Invalid status" });
 
-    await sql()`UPDATE active_topics SET status = ${status} WHERE id = ${id}`;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return fail(400, { error: "Invalid topic id" });
+    }
+    await sql()`UPDATE active_topics SET status = ${status},
+      last_updated = CASE WHEN ${status} = 'active' THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Berlin')::date ELSE last_updated END
+      WHERE id = ${id}`;
     return { ok: true, id, status };
   },
 };

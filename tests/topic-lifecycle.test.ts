@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import type { activeTopics } from "../src/db/schema";
-import { agedTopicStatus, revivableTopics, TOPIC_ARCHIVE_DAYS, TOPIC_DORMANT_DAYS } from "../src/pipeline/topic-lifecycle";
+import {
+  agedTopicStatus,
+  isMoreValuable,
+  normalizeTopicImportance,
+  rankTopicImportance,
+  revivableTopics,
+  TOPIC_ACTIVE_CAP,
+  TOPIC_ARCHIVE_DAYS,
+  TOPIC_DORMANT_DAYS,
+  weakestActiveTopic,
+} from "../src/pipeline/topic-lifecycle";
 
 type Topic = typeof activeTopics.$inferSelect;
 const topic = (id: string, headline: string, status: string, lastUpdated = "2026-09-01") =>
@@ -34,5 +44,52 @@ describe("topic lifecycle", () => {
       entities: ["OpenAI", "Orion"],
     }]);
     expect(result.map((row) => row.id)).toEqual(["a"]);
+  });
+
+  test("normalizes model-supplied importance, defaulting anything unrecognized to normal", () => {
+    expect(normalizeTopicImportance("high")).toBe("high");
+    expect(normalizeTopicImportance("low")).toBe("low");
+    expect(normalizeTopicImportance("normal")).toBe("normal");
+    expect(normalizeTopicImportance(undefined)).toBe("normal");
+    expect(normalizeTopicImportance("urgent")).toBe("normal");
+  });
+
+  test("ranks importance high > normal > low", () => {
+    expect(rankTopicImportance("high")).toBeGreaterThan(rankTopicImportance("normal"));
+    expect(rankTopicImportance("normal")).toBeGreaterThan(rankTopicImportance("low"));
+    expect(rankTopicImportance(null)).toBe(rankTopicImportance("normal"));
+  });
+
+  test("finds the weakest active topic by importance, then by less momentum", () => {
+    const ranked = (importance: string | null, updateCount: number, lastUpdated: string) =>
+      ({ importance, updateCount, lastUpdated });
+    expect(weakestActiveTopic([])).toBeNull();
+    expect(weakestActiveTopic([
+      ranked("high", 5, "2026-09-20"),
+      ranked("low", 2, "2026-09-15"),
+      ranked("normal", 10, "2026-09-29"),
+    ])).toEqual(ranked("low", 2, "2026-09-15"));
+    // Tied importance: fewer carried-forward updates loses.
+    expect(weakestActiveTopic([
+      ranked("normal", 8, "2026-09-01"),
+      ranked("normal", 1, "2026-09-20"),
+    ])).toEqual(ranked("normal", 1, "2026-09-20"));
+    // Tied importance and update count: older lastUpdated loses.
+    expect(weakestActiveTopic([
+      ranked("normal", 3, "2026-09-10"),
+      ranked("normal", 3, "2026-09-05"),
+    ])).toEqual(ranked("normal", 3, "2026-09-05"));
+  });
+
+  test("admits a candidate only on a strict improvement over the incumbent, never a tie", () => {
+    const incumbent = { importance: "normal", updateCount: 4, lastUpdated: "2026-09-01" };
+    expect(isMoreValuable("high", incumbent)).toBe(true);
+    expect(isMoreValuable("normal", incumbent)).toBe(false);
+    expect(isMoreValuable("low", incumbent)).toBe(false);
+  });
+
+  test("caps concurrently active topics at a fixed, sane ceiling", () => {
+    expect(TOPIC_ACTIVE_CAP).toBeGreaterThan(0);
+    expect(Number.isInteger(TOPIC_ACTIVE_CAP)).toBe(true);
   });
 });

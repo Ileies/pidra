@@ -40,6 +40,7 @@ Output rules:
 - If a today's item continues a revivable topic, treat it as ongoing and update that topic's id with status "active". Match the same story, not merely the same company or field. Do not create a duplicate new topic.
 - A topic becomes "resolved" only when today's item provides evidence that the underlying story ended. Put that evidence in resolution_evidence. Silence or a lack of new items is not an ending; the pipeline ages quiet topics separately.
 - NEW STORIES: introduce concisely, state the key claim. Fold personal relevance into that claim rather than appending a separate sentence for it.
+- Topic importance: give every new_topics entry an "importance" of "high", "normal" or "low" - how much this specific story matters to the reader, not how big the news cycle is. Only a limited number of topics stay active at once; at capacity, a "high" candidate can bump the weakest current one to dormant, while a "low" one is adopted only if it beats an even weaker incumbent. Include "importance" on an updated_topics entry only when the story's standing has genuinely changed; omit it to leave the topic's existing rating alone.
 - HEAVY DAY: include only top 20 items by relevance. Add ## Also noted section with one-line entries for items 21+.
 - LIGHT DAY: a light day is a short section. Give each item what its extraction supports and no
   more; never pad an item with analysis or background to fill space.
@@ -54,8 +55,8 @@ Output rules:
 - After the report, append:
   <!--SYSTEM
   {
-    "new_topics": [{"headline":"...","domain":"...","summary":"..."}],
-    "updated_topics": [{"id":"...","new_summary":"...","status":"active|resolved","resolution_evidence":null}],
+    "new_topics": [{"headline":"...","domain":"...","summary":"...","importance":"high|normal|low"}],
+    "updated_topics": [{"id":"...","new_summary":"...","status":"active|resolved","resolution_evidence":null,"importance":"high|normal|low"}],
     "new_entities": [],
     "skill_suggestions": []
   }

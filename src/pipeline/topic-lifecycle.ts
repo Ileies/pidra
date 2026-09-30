@@ -5,8 +5,41 @@ export const TOPIC_DORMANT_DAYS = 7;
 export const TOPIC_ARCHIVE_DAYS = 30;
 const REVIVABLE_LIMIT = 20;
 
+// How many topics Section 1 carries as "active" at once. At capacity, a candidate (new or
+// returning) only takes a slot by out-valuing the weakest occupant - see weakestActiveTopic/isMoreValuable.
+export const TOPIC_ACTIVE_CAP = 15;
+
+export type TopicImportance = "high" | "normal" | "low";
+const IMPORTANCE_RANK: Record<TopicImportance, number> = { low: 0, normal: 1, high: 2 };
+
 type Topic = typeof activeTopics.$inferSelect;
 type Story = { headline?: string; key_claim?: string; entities?: string[] };
+type RankedTopic = { importance: string | null; updateCount: number | null; lastUpdated: string };
+
+export function normalizeTopicImportance(value: unknown): TopicImportance {
+  return value === "high" || value === "low" ? value : "normal";
+}
+
+export function rankTopicImportance(importance: string | null | undefined): number {
+  return IMPORTANCE_RANK[(importance as TopicImportance) ?? "normal"] ?? IMPORTANCE_RANK.normal;
+}
+
+/** Weakest by importance, tie-broken by less momentum: fewer carried-forward updates, then older. */
+export function weakestActiveTopic<T extends RankedTopic>(topics: T[]): T | null {
+  if (topics.length === 0) return null;
+  return topics.reduce((weakest, topic) => {
+    const rankDiff = rankTopicImportance(topic.importance) - rankTopicImportance(weakest.importance);
+    if (rankDiff !== 0) return rankDiff < 0 ? topic : weakest;
+    const countDiff = (topic.updateCount ?? 0) - (weakest.updateCount ?? 0);
+    if (countDiff !== 0) return countDiff < 0 ? topic : weakest;
+    return topic.lastUpdated < weakest.lastUpdated ? topic : weakest;
+  });
+}
+
+/** Strict improvement only - a tie leaves the incumbent in its active slot. */
+export function isMoreValuable(candidateImportance: string, incumbent: RankedTopic): boolean {
+  return rankTopicImportance(candidateImportance) > rankTopicImportance(incumbent.importance);
+}
 
 function daysBefore(date: string, days: number): string {
   const day = new Date(`${date}T00:00:00Z`);

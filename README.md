@@ -19,7 +19,7 @@ World-facing intelligence from the newsletters, organized by topic domain (AI, C
 |---|---|
 | Runtime | Bun |
 | Frontend | SvelteKit (dashboard + installable PWA that works offline) |
-| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. |
+| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna`. |
 | Database | Postgres + DrizzleORM |
 | Email | IMAP (Netcup) |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |
@@ -40,7 +40,7 @@ Plus a **compounding intelligence layer**: feedback loops, source trust scoring,
 
 ## Key Design Decisions
 
-- **Extraction is a compressor, not an analyst.** Converts text → structured JSON. Synthesis only sees compressed output (~12K tokens), not raw email HTML (~50K tokens). Both stages currently run on `gpt-5.6-luna`; which model fills each stage is not the rule, the two-stage split is.
+- **Extraction is a compressor, not an analyst.** Converts text → structured JSON. Synthesis only sees compressed output (~12K tokens), not raw email HTML (~50K tokens). Both stages currently run on `gpt-6-luna`; which model fills each stage is not the rule, the two-stage split is.
 - **No vector stores yet.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction wins. A vector store is planned, but as its own far-future project, not an incremental pipeline addition.
 - **Credentials never reach any cloud API.** Diary and other intimate personal content is deliberately in scope for the Context Builder - it's some of the richest signal available. Only credentials (passwords, card/bank details, ID numbers) are filtered before any consumer sees them.
 - **No prompt changes without human approval.** System proposes weekly, user approves each change individually.
@@ -107,7 +107,7 @@ A **partial** ingest failure is not a failed run. Phase 1 settles all 16 sources
 
 ## Cost
 
-Measured, and only for what the system actually tracks. `daily_reports` records synthesis tokens: the 2026-09-12 run was 25.6k in / 3.9k out, about a cent at `gpt-5.6-luna` list prices ($0.20 / $1.20 per Mtok). Every call runs on `service_tier: "flex"`, so the real spend is below the dashboard's figure, which prices at list.
+Measured, and only for what the system actually tracks. `daily_reports` records synthesis tokens: the 2026-09-12 run was 25.6k in / 3.9k out, about a cent at `gpt-6-luna` list prices ($0.20 / $1.20 per Mtok). Every call runs on `service_tier: "flex"`, so the real spend is below the dashboard's figure, which prices at list.
 
 Extraction is not tracked per run and sits on top of that. The Context Builder prints its own running total: the 2026-09-12 monthly update was $0.05 for 177 items. A full harvest processes the entire eligible corpus and costs more; its actual cost depends on the configured models and token rates.
 

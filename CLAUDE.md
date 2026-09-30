@@ -4,7 +4,7 @@
 
 PIDRA consists of three tools that share one Postgres database:
 
-1. **Daily pipeline** (`src/`, entered through `src/job.ts`) - morning briefing system. Ingests 32 newsletters, personal emails, SMS (`POST /webhook/sms` in `src/server/index.ts`, authenticated via `X-SMS-Secret`/`SMS_WEBHOOK_SECRET`), Google Calendar, and Google Tasks via RSS, IMAP, and APIs, and six **news desks** (`src/news/`) research the day's news on the web: the world's front page, the reader's home city and country, their first priority as a beat, their other fields, talk of the day, and something different. Extraction compresses raw content into structured JSON; synthesis produces each section of the report - both stages currently run on `gpt-5.6-luna` (see Stack below). Compounds over time through entity mention provenance, source trust scoring, and weekly self-improvement runs.
+1. **Daily pipeline** (`src/`, entered through `src/job.ts`) - morning briefing system. Ingests 32 newsletters, personal emails, SMS (`POST /webhook/sms` in `src/server/index.ts`, authenticated via `X-SMS-Secret`/`SMS_WEBHOOK_SECRET`), Google Calendar, and Google Tasks via RSS, IMAP, and APIs, and six **news desks** (`src/news/`) research the day's news on the web: the world's front page, the reader's home city and country, their first priority as a beat, their other fields, talk of the day, and something different. Extraction compresses raw content into structured JSON; synthesis produces each section of the report - both stages currently run on `gpt-6-luna` (see Stack below). Compounds over time through entity mention provenance, source trust scoring, and weekly self-improvement runs.
 
 2. **Dashboard** (`dashboard/`) - SvelteKit frontend for reading reports, rating items, viewing the entity graph, managing notes, reviewing skill executions, and approving prompt changes.
 
@@ -40,7 +40,7 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 
 - **Runtime:** Bun (not Node, not tsx - Bun APIs throughout)
 - **Frontend:** SvelteKit
-- **AI:** OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`.
+- **AI:** OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna`.
 - **DB:** Postgres via DrizzleORM (Bun SQL driver), running on pronix (`192.168.10.85`)
 - **OS:** NixOS
 
@@ -48,7 +48,7 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 
 - **Always pass `store: false`** on every OpenAI API call. No exceptions. This prevents request/response storage on OpenAI's servers.
 - **Always pass `service_tier: "flex"`.** Roughly half the cost for extra latency; 429 means "no flex capacity", so retry with backoff rather than failing the caller. `withFlexRetry` in `src/ai/openai.ts` does this.
-- **`gpt-5.6-luna` rejects `temperature` and `max_tokens` with a hard 400.** Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions), and control determinism with strict JSON schemas plus `reasoning.effort` instead of temperature.
+- **`gpt-6-luna` rejects `temperature` and `max_tokens` with a hard 400.** Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions), and control determinism with strict JSON schemas plus `reasoning.effort` instead of temperature.
 - **Go through `src/ai/openai.ts` for model calls.** `extractJson()` and `synthesize()` centralise the model IDs, the flex tier, `store: false`, and retries. News search uses the Brave client in `src/search/brave.ts`. Don't construct a second `new OpenAI(...)` client elsewhere.
 - **Prefer strict JSON schemas for extraction.** Pass `schema` to `extractJson()`; it removes both field drift and truncated-JSON parse failures.
 - **Never use OpenAI's hosted `web_search` tool** (owner's decision, 2026-09-25). All web search goes through the Brave Search API in `src/search/brave.ts`: the news desks, the Section 1 slots, `/api/deepen` and the `run_web_search` skill. Every actual request, including a retry, reserves one of 30 shared calls for the Europe/Berlin day in `brave_daily_usage`; a full quota fails closed.

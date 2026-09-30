@@ -4,7 +4,7 @@ Scans all personal data sources (email, Google Keep, Google Tasks, GitHub), comp
 
 Runs by hand for a full harvest, and on its own in update mode on the 1st of each month at 03:00 as the `context-builder` systemd job (`hosts/pronix/pidra.nix`). The harvest itself lands in `context_builder_runs.document`, so it does not matter which machine ran it - only `.checkpoint.json`/`errors.json` and the archival JSON/MD files stay local to wherever the run happened.
 
-Both stages call `src/ai/openai.ts` on the `flex` service tier with `store: false`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. Extraction uses strict JSON schemas, so the model cannot return malformed or drifting fields.
+Both stages call `src/ai/openai.ts` on the `flex` service tier with `store: false`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna`. Extraction uses strict JSON schemas, so the model cannot return malformed or drifting fields.
 
 ## Prerequisites
 

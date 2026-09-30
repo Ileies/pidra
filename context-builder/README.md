@@ -2,7 +2,7 @@
 
 Scans all personal data sources (email, Google Keep, Google Tasks, GitHub), compresses each item into structured JSON, and synthesizes a long-term context document. Seeds PIDRA's `entities`, `contacts`, and `standing_context` tables.
 
-Runs by hand for a full harvest, and on its own in update mode on the 1st of each month at 03:00 as the `context-builder` systemd job (`hosts/pronix/pidra.nix`). Running on the server is not incidental: `context_builder_runs.output_path` is an absolute path, so a harvest written anywhere else is one the daily pipeline cannot open.
+Runs by hand for a full harvest, and on its own in update mode on the 1st of each month at 03:00 as the `context-builder` systemd job (`hosts/pronix/pidra.nix`). The harvest itself lands in `context_builder_runs.document`, so it does not matter which machine ran it - only `.checkpoint.json`/`errors.json` and the archival JSON/MD files stay local to wherever the run happened.
 
 Both stages call `src/ai/openai.ts` on the `flex` service tier with `store: false`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-5.6-luna`. Extraction uses strict JSON schemas, so the model cannot return malformed or drifting fields.
 
@@ -81,11 +81,11 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:15432/pidra bun run context-builder
 
 ## Output
 
-- `context-builder/output/context-YYYY-MM-DD.json` - structured data
+- `context-builder/output/context-YYYY-MM-DD.json` - structured data (archival copy; not read by anything)
 - `context-builder/output/context-YYYY-MM-DD.md` - human-readable snapshot
-- DB: `contacts`, `entities`, `standing_context` tables seeded, and the JSON file's path on `context_builder_runs.output_path`
+- DB: `contacts`, `entities`, `standing_context` tables seeded, and the document itself on `context_builder_runs.document` (the JSON file's own path is still kept on `output_path`, as a legacy/debug breadcrumb)
 
-**`fullContext` must carry all five `# 1.` to `# 5.` headings.** They are an interface: `pickSections` in `src/pipeline/long-term-context.ts` splits on them to route each section to one of the two daily synthesis calls, so a document in any other shape reaches the briefing as an empty string. Both prompts share one `DOCUMENT_STRUCTURE` constant, and `run.ts` checks the result rather than trusting it - a patch that comes back missing sections is rebuilt in full, and one that still fails leaves `output_path` null so the last good harvest stays the newest document the pipeline can find. An update run also patches the newest run whose file actually parses, not simply the newest row, so a bad document is never carried forward.
+**`fullContext` must carry all five `# 1.` to `# 5.` headings.** They are an interface: `pickSections` in `src/pipeline/long-term-context.ts` splits on them to route each section to one of the two daily synthesis calls, so a document in any other shape reaches the briefing as an empty string. Both prompts share one `DOCUMENT_STRUCTURE` constant, and `run.ts` checks the result rather than trusting it - a patch that comes back missing sections is rebuilt in full, and one that still fails leaves `document` null so the last good harvest stays the newest document the pipeline can find. An update run also patches the newest run whose document actually parses, not simply the newest row, so a bad document is never carried forward.
 
 ## Modes
 

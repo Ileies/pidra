@@ -22,7 +22,7 @@ See `src/db/schema.ts` for the full schema - it is the single source of truth an
 - `prompt_versions` - versioned prompts, only one active per section at a time
 - `skill_executions` - audit log for all skills-bridge calls
 - `standing_context` - persistent rules/preferences injected into Section 2 prompt; seeded by Context Builder from Google Keep "Daily Life Rules" and other standing rules
-- `context_builder_runs` / `context_builder_indexed_items` - Context Builder run history and per-item index state; used for delta detection on re-runs
+- `context_builder_runs` / `context_builder_indexed_items` - Context Builder run history (including the harvested document itself, on `document`) and per-item index state; used for delta detection on re-runs
 - `context_corrections` - append-only correction layer over the harvested long-term context; injected into both synthesis prompts and authoritative over them
 - `chat_conversations` / `chat_messages` - the context revision chat's transcript, and the provenance trail for every correction it made
 - `notes` - user and system notes, scoped by `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`

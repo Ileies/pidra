@@ -8,7 +8,6 @@ import { answerQuestion, dismissQuestion, reopenQuestion, QuestionError } from "
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { DEEPEN_PROMPT } from "../ai/prompts";
-import { loadSkills } from "../skills/loader";
 import { executeSkill, resolvePendingSkill } from "../skills/execute";
 import { listEffectiveSkills, patchSkill, resetSkill, SkillOverrideError } from "../skills/overrides";
 import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
@@ -621,7 +620,6 @@ app.post("/api/context/corrections/:id/revert", async (c) => {
   }
 });
 
-loadSkills().catch(console.error);
 
 export default {
   port: Number(process.env.SKILLS_BRIDGE_PORT ?? 4000),

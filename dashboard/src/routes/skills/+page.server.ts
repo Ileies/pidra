@@ -2,6 +2,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
+import { LOCAL_SKILLS } from "./catalog.js";
 
 const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
@@ -36,6 +37,8 @@ interface PendingExecution {
 }
 
 export const load: PageServerLoad = async () => {
+  // The bridge owns edits and execution, but the registered catalog is part of this checkout.
+  // Load it here too so the page can still explain what skills exist while the bridge is down.
   const [skillsRes, pendingRows] = await Promise.all([
     fetch(`${API}/skills`).catch(() => null),
     sql()`
@@ -47,7 +50,16 @@ export const load: PageServerLoad = async () => {
     `,
   ]);
 
-  const skills: SkillInfo[] = skillsRes?.ok ? await skillsRes.json() : [];
+  const localSkills: SkillInfo[] = LOCAL_SKILLS.map((skill) => ({
+    name: skill.name,
+    description: skill.description,
+    risk_level: skill.risk_level,
+    parameters: {},
+    enabled: true,
+    base: { description: skill.description, risk_level: skill.risk_level },
+    overridden: false,
+  }));
+  const skills: SkillInfo[] = skillsRes?.ok ? await skillsRes.json() : localSkills;
 
   const pending = pendingRows.map((row) => ({
     ...row,

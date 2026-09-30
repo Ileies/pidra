@@ -1,5 +1,23 @@
-import { readdirSync } from "fs";
-import { join } from "path";
+import addCalendarEvent from "../../skills/add_calendar_event";
+import addTodoItem from "../../skills/add_todo_item";
+import completeTodoItem from "../../skills/complete_todo_item";
+import createFile from "../../skills/create_file";
+import deleteNote from "../../skills/delete_note";
+import listNotes from "../../skills/list_notes";
+import openProjectInEditor from "../../skills/open_project_in_editor";
+import proposePromptVersion from "../../skills/propose_prompt_version";
+import readContext from "../../skills/read_context";
+import readReport from "../../skills/read_report";
+import restoreNote from "../../skills/restore_note";
+import revertContextRevision from "../../skills/revert_context_revision";
+import reviseContext from "../../skills/revise_context";
+import runWebSearch from "../../skills/run_web_search";
+import sendEmail from "../../skills/send_email";
+import sendMail from "../../skills/send_mail";
+import setSourceActive from "../../skills/set_source_active";
+import updateCalendarEvent from "../../skills/update_calendar_event";
+import updateNote from "../../skills/update_note";
+import writeNote from "../../skills/write_note";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
@@ -36,34 +54,28 @@ export function provenanceOf(ctx: SkillContext) {
   return { by: ctx.actor, skillExecutionId: ctx.executionId, conversationId: ctx.conversationId };
 }
 
-const registry = new Map<string, Skill>();
-
-export async function loadSkills(): Promise<void> {
-  const skillsDir = join(import.meta.dir, "../../skills");
-  let files: string[];
-  try {
-    files = readdirSync(skillsDir).filter((f) => f.endsWith(".ts") && !f.startsWith("_"));
-  } catch {
-    console.warn("[Skills] skills/ directory not found or empty");
-    return;
-  }
-
-  for (const file of files) {
-    try {
-      const mod = await import(join(skillsDir, file));
-      const skill: Skill = mod.default;
-      if (!skill?.name || !skill?.execute) {
-        console.warn(`[Skills] ${file} has no valid default export - skipped`);
-        continue;
-      }
-      registry.set(skill.name, skill);
-      console.log(`[Skills] Loaded: ${skill.name} (${skill.risk_level})`);
-    } catch (err) {
-      console.error(`[Skills] Failed to load ${file}:`, err);
-    }
-  }
-  console.log(`[Skills] ${registry.size} skill(s) registered`);
-}
+const registry = new Map<string, Skill>([
+  addCalendarEvent,
+  addTodoItem,
+  completeTodoItem,
+  createFile,
+  deleteNote,
+  listNotes,
+  openProjectInEditor,
+  proposePromptVersion,
+  readContext,
+  readReport,
+  restoreNote,
+  revertContextRevision,
+  reviseContext,
+  runWebSearch,
+  sendEmail,
+  sendMail,
+  setSourceActive,
+  updateCalendarEvent,
+  updateNote,
+  writeNote,
+].map((skill): [string, Skill] => [skill.name, skill]));
 
 export function getSkill(name: string): Skill | undefined {
   return registry.get(name);

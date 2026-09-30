@@ -5,9 +5,9 @@
 	"homepage": "https://github.com/Ileies/pidra",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"preview": "vite preview",
+		"dev": "bun --bun vite dev",
+		"build": "bun --bun vite build",
+		"preview": "bun --bun vite preview",
 		"format": "prettier --write .",
 		"lint": "eslint .",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun run scripts/contrast.ts && bun run scripts/check-offline.ts && bun run scripts/blackhole/run.ts",

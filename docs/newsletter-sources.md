@@ -1,6 +1,6 @@
 # Newsletter sources
 
-The 32 newsletters ingested by the daily pipeline (`src/config/rss-feeds.ts`, `src/config/newsletter-sources.ts`), with the tiering and rationale behind each pick. Cut from an original 50 candidates - the 18 removed were pure redundancy, wrong format for LLM parsing, or low signal-to-token ratio. Token cost was never the constraint (~$2-3/month at 50).
+The 32 newsletters curated for the daily pipeline, with the tiering and rationale behind each pick. The live RSS feeds and email sender rules are managed at `/settings/newsletters` and loaded by `src/config/rss-feeds.ts` and `src/config/newsletter-sources.ts`. Cut from an original 50 candidates - the 18 removed were pure redundancy, wrong format for LLM parsing, or low signal-to-token ratio. Token cost was never the constraint (~$2-3/month at 50).
 
 Tier S = essential daily reads. A = high-value, subscribe immediately. B = niche but earns its place. C = narrow but frontier-relevant.
 

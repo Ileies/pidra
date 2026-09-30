@@ -1,6 +1,6 @@
 # PIDRA - Personal Ingestive Daily Report Agent
 
-AI-powered morning briefing system. Phase 1 pulls from 16 independent sources every morning - 13 mailboxes over IMAP, 24 newsletter feeds over RSS, Google Calendar and Google Tasks - and SMS arrives separately by webhook. 32 curated newsletters in total, the rest of them by mail. Alongside them, six news desks research the day's news on the web. Produces a structured three-section report and pushes it to the phone. Gets smarter over time through feedback loops, an entity knowledge graph, and weekly self-improvement runs.
+AI-powered morning briefing system. Phase 1 pulls from 13 mailboxes over IMAP, configured newsletter feeds over RSS, Google Calendar and Google Tasks every morning, and SMS arrives separately by webhook. Newsletters without an RSS feed arrive by mail. Alongside them, six news desks research the day's news on the web. Produces a structured three-section report and pushes it to the phone. Gets smarter over time through feedback loops, an entity knowledge graph, and weekly self-improvement runs.
 
 ## Output
 

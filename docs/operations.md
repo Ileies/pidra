@@ -20,6 +20,8 @@ Two things it deliberately does not carry:
 
 `drizzle-kit migrate` hangs in this environment. **Always apply schema changes manually** via a temporary Bun script using `new SQL(DATABASE_URL)`. After applying, delete the temp script. The `migrations/` folder and DrizzleORM schema stay in sync for reference, but the actual migration is applied raw.
 
+`migrations/0027_newsletter_sources.sql` creates and seeds the live sender rules and RSS feeds. Apply it before deploying code that reads those tables. Each RSS feed fetch records its latest error or success on the feed row; failures also enter the run error log and Notifications. RSS uses a 14-day lookback by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages do not get missed; message IDs deduplicate them.
+
 ## Cron schedule (all `Europe/Berlin`)
 
 - Daily pipeline: configurable via `PIPELINE_RUN_TIME` env var (default 06:30)

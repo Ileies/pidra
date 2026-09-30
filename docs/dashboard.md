@@ -21,6 +21,10 @@
 - `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log
 - `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen
+- `/notifications` - unread reports, open questions and run errors, including individual RSS feed failures
+- `/settings` - account and source configuration links
+- `/settings/email-accounts` - live IMAP/SMTP account settings
+- `/settings/newsletters` - live RSS feed and newsletter sender rules; a feed's latest fetch error sits below its URL and removing the row stops polling it
 - `/chat` - the assistant full screen: the same `Panel` component the floating widget uses, plus the conversation list and the active corrections. Shares one live conversation with the widget
 
 The **floating assistant** is mounted once in `+layout.svelte`, so it is reachable from every page and a turn survives navigation. Each page declares what it is showing with `setPageContext()` (`$lib/assistant/state.svelte`); the `focus` list hands the model real ids for the rows on screen. Turns stream over SSE (`POST /api/assistant/chat`), tool calls appear as they execute, and a turn that wrote something triggers `invalidateAll()` plus a highlight on the changed rows. It is hidden on `/chat`, which is the same thing full screen, and below `sm`, where the bottom bar's Chat tab replaces it.

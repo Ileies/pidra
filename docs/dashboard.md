@@ -10,8 +10,8 @@
 - `/sources` - source quality dashboard (trust scores, include rates, enable/disable)
 - `/sources/[name]` - every delivery from one source and what extraction made of it
 - `/feedback` - the item-level rating log behind the per-source totals
-- `/entities` - entity graph explorer (filterable table)
-- `/entities/[id]` - one entity: relations as an adjacency list, appearances as a timeline
+- `/entities` - entity explorer (filterable table); search matches name, aliases and summary, not just the canonical name
+- `/entities/[id]` - one entity: a Watch control (sets `importance = 'high'` through the correction path, feeding the monitoring search slot), appearances as a timeline
 - `/topics` - `active_topics`, with resolve and archive. Curation only: no skill may write this table
 - `/contacts` - the sender directory. Edits go through `recordCorrection`, so they behave exactly as the assistant's do
 - `/notes` - notes management: click-to-edit content, inline scope and expiry, search, sort, trash with restore, per-revision history with revert, bulk actions, undo on delete. System notes are editable too; provenance stays visible via `created_by` / `updated_by`

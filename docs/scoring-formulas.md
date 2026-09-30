@@ -20,11 +20,10 @@ This replaced an earlier conditional-bump design (`if include_rate > 0.6 and avg
 
 ## Entity graph pruning (`src/pipeline/entity-pruning.ts`)
 
-- Dormant entities (not `importance = high`) are archived after 60 days of absence.
-- Archived entities are deleted after 180 days if `mention_count <= 2`.
-- Orphaned relations (pointing at a deleted entity) are cleaned up alongside.
+- Dormant entities (not `importance = high`, not locked by a correction) are archived after 60 days of absence.
+- Archived entities are deleted after 180 days if `mention_count <= 2`; `entity_mentions` cascades on delete via FK, so no separate cleanup step is needed.
 
-There is no confidence-based relation deletion in the current code, despite earlier plans describing one - relations don't currently decay on their own.
+There is no relation graph in the current schema (`entity_relations` was dropped - it had zero confirmed edges, zero evidence, and was never read by synthesis) - entity pruning only ever deals with the `entities` row itself.
 
 ## Topic lifecycle (`src/pipeline/topic-lifecycle.ts`)
 

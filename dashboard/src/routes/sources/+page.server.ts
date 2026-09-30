@@ -23,6 +23,7 @@ export interface SourceRow {
   trustScore: number | null;
   qualityTrend: string | null;
   compositeScore30d: number | null;
+  unsubscribeUrl: string | null;
   dailyScores: DailyScore[];
 }
 
@@ -34,7 +35,7 @@ export const load: PageServerLoad = async () => {
       SELECT source_name AS "sourceName", is_active AS "isActive",
              disabled_at::text AS "disabledAt", disabled_reason AS "disabledReason",
              trust_score AS "trustScore", quality_trend AS "qualityTrend",
-             composite_score_30d AS "compositeScore30d"
+             composite_score_30d AS "compositeScore30d", unsubscribe_url AS "unsubscribeUrl"
       FROM source_quality
       ORDER BY composite_score_30d DESC NULLS LAST
     `,
@@ -85,5 +86,21 @@ export const actions: Actions = {
 
     if (!res.ok) return fail(res.status, { error: "API error" });
     return { ok: true };
+  },
+
+  delete: async ({ request }) => {
+    const data = await request.formData();
+    const sourceName = data.get("sourceName") as string;
+    if (!sourceName) return fail(400, { error: "sourceName required" });
+
+    let res: Response;
+    try {
+      res = await fetch(`${API}/api/sources/${encodeURIComponent(sourceName)}`, { method: "DELETE" });
+    } catch {
+      return fail(503, { error: "Pipeline server is offline." });
+    }
+
+    if (!res.ok) return fail(res.status, { error: "API error" });
+    return { ok: true, deleted: sourceName };
   },
 };

@@ -4,6 +4,7 @@
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
+  import DeleteSourceModal from "#lib/components/DeleteSourceModal.svelte";
   import DataTable from "#lib/components/DataTable.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
   import type { Column } from "#lib/components/table.js";
@@ -86,29 +87,24 @@
 {/snippet}
 
 {#snippet actionCell(source: SourceRow)}
-  {#if source.isActive}
-    <ConfirmButton
-      label="Disable"
-      confirmLabel="Disable"
-      action="?/toggle"
-      fields={{ sourceName: source.sourceName, isActive: "false" }}
-      reasonName="reason"
-    />
-  {:else}
-    <ConfirmButton
-      label="Enable"
-      action="?/toggle"
-      fields={{ sourceName: source.sourceName, isActive: "true" }}
-      tone="success"
-      immediate
-    />
-  {/if}
+  <span class="inline-flex items-center gap-2">
+    {#if !source.isActive}
+      <ConfirmButton
+        label="Enable"
+        action="?/toggle"
+        fields={{ sourceName: source.sourceName, isActive: "true" }}
+        tone="success"
+        immediate
+      />
+    {/if}
+    <DeleteSourceModal sourceName={source.sourceName} unsubscribeUrl={source.unsubscribeUrl} action="?/delete" />
+  </span>
 {/snippet}
 
 <Page title="Sources" size="app" class="flex flex-col gap-4">
   <p class="text-xs text-surface-400 leading-relaxed max-w-prose">
     Score 0-10, a weighted average over the last 30 days: relevance x 7 + include rate x 3.
-    Disabling a source excludes it from extraction from the next pipeline run on. The name links
+    Deleting a source removes it for good and stops it being polled or matched. The name links
     to every delivery the source made, which is where the score comes from.
   </p>
 

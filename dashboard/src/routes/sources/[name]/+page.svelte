@@ -2,7 +2,9 @@
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import { goto } from "$app/navigation";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
+  import DeleteSourceModal from "#lib/components/DeleteSourceModal.svelte";
   import DataTable from "#lib/components/DataTable.svelte";
   import StatCard from "#lib/components/StatCard.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -136,11 +138,15 @@
         </div>
       </div>
 
-      {#if isActive}
-        <ConfirmButton label="Disable" confirmLabel="Disable" action="?/toggle" fields={{ isActive: "false" }} reasonName="reason" />
-      {:else}
+      {#if !isActive}
         <ConfirmButton label="Enable" action="?/toggle" fields={{ isActive: "true" }} tone="success" immediate />
       {/if}
+      <DeleteSourceModal
+        sourceName={data.sourceName}
+        unsubscribeUrl={data.quality?.unsubscribe_url ?? null}
+        action="?/delete"
+        onDeleted={() => goto("/sources")}
+      />
     </div>
   </section>
 

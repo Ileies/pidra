@@ -223,6 +223,12 @@ export const sourceQuality = pgTable("source_quality", {
   disabledAt: dateStr("disabled_at"),
   disabledReason: text("disabled_reason"),
   notes: text("notes"),
+  // Populated opportunistically by IMAP ingest (List-Unsubscribe header, a body link, or an AI
+  // scan as a last resort) the first time a message from this source is seen - never re-checked
+  // once `unsubscribeCheckedAt` is set, found or not, to bound the cost. Read by the "delete
+  // source" flow in `/sources` to offer opening it before the row is removed.
+  unsubscribeUrl: text("unsubscribe_url"),
+  unsubscribeCheckedAt: timestamptz("unsubscribe_checked_at"),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
 

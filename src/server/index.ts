@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { inArray, eq, desc, gte, and } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
-import { db, extractions, rawItems, sourceQuality, sourceDailyScores, skillExecutions, rawItemExists, promptVersions } from "../db";
+import { db, extractions, rawItems, sourceQuality, sourceDailyScores, rssFeeds, newsletterSenderRules, skillExecutions, rawItemExists, promptVersions } from "../db";
 import { answerQuestion, dismissQuestion, reopenQuestion, QuestionError } from "../questions/store";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
@@ -205,6 +205,7 @@ app.get("/api/sources", async (c) => {
     trustScore: q.trustScore,
     qualityTrend: q.qualityTrend,
     compositeScore30d: q.compositeScore30d,
+    unsubscribeUrl: q.unsubscribeUrl,
     dailyScores: (dailyBySource.get(q.sourceName) ?? []).slice(0, 30),
   }));
 
@@ -234,6 +235,18 @@ app.patch("/api/sources/:name", async (c) => {
     });
 
   return c.json({ ok: true, sourceName, isActive: body.isActive });
+});
+
+// Hard delete, unlike PATCH above: removes the source from `/sources` and from the config
+// tables that make it get polled/matched (`rss_feeds`, `newsletter_sender_rules`), rather than
+// just excluding it from extraction. History in `raw_items`/`extractions`/`source_daily_scores`
+// is kept, same as `deleteFeed`/`deleteSenderRule` on /settings/newsletters.
+app.delete("/api/sources/:name", async (c) => {
+  const sourceName = decodeURIComponent(c.req.param("name"));
+  await db.delete(sourceQuality).where(eq(sourceQuality.sourceName, sourceName));
+  await db.delete(rssFeeds).where(eq(rssFeeds.sourceName, sourceName));
+  await db.delete(newsletterSenderRules).where(eq(newsletterSenderRules.sourceName, sourceName));
+  return c.json({ ok: true, sourceName });
 });
 
 // POST /api/questions/:id/:op - one question at a time from /questions: answer, dismiss, reopen.

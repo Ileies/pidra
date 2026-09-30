@@ -1,3 +1,5 @@
+import { isNotNull } from "drizzle-orm";
+import { db, sourceQuality } from "../db";
 import { ingestImapAccount } from "../ingest/imap";
 import { ingestRssFeeds } from "../ingest/rss";
 import { ingestGoogleCalendar, ingestGoogleTasks } from "../ingest/google";
@@ -39,16 +41,20 @@ const message = (reason: unknown) => (reason instanceof Error ? reason.message :
 export async function runPhase1(runDate: string): Promise<IngestResult> {
   console.log(`[Phase 1] Starting ingestion for ${runDate}`);
 
-  const [accounts, newsletterConfig, feeds] = await Promise.all([
+  const [accounts, newsletterConfig, feeds, checkedUnsubscribeRows] = await Promise.all([
     loadEmailAccounts(), loadNewsletterConfig(), loadRssFeeds(),
+    db.select({ sourceName: sourceQuality.sourceName }).from(sourceQuality).where(isNotNull(sourceQuality.unsubscribeCheckedAt)),
   ]);
   const rssSourceNames = new Set(feeds.map((feed) => feed.sourceName));
+  // Shared across all accounts in this run, so two accounts seeing the same newsletter on the
+  // same morning don't both pay for the AI fallback scan.
+  const checkedUnsubscribeSources = new Set(checkedUnsubscribeRows.map((row) => row.sourceName));
   if (accounts.length === 0) {
     console.warn("[Phase 1] No email accounts configured (see /settings/email-accounts)");
   }
 
   const [imapResults, rssResult, calendarResult, todoResult] = await Promise.all([
-    Promise.allSettled(accounts.map((account) => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames))),
+    Promise.allSettled(accounts.map((account) => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames, checkedUnsubscribeSources))),
     Promise.allSettled([ingestRssFeeds(runDate, feeds)]),
     Promise.allSettled([ingestGoogleCalendar(runDate)]),
     Promise.allSettled([ingestGoogleTasks(runDate)]),

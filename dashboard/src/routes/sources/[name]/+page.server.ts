@@ -83,7 +83,7 @@ export const load: PageServerLoad = async ({ params }) => {
     db`
       SELECT source_name, trust_score, include_rate_30d, avg_revealed_relevance, quality_trend,
              promotional_rate_30d, composite_score_30d, is_active, disabled_at, disabled_reason,
-             notes, updated_at
+             notes, updated_at, unsubscribe_url
       FROM source_quality WHERE source_name = ${sourceName}
     `,
     db`
@@ -172,6 +172,7 @@ export const load: PageServerLoad = async ({ params }) => {
     disabled_at: string | null;
     disabled_reason: string | null;
     notes: string | null;
+    unsubscribe_url: string | null;
   } | null;
 
   // A source with neither a quality row nor a single ingested item is a bad URL, not an empty page.
@@ -273,5 +274,19 @@ export const actions: Actions = {
 
     if (!res.ok) return fail(500, { error: "API error" });
     return { ok: true };
+  },
+
+  delete: async ({ params }) => {
+    const sourceName = decodeURIComponent(params.name);
+
+    let res: Response;
+    try {
+      res = await fetch(`${API}/api/sources/${encodeURIComponent(sourceName)}`, { method: "DELETE" });
+    } catch {
+      return fail(503, { error: "Pipeline server is offline." });
+    }
+
+    if (!res.ok) return fail(res.status, { error: "API error" });
+    return { ok: true, deleted: sourceName };
   },
 };

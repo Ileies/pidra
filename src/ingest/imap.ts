@@ -1,10 +1,11 @@
 import type Imap from "imap";
 import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
-import { db, ingestDrops, rawItems, rawItemExists } from "../db";
+import { db, ingestDrops, rawItems, rawItemExists, sourceQuality } from "../db";
 import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
+import { findUnsubscribeLink } from "./unsubscribe";
 import type { NewsletterConfig } from "../config/newsletter-sources";
 import type { EmailAccount } from "../config/email-accounts";
 
@@ -38,7 +39,7 @@ function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Bu
   });
 }
 
-export async function ingestImapAccount(account: EmailAccount, runDate: string, newsletterConfig: NewsletterConfig, rssSourceNames: Set<string>): Promise<number> {
+export async function ingestImapAccount(account: EmailAccount, runDate: string, newsletterConfig: NewsletterConfig, rssSourceNames: Set<string>, checkedUnsubscribeSources: Set<string>): Promise<number> {
   console.log(`[Ingest/IMAP] [${account.user}] Connecting to ${account.host}...`);
 
   const imap = await openImap(account);
@@ -114,6 +115,20 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string, 
     if (sourceType === "newsletter" && sourceName && rssSourceNames.has(sourceName)) {
       await drop("covered_by_rss", sourceType, sourceName);
       continue;
+    }
+
+    // Looked up once per source, found or not, so a source that never mentions it isn't
+    // AI-scanned on every message forever. Read by the "delete source" flow in `/sources`.
+    if (sourceType === "newsletter" && sourceName && !checkedUnsubscribeSources.has(sourceName)) {
+      checkedUnsubscribeSources.add(sourceName);
+      const unsubscribeUrl = await findUnsubscribeLink(parsed);
+      await db
+        .insert(sourceQuality)
+        .values({ sourceName, unsubscribeUrl, unsubscribeCheckedAt: new Date().toISOString() })
+        .onConflictDoUpdate({
+          target: sourceQuality.sourceName,
+          set: { unsubscribeUrl, unsubscribeCheckedAt: new Date().toISOString() },
+        });
     }
 
     const content = cleanEmailContent(

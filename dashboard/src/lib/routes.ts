@@ -243,7 +243,7 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.settings,
     mobileHeader: true,
-    children: ["/settings/email-accounts"],
+    children: ["/settings/email-accounts", "/settings/newsletters"],
   },
   {
     href: "/chat",
@@ -286,6 +286,15 @@ export const ROUTES: RouteDef[] = [
     href: "/settings/email-accounts",
     id: "/settings/email-accounts",
     label: "Email accounts",
+    surface: "global",
+    group: "system",
+    icon: ICON.settings,
+    hidden: true,
+  },
+  {
+    href: "/settings/newsletters",
+    id: "/settings/newsletters",
+    label: "Newsletter sources",
     surface: "global",
     group: "system",
     icon: ICON.settings,
@@ -377,6 +386,10 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/settings/email-accounts": {
     label: "Email accounts",
     reason: "Managing IMAP/SMTP credentials needs a live connection, and offline is never the right place to queue a password change.",
+  },
+  "/settings/newsletters": {
+    label: "Newsletter sources",
+    reason: "Newsletter sender rules and RSS feed health need a live connection.",
   },
 };
 

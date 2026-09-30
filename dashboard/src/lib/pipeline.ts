@@ -25,7 +25,7 @@ export type IngestFailureKind = "timeout" | "auth" | "connection" | "config" | "
 
 export interface IngestFailure {
   /**
-   * `imap:<account>`, `calendar`, `tasks`, `rss`, or `ingest` when Phase 1 failed as a whole; for
+   * `imap:<account>`, `rss:<feed>`, `calendar`, `tasks`, or `ingest` when Phase 1 failed as a whole; for
    * the news desks `news:<desk>`, or `news` when every desk failed.
    */
   source: string;
@@ -51,6 +51,7 @@ export function isNewsDesk(failure: IngestFailure): boolean {
 /** The account part of `imap:<account>`, the desk for a news desk, or the source name unchanged. */
 export function failureLabel(failure: IngestFailure): string {
   if (failure.source.startsWith("imap:")) return failure.source.slice("imap:".length);
+  if (failure.source.startsWith("rss:")) return failure.source.slice("rss:".length);
   if (failure.source === "news") return "every news desk";
   if (failure.source.startsWith("news:")) return `the ${failure.source.slice("news:".length)} news desk`;
   return failure.source;
@@ -93,7 +94,7 @@ export function ingestFailures(attempts: StepAttempt[] | null | undefined): Inge
     // records the bare message, and that is still worth showing under a generic source.
     const split = attempt.step === "news"
       ? attempt.error.match(/^(news(?::[a-z]+)?):\s*(.+)$/is)
-      : attempt.error.match(/^(imap:\S+?|calendar|tasks|rss):\s*(.+)$/is);
+      : attempt.error.match(/^(imap:\S+?|rss:.+?|calendar|tasks|rss):\s*(.+)$/is);
     const source = split ? split[1] : attempt.step === "news" ? "news" : "ingest";
     const detail = (split ? split[2] : attempt.error).trim();
     const kind = classifyFailure(detail);

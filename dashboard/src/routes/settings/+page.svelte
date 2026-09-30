@@ -56,6 +56,13 @@
       <span>Email accounts</span>
       <span class="text-xs text-surface-400">IMAP/SMTP accounts the pipeline reads</span>
     </a>
+    <a
+      href="/settings/newsletters"
+      class="tap flex items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+    >
+      <span>Newsletter sources</span>
+      <span class="text-xs text-surface-400">RSS feeds, errors, and email sender rules</span>
+    </a>
     <button
       type="button"
       onclick={logOut}

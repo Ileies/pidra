@@ -74,6 +74,7 @@ const ICON = {
   prompts: "M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5",
   runs: "M4 19V5M4 19h16M8 15l3.5-4.5 3 2.5L19 7",
   questions: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4M12 17h.01",
+  notifications: "M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
   legal: "M5 3h10l4 4v14H5zM15 3v5h5M8 12h8M8 16h8",
   chat: "M21 11.5a8.4 8.4 0 0 1-9 8.3 9 9 0 0 1-2.8-.4L3 21l1.6-4.8A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.3 8.4 8.4 0 0 1 8.4 8.3z",
   settings:
@@ -218,6 +219,16 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.questions,
     secondary: true,
+    children: ["/questions/closed"],
+  },
+  {
+    href: "/notifications",
+    id: "/notifications",
+    label: "Notifications",
+    surface: "global",
+    group: "system",
+    icon: ICON.notifications,
+    hidden: true,
   },
   {
     href: "/settings",
@@ -352,6 +363,8 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/prompts": { label: "Prompts", reason: "Prompt versions are a live query against the pipeline's own tables." },
   "/runs": { label: "Runs", reason: "Pipeline run history is a live query against the pipeline's own tables." },
   "/questions": { label: "Questions", reason: "The question queue is live state: an answer queued offline could land on a question the pipeline has since merged or closed." },
+  "/questions/closed": { label: "Recently closed questions", reason: "Question history is live state and a reopened question can return to the queue at any time." },
+  "/notifications": { label: "Notifications", reason: "Notification state is live so reports and run issues can be marked as read or reviewed." },
   "/chat": { label: "Chat", reason: "The assistant needs a live connection to the model." },
   "/[date]/triage": { label: "Triage", reason: "Triage is a live query against the pipeline's own tables." },
   "/settings/email-accounts": {

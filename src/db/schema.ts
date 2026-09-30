@@ -401,6 +401,15 @@ export const pipelineRuns = pgTable("pipeline_runs", {
   durationMs: integer("duration_ms"),
 });
 
+/**
+ * Acknowledgements for dashboard notifications. Notifications themselves are projections of
+ * reports, open questions, and pipeline runs, so the source tables remain authoritative.
+ */
+export const notificationReads = pgTable("notification_reads", {
+  notificationKey: text("notification_key").primaryKey(),
+  readAt: timestamptz("read_at").default(sql`now()`),
+});
+
 export const standingContext = pgTable("standing_context", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   key: text("key").unique().notNull(), // e.g. daily_life_rules | recurring_commitments | university

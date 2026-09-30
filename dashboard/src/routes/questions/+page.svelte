@@ -21,13 +21,6 @@
     reopen: "Question is back in the queue.",
   };
 
-  const CLOSED_LABEL: Record<string, string> = {
-    answered: "Answered",
-    dismissed: "Dismissed",
-    resolved: "Settled by the assistant",
-    merged: "Merged",
-  };
-
   const MAX_SOURCES = 3;
 
   const OPEN_PAGE = 20;
@@ -80,6 +73,9 @@
 {/snippet}
 
 <Page title="Questions" size="app" class="flex flex-col gap-6">
+  <div class="flex justify-end">
+    <a href="/questions/closed" class="tap text-xs text-surface-400 hover:text-primary-300">Recently closed questions</a>
+  </div>
   {#if data.open.length === 0}
     <EmptyState
       title="No open questions."
@@ -181,43 +177,4 @@
     {/if}
   {/if}
 
-  {#if data.closed.length > 0}
-    <details class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3">
-      <summary class="tap text-xs text-surface-400 cursor-pointer select-none hover:text-surface-200">
-        Recently closed ({data.closed.length})
-      </summary>
-      <ul class="mt-3 flex flex-col divide-y divide-surface-800">
-        {#each data.closed as q (q.id)}
-          <li class="py-3 flex flex-col gap-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <Badge tone={q.status === "answered" ? "success" : "muted"}>{CLOSED_LABEL[q.status] ?? q.status}</Badge>
-              <span class="text-surface-400 text-xs">{fmtDateTimeShort(q.answeredAt ?? q.updatedAt)}</span>
-            </div>
-            <p class="text-surface-200 text-sm">{q.question}</p>
-            {#if q.status === "answered" && q.answer}
-              <p class="text-surface-300 text-xs">{q.answer}</p>
-            {:else if q.status === "merged" && q.mergedIntoText}
-              <p class="text-surface-400 text-xs">Now part of: {q.mergedIntoText}</p>
-            {/if}
-            {#if q.statusDetail && q.status !== "answered"}
-              <p class="text-surface-400 text-xs">{q.statusDetail}</p>
-            {/if}
-            {#if q.status !== "answered"}
-              <form method="POST" action="?/reopen" use:enhance={submit(q.id)}>
-                <input type="hidden" name="id" value={q.id} />
-                <button
-                  type="submit"
-                  disabled={busy !== null}
-                  class="tap inline-flex items-center gap-2 mt-1 px-3 py-1 rounded border border-surface-600 text-surface-300 text-xs hover:text-surface-100 hover:border-surface-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
-                  {#if busy === `${q.id}:reopen`}<Spinner label="Reopening" />{/if}
-                  Reopen
-                </button>
-              </form>
-            {/if}
-          </li>
-        {/each}
-      </ul>
-    </details>
-  {/if}
 </Page>

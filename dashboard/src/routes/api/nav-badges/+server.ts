@@ -8,17 +8,32 @@ import { sql } from "#lib/server/postgres.js";
  */
 export const GET = async () => {
   const db = sql();
-  // Counted the way `/questions` counts its heading, every open question, so the two cannot disagree.
-  const [[openQuestions], [pendingSkills]] = await Promise.all([
+  // Questions are counted the same way `/questions` counts its heading, so the two cannot disagree.
+  // Reports and runs are projections with an acknowledgement row, not mutable notification copies.
+  const [[openQuestions], [pendingSkills], [unreadReports], [unreviewedRuns]] = await Promise.all([
     db`SELECT count(*)::int AS n FROM questions WHERE status = 'open'`,
     db`SELECT count(*)::int AS n FROM skill_executions WHERE status = 'pending'`,
+    db`
+      SELECT count(*)::int AS n
+      FROM daily_reports d
+      LEFT JOIN notification_reads n ON n.notification_key = 'report:' || d.report_date::text
+      WHERE n.notification_key IS NULL
+    `,
+    db`
+      SELECT count(*)::int AS n
+      FROM pipeline_runs r
+      LEFT JOIN notification_reads n ON n.notification_key = 'run:' || r.id::text
+      WHERE n.notification_key IS NULL
+        AND (r.status = 'failed' OR COALESCE(jsonb_array_length(r.step_errors), 0) > 0)
+    `,
   ]);
 
   const questions = (openQuestions?.n as number | undefined) ?? 0;
   const skills = (pendingSkills?.n as number | undefined) ?? 0;
+  const notifications = questions + ((unreadReports?.n as number | undefined) ?? 0) + ((unreviewedRuns?.n as number | undefined) ?? 0);
 
   return Response.json({
     hasPendingQuestions: questions > 0,
-    navBadges: { "/questions": questions, "/skills": skills } as Record<string, number>,
+    navBadges: { "/questions": questions, "/skills": skills, "/notifications": notifications } as Record<string, number>,
   });
 };

@@ -14,9 +14,6 @@ import { parseJsonb } from "#lib/jsonb.js";
 
 const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
-/** How many closed questions the page lists: enough to see what the assistant did lately. */
-const CLOSED_LIMIT = 30;
-
 interface Source {
   extraction_id: string | null;
   from: string;
@@ -82,26 +79,14 @@ export const load: PageServerLoad = async () => {
     first_asked::text AS first_asked, last_asked::text AS last_asked, times_asked,
     blocks_until, answered_at, updated_at
   `;
-  const [open, closed] = await Promise.all([
-    db<Row[]>`
-      SELECT ${columns()} FROM questions
-      WHERE status = 'open'
-      ORDER BY (blocks_until > now()) IS TRUE DESC, (kind = 'item') DESC, last_asked DESC, created_at
-    `,
-    db<Row[]>`
-      SELECT ${columns()} FROM questions
-      WHERE status <> 'open'
-      ORDER BY updated_at DESC
-      LIMIT ${CLOSED_LIMIT}
-    `,
-  ]);
+  const open = await db<Row[]>`
+    SELECT ${columns()} FROM questions
+    WHERE status = 'open'
+    ORDER BY (blocks_until > now()) IS TRUE DESC, (kind = 'item') DESC, last_asked DESC, created_at
+  `;
 
   const openViews = open.map(shape);
-  // A merged question points at its target by id; the page names the target instead.
-  const targets = new Map([...open, ...closed].map((r) => [r.id, r.question]));
-  const closedViews = closed.map((r) => ({ ...shape(r), mergedIntoText: r.merged_into ? targets.get(r.merged_into) ?? null : null }));
-
-  return { open: openViews, closed: closedViews };
+  return { open: openViews };
 };
 
 async function bridge(id: string, op: string, body?: unknown) {

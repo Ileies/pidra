@@ -21,10 +21,8 @@
    * The day steppers are gone from here. They were only ever on one route, they were the two
    * controls that pushed the row over, and they belong next to the date they step.
    *
-   * Notifications, log out, passkeys and the legal pages used to live here as their own controls.
-   * They are account-level, not navigation, so they moved to /settings - which is why `/setup`,
-   * `/privacy` and `/terms` are `hidden` in the registry rather than rendered as links of their
-   * own.
+   * Log out, passkeys and the legal pages live in /settings. Notifications stay in the header so
+   * new briefings, questions, and pipeline issues are always one tap away.
    */
   import { page } from "$app/state";
   import { ROUTES, NAV_GROUPS, needsConnection, routeFor, type NavGroup, type RouteDef } from "#lib/routes.js";
@@ -43,6 +41,7 @@
   const current = $derived(routeFor(routeId));
   /** Keyed by href, so the navbar renders a badge without knowing what it counts. */
   const badges = $derived(navBadges.counts);
+  const notificationCount = $derived(badges["/notifications"] ?? 0);
   const isOffline = $derived(offline.reachable === "offline");
 
   /**
@@ -106,8 +105,21 @@
 
     <SyncIndicator />
 
+    <a
+      href="/notifications"
+      aria-label={notificationCount > 0 ? `Notifications: ${notificationCount} waiting` : "Notifications"}
+      class="tap relative ml-auto flex h-10 w-10 items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 no-underline hover:border-surface-500 hover:text-surface-100 transition-colors"
+    >
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+      </svg>
+      {#if notificationCount > 0}
+        <span class="absolute -right-1 -top-1 min-w-5 rounded-full border-2 border-surface-900 bg-error-600 px-1 text-center text-[10px] font-bold leading-5 text-white tabular-nums" aria-hidden="true">{notificationCount > 99 ? "99+" : notificationCount}</span>
+      {/if}
+    </a>
+
     <!-- Desktop: the primary entries, grouped, plus everything secondary behind one menu. -->
-    <nav aria-label="Main" class="hidden xl:flex items-center justify-end gap-2 flex-wrap ml-auto">
+    <nav aria-label="Main" class="hidden xl:flex items-center justify-end gap-2 flex-wrap">
       {#each byGroup as group, index (group[0].href)}
         {#if index > 0}
           <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>

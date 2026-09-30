@@ -168,11 +168,12 @@
        of it before reaching Start/Stop or the corrections list was the bug this replaced. -->
   <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-6">
     <!-- Main: what the builder actually produced. This is the point of the tool, so it leads.
-         Kept at reading width even though its column is wider now: it is prose, and 68ch stays
-         the comfortable measure for it. -->
+         Not capped to the 68ch prose measure: a fixed-width column inside the wider `1fr` track
+         left it stranded away from the sidebar with an ugly gap between them, so it fills the
+         track up to the sidebar instead. -->
     <div class="flex flex-col gap-6 min-w-0">
       {#if data.doc}
-        <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
           <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
             <h2 class="text-surface-100 text-base font-semibold">Long-term context</h2>
             <span class="text-surface-400 text-xs tabular-nums">
@@ -191,7 +192,7 @@
           </article>
         </section>
 
-        <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
+        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 flex flex-col gap-3">
           <h2 class="text-surface-200 text-sm font-semibold">Source summaries</h2>
           {#each data.doc.sections as section (section.title)}
             {#if section.chars > 0}
@@ -207,7 +208,7 @@
           <p class="text-surface-400 text-xs break-all">Source file: <code>{data.doc.path}</code></p>
         </section>
       {:else}
-        <section class="max-w-read bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+        <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
           <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
           <p class="text-surface-300 text-sm">
             {#if data.docError}
@@ -223,15 +224,19 @@
       {/if}
     </div>
 
-    <!-- Sidebar: run controls, progress and everything that needs correcting or watching, all
-         reachable without scrolling past the document. Sticky past `xl`, same pattern as the
-         report's run-stats aside; below `xl` it just falls in the normal flow, after the doc. -->
-    <aside
-      class="mt-6 xl:mt-0 flex flex-col gap-4 xl:sticky"
-      style="top: calc(var(--header-h) + 1.5rem)"
-    >
-      <!-- Run status + controls -->
-      <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
+    <!-- Sidebar: run controls, progress and everything that needs correcting or watching.
+         Corrections, standing rules and errors can all grow arbitrarily long, so the whole
+         sidebar is never sticky or independently scrollable - that trapped everything past the
+         fold behind a second, inner scrollbar the reader had to find first, or, with the sidebar
+         pinned open past the viewport, hid it until the document had scrolled all the way past.
+         One page, one scrollbar: only the small status/controls block below stays in view. -->
+    <aside class="mt-6 xl:mt-0 flex flex-col gap-4">
+      <!-- Run status + controls: the one thing worth always having on screen, and short enough
+           that pinning it can never repeat the problem above. -->
+      <section
+        class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5 xl:sticky"
+        style="top: calc(var(--header-h) + 1.5rem)"
+      >
         <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div class="flex items-center gap-3">
             <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>

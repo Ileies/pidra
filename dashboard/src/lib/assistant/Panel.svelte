@@ -181,8 +181,10 @@
     {/if}
   </div>
 
-  <form onsubmit={submit} class="border-t border-surface-800 p-3 flex flex-col gap-1 bg-surface-950 {variant === 'widget' ? 'pb-[calc(0.75rem+var(--safe-b))] xl:pb-3' : ''}">
-    <div class="input-base w-full flex items-end gap-2">
+  <form onsubmit={submit} class="border-t border-surface-800 p-3 bg-surface-950 {variant === 'widget' ? 'pb-[calc(0.75rem+var(--safe-b))] xl:pb-3' : ''}">
+    <div
+      class="flex w-full items-end gap-2 rounded-3xl border border-surface-700 bg-surface-900 py-1.5 pl-4 pr-1.5 shadow-md shadow-black/20 transition-colors focus-within:border-primary-700 focus-within:ring-2 focus-within:ring-primary-700/30"
+    >
       <textarea
         bind:this={composer}
         value={assistant.draft}
@@ -192,7 +194,7 @@
         placeholder={assistant.conversationId ? "Message…" : "What should change?"}
         disabled={assistant.streaming}
         aria-label="Message"
-        class="flex-1 min-w-0 resize-none border-none bg-transparent p-0 text-surface-100 placeholder-surface-400 disabled:opacity-50 overflow-y-auto"
+        class="flex-1 min-w-0 resize-none border-none bg-transparent py-1.5 text-base text-surface-100 placeholder-surface-400 focus:outline-none disabled:opacity-50 overflow-y-auto sm:text-sm"
         style="max-height: {MAX_COMPOSER_HEIGHT}px"
       ></textarea>
       {#if assistant.streaming}
@@ -201,7 +203,7 @@
           onclick={() => assistant.cancel()}
           aria-label="Stop"
           title="Stop"
-          class="tap shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 cursor-pointer"
+          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 cursor-pointer transition-colors"
         >
           <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
         </button>
@@ -211,12 +213,11 @@
           disabled={assistant.draft.trim() === ""}
           aria-label="Send"
           title="Send"
-          class="tap shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-primary-800 border border-primary-700 text-primary-100 hover:bg-primary-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-primary-600 text-primary-50 hover:bg-primary-500 cursor-pointer transition-colors disabled:bg-surface-800 disabled:text-surface-500 disabled:cursor-not-allowed"
         >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
         </button>
       {/if}
     </div>
-    <span class="text-[10px] text-surface-500 hidden sm:inline px-1">Enter to send · Shift+Enter for a new line</span>
   </form>
 </div>

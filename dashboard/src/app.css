@@ -370,6 +370,14 @@
    Report markdown (targets sanitised {@html} content)
    ========================================================================== */
 
+/* The base case: synthesis and the Context Builder's harvest both put raw prose through here,
+   and neither ever guarantees a space every so often - a long URL, an unbroken identifier, a
+   German compound noun. `anywhere` (not `break-word`) is deliberate: browsers exclude it from a
+   flex/grid item's min-content size, so it actually stops the overflow instead of merely
+   allowing a break that never gets used before the box has already overflowed. */
+.report-body {
+  overflow-wrap: anywhere;
+}
 .report-body h1 {
   font-size: var(--text-xl);
   font-weight: 700;
@@ -423,10 +431,15 @@
   overflow-x: auto;
   margin-bottom: 1rem;
 }
+/* A code block scrolls horizontally on purpose (it is formatted text, wrapping it would mangle
+   it); everything else inherits `overflow-wrap: anywhere` from `.report-body` above. */
 .report-body pre code {
   background: none;
   border: none;
   padding: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: pre;
 }
 .report-body blockquote {
   border-left: 3px solid var(--app-accent-dim);

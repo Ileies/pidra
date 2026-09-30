@@ -287,16 +287,17 @@
 {/snippet}
 
 <!-- `size="app"` rather than `read`: the frame needs to be wide enough to hold the rail beside
-     the article, so the 68ch prose measure is enforced on the inner div instead of on `<main>`
-     itself. Below `xl` there is no grid and no rail, and the article alone reads exactly as the
-     `read` frame always did. -->
+     the article. The article itself is not capped to the 68ch prose measure at `xl` - it fills
+     the left track up to the rail, because a fixed-width article inside a wide `1fr` track left
+     it stranded away from the rail with an ugly gap between them. Below `xl` there is no grid and
+     no rail, and the article uses the full `app` width. -->
 <Page
 	title={data.date}
 	size="app"
 	bleed={statsBar}
 	class="xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start xl:gap-10"
 >
-	<div class="flex flex-col gap-5 xl:max-w-read">
+	<div class="flex flex-col gap-5">
 		<DayNav
 			date={data.date}
 			today={data.today}

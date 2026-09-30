@@ -17,7 +17,7 @@
 - `/notes` - notes management: click-to-edit content, inline scope and expiry, search, sort, trash with restore, per-revision history with revert, bulk actions, undo on delete. System notes are editable too; provenance stays visible via `created_by` / `updated_by`
 - `/rules` - `standing_context` CRUD, with a preview of the block as the Section 2 prompt receives it
 - `/context-builder` - the harvested context document, standing rules, active corrections (with revert), and run controls
-- `/skills` - the pending high-risk approval queue, the registry editor, and the execution log
+- `/skills` - the pending high-risk approval queue, the read-only registry with an enable/disable toggle, and the execution log
 - `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log
 - `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen

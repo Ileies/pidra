@@ -13,6 +13,8 @@
  */
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { contacts, db, questions, type QuestionRevision, type QuestionSource } from "../db";
+import { activePrompt } from "../ai/active-prompts";
+import { extractJson } from "../ai/openai";
 
 export type Question = typeof questions.$inferSelect;
 export type QuestionKind = "item" | "review";
@@ -61,6 +63,25 @@ export async function askedExtractionIds(): Promise<Set<string>> {
   const rows = await db.select({ sources: questions.sources }).from(questions).where(eq(questions.kind, "item"));
   return new Set(rows.flatMap((r) => r.sources.flatMap((s) => (s.extraction_id ? [s.extraction_id] : []))));
 }
+
+interface AnswerClassification {
+  /** "" when the answer gives no standing relationship to record. */
+  relationship: string;
+  spam_or_irrelevant: boolean;
+}
+
+const ANSWER_CLASSIFICATION_SCHEMA = {
+  name: "answer_classification",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["relationship", "spam_or_irrelevant"],
+    properties: {
+      relationship: { type: "string" },
+      spam_or_irrelevant: { type: "boolean" },
+    },
+  },
+};
 
 function revision(question: string, reason: string | null): QuestionRevision {
   return { question, at: new Date().toISOString(), by: "model", reason };
@@ -186,9 +207,12 @@ async function getQuestion(id: string): Promise<Question> {
 }
 
 /**
- * Records an answer. An item question about one sender also teaches the sender directory, which
- * is what keeps the classifier from asking about that address again. A row a correction has
- * locked is left alone: the reader's correction outranks a quick answer.
+ * Records an answer. An item question about one sender also teaches the sender directory - but
+ * only the standing relationship the answer actually gives, never the answer text verbatim, so
+ * "no idea, looks like spam" cannot become that sender's permanent description. A row a
+ * correction has locked is left alone: the reader's correction outranks a quick answer. A
+ * classification failure never loses the answer itself: it is already recorded by the time that
+ * call runs.
  */
 export async function answerQuestion(id: string, answer: string): Promise<Question> {
   const text = answer.trim();
@@ -205,16 +229,35 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
 
   const senders = [...new Set(updated.sources.map((s) => s.from.toLowerCase()))];
   if (updated.kind === "item" && senders.length === 1 && senders[0]!.includes("@")) {
-    await db
-      .insert(contacts)
-      .values({ identifier: senders[0]!, relationship: text, firstSeen: updated.sources[0]!.run_date })
-      .onConflictDoUpdate({
-        target: contacts.identifier,
-        set: { relationship: text, updatedAt: sql`now()` },
-        setWhere: sql`${contacts.locked} IS NOT TRUE`,
-      });
+    await teachContact(senders[0]!, text, updated.sources[0]!.run_date);
   }
   return updated;
+}
+
+async function teachContact(identifier: string, answer: string, firstSeen: string): Promise<void> {
+  let classification: AnswerClassification;
+  try {
+    const prompt = await activePrompt("answer_classification");
+    classification = await extractJson<AnswerClassification>(prompt.text, answer, {
+      schema: ANSWER_CLASSIFICATION_SCHEMA,
+      reasoningEffort: "low",
+    });
+  } catch (err) {
+    console.error(`[questions] Answer classification failed for ${identifier}, leaving contacts untouched:`, err);
+    return;
+  }
+
+  const relationship = classification.relationship.trim();
+  if (classification.spam_or_irrelevant || !relationship) return;
+
+  await db
+    .insert(contacts)
+    .values({ identifier, relationship, firstSeen })
+    .onConflictDoUpdate({
+      target: contacts.identifier,
+      set: { relationship, updatedAt: sql`now()` },
+      setWhere: sql`${contacts.locked} IS NOT TRUE`,
+    });
 }
 
 export async function dismissQuestion(id: string): Promise<Question> {

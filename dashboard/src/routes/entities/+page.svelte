@@ -74,13 +74,28 @@
 
   const types = $derived([...new Set(data.entities.map((e) => e.type).filter((t): t is string => !!t))].sort());
 
+  /** True when `needle` matches the name, an alias, or the summary - not just the canonical name. */
+  function textMatches(entity: Entity, needle: string): boolean {
+    if (needle === "") return true;
+    if (entity.name.toLowerCase().includes(needle)) return true;
+    if (entity.summary?.toLowerCase().includes(needle)) return true;
+    return (entity.aliases ?? []).some((alias) => alias.toLowerCase().includes(needle));
+  }
+
+  /** Whether `needle` hit an alias rather than the canonical name - shown so a match reads as
+   *  "X, also known as the thing you typed" rather than looking unrelated to the search. */
+  function matchedAlias(entity: Entity, needle: string): string | null {
+    if (needle === "" || entity.name.toLowerCase().includes(needle)) return null;
+    return (entity.aliases ?? []).find((alias) => alias.toLowerCase().includes(needle)) ?? null;
+  }
+
   const matching = $derived.by(() => {
     const needle = filter.query.trim().toLowerCase();
     return data.entities.filter(
       (e) =>
         (filter.status === "all" || e.status === filter.status) &&
         (filter.type === "" || e.type === filter.type) &&
-        (needle === "" || e.name.toLowerCase().includes(needle)),
+        textMatches(e, needle),
     );
   });
   const shown = $derived(matching.slice(0, SHOWN));
@@ -116,7 +131,10 @@
   <a href="/entities/{entity.id}" class="font-medium text-surface-100 no-underline hover:text-primary-400 hover:underline">
     {entity.name}
   </a>
-  {#if entity.aliases && entity.aliases.length > 0}
+  {@const alias = matchedAlias(entity, filter.query.trim().toLowerCase())}
+  {#if alias}
+    <div class="text-xs text-primary-400 mt-0.5">matched alias "{alias}"</div>
+  {:else if entity.aliases && entity.aliases.length > 0}
     <div class="text-xs text-surface-400 mt-0.5">{entity.aliases.slice(0, 3).join(", ")}</div>
   {/if}
   {#if entity.summary}
@@ -158,7 +176,7 @@
       type="search"
       value={filter.query}
       oninput={(event) => applyFilters({ query: event.currentTarget.value })}
-      placeholder="Search entities…"
+      placeholder="Search names, aliases, summaries…"
       aria-label="Search entities"
       class="input-base flex-1 min-w-48"
     />

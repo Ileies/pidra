@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { enhance } from "$app/forms";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
@@ -6,14 +7,22 @@
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
-  import type { EntityRelation } from "#lib/offline/repo.js";
-  import type { PageData } from "./$types";
+  import { toastFormResult } from "#lib/toast.svelte.js";
+  import { offline } from "#lib/offline/state.svelte.js";
+  import { sync } from "#lib/offline/sync.js";
+  import type { PageData, ActionData } from "./$types";
 
-  let { data: pageData }: { data: PageData } = $props();
+  let { data: pageData, form }: { data: PageData; form: ActionData } = $props();
 
   // The layout renders the first-sync state instead of this page while the mirror is empty, so
   // only the filled shape ever reaches the markup; this narrows the type to match.
   const data = $derived(pageData.mirrorEmpty ? null : pageData);
+
+  // Watching is a correction, which is never queued offline: replayed later, a locking merge on a
+  // row that moved meanwhile does lasting damage.
+  const isOffline = $derived(offline.reachable === "offline");
+
+  $effect(() => toastFormResult(form));
 
   $effect(() => {
     if (!data) return;
@@ -23,7 +32,8 @@
       digest: [
         `Entity "${data.entity.name}"${data.entity.type ? ` (${data.entity.type})` : ""}:`,
         `${data.entity.mentionCount} mentions, status ${data.entity.status}, importance ${data.entity.importance}.`,
-        `${data.relations.length} relations, ${data.appearances.length} recorded appearances.`,
+        `${data.appearances.length} recorded appearance(s).`,
+        data.entity.importance === "high" ? "Watched: eligible for the monitoring search slot." : "",
         data.entity.locked ? "This row is locked by a correction." : "",
       ].filter(Boolean).join(" "),
       focus: [{ kind: "entity", id: data.entity.id, label: data.entity.name }],
@@ -32,14 +42,6 @@
 
   const STATUS_TONE = { active: "success", dormant: "muted", archived: "neutral" } as const;
   const IMPORTANCE_TONE = { high: "warning", medium: "neutral", normal: "neutral", low: "muted" } as const;
-
-  /** Reads the same in both directions: "X competes with Y" and "Y competes with X" are one edge. */
-  function relationPhrase(relation: EntityRelation): string {
-    const verb = (relation.relationType ?? "relates to").replace(/_/g, " ");
-    return relation.direction === "out" ? verb : `${verb} (incoming)`;
-  }
-
-  const confirmed = $derived(data?.relations.filter((relation) => relation.confirmed).length ?? 0);
 </script>
 
 {#if data}
@@ -61,6 +63,29 @@
              leaves it alone. Worth showing, because it explains why a re-run will not change it. -->
         <Badge tone="warning" title="A revise_context correction owns the named fields on this row">Locked by a correction</Badge>
       {/if}
+
+      <!-- Watching sets importance = 'high' through the same correction path, which is what makes
+           an entity eligible for the monitoring search slot (src/search/slots.ts). -->
+      <form
+        method="POST"
+        action="?/watch"
+        use:enhance={() => async ({ update, result }) => {
+          await update();
+          if (result.type === "success") await sync({ force: true });
+        }}
+        class="ml-auto"
+      >
+        <input type="hidden" name="name" value={data.entity.name} />
+        <input type="hidden" name="watched" value={data.entity.importance === "high" ? "false" : "true"} />
+        <button
+          type="submit"
+          disabled={isOffline}
+          title={isOffline ? "Needs the connection" : undefined}
+          class="tap px-3 py-1 rounded text-xs border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 {data.entity.importance === 'high'
+            ? 'bg-warning-900 border-warning-700 text-warning-200 hover:bg-warning-800'
+            : 'bg-surface-800 border-surface-700 text-surface-300 hover:bg-surface-700'}"
+        >{data.entity.importance === "high" ? "Watching" : "Watch"}</button>
+      </form>
     </div>
 
     {#if data.entity.aliases.length > 0}
@@ -69,6 +94,13 @@
 
     {#if data.entity.summary}
       <p class="text-sm text-surface-200 max-w-prose">{data.entity.summary}</p>
+    {/if}
+
+    {#if isOffline}
+      <p class="text-xs text-warning-400 max-w-prose">
+        Watching needs the connection: it is recorded as a correction, and corrections are never
+        queued offline.
+      </p>
     {/if}
   </div>
 
@@ -80,43 +112,10 @@
   </div>
 
   <section class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-baseline gap-3">
-      <h2 class="text-base font-semibold text-surface-50">Relations ({data.relations.length})</h2>
-      {#if data.relations.length > 0}
-        <span class="text-xs text-surface-400">{confirmed} confirmed</span>
-      {/if}
-    </div>
-
-    {#if data.relations.length === 0}
-      <EmptyState
-        title="No relations recorded."
-        hint="Edges come from entity extraction, and only at confidence 0.7 and above."
-        compact
-      />
-    {:else}
-      <ul class="flex flex-col gap-2">
-        {#each data.relations as relation (relation.id)}
-          <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span class="text-xs text-surface-400 shrink-0">{relationPhrase(relation)}</span>
-            <a href="/entities/{relation.otherId}" class="text-sm text-surface-100 no-underline hover:text-primary-400 break-words">
-              {relation.otherName}
-            </a>
-            {#if relation.otherType}<Badge tone="muted">{relation.otherType}</Badge>{/if}
-            {#if relation.confidence != null}
-              <span class="text-xs text-surface-400 tabular-nums ml-auto">confidence {relation.confidence.toFixed(2)}</span>
-            {/if}
-            {#if relation.confirmed}<Badge tone="success">Confirmed</Badge>{/if}
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
-
-  <section class="flex flex-col gap-3">
     <h2 class="text-base font-semibold text-surface-50">Timeline ({data.appearances.length})</h2>
 
     {#if data.appearances.length === 0}
-      <EmptyState title="No recorded appearances." hint="Appearances are written per report day as the entity is mentioned." compact />
+      <EmptyState title="No recorded appearances." hint="Written for a report day when a cited item names this entity." compact />
     {:else}
       <ol class="flex flex-col gap-2">
         {#each data.appearances as appearance (appearance.id)}

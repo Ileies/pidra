@@ -6,9 +6,9 @@ import { entity, mirrorEmpty, reportDates } from "#lib/offline/repo.js";
 /**
  * Entity detail (D2), client-rendered and local-first.
  *
- * /entities was a flat table with no detail page, so `entity_relations` and `entity_appearances`
- * - the two tables that make it a graph rather than a list - had no UI at all. This is also the
- * natural target for a row tap on a phone, where most of the table's columns are hidden anyway.
+ * /entities was a flat table with no detail page, so `entity_appearances` - the timeline of when
+ * an entity actually showed up in a report - had no UI at all. This is also the natural target
+ * for a row tap on a phone, where most of the table's columns are hidden anyway.
  */
 export const ssr = false;
 

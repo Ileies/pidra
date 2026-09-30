@@ -254,19 +254,6 @@ export async function entities(depends: Depends): Promise<MirroredEntity[]> {
   );
 }
 
-export interface EntityRelation {
-  id: string;
-  otherId: string;
-  otherName: string;
-  otherType: string | null;
-  relationType: string | null;
-  confidence: number | null;
-  direction: "out" | "in";
-  firstSeen: string | null;
-  lastSeen: string | null;
-  confirmed: boolean;
-}
-
 export interface EntityAppearance {
   id: string;
   reportDate: string | null;
@@ -274,66 +261,27 @@ export interface EntityAppearance {
   relevanceScore: number | null;
 }
 
-export interface MirroredRelation {
-  id: string;
-  fromId: string;
-  toId: string;
-  relationType: string | null;
-  confidence: number | null;
-  firstSeen: string | null;
-  lastSeen: string | null;
-  confirmed: boolean;
-}
-
 export interface MirroredAppearance extends EntityAppearance {
   entityId: string;
 }
 
-/**
- * One entity with its edges read in both directions ("who does this relate to" is the question,
- * and an edge stored the other way round is the same edge) and its appearances inside the report
- * window. Null when the mirror has no such entity.
- */
+/** One entity and its appearances inside the report window. Null when the mirror has no such entity. */
 export async function entity(
   depends: Depends,
   id: string,
-): Promise<{ entity: MirroredEntity; relations: EntityRelation[]; appearances: EntityAppearance[] } | null> {
-  watch(depends, "entities", "entityRelations", "entityAppearances");
-  const [row, all, relationRows, appearanceRows] = await Promise.all([
+): Promise<{ entity: MirroredEntity; appearances: EntityAppearance[] } | null> {
+  watch(depends, "entities", "entityAppearances");
+  const [row, appearanceRows] = await Promise.all([
     db.get<MirroredEntity>("entities", id),
-    db.getAll<MirroredEntity>("entities"),
-    db.getAll<MirroredRelation>("entityRelations"),
     db.getAll<MirroredAppearance>("entityAppearances"),
   ]);
   if (!row) return null;
-
-  const byId = new Map(all.map((e) => [e.id, e]));
-  const relations: EntityRelation[] = [];
-  for (const r of relationRows) {
-    if (r.fromId !== id && r.toId !== id) continue;
-    const direction = r.fromId === id ? "out" : "in";
-    const other = byId.get(direction === "out" ? r.toId : r.fromId);
-    if (!other) continue;
-    relations.push({
-      id: r.id,
-      otherId: other.id,
-      otherName: other.name,
-      otherType: other.type,
-      relationType: r.relationType,
-      confidence: r.confidence,
-      direction,
-      firstSeen: r.firstSeen,
-      lastSeen: r.lastSeen,
-      confirmed: r.confirmed,
-    });
-  }
-  relations.sort((a, b) => (b.confidence ?? -1) - (a.confidence ?? -1) || a.otherName.localeCompare(b.otherName));
 
   const appearances = appearanceRows
     .filter((a) => a.entityId === id)
     .sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? ""));
 
-  return { entity: row, relations, appearances };
+  return { entity: row, appearances };
 }
 
 export interface MirroredContact {

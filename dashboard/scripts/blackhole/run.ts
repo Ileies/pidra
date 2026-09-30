@@ -455,10 +455,12 @@ const CONTROLS: Record<string, Control[]> = {
   ],
   "/entities/[id]": [
     {
-      name: "follow a relation",
+      name: "watching is online-only",
       async run(page, deadline) {
-        await page.getByRole("link", { name: F.TEXT.otherEntity }).first().click({ timeout: remaining(deadline) });
-        await visible(page.getByRole("heading", { name: F.TEXT.otherEntity }), deadline);
+        await visible(page.getByText(/^Watching needs the connection/), deadline);
+        const watch = page.locator('button[title="Needs the connection"]').first();
+        await visible(watch, deadline);
+        if (await watch.isEnabled()) throw new Error("the watch button is enabled offline");
       },
     },
   ],

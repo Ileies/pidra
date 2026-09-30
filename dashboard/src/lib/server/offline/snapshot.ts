@@ -256,10 +256,10 @@ async function buildContextCounts() {
 
 // --- the reference tables ---
 //
-// Mirrored whole: 447 entities, 91 relations, 14 contacts and 84 topics came to about 95 kB of
-// row text on 2026-09-25, and all of them move slowly. The fields the pages show, which here is
-// nearly the whole row. Appearances are the one set that grows per report day, so they are
-// bounded to the report window, like the extractions.
+// Mirrored whole: 447 entities, 14 contacts and 84 topics came to well under 100 kB of row text
+// on 2026-09-25, and all of them move slowly. The fields the pages show, which here is nearly the
+// whole row. Appearances are the one set that grows per report day, so they are bounded to the
+// report window, like the extractions.
 
 async function buildEntities() {
   const rows = await sql()`
@@ -280,24 +280,6 @@ async function buildEntities() {
     status: (row.status as string | null) ?? "active",
     importance: (row.importance as string | null) ?? "normal",
     locked: !!row.locked,
-  }));
-}
-
-async function buildEntityRelations() {
-  const rows = await sql()`
-    SELECT id, from_id, to_id, relation_type, confidence, first_seen::text AS first_seen,
-           last_seen::text AS last_seen, confirmed
-    FROM entity_relations
-  `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    fromId: row.from_id as string,
-    toId: row.to_id as string,
-    relationType: (row.relation_type as string | null) ?? null,
-    confidence: (row.confidence as number | null) ?? null,
-    firstSeen: (row.first_seen as string | null) ?? null,
-    lastSeen: (row.last_seen as string | null) ?? null,
-    confirmed: !!row.confirmed,
   }));
 }
 
@@ -366,7 +348,6 @@ export async function assemble(): Promise<SnapshotStores> {
     counts,
     harvest,
     entities,
-    entityRelations,
     entityAppearances,
     contacts,
     topics,
@@ -378,7 +359,6 @@ export async function assemble(): Promise<SnapshotStores> {
     buildContextCounts(),
     loadHarvestDocument(),
     buildEntities(),
-    buildEntityRelations(),
     buildEntityAppearances(),
     buildContacts(),
     buildTopics(),
@@ -412,7 +392,6 @@ export async function assemble(): Promise<SnapshotStores> {
     corrections,
     contextDoc: [contextDoc],
     entities,
-    entityRelations,
     entityAppearances,
     contacts,
     topics,

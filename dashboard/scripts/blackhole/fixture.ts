@@ -13,7 +13,6 @@ import type {
   MirroredContextDoc,
   MirroredEntity,
   MirroredExtraction,
-  MirroredRelation,
   MirroredReport,
   MirroredRule,
   MirroredTopic,
@@ -244,19 +243,6 @@ const entities: MirroredEntity[] = [
   },
 ];
 
-const entityRelations: MirroredRelation[] = [
-  {
-    id: "00000000-0000-4000-8000-0000000000c3",
-    fromId: ENTITY_ID,
-    toId: OTHER_ENTITY_ID,
-    relationType: "maintains",
-    confidence: 0.9,
-    firstSeen: YESTERDAY,
-    lastSeen: TODAY,
-    confirmed: true,
-  },
-];
-
 const entityAppearances: MirroredAppearance[] = [
   { id: "00000000-0000-4000-8000-0000000000c4", entityId: ENTITY_ID, reportDate: TODAY, contextSnippet: "Example snippet.", relevanceScore: 6 },
 ];
@@ -298,7 +284,6 @@ const stores = {
   corrections: contextDoc.corrections,
   contextDoc: [contextDoc],
   entities,
-  entityRelations,
   entityAppearances,
   contacts,
   topics,

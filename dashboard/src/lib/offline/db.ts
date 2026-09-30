@@ -9,9 +9,11 @@
  */
 
 const DB_NAME = "pidra-offline";
-/** 2: the reference tables (entities, relations, appearances, contacts, topics). An upgrade only
- *  ever adds stores, so it keeps what is there. */
-const DB_VERSION = 2;
+/** 2: the reference tables (entities, relations, appearances, contacts, topics).
+ *  3: the relation graph is gone (no confirmed edges, no evidence, never read by synthesis - see
+ *  docs/todo/entities.md) - `entityRelations` is dropped on upgrade rather than left as dead,
+ *  unsynced data. An upgrade otherwise only ever adds stores, so it keeps what is there. */
+const DB_VERSION = 3;
 
 export const STORES = [
   "reports",
@@ -21,7 +23,6 @@ export const STORES = [
   "corrections",
   "contextDoc",
   "entities",
-  "entityRelations",
   "entityAppearances",
   "contacts",
   "topics",
@@ -41,7 +42,6 @@ export const MIRROR_STORES = [
   "corrections",
   "contextDoc",
   "entities",
-  "entityRelations",
   "entityAppearances",
   "contacts",
   "topics",
@@ -77,6 +77,8 @@ function openDb(): Promise<IDBDatabase> {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
+      // Dropped in version 3, kept here rather than left around unsynced.
+      if (db.objectStoreNames.contains("entityRelations")) db.deleteObjectStore("entityRelations");
     };
     req.onsuccess = () => {
       const db = req.result;

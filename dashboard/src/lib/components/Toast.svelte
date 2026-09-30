@@ -27,21 +27,41 @@
       <div
         role="status"
         aria-live="polite"
-        class="flex items-center gap-3 rounded-lg bg-surface-800 border px-4 py-2.5 text-sm shadow-lg {TONES[toast.tone]}"
+        class="relative overflow-hidden rounded-lg bg-surface-800 border text-sm shadow-lg {TONES[toast.tone]}"
       >
-        <span class="min-w-0 flex-1 break-words">{toast.message}</span>
-        {#if toast.undo}
+        <div class="flex items-center gap-3 px-4 py-2.5">
+          <span class="min-w-0 flex-1 break-words">{toast.message}</span>
+          {#if toast.undo}
+            <button
+              onclick={() => toasts.runUndo(toast.id)}
+              class="tap shrink-0 px-2.5 py-1 rounded text-xs bg-surface-950 border border-primary-700 text-primary-300 hover:bg-surface-900 cursor-pointer"
+            >Undo</button>
+          {/if}
           <button
-            onclick={() => toasts.runUndo(toast.id)}
-            class="tap shrink-0 px-2.5 py-1 rounded text-xs bg-surface-950 border border-primary-700 text-primary-300 hover:bg-surface-900 cursor-pointer"
-          >Undo</button>
+            onclick={() => toasts.dismiss(toast.id)}
+            aria-label="Dismiss notification"
+            class="tap shrink-0 text-surface-400 hover:text-surface-100 cursor-pointer bg-transparent border-none px-1 text-base leading-none"
+          >&times;</button>
+        </div>
+        {#if toast.durationMs !== null}
+          <div class="h-1 bg-surface-700 motion-reduce:hidden" aria-hidden="true">
+            <div class="toast-progress h-full w-full bg-primary-400" style={`animation-duration: ${toast.durationMs}ms`}></div>
+          </div>
         {/if}
-        <button
-          onclick={() => toasts.dismiss(toast.id)}
-          aria-label="Dismiss notification"
-          class="tap shrink-0 text-surface-400 hover:text-surface-100 cursor-pointer bg-transparent border-none px-1 text-base leading-none"
-        >&times;</button>
       </div>
     {/each}
   </div>
 {/if}
+
+<style>
+  .toast-progress {
+    transform-origin: left;
+    animation-name: toast-countdown;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes toast-countdown {
+    to { transform: scaleX(0); }
+  }
+</style>

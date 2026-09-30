@@ -13,6 +13,8 @@ export interface ToastItem {
   id: number;
   message: string;
   tone: ToastTone;
+  /** Duration of the countdown, or null when the toast stays until dismissed. */
+  durationMs: number | null;
   /** Present when the action is reversible. Runs once, then the toast closes. */
   undo?: () => Promise<void> | void;
 }
@@ -28,16 +30,17 @@ class ToastStore {
 
   show(message: string, options: { tone?: ToastTone; undo?: ToastItem["undo"]; ms?: number } = {}): number {
     const id = this.#next++;
-    const item: ToastItem = { id, message, tone: options.tone ?? "info", undo: options.undo };
+    const ms = options.ms ?? (options.undo ? UNDO_MS : DEFAULT_MS);
+    const durationMs = Number.isFinite(ms) ? Math.max(0, ms) : null;
+    const item: ToastItem = { id, message, tone: options.tone ?? "info", undo: options.undo, durationMs };
     this.items = [...this.items, item];
 
     // A non-finite delay means "stays until dismissed". Passing one to setTimeout would not do
     // that - anything past 2^31-1 ms wraps to 1 and fires on the next tick.
-    const ms = options.ms ?? (item.undo ? UNDO_MS : DEFAULT_MS);
-    if (Number.isFinite(ms)) {
+    if (durationMs !== null) {
       this.#timers.set(
         id,
-        setTimeout(() => this.dismiss(id), ms),
+        setTimeout(() => this.dismiss(id), durationMs),
       );
     }
     return id;

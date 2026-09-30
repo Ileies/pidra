@@ -5,6 +5,7 @@ Open work only, split by horizon for product work and by impact for security wor
 Corrections about the owner (relationships, client domains, standing rules, commitments, trip dates) are not tracked here: they are made in `/chat`, where `context_corrections` records them with provenance.
 
 - [`now.md`](./now.md) - active or near-term open work
-- [`soon.md`](./soon.md) - queued after Now, mostly Phase 7 (passive context sources) plus the 30-day web-search check-in
+- [`soon.md`](./soon.md) - queued after Now, mostly Phase 7 (passive context sources)
 - [`later.md`](./later.md) - Phase 8, the critical-skills design, semantic search, and other deliberately-deferred work
 - [`security.md`](./security.md) - open security work ordered by impact; current controls are in [`docs/security.md`](../security.md)
+- [`user.md`](./user.md) - work pulled out of the lists above because it's blocked on the owner specifically (a device, an external account, a subjective judgment formed over time), not on anything Claude Code can do

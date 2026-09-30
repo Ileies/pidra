@@ -24,7 +24,3 @@ Blocked until Phase 6 has run stably for 2+ weeks. Three additional data sources
 - **[FEATURE]** Topics appearing in >=3 chat sessions get a +0.4 domain-interest bonus for the next 7 days; `project_signals` injected into both synthesis prompts as a "current projects" line
 - **[INFRA]** Retention: delete rows older than 30 days, rolling 4-week window only
 - **[FEATURE]** Dashboard toggle to disable the feature entirely, plus per-session exclusion flagging. Privacy: stays on the local server; the cloud-data boundary for this source must be decided explicitly before implementation, same as any new personal source
-
-## 30-day web-search check-in
-
-- **[INFRA]** At the 30-day mark, compare Brave with Tavily and Exa on the same representative desk queries and a record of stories Brave missed. Compare useful story recall, source quality and request cost. Keep Brave unless an alternative shows a clear coverage improvement at an acceptable cost; quota alone is not a reason to switch

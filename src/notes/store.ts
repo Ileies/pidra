@@ -7,7 +7,7 @@ import { db, notes, noteRevisions } from "../db";
  * `notes` is the mutable working layer - the user's standing instructions plus whatever Phase 6
  * writes from the `<!--SYSTEM-->` block - so unlike the harvested long-term context it is edited
  * in place. What makes that safe is here rather than in the callers: every mutation appends the
- * pre-change state to `note_revisions`, and a delete only sets `deleted_at`. The dashboard's
+ * pre-change state to `note_revisions`, and a delete first sets `deleted_at`. The dashboard's
  * write endpoints and the note skills both come through this module, so a UI edit and a chat edit
  * cannot behave differently or skip the history.
  *
@@ -228,6 +228,16 @@ export async function softDeleteNote(id: string, actor: Actor): Promise<Note> {
 
     return row;
   });
+}
+
+/** Purge each note once it has spent 30 days in trash. Revisions cascade with the note. */
+export async function pruneDeletedNotes(): Promise<void> {
+  const purged = await db
+    .delete(notes)
+    .where(drizzleSql`${notes.deletedAt} <= now() - interval '30 days'`)
+    .returning({ id: notes.id });
+
+  console.log(`[notes] Purged ${purged.length} notes from trash`);
 }
 
 export async function restoreNote(id: string, actor: Actor): Promise<Note> {

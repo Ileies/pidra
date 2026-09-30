@@ -324,7 +324,7 @@
         {shown.length} {shown.length === 1 ? "entry" : "entries"}
       </label>
       {#if filter.view === "deleted"}
-        <span>Trash: deleted notes no longer influence a briefing.</span>
+        <span>Trash: deleted notes no longer influence a briefing. Weekly cleanup purges each one after 30 days.</span>
       {/if}
     </div>
 

@@ -88,7 +88,7 @@ const ICON = {
 } as const;
 
 /**
- * Order is the desktop nav order. `report` first, then the three groups, then chat.
+ * Order is the desktop nav order. Daily actions first, then the three groups, then chat.
  * The dividers in the nav row fall between groups.
  */
 export const ROUTES: RouteDef[] = [
@@ -102,6 +102,16 @@ export const ROUTES: RouteDef[] = [
     icon: ICON.report,
     children: ["/[date]/detail/[ids]", "/[date]/triage"],
     tab: 0,
+  },
+  {
+    href: "/questions",
+    id: "/questions",
+    label: "Questions",
+    key: "q",
+    surface: "global",
+    group: "report",
+    icon: ICON.questions,
+    children: ["/questions/closed"],
   },
   {
     href: "/sources",
@@ -132,6 +142,7 @@ export const ROUTES: RouteDef[] = [
     group: "intel",
     icon: ICON.entities,
     children: ["/entities/[id]"],
+    secondary: true,
   },
   {
     href: "/topics",
@@ -213,17 +224,6 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.runs,
     secondary: true,
-  },
-  {
-    href: "/questions",
-    id: "/questions",
-    label: "Questions",
-    key: "q",
-    surface: "global",
-    group: "system",
-    icon: ICON.questions,
-    secondary: true,
-    children: ["/questions/closed"],
   },
   {
     href: "/notifications",

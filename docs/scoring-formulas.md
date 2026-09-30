@@ -26,6 +26,13 @@ This replaced an earlier conditional-bump design (`if include_rate > 0.6 and avg
 
 There is no confidence-based relation deletion in the current code, despite earlier plans describing one - relations don't currently decay on their own.
 
+## Topic lifecycle (`src/pipeline/topic-lifecycle.ts`)
+
+- An active topic with no story update for 7 days becomes dormant.
+- A dormant topic with no story update for 30 days becomes archived. Archived topics and their summaries are retained.
+- Dormant and archived topics that match a new newsletter claim are offered to Section 1 for a same-story decision. A confirmed continuation reactivates the existing row.
+- `resolved` requires evidence of an ending from today's claim. Inactivity alone never resolves a topic.
+
 ## Feedback signals
 
 Implicit behavioral detection (calendar/todo writes correlating with a report item) lives in `src/pipeline/implicit-feedback.ts`; explicit +/- ratings go through `rateExtraction()`. Read those files directly for the current weighting - this doc intentionally doesn't restate exact numbers here since they're the most likely to have moved since last checked.

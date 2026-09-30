@@ -1,9 +1,8 @@
-import { db, entities, entityRelations } from "../db";
+import { db, entities } from "../db";
 import { and, eq, sql as drizzleSql } from "drizzle-orm";
 
 // Archive low-importance entities dormant for 60+ days.
 // Permanently delete archived entities absent for 180+ days with mention_count <= 2.
-// Clean up orphaned entity relations.
 export async function pruneEntityGraph(): Promise<void> {
   const today = new Date();
   const threshold60 = new Date(today.getTime() - 60 * 86400_000).toISOString().split("T")[0];
@@ -46,31 +45,10 @@ export async function pruneEntityGraph(): Promise<void> {
 
   if (toDelete.length > 0) {
     const ids = toDelete.map((e) => e.id);
-
-    // Remove relations first (FK constraint)
-    for (const id of ids) {
-      await db
-        .delete(entityRelations)
-        .where(
-          drizzleSql`from_id = ${id} OR to_id = ${id}`
-        );
-    }
-
+    // `entity_mentions` cascades on delete, so no separate cleanup is needed here.
     await db.delete(entities).where(drizzleSql`id = ANY(${ids})`);
     console.log(`[entity-pruning] Deleted ${toDelete.length} stale archived entities`);
   }
 
-  // Orphaned relations: both endpoints must still exist
-  const deleted = await db
-    .delete(entityRelations)
-    .where(
-      drizzleSql`from_id NOT IN (SELECT id FROM entities) OR to_id NOT IN (SELECT id FROM entities)`
-    )
-    .returning({ id: entityRelations.id });
-
-  if (deleted.length > 0) {
-    console.log(`[entity-pruning] Removed ${deleted.length} orphaned entity relations`);
-  }
-
-  console.log(`[entity-pruning] Done - archived ${archived.length}, deleted ${toDelete.length}, removed ${deleted.length} orphaned relations`);
+  console.log(`[entity-pruning] Done - archived ${archived.length}, deleted ${toDelete.length}`);
 }

@@ -30,7 +30,6 @@ interface NewsletterExtraction {
 
 interface EntityExtraction {
   entities: { name: string; aliases: string[]; type: string; domain: string }[];
-  relations: { from: string; to: string; type: string; confidence: number }[];
 }
 
 interface PersonalEmailClassification {

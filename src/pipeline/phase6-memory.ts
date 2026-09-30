@@ -7,6 +7,7 @@ import { parseSystemBlock, applySection1SystemBlock, applySection2SystemBlock } 
 import { writeSourceDailyScores } from "./phase6/source-scoring";
 import { upsertEntitiesFromExtractions } from "./phase6/entities";
 import { markDormantEntities } from "./phase6/dormant";
+import { writeEntityAppearances } from "./phase6/appearances";
 import { ageTopics } from "./topic-lifecycle";
 import { incrementContactEmailCounts } from "./phase6/contacts";
 
@@ -86,6 +87,7 @@ export async function runPhase6(
   await writeSourceDailyScores(runDate, refsUsable);
   await upsertEntitiesFromExtractions(runDate);
   await markDormantEntities(runDate);
+  await writeEntityAppearances(runDate, includedIds);
   await incrementContactEmailCounts(runDate);
 
   console.log("[Phase 6] Done");

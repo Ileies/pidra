@@ -34,17 +34,26 @@ export async function runSlot1(
   return { slot: 1, query, topicId: candidate.id, results };
 }
 
-// Slot 2: dormant high-importance entity monitor
+// Slot 2: watched entity monitor. Watching is the explicit "alert me on this" correction
+// (`importance = 'high'`, set from the entity detail page through the usual correction path);
+// this was previously also gated on `status = 'dormant'`, which no writer ever reached on its
+// own (nothing ever set `importance = 'high'` before the Watch control existed), so the slot had
+// no candidate ever, in production, since launch.
 export async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
   const tenDaysAgo = new Date(Date.now() - 10 * 86400_000).toISOString().split("T")[0];
 
-  const dormantEntities = await db
-    .select({ name: entities.name, lastMentioned: entities.lastMentioned })
+  const watched = await db
+    .select({ name: entities.name, lastMentioned: entities.lastMentioned, lastWatchSearch: entities.lastWatchSearch })
     .from(entities)
-    .where(and(eq(entities.importance, "high"), eq(entities.status, "dormant")));
+    .where(eq(entities.importance, "high"));
 
-  // Filter to those actually absent for 10+ days
-  const candidate = dormantEntities.find((e) => !e.lastMentioned || e.lastMentioned <= tenDaysAgo);
+  // Absent for 10+ days: a watched entity still showing up in the briefing on its own doesn't
+  // need a search to surface it. Among those, rotate by whichever was searched longest ago (or
+  // never), so one target set early cannot monopolise the slot and the shared Brave quota.
+  const eligible = watched
+    .filter((e) => !e.lastMentioned || e.lastMentioned <= tenDaysAgo)
+    .sort((a, b) => (a.lastWatchSearch ?? "") < (b.lastWatchSearch ?? "") ? -1 : 1);
+  const candidate = eligible[0];
   if (!candidate) return null;
 
   const [month, year] = [
@@ -54,6 +63,7 @@ export async function runSlot2(runDate: string): Promise<WebSearchResult | null>
   const query = `${candidate.name} news ${month} ${year}`;
 
   const { results } = await braveSearch(query, 5);
+  await db.update(entities).set({ lastWatchSearch: runDate }).where(eq(entities.name, candidate.name));
   return { slot: 2, query, entityName: candidate.name, results };
 }
 

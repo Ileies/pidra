@@ -1,6 +1,7 @@
-import { db, contacts, entities, standingContext } from "../../src/db";
+import { db, contacts, entities, entityMentions, standingContext } from "../../src/db";
 import { sql as drizzleSql } from "drizzle-orm";
 import { stripControlChars } from "../../src/util/text";
+import { normalizeEntityKey } from "../../src/util/entities";
 import type { ContactProfile } from "../pipeline/batch-contacts";
 import type { NoteExtraction } from "../pipeline/extract-note";
 import type { EmailExtraction } from "../pipeline/extract-email";
@@ -90,22 +91,25 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
   // Case-insensitive dedupe within the run, keeping the first spelling seen. The DB's unique
   // index on name is case-sensitive, so without this "Acme"/"acme" would both be inserted.
   // The corpus frequency is kept: it is the whole point of pre-seeding, because phase 3 only
-  // promotes an entity into the synthesis payload once `mention_count >= 3`.
-  const stats = new Map<string, { name: string; count: number; first: string | null; last: string | null }>();
+  // promotes an entity into the synthesis payload once `mention_count >= 3`. `refs` is the
+  // provenance behind that count - one (source_kind, source_ref) per contributing item - so a
+  // seeded entity's count is reproducible the same way a daily-pipeline mention's is.
+  const stats = new Map<string, { name: string; count: number; first: string | null; last: string | null; refs: Map<string, string | null> }>();
 
-  const record = (raw: unknown, date: string | null) => {
+  const record = (raw: unknown, date: string | null, sourceRef: string) => {
     // Model output goes straight into Postgres here: one entity name arrived with NUL
     // separators, which `text` rejects and which failed the entire batch over one row.
     const name = stripControlChars(String(raw)).trim();
     if (name.length <= 2 || name.length > MAX_ENTITY_NAME_LENGTH) return null;
     if (isJunkEntityName(name)) return null;
-    const key = name.toLowerCase();
-    const entry = stats.get(key) ?? { name, count: 0, first: null, last: null };
+    const key = normalizeEntityKey(name);
+    const entry = stats.get(key) ?? { name, count: 0, first: null, last: null, refs: new Map() };
     entry.count += 1;
     if (date) {
       if (!entry.first || date < entry.first) entry.first = date;
       if (!entry.last || date > entry.last) entry.last = date;
     }
+    if (!entry.refs.has(sourceRef)) entry.refs.set(sourceRef, date);
     stats.set(key, entry);
     return key;
   };
@@ -114,8 +118,9 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
     // One item mentioning the same name twice is one mention, not two.
     const seen = new Set<string>();
     const date = item.date ? item.date.slice(0, 10) : null;
+    const sourceRef = `email:${item.messageId}`;
     for (const raw of item.entities) {
-      const key = record(raw, date);
+      const key = record(raw, date, sourceRef);
       if (key && seen.has(key)) stats.get(key)!.count -= 1;
       else if (key) seen.add(key);
     }
@@ -123,8 +128,9 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
   // Notes carry no date, so they contribute frequency but never move `last_mentioned`.
   for (const item of noteExtractions) {
     const seen = new Set<string>();
+    const sourceRef = `keep:${item.id}`;
     for (const raw of item.entities) {
-      const key = record(raw, null);
+      const key = record(raw, null, sourceRef);
       if (key && seen.has(key)) stats.get(key)!.count -= 1;
       else if (key) seen.add(key);
     }
@@ -135,7 +141,9 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
   const today = new Date().toISOString().split("T")[0];
 
   for (const batch of chunk([...stats.values()], BATCH_SIZE)) {
-    await db
+    // Existing rows belong to the daily pipeline, which owns the live count from here on - only
+    // a brand-new row comes back from `RETURNING` here, and only those get mention provenance.
+    const inserted = await db
       .insert(entities)
       .values(batch.map((entry) => ({
         name: entry.name,
@@ -147,8 +155,23 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
         status: "active",
         importance: "normal",
       })))
-      // Existing rows belong to the daily pipeline, which owns the live count from here on.
-      .onConflictDoNothing({ target: entities.name });
+      .onConflictDoNothing({ target: entities.name })
+      .returning({ id: entities.id, name: entities.name });
+
+    if (inserted.length === 0) continue;
+    const idByKey = new Map(inserted.map((row) => [normalizeEntityKey(row.name), row.id]));
+
+    const mentionRows: (typeof entityMentions.$inferInsert)[] = [];
+    for (const entry of batch) {
+      const id = idByKey.get(normalizeEntityKey(entry.name));
+      if (!id) continue;
+      for (const [sourceRef, date] of entry.refs) {
+        mentionRows.push({ entityId: id, sourceKind: "context_builder", sourceRef, mentionDate: date });
+      }
+    }
+    for (const mentionBatch of chunk(mentionRows, BATCH_SIZE)) {
+      await db.insert(entityMentions).values(mentionBatch).onConflictDoNothing();
+    }
   }
 }
 

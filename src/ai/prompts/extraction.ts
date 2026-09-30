@@ -22,7 +22,7 @@ Rules:
 - Extract every distinct claim as a separate item, even if there are 10+
 - topic_tags must be from: AI, China, Geopolitics, Finance, Science, BCI, Dev, Health, Startups, VC, EU, Switzerland, Energy, Philosophy, Security. Pick the closest fit if nothing matches exactly (e.g. climate news -> Science or Energy) - never invent a new tag`;
 
-export const ENTITY_EXTRACTION_PROMPT = `Extract named entities and relationships from the text below. Return ONLY valid JSON.
+export const ENTITY_EXTRACTION_PROMPT = `Extract named entities from the text below. Return ONLY valid JSON.
 
 {
   "entities": [
@@ -32,18 +32,10 @@ export const ENTITY_EXTRACTION_PROMPT = `Extract named entities and relationship
       "type": "person|org|tech|law|event|concept|place",
       "domain": "primary domain"
     }
-  ],
-  "relations": [
-    {
-      "from": "entity name",
-      "to": "entity name",
-      "type": "competes_with|heads|regulates|partners_with|acquired|enables|threatens|funds",
-      "confidence": 0.85
-    }
   ]
 }
 
-Only include relations with confidence >= 0.7. Only named entities - no generic terms.`;
+Only named entities - no generic terms.`;
 
 export const PERSONAL_EMAIL_PROMPT = `Classify this email. Return ONLY valid JSON.
 

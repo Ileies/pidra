@@ -2,6 +2,7 @@ import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
 import { eq, and, count, desc } from "drizzle-orm";
 import { pickSections, readDocument } from "../src/pipeline/long-term-context";
+import type { ContextDocument } from "./output/builder";
 import type { EmailExtraction } from "./pipeline/extract-email";
 import type { NoteExtraction } from "./pipeline/extract-note";
 
@@ -72,7 +73,7 @@ export async function createRun(mode: "full" | "update"): Promise<string> {
 
 export async function finalizeRun(
   id: string,
-  fields: { itemsIndexed: number; outputPath: string | null },
+  fields: { itemsIndexed: number; outputPath: string | null; document: ContextDocument | null },
 ): Promise<void> {
   await db
     .update(contextBuilderRuns)
@@ -81,6 +82,7 @@ export async function finalizeRun(
       completedAt: new Date().toISOString(),
       itemsIndexed: fields.itemsIndexed,
       outputPath: fields.outputPath,
+      document: fields.document,
     })
     .where(eq(contextBuilderRuns.id, id));
 }
@@ -133,24 +135,31 @@ const PREVIOUS_RUN_CANDIDATES = 5;
  */
 export async function loadPreviousDocument(): Promise<{ context: string; itemsIndexed: number }> {
   const runs = await db
-    .select({ outputPath: contextBuilderRuns.outputPath, itemsIndexed: contextBuilderRuns.itemsIndexed })
+    .select({
+      document: contextBuilderRuns.document,
+      outputPath: contextBuilderRuns.outputPath,
+      itemsIndexed: contextBuilderRuns.itemsIndexed,
+    })
     .from(contextBuilderRuns)
     .where(eq(contextBuilderRuns.status, "completed"))
     .orderBy(desc(contextBuilderRuns.startedAt))
     .limit(PREVIOUS_RUN_CANDIDATES);
 
   for (const run of runs) {
-    if (!run.outputPath) continue;
+    if (!run.document && !run.outputPath) continue;
+    const label = run.document ? "document column" : (run.outputPath ?? "");
     try {
-      // readDocument, not readFile: output_path holds whichever machine's absolute path ran the
-      // build, so a workstation harvest is unopenable from the server and vice versa.
-      const parsed = JSON.parse(await readDocument(run.outputPath)) as { fullContext?: string };
-      const doc = parsed.fullContext ?? "";
+      // The document column is the harvest itself, written by whichever machine ran the build -
+      // no path resolution needed. Rows from before it existed fall back to the archival file,
+      // which readDocument resolves by basename when the recorded path is for another machine.
+      const doc = run.document?.fullContext ??
+        (run.outputPath ? (JSON.parse(await readDocument(run.outputPath)) as { fullContext?: string }).fullContext : undefined) ??
+        "";
       const missing = missingSections(doc);
       if (missing.length === 0) return { context: doc, itemsIndexed: run.itemsIndexed ?? 0 };
-      console.warn(`[Synthesis] ${run.outputPath} is missing section(s) ${missing.join(", ")} - looking further back`);
+      console.warn(`[Synthesis] ${label} is missing section(s) ${missing.join(", ")} - looking further back`);
     } catch (err) {
-      console.warn(`[Synthesis] ${run.outputPath} unreadable (${err instanceof Error ? err.message : String(err)}) - looking further back`);
+      console.warn(`[Synthesis] ${label} unreadable (${err instanceof Error ? err.message : String(err)}) - looking further back`);
     }
   }
   return { context: "", itemsIndexed: 0 };

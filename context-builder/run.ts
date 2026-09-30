@@ -40,7 +40,7 @@ import {
 } from "./pipeline/synthesize";
 import { listActiveCorrections, formatForPrompt } from "../src/context/corrections";
 import { seedContacts, seedEntities, seedStandingContext } from "./output/db-writer";
-import { writeOutputFiles } from "./output/builder";
+import { writeOutputFiles, type ContextDocument } from "./output/builder";
 
 export interface ContextBuilderOptions {
   /** Rebuild from every source, ignoring the index and any previous document. */
@@ -439,6 +439,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   // === OUTPUT FILES ===
   let jsonPath = "";
   let mdPath = "";
+  let document: ContextDocument | null = null;
   try {
     const paths = await writeOutputFiles(
       { ...parts, fullContext },
@@ -447,6 +448,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
     );
     jsonPath = paths.jsonPath;
     mdPath = paths.mdPath;
+    document = paths.document;
   } catch (err) {
     await logError("phase:output", err);
   }
@@ -461,10 +463,15 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   const totalIndexed = emailExtractions.length + noteExtractions.length + githubRepos.length + taskItems.length;
 
   if (dbRunId) {
-    // No path unless the document in that file is one the pipeline can actually read. The
-    // column is how every downstream reader finds the harvest, so pointing it at a failed
-    // synthesis is worse than pointing it nowhere.
-    await finalizeRun(dbRunId, { itemsIndexed: totalIndexed, outputPath: fullContext && jsonPath ? jsonPath : null });
+    // No document unless synthesis actually produced one the pipeline can read. The column is
+    // how every downstream reader finds the harvest, so recording a failed synthesis is worse
+    // than recording nothing.
+    const usable = fullContext ? document : null;
+    await finalizeRun(dbRunId, {
+      itemsIndexed: totalIndexed,
+      outputPath: usable && jsonPath ? jsonPath : null,
+      document: usable,
+    });
   }
 
   await clearCheckpoint();

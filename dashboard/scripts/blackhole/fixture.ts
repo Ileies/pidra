@@ -184,6 +184,7 @@ const contextDoc: MirroredContextDoc = {
     completed_at: `${YESTERDAY}T03:30:00.000Z`,
     items_indexed: 10,
     output_path: "context-builder/output/example.md",
+    document: null,
   },
   doc: {
     generatedAt: `${YESTERDAY}T03:30:00.000Z`,

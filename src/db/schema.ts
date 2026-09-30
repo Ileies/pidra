@@ -170,32 +170,44 @@ export const entities = pgTable("entities", {
   summary: text("summary"),
   firstSeen: dateStr("first_seen"),
   lastMentioned: dateStr("last_mentioned"),
+  // Derived from `entity_mentions` - the number of rows there for this entity, kept as a cached
+  // counter so every existing reader can keep reading a column instead of a join. A writer must
+  // only increment this alongside a real (non-conflicting) `entity_mentions` insert; see
+  // `src/pipeline/phase6/entities.ts`.
   mentionCount: integer("mention_count").default(1),
-  status: text("status").default("active"), // active | dormant
+  status: text("status").default("active"), // active | dormant | archived
   importance: text("importance").default("normal"), // high | normal | low
   // Set by a `revise_context` correction. Re-seeds and bulk writers must leave the corrected
   // fields alone; `src/context/corrections.ts` is what sets this.
   locked: boolean("locked").default(false),
+  // Rotation cursor for the watch/monitoring search slot (`src/search/slots.ts`): the entity with
+  // the oldest (or null) value here is searched next among watched (`importance = 'high'`)
+  // entities, so one target set early cannot starve the rest of the shared Brave quota forever.
+  lastWatchSearch: dateStr("last_watch_search"),
 });
 
-export const entityRelations = pgTable("entity_relations", {
+// One entity mentioned once in one source item. The unique key is what makes a Phase 6 retry or
+// a same-date rerun a no-op instead of double-counting: `entities.mention_count` is only ever
+// incremented alongside a mention row that this insert actually created. `source_ref` is a safe
+// pointer back to where the mention came from, never a copy of the source content itself -
+// `raw_items.id` for a newsletter mention, `"<email|keep>:<item_id>"` (matching
+// `context_builder_indexed_items`) for a harvested one.
+export const entityMentions = pgTable("entity_mentions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  fromId: uuid("from_id").references(() => entities.id),
-  toId: uuid("to_id").references(() => entities.id),
-  relationType: text("relation_type"), // competes_with | heads | regulates | partners_with | acquired | enables | threatens | funds
-  confidence: real("confidence"),
-  firstSeen: dateStr("first_seen"),
-  lastSeen: dateStr("last_seen"),
-  confirmed: boolean("confirmed").default(false),
-}, (t) => [unique("entity_relations_from_to_type").on(t.fromId, t.toId, t.relationType)]);
+  entityId: uuid("entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
+  sourceKind: text("source_kind").notNull(), // newsletter | context_builder
+  sourceRef: text("source_ref").notNull(),
+  mentionDate: dateStr("mention_date"),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+}, (t) => [unique("entity_mentions_entity_source").on(t.entityId, t.sourceKind, t.sourceRef)]);
 
 export const entityAppearances = pgTable("entity_appearances", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  entityId: uuid("entity_id").references(() => entities.id),
+  entityId: uuid("entity_id").references(() => entities.id, { onDelete: "cascade" }),
   reportDate: dateStr("report_date"),
   contextSnippet: text("context_snippet"),
   relevanceScore: integer("relevance_score"),
-});
+}, (t) => [unique("entity_appearances_entity_date").on(t.entityId, t.reportDate)]);
 
 export const sourceQuality = pgTable("source_quality", {
   sourceName: text("source_name").primaryKey(),
@@ -440,7 +452,21 @@ export const contextBuilderRuns = pgTable("context_builder_runs", {
   itemsSkipped: integer("items_skipped").default(0),
   sonnetTokensIn: integer("sonnet_tokens_in").default(0),
   sonnetTokensOut: integer("sonnet_tokens_out").default(0),
+  // Legacy pointer at the archival JSON file `writeOutputFiles` writes to disk. Kept only as a
+  // debug breadcrumb and as the read fallback for rows written before `document` existed - a
+  // cross-machine path was never a sound thing for a shared DB row to depend on.
   outputPath: text("output_path"),
+  // The harvest itself, stored where every reader can actually get to it regardless of which
+  // machine produced it. Same shape as the JSON file `writeOutputFiles` still writes for humans.
+  document: jsonb("document").$type<{
+    generatedAt: string;
+    date: string;
+    contacts: string;
+    tasks: string;
+    keep: string;
+    github: string;
+    fullContext: string;
+  }>(),
   errorLog: jsonb("error_log").$type<{ source: string; error: string; ts: string }[]>(),
 });
 

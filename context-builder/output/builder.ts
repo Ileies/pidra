@@ -2,17 +2,27 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { SynthesisResult } from "../pipeline/synthesize";
 
+export interface ContextDocument {
+  generatedAt: string;
+  date: string;
+  contacts: string;
+  tasks: string;
+  keep: string;
+  github: string;
+  fullContext: string;
+}
+
 export async function writeOutputFiles(
   result: SynthesisResult,
   outputDir: string,
   date: string,
-): Promise<{ jsonPath: string; mdPath: string }> {
+): Promise<{ jsonPath: string; mdPath: string; document: ContextDocument }> {
   await mkdir(outputDir, { recursive: true });
 
   const jsonPath = resolve(outputDir, `context-${date}.json`);
   const mdPath = resolve(outputDir, `context-${date}.md`);
 
-  const jsonOutput = {
+  const jsonOutput: ContextDocument = {
     generatedAt: new Date().toISOString(),
     date,
     contacts: result.contacts,
@@ -22,6 +32,8 @@ export async function writeOutputFiles(
     fullContext: result.fullContext,
   };
 
+  // The DB row (context_builder_runs.document) is what every reader actually relies on now;
+  // these files remain for archival/manual inspection only.
   await writeFile(jsonPath, JSON.stringify(jsonOutput, null, 2), "utf-8");
 
   const mdOutput = `# PIDRA Context Snapshot - ${date}
@@ -61,5 +73,5 @@ ${result.github}
 
   await writeFile(mdPath, mdOutput, "utf-8");
 
-  return { jsonPath, mdPath };
+  return { jsonPath, mdPath, document: jsonOutput };
 }

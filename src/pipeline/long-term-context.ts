@@ -44,24 +44,20 @@ const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2
 const INTEREST_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_NEWS ?? "3";
 
 /**
- * Reads the harvest document, tolerating the fact that `context_builder_runs.output_path` is an
- * absolute path recorded by whichever machine ran the Context Builder.
+ * Reads the harvest document from its archival file on disk, tolerating the fact that
+ * `context_builder_runs.output_path` is an absolute path recorded by whichever machine ran the
+ * Context Builder.
  *
- * That is a cross-machine assumption the schema never actually held: the first runs happened on the
- * workstation, so the column holds `/home/<user>/...`, while the pipeline runs on the server out of
- * `/var/www/pidra`. Every production briefing since the harvest therefore logged "long-term context
- * unavailable" and synthesised with `context doc 0 chars` - the standing rules still arrived from
- * the database, but the document itself never did, silently, for the one input the Context Builder
- * exists to provide.
+ * The harvest itself now lives in `context_builder_runs.document`, so this is only a fallback for
+ * rows written before that column existed - every reader tries `document` first. Back when the
+ * path was the only record, the cross-machine mismatch (workstation runs wrote `/home/<user>/...`,
+ * the server reads out of `/var/www/pidra`) meant every production briefing logged "long-term
+ * context unavailable" and synthesised with `context doc 0 chars`. That is why the stored path is
+ * treated as a hint, not an address: if it does not resolve, the file is looked up by name under
+ * this machine's own output directory.
  *
- * So the stored path is a hint, not an address: if it does not resolve, the file is looked up by
- * name under this machine's own output directory. The proper fix is to stop putting a filesystem
- * path in a shared database at all - see TODO - but this makes the existing rows work on both
- * machines without a migration.
- *
- * Exported because the Context Builder's update mode reads the same column to find the document
- * it is patching, and had the same bug: a workstation path that the server cannot open made it
- * fall back to a full rebuild, silently and at full cost.
+ * Exported because the Context Builder's update mode reads the same fallback to find the document
+ * it is patching, for the same legacy rows.
  */
 export async function readDocument(outputPath: string): Promise<string> {
   try {
@@ -105,10 +101,9 @@ const EMPTY: LongTermContext = {
 /**
  * Loads the Context Builder's output for injection into the daily synthesis prompts.
  *
- * The synthesised document lives on disk (its path is recorded on the run row), while the
- * standing rules live in Postgres. Neither is required: a missing document degrades the
- * briefing's personalisation but must never fail the run, so problems are reported via
- * `problem` for the caller to log.
+ * The synthesised document and the standing rules both live in Postgres now. Neither is required:
+ * a missing document degrades the briefing's personalisation but must never fail the run, so
+ * problems are reported via `problem` for the caller to log.
  */
 export async function loadLongTermContext(): Promise<LongTermContext> {
   const standingRules: StandingRule[] = (
@@ -126,7 +121,11 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
   // the latest row blindly meant the 2026-09-11 update silently displaced the 2026-09-10 harvest
   // and the briefing synthesised on nothing. So a candidate has to actually yield sections to win.
   const runs = await db
-    .select({ outputPath: contextBuilderRuns.outputPath, completedAt: contextBuilderRuns.completedAt })
+    .select({
+      document: contextBuilderRuns.document,
+      outputPath: contextBuilderRuns.outputPath,
+      completedAt: contextBuilderRuns.completedAt,
+    })
     .from(contextBuilderRuns)
     .where(eq(contextBuilderRuns.status, "completed"))
     .orderBy(desc(contextBuilderRuns.startedAt))
@@ -139,22 +138,23 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
   const problems: string[] = [];
 
   for (const run of runs) {
-    if (!run.outputPath) {
-      problems.push("a completed run recorded no output path");
+    const label = run.document ? "a run" : (run.outputPath ? basename(run.outputPath) : null);
+    if (!label) {
+      problems.push("a completed run recorded no document");
       continue;
     }
 
     try {
-      const parsed = JSON.parse(await readDocument(run.outputPath)) as {
-        fullContext?: string;
-        generatedAt?: string;
-      };
+      // The document column holds the harvest itself, written by whichever machine ran the
+      // build. Rows from before it existed fall back to the archival file via readDocument.
+      const parsed = run.document ??
+        (JSON.parse(await readDocument(run.outputPath!)) as { fullContext?: string; generatedAt?: string });
       const doc = parsed.fullContext ?? "";
       const intelSections = pickSections(doc, INTEL_SECTIONS);
       const personalSections = pickSections(doc, PERSONAL_SECTIONS);
 
       if (!intelSections && !personalSections) {
-        problems.push(`${basename(run.outputPath)} yielded no usable sections`);
+        problems.push(`${label} yielded no usable sections`);
         continue;
       }
 
@@ -169,7 +169,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
         problem: problems.length > 0 ? `fell back past ${problems.length} run(s): ${problems.join("; ")}` : null,
       };
     } catch (err) {
-      problems.push(`${basename(run.outputPath)}: ${err instanceof Error ? err.message : String(err)}`);
+      problems.push(`${label}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

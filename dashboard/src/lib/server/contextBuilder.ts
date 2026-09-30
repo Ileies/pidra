@@ -75,13 +75,12 @@ async function readJsonFile<T>(path: string): Promise<T | null> {
  * Reads a harvest document given the path recorded on its run row, and reports which file it
  * actually opened.
  *
- * `context_builder_runs.output_path` is an absolute path written by whichever machine ran the
- * Context Builder. Every existing row was written by the workstation, so on the server the path
- * does not resolve and a plain `readFile` fails - this page showed "document unavailable" while
- * the file sat in the output directory one level up from it. The pipeline already treats the
- * stored path as a hint (`readDocument` in `src/pipeline/long-term-context.ts`), but its fallback
- * resolves against the process cwd, and the dashboard's cwd is `dashboard/`. Hence the same rule
- * anchored on PROJECT_ROOT instead.
+ * Only used for rows written before `context_builder_runs.document` existed - every current row
+ * carries the harvest in that column, which `loadHarvestDocument` reads directly. For those
+ * legacy rows, `output_path` is an absolute path written by whichever machine ran the Context
+ * Builder, so a plain `readFile` can fail on a different machine; the pipeline's own fallback
+ * (`readDocument` in `src/pipeline/long-term-context.ts`) resolves against the process cwd, and
+ * the dashboard's cwd is `dashboard/`, hence the same rule anchored on PROJECT_ROOT instead.
  *
  * The resolved path comes back with the content because the page displays it, and displaying a
  * path that does not exist on this machine is how the mismatch stayed invisible in the first place.
@@ -120,7 +119,10 @@ export interface HarvestSection {
 export interface HarvestDoc {
   generatedAt: string | null;
   date: string | null;
-  path: string;
+  // Set only when the document came from the legacy archival file rather than the `document`
+  // column - shown in the UI so a fallback read stays visible instead of looking identical to
+  // the normal path.
+  path: string | null;
   fullContextHtml: string;
   chars: number;
   sections: HarvestSection[];
@@ -133,6 +135,7 @@ export interface HarvestRun {
   completed_at: string | null;
   items_indexed: number | null;
   output_path: string | null;
+  document: Record<string, string> | null;
 }
 
 /**
@@ -154,7 +157,7 @@ export async function loadHarvestDocument(): Promise<{
   const db = sql();
 
   const runs = (await db`
-    SELECT id, mode, started_at, completed_at, items_indexed, output_path
+    SELECT id, mode, started_at, completed_at, items_indexed, output_path, document
     FROM context_builder_runs
     WHERE status = 'completed'
     ORDER BY started_at DESC
@@ -169,17 +172,23 @@ export async function loadHarvestDocument(): Promise<{
   for (const candidate of runs) {
     const note = (reason: string) => skipped.push({ startedAt: candidate.started_at, mode: candidate.mode, reason });
 
-    if (!candidate.output_path) {
-      note("recorded no output file");
+    if (!candidate.document && !candidate.output_path) {
+      note("recorded no document");
       continue;
     }
 
     let raw: Record<string, string>;
-    let path: string;
+    let path: string | null;
     try {
-      const file = await readContextDocument(candidate.output_path);
-      raw = JSON.parse(file.content) as Record<string, string>;
-      path = file.path;
+      if (candidate.document) {
+        raw = candidate.document;
+        path = null;
+      } else {
+        // Legacy row, written before the document column existed: fall back to the archival file.
+        const file = await readContextDocument(candidate.output_path!);
+        raw = JSON.parse(file.content) as Record<string, string>;
+        path = file.path;
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       docError ??= message;

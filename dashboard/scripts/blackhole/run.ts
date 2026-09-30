@@ -732,15 +732,19 @@ async function startServer(): Promise<{ url: string; stop: () => void }> {
       PIDRA_BLACKHOLE_TEST: "1",
     },
     stdout: "ignore",
-    stderr: "ignore",
+    stderr: "pipe",
   });
+  const stderr = new Response(server.stderr).text();
   const url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 100; i++) {
     if (await fetch(`${url}/api/health`).then((r) => r.ok, () => false)) return { url, stop: () => server.kill() };
+    if (server.exitCode !== null) break;
     await Bun.sleep(100);
   }
-  server.kill();
-  throw new Error("the dashboard build did not start");
+  if (server.exitCode === null) server.kill();
+  await server.exited;
+  const detail = (await stderr).trim();
+  throw new Error(`the dashboard build did not start (exit ${server.exitCode})${detail ? `:\n${detail}` : ""}`);
 }
 
 if (!args.includes("--no-build")) {

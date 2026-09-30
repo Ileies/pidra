@@ -3,6 +3,9 @@
   "compilerOptions": {
     "sourceMap": true,
     "strict": true,
+    "paths": {
+      "$pipeline/*": ["../src/*"]
+    },
     "types": [
       "node",
       "bun",

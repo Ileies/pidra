@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
-  import { page } from "$app/state";
   import { netJson } from "#lib/offline/net.js";
   import { offline } from "#lib/offline/state.svelte.js";
 
@@ -14,11 +12,7 @@
       try {
         const result = await netJson<{ online: boolean }>("/api/server-status", { cache: "no-store" });
         if (active) {
-          const recovered = serverOnline === false && result.online;
           serverOnline = result.online;
-          if (recovered && (page.route.id === "/prompts" || page.route.id === "/sources")) {
-            void invalidateAll();
-          }
         }
       } catch {
         if (active) serverOnline = null;
@@ -41,6 +35,6 @@
 
 {#if serverOnline === false && offline.reachable !== "offline"}
   <div role="status" class="border-b border-warning-700 bg-warning-950 px-4 py-2 text-center text-xs text-warning-200">
-    Pipeline server is offline. Reports, prompt management, and source controls may be unavailable until it returns.
+    Pipeline server is offline. Actions that need it, including prompt and source changes, are unavailable until it returns.
   </div>
 {/if}

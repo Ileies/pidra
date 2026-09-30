@@ -41,9 +41,7 @@
     run, without a deploy.
   </p>
 
-  {#if data.serverOffline}
-    <EmptyState title="Pipeline server is offline." hint="Prompt versions will be available when the server is running." />
-  {:else if data.sections.length === 0}
+  {#if data.sections.length === 0}
     <EmptyState title="No prompt sections available." />
   {:else}
     {#if !anyActiveOverride}
@@ -72,7 +70,7 @@
                   <div class="flex flex-wrap items-center gap-2 mb-3">
                     <span class="font-mono text-xs text-surface-300">Code</span>
                     <Badge tone="neutral">In use</Badge>
-                    <span class="text-xs text-surface-400 italic">src/ai/prompts.ts - changeable only by deploy</span>
+                    <span class="text-xs text-surface-400 italic">src/ai/prompts/ - changeable only by deploy</span>
                   </div>
                 {:else}
                   <span class="font-mono text-xs text-surface-300 block mb-3">Code baseline</span>

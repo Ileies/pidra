@@ -2,8 +2,12 @@ import adapter from "@sveltejs/adapter-node";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+  resolve: {
+    alias: { $pipeline: fileURLToPath(new URL("../src", import.meta.url)) },
+  },
   plugins: [
     tailwindcss(),
     sveltekit({

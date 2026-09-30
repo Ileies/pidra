@@ -13,72 +13,11 @@
  */
 import { and, eq } from "drizzle-orm";
 import { db, promptVersions } from "../db";
-import {
-  ENTITY_EXTRACTION_PROMPT,
-  NEWS_BEAT_PROMPT,
-  NEWS_FIELD_PROMPT,
-  NEWS_HOME_PROMPT,
-  NEWS_SECTION_PROMPT,
-  NEWS_SERENDIPITY_PROMPT,
-  NEWS_TALK_PROMPT,
-  NEWS_WORLD_PROMPT,
-  NEWSLETTER_EXTRACTION_PROMPT,
-  PERSONAL_EMAIL_PROMPT,
-  QUESTIONS_PROMPT,
-  QUICK_ACTIONS_PROMPT,
-  SECTION1_SYSTEM_PROMPT,
-  SECTION2_SYSTEM_PROMPT,
-} from "./prompts";
+import { baseline, PROMPT_SECTIONS, resolvePromptRows } from "./prompt-catalog";
+import type { EffectivePrompt, PromptSection } from "./prompt-catalog";
 
-/** The sections the pipeline reads. Also the display order on `/prompts`. */
-export const PROMPT_SECTIONS = [
-  "section1",
-  "section2",
-  "news",
-  "quick_actions",
-  "questions",
-  "extraction",
-  "entity_extraction",
-  "personal_classification",
-  // One per news desk (src/news/desks.ts), so each desk's mandate is overridable on its own.
-  "news_world",
-  "news_home",
-  "news_beat",
-  "news_field",
-  "news_talk",
-  "news_serendipity",
-] as const;
-
-export type PromptSection = (typeof PROMPT_SECTIONS)[number];
-
-const BASELINES: Record<PromptSection, string> = {
-  section1: SECTION1_SYSTEM_PROMPT,
-  section2: SECTION2_SYSTEM_PROMPT,
-  news: NEWS_SECTION_PROMPT,
-  quick_actions: QUICK_ACTIONS_PROMPT,
-  questions: QUESTIONS_PROMPT,
-  extraction: NEWSLETTER_EXTRACTION_PROMPT,
-  entity_extraction: ENTITY_EXTRACTION_PROMPT,
-  personal_classification: PERSONAL_EMAIL_PROMPT,
-  news_world: NEWS_WORLD_PROMPT,
-  news_home: NEWS_HOME_PROMPT,
-  news_beat: NEWS_BEAT_PROMPT,
-  news_field: NEWS_FIELD_PROMPT,
-  news_talk: NEWS_TALK_PROMPT,
-  news_serendipity: NEWS_SERENDIPITY_PROMPT,
-};
-
-export interface EffectivePrompt {
-  section: PromptSection;
-  text: string;
-  /** DB version number, or null when the code baseline is in use. */
-  version: number | null;
-  source: "db" | "code";
-}
-
-function baseline(section: PromptSection): EffectivePrompt {
-  return { section, text: BASELINES[section], version: null, source: "code" };
-}
+export { PROMPT_SECTIONS } from "./prompt-catalog";
+export type { EffectivePrompt, PromptSection } from "./prompt-catalog";
 
 /** Every section's effective prompt, in one query. */
 export async function resolveActivePrompts(): Promise<Record<PromptSection, EffectivePrompt>> {
@@ -87,17 +26,7 @@ export async function resolveActivePrompts(): Promise<Record<PromptSection, Effe
     .from(promptVersions)
     .where(eq(promptVersions.active, true));
 
-  const resolved = Object.fromEntries(
-    PROMPT_SECTIONS.map((section) => [section, baseline(section)])
-  ) as Record<PromptSection, EffectivePrompt>;
-
-  for (const row of rows) {
-    // `section` is free text and `POST /api/prompts` accepts any value, so a row can name a
-    // section no stage reads. Ignore it rather than inventing a stage for it.
-    if (!(row.section in resolved)) continue;
-    const section = row.section as PromptSection;
-    resolved[section] = { section, text: row.promptText, version: row.version, source: "db" };
-  }
+  const resolved = resolvePromptRows(rows);
 
   const overrides = PROMPT_SECTIONS.filter((s) => resolved[s].source === "db");
   if (overrides.length > 0) {

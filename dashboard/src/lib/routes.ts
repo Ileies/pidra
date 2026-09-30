@@ -40,6 +40,8 @@ export interface RouteDef {
   children?: string[];
   /** Present on the four mobile tab destinations, in bar order. */
   tab?: number;
+  /** Rendered as a dedicated control in the mobile header, outside the bottom bar and More sheet. */
+  mobileHeader?: boolean;
   /**
    * The letter that follows `g` to jump here (E1). Declared rather than derived from the label:
    * first-letter-wins left Rules, Runs, Chat, Context and Skills with no key at all, because
@@ -239,6 +241,7 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.settings,
+    mobileHeader: true,
     children: ["/settings/email-accounts"],
   },
   {

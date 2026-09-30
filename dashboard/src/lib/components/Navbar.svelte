@@ -14,9 +14,9 @@
    *   the mobile sheet uses. `xl` (1280px) rather than `sm`: below that the ten-to-twelve pills
    *   do not fit in one line even grouped, and a wrapped row squeezed the page title down to a
    *   few truncated characters on anything narrower than roughly 1100px - a common laptop width.
-   * - **Below `xl`:** the app icon, page title, sync state and notifications stay in the header.
-   *   Navigation lives in the bottom tab bar and its More sheet, so there is one predictable,
-   *   thumb-reachable place to open it.
+   * - **Below `xl`:** the app icon, page title, sync state, notifications and settings stay in
+   *   the header. Navigation lives in the bottom tab bar and its More sheet, so there is one
+   *   predictable, thumb-reachable place to open it.
    *
    * The day steppers are gone from here. They were only ever on one route, they were the two
    * controls that pushed the row over, and they belong next to the date they step.
@@ -109,6 +109,16 @@
       {#if notificationCount > 0}
         <span class="absolute -right-1 -top-1 min-w-5 rounded-full border-2 border-surface-900 bg-error-600 px-1 text-center text-[10px] font-bold leading-5 text-white tabular-nums" aria-hidden="true">{notificationCount > 99 ? "99+" : notificationCount}</span>
       {/if}
+    </a>
+
+    <a
+      href="/settings"
+      aria-label="Settings"
+      class="tap xl:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 no-underline hover:border-surface-500 hover:text-surface-100 transition-colors"
+    >
+      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
     </a>
 
     <!-- Desktop: the primary entries, grouped, plus everything secondary behind one menu. -->

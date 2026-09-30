@@ -585,3 +585,19 @@ export const emailAccounts = pgTable("email_accounts", {
   createdAt: timestamptz("created_at").default(sql`now()`),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });
+
+/** Live newsletter configuration edited from `/settings/newsletters`. */
+export const newsletterSenderRules = pgTable("newsletter_sender_rules", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  matchKind: text("match_kind").notNull(), // domain | address
+  pattern: text("pattern").notNull(),
+  sourceName: text("source_name").notNull(), // empty for generic Substack sender names
+}, (t) => [unique("newsletter_sender_rules_match_unique").on(t.matchKind, t.pattern)]);
+
+export const rssFeeds = pgTable("rss_feeds", {
+  sourceName: text("source_name").primaryKey(),
+  url: text("url").notNull(),
+  lastError: text("last_error"),
+  lastErrorAt: timestamptz("last_error_at"),
+  lastSuccessAt: timestamptz("last_success_at"),
+});

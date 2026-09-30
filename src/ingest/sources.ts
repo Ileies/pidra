@@ -1,5 +1,5 @@
 import { loadEmailAccounts } from "../config/email-accounts";
-import { loadNewsletterConfig } from "../config/newsletter-sources";
+import type { NewsletterConfig } from "../config/newsletter-sources";
 
 // Email addresses that are "self" - never classified as an incoming action item.
 //
@@ -35,10 +35,9 @@ export async function getSelfEmails(): Promise<string[]> {
  * Decides whether a sender is a newsletter or a person.
  *
  * The source mappings are configuration, not code: they live in
- * `src/config/newsletter-sources.json`. Add a newsletter there, never here.
+ * `newsletter_sender_rules`, edited from `/settings/newsletters`.
  */
-export function classifyEmail(from: string): { sourceType: "newsletter" | "personal_email"; sourceName: string | null } {
-  const { domains, addresses } = loadNewsletterConfig();
+export function classifyEmail(from: string, { domains, addresses }: NewsletterConfig): { sourceType: "newsletter" | "personal_email"; sourceName: string | null } {
 
   const senderEmail = ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase().trim();
   const senderDomain = senderEmail.split("@")[1] ?? "";
@@ -49,7 +48,8 @@ export function classifyEmail(from: string): { sourceType: "newsletter" | "perso
     return { sourceType: "newsletter", sourceName: addresses[senderEmail] };
   }
 
-  for (const [domain, name] of Object.entries(domains)) {
+  // Specific publication domains win over a generic parent such as substack.com.
+  for (const [domain, name] of Object.entries(domains).sort((a, b) => b[0].length - a[0].length)) {
     if (senderDomain === domain || senderDomain.endsWith("." + domain)) {
       return { sourceType: "newsletter", sourceName: name || senderName || null };
     }

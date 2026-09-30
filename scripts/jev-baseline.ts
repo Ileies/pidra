@@ -6,7 +6,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { open } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import { RSS_FEEDS } from "../src/config/rss-feeds";
+import { loadRssFeeds } from "../src/config/rss-feeds";
 import { loadNewsletterConfig } from "../src/config/newsletter-sources";
 import { db, dailyReports, extractions, feedbackEvents, ingestDrops, pipelineRuns, rawItems } from "../src/db";
 import { candidateOutcome, sourceFailures } from "../src/evaluation/baseline";
@@ -92,11 +92,11 @@ for (const row of feedback) {
   list.push(row);
   byExtraction.set(row.extractionId, list);
 }
-const newsletterConfig = loadNewsletterConfig();
+const [newsletterConfig, feeds] = await Promise.all([loadNewsletterConfig(), loadRssFeeds()]);
 // The generic Substack sender has no source name; Netzpolitik.org is configured for sender
 // recognition but explicitly declined from the 32-source briefing roster.
 const configuredNewsletters = [...new Set([
-  ...Object.keys(RSS_FEEDS),
+  ...feeds.map((feed) => feed.sourceName),
   ...Object.values(newsletterConfig.domains),
   ...Object.values(newsletterConfig.addresses),
 ])].filter((name) => name !== "" && name !== "Netzpolitik.org").sort();

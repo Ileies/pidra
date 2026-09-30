@@ -1,8 +1,14 @@
 import Parser from "rss-parser";
-import { db, rawItems, rawItemExists } from "../db";
-import { RSS_FEEDS } from "../config/rss-feeds";
+import { eq } from "drizzle-orm";
+import { db, rawItems, rawItemExists, rssFeeds } from "../db";
+import type { RssFeed } from "../config/rss-feeds";
 
 const parser = new Parser({ timeout: 15000 });
+
+export interface RssIngestResult {
+  count: number;
+  failures: { source: string; error: string }[];
+}
 
 function buildRawContent(item: Parser.Item, sourceName: string): string {
   const parts: string[] = [
@@ -19,57 +25,60 @@ function buildRawContent(item: Parser.Item, sourceName: string): string {
   return parts.join("\n");
 }
 
-async function ingestFeed(sourceName: string, feedUrl: string, since: Date, runDate: string): Promise<number> {
-  let feed: Parser.Output<object>;
+async function ingestFeed(feedConfig: RssFeed, since: Date, runDate: string): Promise<number> {
+  const { sourceName, url } = feedConfig;
   try {
-    feed = await parser.parseURL(feedUrl);
+    const feed = await parser.parseURL(url);
+    let stored = 0;
+    for (const item of feed.items) {
+      const pubDate = item.isoDate ? new Date(item.isoDate) : (item.pubDate ? new Date(item.pubDate) : null);
+      if (pubDate && pubDate < since) continue;
+
+      const dedupKey = item.guid ?? item.link ?? null;
+      if (!dedupKey || await rawItemExists(dedupKey)) continue;
+
+      await db.insert(rawItems).values({
+        runDate,
+        sourceType: "newsletter",
+        sourceName,
+        accountId: null,
+        messageId: dedupKey,
+        rawContent: buildRawContent(item, sourceName),
+        receivedAt: pubDate?.toISOString() ?? new Date().toISOString(),
+      });
+      stored++;
+    }
+
+    await db.update(rssFeeds).set({ lastError: null, lastErrorAt: null, lastSuccessAt: new Date().toISOString() })
+      .where(eq(rssFeeds.sourceName, sourceName));
+    return stored;
   } catch (err) {
-    console.warn(`[Ingest/RSS] [${sourceName}] Fetch failed: ${err}`);
-    return 0;
+    const error = (err instanceof Error ? err.message : String(err)).slice(0, 1000);
+    console.warn(`[Ingest/RSS] [${sourceName}] Fetch failed: ${error}`);
+    await db.update(rssFeeds).set({ lastError: error, lastErrorAt: new Date().toISOString() })
+      .where(eq(rssFeeds.sourceName, sourceName));
+    throw new Error(error);
   }
-
-  let stored = 0;
-  for (const item of feed.items) {
-    const pubDate = item.isoDate ? new Date(item.isoDate) : (item.pubDate ? new Date(item.pubDate) : null);
-    if (pubDate && pubDate < since) continue;
-
-    const dedupKey = item.guid ?? item.link ?? null;
-    if (!dedupKey) continue;
-
-    if (await rawItemExists(dedupKey)) continue;
-
-    const content = buildRawContent(item, sourceName);
-    await db.insert(rawItems).values({
-      runDate,
-      sourceType: "newsletter",
-      sourceName,
-      accountId: null,
-      messageId: dedupKey,
-      rawContent: content,
-      receivedAt: pubDate?.toISOString() ?? new Date().toISOString(),
-    });
-    stored++;
-  }
-
-  return stored;
 }
 
-export async function ingestRssFeeds(runDate: string): Promise<number> {
-  console.log(`[Ingest/RSS] Polling ${Object.keys(RSS_FEEDS).length} feeds`);
+export async function ingestRssFeeds(runDate: string, feeds: RssFeed[]): Promise<RssIngestResult> {
+  console.log(`[Ingest/RSS] Polling ${feeds.length} feeds`);
 
-  const lookbackDays = parseInt(process.env.IMAP_LOOKBACK_DAYS ?? "1");
-  const since = new Date();
-  since.setDate(since.getDate() - lookbackDays);
+  // Weekly feeds sometimes stamp every item at midnight, before the next morning's run.
+  // Global message ID deduplication makes a longer window safe and recovers short outages.
+  const configured = Number(process.env.RSS_LOOKBACK_DAYS ?? 14);
+  const lookbackDays = Number.isInteger(configured) && configured > 0 ? configured : 14;
+  const since = new Date(Date.now() - lookbackDays * 86_400_000);
 
-  const results = await Promise.allSettled(
-    Object.entries(RSS_FEEDS).map(([name, url]) => ingestFeed(name, url, since, runDate))
-  );
-
-  let total = 0;
-  for (const r of results) {
-    if (r.status === "fulfilled") total += r.value;
+  const results = await Promise.allSettled(feeds.map((feed) => ingestFeed(feed, since, runDate)));
+  let count = 0;
+  const failures: RssIngestResult["failures"] = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === "fulfilled") count += result.value;
+    else failures.push({ source: `rss:${feeds[i].sourceName}`, error: result.reason instanceof Error ? result.reason.message : String(result.reason) });
   }
 
-  console.log(`[Ingest/RSS] Done - ${total} new items from ${Object.keys(RSS_FEEDS).length} feeds`);
-  return total;
+  console.log(`[Ingest/RSS] Done - ${count} new items from ${feeds.length} feeds, ${failures.length} failed`);
+  return { count, failures };
 }

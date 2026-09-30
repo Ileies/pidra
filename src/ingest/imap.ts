@@ -5,7 +5,7 @@ import { db, ingestDrops, rawItems, rawItemExists } from "../db";
 import { classifyEmail } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
-import { RSS_SOURCE_NAMES } from "../config/rss-feeds";
+import type { NewsletterConfig } from "../config/newsletter-sources";
 import type { EmailAccount } from "../config/email-accounts";
 
 /** The four ways a fetched mail can be discarded before it becomes a `raw_items` row. */
@@ -38,7 +38,7 @@ function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Bu
   });
 }
 
-export async function ingestImapAccount(account: EmailAccount, runDate: string): Promise<number> {
+export async function ingestImapAccount(account: EmailAccount, runDate: string, newsletterConfig: NewsletterConfig, rssSourceNames: Set<string>): Promise<number> {
   console.log(`[Ingest/IMAP] [${account.user}] Connecting to ${account.host}...`);
 
   const imap = await openImap(account);
@@ -107,11 +107,11 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string):
     if (messageId && await rawItemExists(messageId)) continue;
 
     const { sourceType, sourceName } = account.isNewsAccount
-      ? classifyEmail(from)
+      ? classifyEmail(from, newsletterConfig)
       : { sourceType: "personal_email" as const, sourceName: senderEmail };
 
     // Skip newsletters covered by RSS - RSS content is cleaner and already ingested
-    if (sourceType === "newsletter" && sourceName && RSS_SOURCE_NAMES.has(sourceName)) {
+    if (sourceType === "newsletter" && sourceName && rssSourceNames.has(sourceName)) {
       await drop("covered_by_rss", sourceType, sourceName);
       continue;
     }

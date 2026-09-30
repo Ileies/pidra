@@ -2,6 +2,8 @@ import { ingestImapAccount } from "../ingest/imap";
 import { ingestRssFeeds } from "../ingest/rss";
 import { ingestGoogleCalendar, ingestGoogleTasks } from "../ingest/google";
 import { loadEmailAccounts } from "../config/email-accounts";
+import { loadNewsletterConfig } from "../config/newsletter-sources";
+import { loadRssFeeds } from "../config/rss-feeds";
 
 export interface SourceFailure {
   source: string;
@@ -37,14 +39,17 @@ const message = (reason: unknown) => (reason instanceof Error ? reason.message :
 export async function runPhase1(runDate: string): Promise<IngestResult> {
   console.log(`[Phase 1] Starting ingestion for ${runDate}`);
 
-  const accounts = await loadEmailAccounts();
+  const [accounts, newsletterConfig, feeds] = await Promise.all([
+    loadEmailAccounts(), loadNewsletterConfig(), loadRssFeeds(),
+  ]);
+  const rssSourceNames = new Set(feeds.map((feed) => feed.sourceName));
   if (accounts.length === 0) {
     console.warn("[Phase 1] No email accounts configured (see /settings/email-accounts)");
   }
 
   const [imapResults, rssResult, calendarResult, todoResult] = await Promise.all([
-    Promise.allSettled(accounts.map((account) => ingestImapAccount(account, runDate))),
-    Promise.allSettled([ingestRssFeeds(runDate)]),
+    Promise.allSettled(accounts.map((account) => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames))),
+    Promise.allSettled([ingestRssFeeds(runDate, feeds)]),
     Promise.allSettled([ingestGoogleCalendar(runDate)]),
     Promise.allSettled([ingestGoogleTasks(runDate)]),
   ]);
@@ -70,12 +75,15 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
     return 0;
   };
 
-  const rssCount = count("rss", rssResult[0]);
+  const rssCount = rssResult[0].status === "fulfilled" ? rssResult[0].value.count : count("rss", rssResult[0]);
+  if (rssResult[0].status === "fulfilled") failures.push(...rssResult[0].value.failures);
   const calendarCount = count("calendar", calendarResult[0]);
   const todoCount = count("tasks", todoResult[0]);
 
   const sourceCount = accounts.length + 3;
-  if (failures.length === sourceCount) {
+  const rssFailed = rssResult[0].status === "rejected" || (feeds.length > 0 && rssResult[0].value.failures.length === feeds.length);
+  if (imapResults.every((result) => result.status === "rejected") && rssFailed &&
+      calendarResult[0].status === "rejected" && todoResult[0].status === "rejected") {
     throw new Error(
       `every ingest source failed (${sourceCount}): ${failures.map((f) => `${f.source}: ${f.error}`).join("; ")}`,
     );
@@ -94,7 +102,7 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
     `[Phase 1] Done - ${result.total} items (${emailCount} email, ${rssCount} RSS, ${calendarCount} calendar, ${todoCount} todos)`
   );
   if (failures.length > 0) {
-    console.warn(`[Phase 1] Degraded: ${failures.length}/${sourceCount} sources failed - ${failures.map((f) => f.source).join(", ")}`);
+    console.warn(`[Phase 1] Degraded: ${failures.length} source failures - ${failures.map((f) => f.source).join(", ")}`);
   }
   return result;
 }

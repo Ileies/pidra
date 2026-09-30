@@ -35,6 +35,8 @@ export async function seedContacts(contactProfiles: ContactProfile[]): Promise<v
         priority: profile.importance,
         firstSeen: profile.lastSeen,
         emailCount: profile.emailCount,
+        categories: profile.categories,
+        actionCount: profile.actionCount,
       })))
       .onConflictDoUpdate({
         target: contacts.identifier,
@@ -42,8 +44,8 @@ export async function seedContacts(contactProfiles: ContactProfile[]): Promise<v
           name: drizzleSql`excluded.name`,
           priority: drizzleSql`excluded.priority`,
           updatedAt: drizzleSql`now()`,
-          // emailCount deliberately absent: it seeds once on insert, then the live pipeline owns
-          // the running count, same split as entities.mention_count. A re-seed must not clobber it.
+          // Corpus metrics are insert-only. A re-seed must not clobber values accumulated after
+          // the first seed, including the live pipeline's running email count.
         },
         // A row the user corrected through `revise_context` is left exactly as it is: a re-seed
         // must never undo a correction.

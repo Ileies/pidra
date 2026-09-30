@@ -4,9 +4,10 @@
  *
  * Only `svelte-kit sync` is a real prerequisite for the rest - it generates the `.svelte-kit`
  * types `svelte-check` reads. `svelte-check`, `contrast.ts`, `check-offline.ts`, the source-links
- * test, and `blackhole/run.ts` (which does its own production build internally) don't read each
- * other's output, so chaining them with `&&` was pure waste - `blackhole/run.ts` alone is the
- * dominant cost of the whole check suite (~65-70s against under 4s for everything else combined).
+ * test, the component tests (`tests/`, jsdom via happy-dom - no Chrome, no build), and
+ * `blackhole/run.ts` (which does its own production build internally) don't read each other's
+ * output, so chaining them with `&&` was pure waste - `blackhole/run.ts` alone is the dominant
+ * cost of the whole check suite (~65-70s against under 4s for everything else combined).
  *
  * `--quick` / `-q` skips `blackhole/run.ts`, for iterating on a change that plainly can't affect
  * routing, offline behavior or rendering. It is not a substitute for the full check before a
@@ -26,6 +27,7 @@ const steps: [string, () => Promise<unknown>][] = [
   ["contrast", () => $`bun run scripts/contrast.ts`],
   ["check-offline", () => $`bun run scripts/check-offline.ts`],
   ["source-links", () => $`bun test scripts/source-links.test.ts`],
+  ["component tests", () => $`bun test --conditions=browser tests/`],
   ...(quick ? [] : ([["blackhole", () => $`bun run scripts/blackhole/run.ts`]] as [string, () => Promise<unknown>][])),
 ];
 

@@ -12,7 +12,8 @@
 		"lint": "eslint .",
 		"check": "bun run scripts/check.ts",
 		"check:quick": "bun run scripts/check.ts --quick",
-		"test:offline": "bun run scripts/blackhole/run.ts"
+		"test:offline": "bun run scripts/blackhole/run.ts",
+		"test:components": "bun test --conditions=browser tests/"
 	},
 	"dependencies": {
 		"@simplewebauthn/browser": "^14.0.0",
@@ -27,11 +28,14 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@happy-dom/global-registrator": "20.14.5",
 		"@sveltejs/adapter-node": "^6.0.0-next.0",
 		"@sveltejs/kit": "^3.0.0-next.27",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
 		"@tailwindcss/vite": "^4.3.3",
+		"@testing-library/svelte": "5.4.2",
 		"@types/bun": "^1.4.2",
+		"bun-plugin-svelte": "0.0.6",
 		"eslint": "^10.10.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",

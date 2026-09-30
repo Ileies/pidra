@@ -7,7 +7,7 @@
 - `/[date]` - daily report. Section 2 leads at every width, then the News section (`NewsSection`: the news desks' stories under the editor's headings, source links inline), then Section 1; entries carry inline +/- rating and expand their sources in place, and a personal entry carries its quick actions (`QuickActions`), with any the report never mentions in their own block at the end of Section 2. Stats bar, day steppers, archive picker, live run status. An `IngestWarning` sits above the briefing whenever a source failed to deliver on that run, because Phase 1 carries on when one dies and the report otherwise reads as complete
 - `/[date]/detail/[ids]` - the extractions behind one entry; the shareable deep link and the no-JS fallback for the inline expansion
 - `/[date]/triage` - everything that arrived on that run and where it stopped: dropped at ingest, never extracted, dropped at the relevance gate, seen by synthesis and passed over, or cited. Filter chips per outcome plus a search; linked from the report's "filtered" figure
-- `/sources` - source quality dashboard (trust scores, include rates, enable/disable)
+- `/sources` - source quality dashboard (trust scores, include rates); a source can be hard-deleted, with an "also open unsubscribe link" option when one was found during ingest, and "Enable" stays only for sources disabled before this existed
 - `/sources/[name]` - every delivery from one source and what extraction made of it
 - `/feedback` - the item-level rating log behind the per-source totals
 - `/entities` - entity explorer (filterable table); search matches name, aliases and summary, not just the canonical name

@@ -75,6 +75,7 @@ function expectedText(id: string): string {
     "/notes": F.TEXT.note,
     "/rules": F.TEXT.rule,
     "/context-builder": F.TEXT.harvest,
+    "/context-builder/corrections": F.TEXT.correction,
     "/entities": F.TEXT.entity,
     "/entities/[id]": F.TEXT.entity,
     "/contacts": F.TEXT.contact,

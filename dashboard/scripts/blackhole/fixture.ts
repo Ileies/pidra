@@ -55,6 +55,7 @@ export const TEXT = {
   otherEntity: "Example Project",
   contact: "sender@example.com",
   topic: "Example standing story",
+  correction: "Example correction statement.",
 } as const;
 
 const NOW = new Date().toISOString();
@@ -201,7 +202,7 @@ const contextDoc: MirroredContextDoc = {
       target_kind: "document",
       target_key: "3",
       operation: "amend",
-      statement: "Example correction statement.",
+      statement: TEXT.correction,
       supersedes_text: null,
       rationale: null,
       source: "user",

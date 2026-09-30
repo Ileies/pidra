@@ -1,17 +1,19 @@
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { decideGate, type GateDecision } from "./gate";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
 import { loadLongTermContext, type LongTermContext } from "./long-term-context";
 import { NEWS_SOURCE_TYPE } from "../news/config";
 import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/run";
-import { handoffForOrder, orderNewsletterItems } from "./section1-handoff";
+import { handoffForOrder, orderNewsletterItems, SECTION1_CAPACITY } from "./section1-handoff";
+import { revivableTopics } from "./topic-lifecycle";
 
 export interface ContextPayload {
   volumeSignal: "light" | "normal" | "heavy";
   highRelevanceCount: number;
   activeTopics: (typeof activeTopics.$inferSelect)[];
+  revivableTopics: (typeof activeTopics.$inferSelect)[];
   /** All gate-passed newsletter claims, ordered for Section 1; only the first 30 are sent. */
   newsletterItems: ExtractionWithSource[];
   personalItems: ExtractionWithSource[];
@@ -121,6 +123,7 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     allNotes,
     allContacts,
     entityList,
+    inactiveTopics,
     calendarRaw,
     todoRaw,
     webSearchResults,
@@ -134,6 +137,7 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     db.select().from(notes).where(isNull(notes.deletedAt)),
     db.select().from(contacts),
     db.select().from(entities).where(eq(entities.status, "active")),
+    db.select().from(activeTopics).where(inArray(activeTopics.status, ["dormant", "archived"])),
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "calendar"))),
@@ -266,6 +270,7 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     volumeSignal,
     highRelevanceCount,
     activeTopics: topicsResult,
+    revivableTopics: revivableTopics(inactiveTopics, newsletterItems.slice(0, SECTION1_CAPACITY).map((item) => item.extraction.extractedJson as { headline?: string; key_claim?: string; entities?: string[] })),
     newsletterItems,
     personalItems,
     newsItems,

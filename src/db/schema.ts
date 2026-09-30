@@ -93,7 +93,7 @@ export const activeTopics = pgTable("active_topics", {
   runningSummary: text("running_summary"),
   firstSeen: dateStr("first_seen").notNull(),
   lastUpdated: dateStr("last_updated").notNull(),
-  status: text("status").default("active"), // active | dormant | resolved
+  status: text("status").default("active"), // active | dormant | archived | resolved
   updateCount: integer("update_count").default(1),
   sources: text("sources").array(),
   entityIds: uuid("entity_ids").array(),

@@ -1,5 +1,5 @@
 import { db, activeTopics, entities, contacts } from "../../db";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { createNote } from "../../notes/store";
 import { validateNewContacts } from "../contact-suggestions";
 import { processSkillSuggestions } from "./skill-suggestions";
@@ -28,9 +28,18 @@ export async function applySection1SystemBlock(s1System: Record<string, any>, ru
   }
 
   for (const update of s1System.updated_topics ?? []) {
+    if (typeof update.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(update.id)) continue;
+    if (update.status !== "active" && update.status !== "resolved") continue;
+    if (typeof update.new_summary !== "string" || !update.new_summary.trim()) continue;
+    if (update.status === "resolved" && (typeof update.resolution_evidence !== "string" || !update.resolution_evidence.trim())) continue;
     await db.update(activeTopics)
-      .set({ runningSummary: update.new_summary, status: update.status, lastUpdated: runDate })
-      .where(eq(activeTopics.id, update.id));
+      .set({
+        runningSummary: update.new_summary.trim(),
+        status: update.status,
+        lastUpdated: runDate,
+        updateCount: sql`CASE WHEN ${activeTopics.lastUpdated} < ${runDate} THEN COALESCE(${activeTopics.updateCount}, 0) + 1 ELSE ${activeTopics.updateCount} END`,
+      })
+      .where(and(eq(activeTopics.id, update.id), inArray(activeTopics.status, ["active", "dormant", "archived"])));
   }
 
   for (const entity of s1System.new_entities ?? []) {

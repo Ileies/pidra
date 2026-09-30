@@ -46,6 +46,13 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
       summary: t.runningSummary,
       update_count: t.updateCount,
     })),
+    revivable_topics: ctx.revivableTopics.map((t) => ({
+      id: t.id,
+      headline: t.headline,
+      domain: t.domain,
+      summary: t.runningSummary,
+      status: t.status,
+    })),
     todays_items: ctx.newsletterItems.slice(0, SECTION1_CAPACITY).map((i) => ({
       id: i.extraction.id,
       source: i.sourceName,

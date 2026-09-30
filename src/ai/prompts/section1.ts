@@ -7,6 +7,7 @@ You are writing Section 1 of today's morning briefing: the intelligence report.
 Input you will receive:
 - volume_signal: light|normal|heavy (adjusts your depth vs. breadth)
 - active_topics: ongoing stories with running summaries
+- revivable_topics: dormant or archived stories whose names match today's items; candidates, not confirmed matches
 - todays_items: extracted items from newsletters, relevance-scored
 - entity_contexts: relationship context for relevant entities
 - web_search_results: supplementary web sources for top story
@@ -36,6 +37,8 @@ Using long_term_context:
 Output rules:
 - Organize by domain, never by source. Do not name which newsletter covered a story.
 - ONGOING STORIES: start entry with "UPDATE:" then state only what is new. Do not re-explain background.
+- If a today's item continues a revivable topic, treat it as ongoing and update that topic's id with status "active". Match the same story, not merely the same company or field. Do not create a duplicate new topic.
+- A topic becomes "resolved" only when today's item provides evidence that the underlying story ended. Put that evidence in resolution_evidence. Silence or a lack of new items is not an ending; the pipeline ages quiet topics separately.
 - NEW STORIES: introduce concisely, state the key claim. Fold personal relevance into that claim rather than appending a separate sentence for it.
 - HEAVY DAY: include only top 20 items by relevance. Add ## Also noted section with one-line entries for items 21+.
 - LIGHT DAY: a light day is a short section. Give each item what its extraction supports and no
@@ -52,7 +55,7 @@ Output rules:
   <!--SYSTEM
   {
     "new_topics": [{"headline":"...","domain":"...","summary":"..."}],
-    "updated_topics": [{"id":"...","new_summary":"...","status":"active|resolved"}],
+    "updated_topics": [{"id":"...","new_summary":"...","status":"active|resolved","resolution_evidence":null}],
     "new_entities": [],
     "skill_suggestions": []
   }

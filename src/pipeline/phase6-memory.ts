@@ -7,6 +7,7 @@ import { parseSystemBlock, applySection1SystemBlock, applySection2SystemBlock } 
 import { writeSourceDailyScores } from "./phase6/source-scoring";
 import { upsertEntitiesFromExtractions } from "./phase6/entities";
 import { markDormantEntities } from "./phase6/dormant";
+import { ageTopics } from "./topic-lifecycle";
 import { incrementContactEmailCounts } from "./phase6/contacts";
 
 export async function runPhase6(
@@ -76,6 +77,7 @@ export async function runPhase6(
   // Parse and apply Section 1 SYSTEM block
   const s1System = parseSystemBlock(synthesis.section1);
   if (s1System) await applySection1SystemBlock(s1System, runDate);
+  await ageTopics(runDate);
 
   // Parse and apply Section 2 SYSTEM block
   const s2System = parseSystemBlock(synthesis.section2);

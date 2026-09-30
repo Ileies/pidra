@@ -7,4 +7,5 @@ Corrections about the owner (relationships, client domains, standing rules, comm
 - [`now.md`](./now.md) - active or near-term open work
 - [`soon.md`](./soon.md) - queued after Now, mostly Phase 7 (passive context sources) plus the 30-day web-search check-in
 - [`later.md`](./later.md) - Phase 8, the critical-skills design, semantic search, and other deliberately-deferred work
+- [`entities.md`](./entities.md) - staged repair of entity provenance, counts, briefing context and the `/entities` page
 - [`security.md`](./security.md) - open security work ordered by impact; current controls are in [`docs/security.md`](../security.md)

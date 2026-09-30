@@ -10,9 +10,19 @@ const item = {
   rawContent: "A test newsletter",
 };
 
-let saved: { aiFailed: boolean; rawItemId: string; extractedJson: unknown }[] = [];
+type SavedExtraction = {
+  id: string;
+  aiFailed: boolean;
+  rawItemId: string;
+  extractedJson: unknown;
+  gatePassed?: boolean;
+  includedInReport?: boolean;
+};
+
+let saved: SavedExtraction[] = [];
 let calls = 0;
 let failNext = false;
+let nextId = 0;
 
 const select = () => ({
   from: (table: unknown) => ({
@@ -26,7 +36,11 @@ const db = {
     execute: async () => undefined,
     select,
     delete: () => ({ where: async () => { saved = []; } }),
-    insert: () => ({ values: async (values: typeof saved) => { saved.push(...values); } }),
+    insert: () => ({
+      values: async (values: Omit<SavedExtraction, "id">[]) => {
+        saved.push(...values.map((value) => ({ ...value, id: `extraction-${++nextId}` })));
+      },
+    }),
   }),
 };
 
@@ -64,15 +78,20 @@ beforeEach(() => {
   saved = [];
   calls = 0;
   failNext = false;
+  nextId = 0;
 });
 
-test("a rerun keeps the two original story rows and does not call the model again", async () => {
+test("a rerun preserves extraction IDs and downstream verdicts without adding story rows", async () => {
   await runPhase2(item.runDate);
-  const first = [...saved];
+  const ids = saved.map((row) => row.id);
+  saved[0].gatePassed = true;
+  saved[0].includedInReport = true;
   await runPhase2(item.runDate);
 
-  expect(saved).toEqual(first);
+  expect(saved.map((row) => row.id)).toEqual(ids);
   expect(saved).toHaveLength(2);
+  expect(saved[0].gatePassed).toBe(true);
+  expect(saved[0].includedInReport).toBe(true);
   expect(calls).toBe(2);
 });
 
@@ -85,4 +104,9 @@ test("a retry replaces a failed placeholder with the complete newsletter result"
   await runPhase2(item.runDate);
   expect(saved).toHaveLength(2);
   expect(saved.every((row) => row.aiFailed === false)).toBe(true);
+  expect(saved.map((row) => row.id)).toEqual(["extraction-2", "extraction-3"]);
+
+  await runPhase2(item.runDate);
+  expect(saved.map((row) => row.id)).toEqual(["extraction-2", "extraction-3"]);
+  expect(calls).toBe(4);
 });

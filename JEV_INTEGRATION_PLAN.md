@@ -18,7 +18,7 @@ Success means more must-cover stories reach the reader, fewer unhelpful items co
 
 ## P0: make the baseline trustworthy
 
-- [ ] Finish and verify the Phase 2 rerun dedup fix already in progress in `src/pipeline/phase2-extract.ts`. Repeated runs must preserve successful extraction IDs and must not inflate source scores or corroboration. Do not fold that separate work into the Jev change.
+- [x] Finish and verify the Phase 2 rerun dedup fix in `src/pipeline/phase2-extract.ts`. Repeated runs preserve successful extraction IDs and the number of story rows, so downstream source scores and corroboration do not gain duplicate inputs. A successful retry replaces a failed placeholder with the complete result.
 - [x] Close the Section 1 handoff gap in `src/pipeline/phase5-synthesis.ts`: `ctx.newsletterItems.slice(0, 30)` can omit gate-passed items without recording that they were never sent to synthesis. Define an explicit, stable ordering and persist a distinct `outside_synthesis_capacity` handoff outcome for every such item. `/[date]/triage` must distinguish it from a story that synthesis saw and passed over.
 - [ ] Record the actual candidate set, order, gate verdict, synthesis handoff, report citation, and later feedback for each evaluated item. Preserve the pipeline's final report and extraction ownership rules.
 - [ ] Complete the planned Brave news-desk research build before using Jev results to judge news coverage. Search recall and URL provenance must be measured independently of Jev's judgment.

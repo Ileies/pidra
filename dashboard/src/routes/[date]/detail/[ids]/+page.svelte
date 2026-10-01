@@ -7,6 +7,7 @@
   import RateButtons from "#lib/report/RateButtons.svelte";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import { offline } from "#lib/offline/state.svelte.js";
+  import { netJson } from "#lib/offline/net.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -28,18 +29,46 @@
     setPageContext({
       surface: "report",
       route: `/${data.date}/detail/${data.ids}`,
-      digest: `Detail view for the ${data.date} briefing: ${data.items.length} item(s) from ${
-        [...new Set(data.items.map((item) => item.sourceName).filter(Boolean))].join(", ") || "an unknown source"
+      digest: `Detail view for the ${data.date} briefing: ${items.length} item(s) from ${
+        [...new Set(items.map((item) => item.sourceName).filter(Boolean))].join(", ") || "an unknown source"
       }.`,
     });
   });
 
   let loading = $state(false);
 
+  // Items the mirror does not hold (filtered ones, or older than the mirror window) come live.
+  let fetched = $state<PageData["items"]>([]);
+  let fetching = $state(false);
+  let fetchFailed = $state(false);
+  $effect(() => {
+    const missing = data.missing;
+    fetched = [];
+    fetchFailed = false;
+    if (missing.length === 0) return;
+    let cancelled = false;
+    fetching = true;
+    netJson<{ items: PageData["items"] }>(`/api/extractions?ids=${encodeURIComponent(missing.join(","))}`)
+      .then((body) => {
+        if (!cancelled) fetched = body.items;
+      })
+      .catch(() => {
+        if (!cancelled) fetchFailed = true;
+      })
+      .finally(() => {
+        if (!cancelled) fetching = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  const items = $derived([...data.items, ...fetched]);
+
   // Optimistic, re-synced whenever the load function returns fresh rows.
   let ratings = $state<Record<string, string | null>>({});
   $effect(() => {
-    ratings = Object.fromEntries(data.items.map((item) => [item.id, item.rating ?? null]));
+    ratings = Object.fromEntries(items.map((item) => [item.id, item.rating ?? null]));
   });
 
   function onRate(extractionId: string, eventType: string | null) {
@@ -51,7 +80,14 @@
   <a href="/{data.date}" class="text-xs text-surface-400 hover:text-surface-200 no-underline">← {data.date}</a>
 
   <div class="flex flex-col gap-5">
-    {#each data.items as item (item.id)}
+    {#if fetching && items.length === 0}
+      <p class="text-sm text-surface-400 flex items-center gap-2"><Spinner label="Loading" /> Loading…</p>
+    {:else if items.length === 0 && !data.mirrorEmpty}
+      <p class="text-sm text-surface-400">
+        {fetchFailed ? "These items are not saved on this device and need the connection." : "Items not found."}
+      </p>
+    {/if}
+    {#each items as item (item.id)}
       <div class="flex flex-col gap-2">
         <ExtractionCard {item} />
         <div class="flex items-center gap-2 pl-1">

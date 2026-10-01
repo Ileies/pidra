@@ -16,8 +16,12 @@ export const load: PageLoad = async ({ params, depends }) => {
 
   const [items, empty] = await Promise.all([extractionsFor(depends, idList), mirrorEmpty()]);
   // Not a 404 yet: nothing is mirrored at all, and the layout shows the first sync instead.
-  if (empty) return { date, ids, items, mirrorEmpty: true };
-  if (items.length === 0) error(404, "Items not found");
+  if (empty) return { date, ids, items, missing: [] as string[], mirrorEmpty: true };
 
-  return { date, ids, items, mirrorEmpty: false };
+  // The mirror only holds items a recent report cites, while the source pages link every
+  // delivery. The page fetches these live; a load must not wait on the network.
+  const have = new Set(items.map((item) => item.id));
+  const missing = idList.filter((id) => !have.has(id));
+
+  return { date, ids, items, missing, mirrorEmpty: false };
 };

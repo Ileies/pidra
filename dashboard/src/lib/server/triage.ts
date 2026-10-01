@@ -33,6 +33,7 @@ export type GateReason =
   | "passed"
   | "below_threshold"
   | "skipped_by_extraction"
+  | "teaser_only"
   | "extraction_failed"
   | "spam"
   | "general_news"

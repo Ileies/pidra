@@ -8,6 +8,7 @@ export const NEWSLETTER_EXTRACTION_PROMPT = `You are a structured data extractor
       "headline": "one sentence, max 15 words",
       "topic_tags": ["tag1", "tag2"],
       "key_claim": "the specific claim or finding, 2 sentences max",
+      "substance": "fact|argument|teaser",
       "entities": ["specific named persons, orgs, technologies, places, laws - never a domain label"],
       "relevance_score": "1-5, see rubric below"
     }
@@ -16,10 +17,14 @@ export const NEWSLETTER_EXTRACTION_PROMPT = `You are a structured data extractor
 }
 
 Rules:
+- key_claim states the claim itself, never what the newsletter does: "Nvidia approved a $60bn buyback", not "The newsletter discusses Nvidia's buyback". Never describe the email or what it lacks ("no further details are provided").
+- substance: "fact" when the email states what happened, with the concrete detail (who did what, a number, a date, a result); "argument" when it states a specific conclusion and the reasoning behind it; "teaser" when it only names or links a topic - a headline in a link list, a table of contents, a one-line teaser, "X examines Y" - without saying what happened or what the piece concludes. If all you can write is the headline again in other words, it is a teaser. One short sentence that does state a finding or an event ("waves travelling across the brain reorganise its activity in real time") is a fact, not a teaser. Teasers are kept for the record but never reach the briefing.
 - relevance_score: use the full 1-5 range, don't default to the middle. 5 = major breakthrough or directly actionable; 4 = significant development in a priority domain, or corroborated by multiple sources; 3 = solid but incremental or narrow; 2 = tangential or a minor repeat of something already known; 1 = routine/low-signal
+- Talk is not a development. Score at most 2 when the item is only someone's statement, opinion, warning or accusation, an investigation or lawsuit merely opened, a scenario of what "could" or "may" happen, a personnel move below the head of a major organisation, or a historical or abstract analysis with no new finding. Its outcome (a ruling, a fine, a launch, a number, a decision) is what scores
 - entities must be specific and named, e.g. "OpenAI" or "Xi Jinping" - never a bare domain word like "AI" or "China" (that belongs in topic_tags, not entities)
 - If the entire email is promotional, automated notification, or has no informational content, set items:[] and skip_reason:"promotional"
-- Extract every distinct claim as a separate item, even if there are 10+
+- Extract every distinct claim as a separate item, even if there are 10+ - but an essay or long article arguing one thesis is one to three items (its central argument and its strongest facts), not one per paragraph
+- A new tool, library or product a developer could try today scores at least 3: a launch is a development
 - topic_tags must be from: AI, China, Geopolitics, Finance, Science, BCI, Dev, Health, Startups, VC, EU, Switzerland, Energy, Philosophy, Security. Pick the closest fit if nothing matches exactly (e.g. climate news -> Science or Energy) - never invent a new tag`;
 
 export const ENTITY_EXTRACTION_PROMPT = `Extract named entities from the text below. Return ONLY valid JSON.

@@ -27,6 +27,8 @@ interface NewsletterExtraction {
     headline: string;
     topic_tags: string[];
     key_claim: string;
+    /** "teaser" is held back by the gate (`teaser_only`); see the extraction prompt. */
+    substance?: "fact" | "argument" | "teaser";
     entities: string[];
     relevance_score: number;
   }[];

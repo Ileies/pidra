@@ -41,6 +41,12 @@ export type GateReason =
   | "below_threshold"
   /** Extraction deliberately produced no item - promotional, or nothing of substance. */
   | "skipped_by_extraction"
+  /**
+   * Newsletter: the email only named or linked the topic - a link list, a teaser line - so there
+   * is no claim to write about. Synthesis used to pad these with filler about what the item did
+   * not say (2026-10-01: 11 of 26 newsletter items, every one rated not relevant).
+   */
+  | "teaser_only"
   /** The extraction call itself failed; there was never anything to judge. */
   | "extraction_failed"
   | "spam"
@@ -147,6 +153,8 @@ export function decideGate(input: GateInput): GateDecision {
     // extracting. Scoring that as "below threshold" would be true and useless.
     const skipped = typeof json.skip_reason === "string" && json.skip_reason.length > 0 && !json.headline;
     if (skipped) return verdict(false, "skipped_by_extraction", NEWSLETTER_THRESHOLD);
+    // Before the score: a teaser scored 3 still has nothing in it to report.
+    if (json.substance === "teaser") return verdict(false, "teaser_only", NEWSLETTER_THRESHOLD);
 
     return effectiveRelevance >= NEWSLETTER_THRESHOLD
       ? verdict(true, "passed", NEWSLETTER_THRESHOLD)
@@ -192,6 +200,7 @@ export const GATE_REASON_TEXT: Record<GateReason, string> = {
   passed: "Cleared relevance gate",
   below_threshold: "Scored under the bar",
   skipped_by_extraction: "Extraction found nothing to report",
+  teaser_only: "Only a headline or teaser, no claim",
   extraction_failed: "The extraction call failed",
   spam: "Classified as spam",
   general_news: "Classified as general news, not personal",

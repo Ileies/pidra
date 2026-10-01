@@ -57,6 +57,7 @@ const LABELS: Record<string, string> = {
   // Phase 3 gate verdicts (src/pipeline/gate.ts)
   below_threshold: "Scored under the bar",
   skipped_by_extraction: "Extraction found nothing to report",
+  teaser_only: "Only a headline or teaser, no claim",
   extraction_failed: "The extraction call failed",
   spam: "Classified as spam",
   general_news: "General news, not personal",

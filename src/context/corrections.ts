@@ -152,26 +152,36 @@ async function addStandingRule(key: string, value: string): Promise<string> {
   return `added standing rule ${safeKey}`;
 }
 
+/** Only the fields that actually differ from the current row belong in a merge patch. */
+function diffFromRow(candidate: Record<string, unknown>, row: Record<string, unknown>): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(candidate)) {
+    if (row[k] !== v) patch[k] = v;
+  }
+  return patch;
+}
+
 async function mergeStructuredRow(
   kind: "entity" | "contact",
   key: string,
   fields: Record<string, unknown> | null,
 ): Promise<{ previousState: Record<string, unknown> | null; applied: string }> {
   const allowed = MERGEABLE[kind];
-  const patch: Record<string, unknown> = {};
+  const candidate: Record<string, unknown> = {};
 
   for (const [k, v] of Object.entries(fields ?? {})) {
     if (!allowed.includes(k)) {
       throw new CorrectionError(`field "${k}" cannot be corrected on a ${kind}; allowed: ${allowed.join(", ")}`);
     }
-    if (v !== null && v !== undefined && String(v).trim() !== "") patch[k] = v;
+    if (v !== null && v !== undefined && String(v).trim() !== "") candidate[k] = v;
   }
 
   if (kind === "contact") {
     const [row] = await db.select().from(contacts).where(eq(contacts.identifier, key)).limit(1);
     if (!row) throw new CorrectionError(`no contact with identifier "${key}"`);
+    const patch = diffFromRow(candidate, row as Record<string, unknown>);
     if (Object.keys(patch).length === 0) {
-      return { previousState: null, applied: "recorded as a correction; no contact field was named, so the row is unchanged" };
+      return { previousState: null, applied: "recorded as a correction; no contact field actually changed, so the row is unchanged" };
     }
     await db
       .update(contacts)
@@ -187,8 +197,9 @@ async function mergeStructuredRow(
     .where(drizzleSql`lower(${entities.name}) = lower(${key})`)
     .limit(1);
   if (!row) throw new CorrectionError(`no entity named "${key}"`);
+  const patch = diffFromRow(candidate, row as Record<string, unknown>);
   if (Object.keys(patch).length === 0) {
-    return { previousState: null, applied: "recorded as a correction; no entity field was named, so the row is unchanged" };
+    return { previousState: null, applied: "recorded as a correction; no entity field actually changed, so the row is unchanged" };
   }
   await db.update(entities).set({ ...patch, locked: true }).where(eq(entities.id, row.id));
   return { previousState: row as Record<string, unknown>, applied: `updated entity ${row.name}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };

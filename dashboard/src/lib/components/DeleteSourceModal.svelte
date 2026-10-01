@@ -9,6 +9,7 @@
    * it itself) and delete, rather than just delete.
    */
   import { enhance } from "$app/forms";
+  import { toasts } from "#lib/toast.svelte.js";
 
   interface Props {
     sourceName: string;
@@ -66,8 +67,15 @@
         {action}
         use:enhance={() => async ({ update, result }) => {
           close();
-          await update();
-          if (result.type === "success") onDeleted?.();
+          if (result.type === "success" && onDeleted) {
+            // The page being left no longer has a source to load, so skip the invalidate.
+            toasts.success(`Deleted ${sourceName}.`);
+            onDeleted();
+          } else if (result.type === "error") {
+            toasts.error(result.error instanceof Error ? result.error.message : "Could not delete the source.");
+          } else {
+            await update();
+          }
         }}
         class="flex flex-col gap-2"
       >

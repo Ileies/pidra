@@ -12,9 +12,12 @@
   import { fmtDate, fmtDateTime, fmtPct, fmtScore } from "#lib/format.js";
   import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
   import { sourceItemDetailHref } from "#lib/sourceLinks.js";
-  import type { PageData } from "./$types";
+  import { toastFormResult } from "#lib/toast.svelte.js";
+  import type { ActionData, PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  $effect(() => toastFormResult(form));
 
   type Delivery = PageData["deliveries"][number];
   type Item = Delivery["items"][number];

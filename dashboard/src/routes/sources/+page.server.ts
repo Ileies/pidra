@@ -1,8 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
-
-const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+import { deleteSource, setSourceActive } from "#lib/server/sources.js";
 
 export interface DailyScore {
   sourceName: string;
@@ -73,18 +72,12 @@ export const actions: Actions = {
 
     if (!sourceName) return fail(400, { error: "sourceName required" });
 
-    let res: Response;
     try {
-      res = await fetch(`${API}/api/sources/${encodeURIComponent(sourceName)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive, reason }),
-      });
-    } catch {
-      return fail(503, { error: "Pipeline server is offline." });
+      await setSourceActive(sourceName, isActive, reason);
+    } catch (err) {
+      console.error("source toggle failed", err);
+      return fail(500, { error: "Could not update the source." });
     }
-
-    if (!res.ok) return fail(res.status, { error: "API error" });
     return { ok: true };
   },
 
@@ -93,14 +86,12 @@ export const actions: Actions = {
     const sourceName = data.get("sourceName") as string;
     if (!sourceName) return fail(400, { error: "sourceName required" });
 
-    let res: Response;
     try {
-      res = await fetch(`${API}/api/sources/${encodeURIComponent(sourceName)}`, { method: "DELETE" });
-    } catch {
-      return fail(503, { error: "Pipeline server is offline." });
+      await deleteSource(sourceName);
+    } catch (err) {
+      console.error("source delete failed", err);
+      return fail(500, { error: "Could not delete the source." });
     }
-
-    if (!res.ok) return fail(res.status, { error: "API error" });
-    return { ok: true, deleted: sourceName };
+    return { ok: true, message: `Deleted ${sourceName}.`, deleted: sourceName };
   },
 };

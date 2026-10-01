@@ -52,8 +52,6 @@
     }
   }
 
-  const waiting = $derived(data.open.filter((q) => q.blockingMinutesLeft !== null));
-
   function kindBadge(q: PageData["open"][number]): string {
     if (q.kind === "review") return "Weekly review";
     return q.sources[0]?.source_type === "entity" ? "Entity" : "Mail";
@@ -92,21 +90,16 @@
         {data.open.length} open question{data.open.length === 1 ? "" : "s"}
       </h1>
       <p class="text-surface-400 text-xs">
-        Answer in any order, one at a time. Each answer counts as soon as you send it.
-        {#if waiting.length > 0}
-          Today's briefing is waiting for {waiting.length === 1 ? "one of them" : `${waiting.length} of them`}.
-        {/if}
+        Answer in any order, one at a time. The briefings never wait for them: each answer is used
+        from the next run on.
       </p>
     </div>
 
     <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-4">
       {#each data.open.slice(0, visibleOpen) as q (q.id)}
-        <li class="rounded-lg border bg-surface-900 p-4 sm:p-5 {q.blockingMinutesLeft !== null ? 'border-warning-800' : 'border-surface-700'}">
+        <li class="rounded-lg border bg-surface-900 p-4 sm:p-5 border-surface-700">
           <div class="flex flex-wrap items-center gap-2 mb-2">
             <Badge tone="muted">{kindBadge(q)}</Badge>
-            {#if q.blockingMinutesLeft !== null}
-              <Badge tone="warning">Briefing waiting · {q.blockingMinutesLeft}m left</Badge>
-            {/if}
             <span class="text-surface-400 text-xs">
               {#if q.timesAsked > 1}
                 Came up on {q.timesAsked} days since {fmtDay(q.firstAsked)}

@@ -8,8 +8,7 @@ import { parseJsonb } from "#lib/jsonb.js";
  *
  * Reads straight from Postgres; every write goes through the bridge, where `src/questions/store.ts`
  * is the only writer, so an answer here and the pipeline's reconcile cannot overwrite each other.
- * Online-only: a queued answer replayed after the gate has timed out would arrive too late for the
- * briefing it was for, and a question the pipeline has since merged or closed is not there to take it.
+ * Online-only: a question the pipeline has since merged or closed is not there to take a queued answer.
  */
 
 const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
@@ -42,14 +41,11 @@ interface Row {
   first_asked: string;
   last_asked: string;
   times_asked: number;
-  blocks_until: Date | null;
   answered_at: Date | null;
   updated_at: Date;
 }
 
 function shape(row: Row) {
-  const blocksUntil = row.blocks_until ? new Date(row.blocks_until) : null;
-  const minutesLeft = blocksUntil ? Math.round((blocksUntil.getTime() - Date.now()) / 60_000) : null;
   return {
     id: row.id,
     kind: row.kind,
@@ -63,8 +59,6 @@ function shape(row: Row) {
     firstAsked: row.first_asked,
     lastAsked: row.last_asked,
     timesAsked: row.times_asked,
-    // Only while a run is actually waiting: a stale value from a run that died means nothing.
-    blockingMinutesLeft: minutesLeft !== null && minutesLeft > 0 ? minutesLeft : null,
     answeredAt: row.answered_at,
     updatedAt: row.updated_at,
   };
@@ -77,12 +71,12 @@ export const load: PageServerLoad = async () => {
   const columns = () => db`
     id, kind, question, status, status_detail, merged_into, answer, sources, history,
     first_asked::text AS first_asked, last_asked::text AS last_asked, times_asked,
-    blocks_until, answered_at, updated_at
+    answered_at, updated_at
   `;
   const open = await db<Row[]>`
     SELECT ${columns()} FROM questions
     WHERE status = 'open'
-    ORDER BY (blocks_until > now()) IS TRUE DESC, (kind = 'item') DESC, last_asked DESC, created_at
+    ORDER BY (kind = 'item') DESC, last_asked DESC, created_at
   `;
 
   const openViews = open.map(shape);

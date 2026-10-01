@@ -39,7 +39,6 @@ function questions(n: number) {
     firstAsked: "2026-09-01",
     lastAsked: "2026-09-01",
     timesAsked: 1,
-    blockingMinutesLeft: null,
     answeredAt: null,
     updatedAt: new Date("2026-09-01T00:00:00.000Z"),
   }));

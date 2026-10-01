@@ -20,8 +20,8 @@
 - `/skills` - the pending high-risk approval queue, the read-only registry with an enable/disable toggle, and the execution log
 - `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log; each row links to its breakdown
-- `/runs/[id]` - one run's step timing from `pipeline_run_steps`: a Gantt-style time graph (the question-gate wait can be shrunk to see the run without it), a callout when the gate wait dominates, and cost per phase and per step from `$lib/pricing.ts`. Online-only; empty for runs before 2026-10-01
-- `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen
+- `/runs/[id]` - one run's step timing from `pipeline_run_steps`: a Gantt-style time graph (the old question-gate wait, present only on historic runs, can be shrunk to see the run without it), a callout when that wait dominates, and cost per phase and per step from `$lib/pricing.ts`. Online-only; empty for runs before 2026-10-01
+- `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen. Briefings never wait for answers; each is used from the next run on, and item questions sort first, then newest asked
 - `/notifications` - unread reports, open questions and run errors, including individual RSS feed failures
 - `/settings` - account and source configuration links
 - `/settings/email-accounts` - live IMAP/SMTP account settings, one row per account with folder/aliases/ignore/SMTP/custom-instructions detail behind a per-row disclosure

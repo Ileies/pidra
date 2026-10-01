@@ -8,6 +8,7 @@
   import { toastFormResult } from "#lib/toast.svelte.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { netJson } from "#lib/offline/net.js";
+  import { navOrigin } from "#lib/navOrigin.svelte.js";
   import type { PageData, ActionData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -34,6 +35,9 @@
       }.`,
     });
   });
+
+  // Whoever linked here (a source page, feedback, ...) is the way back; the report is the fallback.
+  const back = $derived(navOrigin.back ?? { href: `/${data.date}`, label: data.date });
 
   let loading = $state(false);
 
@@ -77,7 +81,7 @@
 </script>
 
 <Page title="Detail {data.date}" size="read" class="flex flex-col gap-8">
-  <a href="/{data.date}" class="text-xs text-surface-400 hover:text-surface-200 no-underline">← {data.date}</a>
+  <a href={back.href} class="text-xs text-surface-400 hover:text-surface-200 no-underline">← {back.label}</a>
 
   <div class="flex flex-col gap-5">
     {#if fetching && items.length === 0}

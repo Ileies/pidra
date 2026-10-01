@@ -15,9 +15,16 @@
   import { appUpdate } from "#lib/offline/update.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import { navigating } from "$app/state";
+  import { beforeNavigate } from "$app/navigation";
   import { MIRRORED_ROUTES } from "#lib/routes.js";
+  import { navOrigin } from "#lib/navOrigin.svelte.js";
 
   let { children } = $props();
+
+  beforeNavigate(({ from, to, type }) => {
+    if (!from || !to || type === "leave") return;
+    navOrigin.record({ url: from.url, routeId: from.route.id }, to.url);
+  });
 
   /**
    * Whether to show the logged-in chrome (navbar, tab bar, assistant, command palette). Read

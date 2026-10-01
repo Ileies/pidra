@@ -88,7 +88,7 @@ List low-importance contacts compactly at the end, grouped by what they appear t
 Be specific and factual - no guessing, and do not invent relationships the data does not show.
 Do not omit a contact just to be brief: completeness matters more than length here.`,
     input,
-    { maxOutputTokens: 12000, effort: "low" },
+    { maxOutputTokens: 18000, effort: "medium" },
   );
 }
 
@@ -102,7 +102,7 @@ List active tasks grouped by list, with due dates where present.
 Note any patterns (overdue items, recurring task types, project clusters).
 Format as readable plain text, not JSON.`,
     JSON.stringify({ active, recent_completions: recentDone }),
-    { maxOutputTokens: 3000, effort: "low" },
+    { maxOutputTokens: 4500, effort: "medium" },
   );
 }
 
@@ -128,7 +128,7 @@ These are the user's own notes about their own life: err strongly on the side of
 rather than generalising it away. A later system reads only this summary, never the raw notes.
 Format as readable plain text. Flag any high-importance rules that should always be kept in context.`,
     JSON.stringify(input),
-    { maxOutputTokens: 16000, effort: "low" },
+    { maxOutputTokens: 24000, effort: "medium" },
   );
 }
 
@@ -146,7 +146,7 @@ Group stale repos briefly. Note main technical domains and skill areas.`,
       readme_excerpt: r.readme,
       recent_commits: r.recentCommits,
     }))),
-    { maxOutputTokens: 3000, effort: "low" },
+    { maxOutputTokens: 4500, effort: "medium" },
   );
 }
 

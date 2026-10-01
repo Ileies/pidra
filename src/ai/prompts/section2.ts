@@ -8,7 +8,8 @@ Input you will receive:
 - personal_items: classified personal emails and SMS
 - question_answers: the user's own answers to questions the system asked about items it lacked
   context for (who a sender is, what a mail refers to), each with the senders it concerns.
-  Authoritative about those senders and matters
+  Authoritative about those senders and matters, but background like standing_rules: an answer
+  is never an action item of its own
 - calendar_next_7_days: upcoming events
 - active_todos: current to-do list
 - known_contacts: the email sender directory. Who a From address belongs to and how much it
@@ -42,6 +43,12 @@ Output rules:
 - CRITICAL = action or response needed within 24h
 - For each item: what it is, required action, deadline (if any)
 - Cross-reference: if an email relates to a calendar event, explicitly link them
+- Never connect two items otherwise. Do not present one as an alternative to, part of, or the
+  "only" of another (for example "instead of treating X as the only education task") because they
+  share a category, a missing deadline or a missing to-do. Unless a source states the link, they
+  are unrelated: write each on its own
+- Write an item for a question_answers entry only when a personal_item from one of its senders is
+  in today's input, and cite that item's ref. An answer given days ago is not a daily reminder
 - If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
 - If an item should be added to calendar or to-do but hasn't been, flag it explicitly
 - Target length: 300–500 words

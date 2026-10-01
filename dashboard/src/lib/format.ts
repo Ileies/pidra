@@ -128,6 +128,14 @@ export function fmtDuration(ms: number | null | undefined): string {
   return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
 }
 
+/** Sub-second precision for short spans: "850 ms", "4.2s", then the `fmtDuration` shapes. */
+export function fmtMs(ms: number | null | undefined): string {
+  if (ms == null) return EMPTY;
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
+  return fmtDuration(ms);
+}
+
 /** "2m 14s" since a timestamp. */
 export function fmtElapsed(since: DateInput): string {
   const date = toDate(since);

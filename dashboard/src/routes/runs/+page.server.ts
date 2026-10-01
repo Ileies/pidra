@@ -10,9 +10,9 @@ import type { StepAttempt } from "#lib/pipeline.js";
  * its own date page, and then only if that day had no report. So there was no way to see that a
  * run was getting slower, or that phase 2 had failed three days running.
  *
- * Per-phase timing is not stored - `withRetry` records attempts, not durations - so this shows
- * what the table holds: total duration, status, the failed step and its attempt log, plus the
- * report's token counts joined on the date for the cost trend.
+ * This list shows what `pipeline_runs` holds: total duration, status, the failed step and its
+ * attempt log, plus the report's token counts joined on the date for the cost trend. Per-step
+ * timing and cost live on `/runs/[id]`.
  */
 
 export interface RunRow {

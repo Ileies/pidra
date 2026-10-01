@@ -57,6 +57,7 @@ const PATHS: Record<string, string> = {
   "/[date]/triage": `/${F.TODAY}/triage`,
   "/entities/[id]": `/entities/${F.ENTITY_ID}`,
   "/sources/[name]": "/sources/example-source",
+  "/runs/[id]": "/runs/00000000-0000-4000-8000-000000000000",
 };
 
 function pathFor(id: string): string {

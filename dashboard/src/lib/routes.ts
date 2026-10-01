@@ -224,6 +224,7 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.runs,
     secondary: true,
+    children: ["/runs/[id]"],
   },
   {
     href: "/notifications",
@@ -387,6 +388,7 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/skills/executions": { label: "Recent executions", reason: "Skill execution history is live state and may contain results that are not available offline." },
   "/prompts": { label: "Prompts", reason: "Prompt versions are a live query against the pipeline's own tables." },
   "/runs": { label: "Runs", reason: "Pipeline run history is a live query against the pipeline's own tables." },
+  "/runs/[id]": { label: "Run breakdown", reason: "A run's step timing and cost are a live query against the pipeline's own tables." },
   "/questions": { label: "Questions", reason: "The question queue is live state: an answer queued offline could land on a question the pipeline has since merged or closed." },
   "/questions/closed": { label: "Recently closed questions", reason: "Question history is live state and a reopened question can return to the queue at any time." },
   "/notifications": { label: "Notifications", reason: "Notification state is live so reports and run issues can be marked as read or reviewed." },

@@ -19,7 +19,8 @@
 - `/context-builder` - the harvested context document and source summaries, run controls, and a details sheet for run progress and errors; at `xl`+ Quick Links (document headings and source summaries, with scrollspy highlighting) is a persistent nav rail beside the document instead of living in the sheet, since below `xl` there's no room for both (standing rules and corrections are linked out to their own pages, not duplicated here)
 - `/skills` - the pending high-risk approval queue, the read-only registry with an enable/disable toggle, and the execution log
 - `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
-- `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log
+- `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log; each row links to its breakdown
+- `/runs/[id]` - one run's step timing from `pipeline_run_steps`: a Gantt-style time graph (the question-gate wait can be shrunk to see the run without it), a callout when the gate wait dominates, and cost per phase and per step from `$lib/pricing.ts`. Online-only; empty for runs before 2026-10-01
 - `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen
 - `/notifications` - unread reports, open questions and run errors, including individual RSS feed failures
 - `/settings` - account and source configuration links

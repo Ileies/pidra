@@ -154,6 +154,13 @@
               <span class="text-xs text-surface-400 tabular-nums">{runCost(run)}</span>
             {/if}
 
+            <a
+              href="/runs/{run.id}"
+              class="tap {run.stepErrors.length > 0 && (failed || degraded) ? '' : 'ml-auto'} px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 no-underline hover:bg-surface-800"
+            >
+              Breakdown
+            </a>
+
             {#if run.stepErrors.length > 0 && (failed || degraded)}
               <button
                 type="button"

@@ -1,7 +1,7 @@
 import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes } from "../db";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, avg } from "drizzle-orm";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
-import { openai, SYNTHESIS_MODEL as MODEL, withFlexRetry } from "../ai/openai";
+import { synthesize } from "../ai/openai";
 
 export interface WeeklyAnalytics {
   weekStart: string;
@@ -127,27 +127,14 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
     })
     .join("\n\n");
 
-  const response = await withFlexRetry(() =>
-    openai.chat.completions.create({
-      model: MODEL,
-      store: false,
-      service_tier: "flex",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the prompts the week actually ran on. Each prompt is labelled either with its approved version number or as 'code baseline', which means no version has been approved for that section yet. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Nothing you propose is applied automatically: a human reviews it and approves it as a new version. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
-        },
-        {
-          role: "user",
-          content: `${analyticsText}\n\n${promptSummary}`,
-        },
-      ],
-      max_completion_tokens: 1000,
-    })
+  const { text } = await synthesize(
+    "You are a prompt engineer for a personal morning briefing system. Analyze the weekly performance analytics and the prompts the week actually ran on. Each prompt is labelled either with its approved version number or as 'code baseline', which means no version has been approved for that section yet. Suggest specific, targeted improvements to the prompts that would improve relevance scoring, reduce false positives, or better capture what the user values. Output ONLY a structured diff proposal - for each change: which section, what to change, and why. Nothing you propose is applied automatically: a human reviews it and approves it as a new version. Be conservative: only suggest changes with clear evidence from the analytics. If no changes are warranted, say so explicitly.",
+    `${analyticsText}\n\n${promptSummary}`,
+    // The cap covers reasoning tokens too, so it sits well above the proposal itself.
+    { reasoningEffort: "high", maxOutputTokens: 8000 },
   );
 
-  return response.choices[0].message.content ?? null;
+  return text || null;
 }
 
 export async function runWeeklyMetaRun(): Promise<void> {

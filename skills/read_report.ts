@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import type { Skill } from "../src/skills/loader";
 import { db, dailyReports, extractions, rawItems } from "../src/db";
+import { searchReports, tokenize } from "../src/context/lookup";
 
 /**
  * Read-only, and deliberately the *only* skill that touches a report. Reports are final: the
@@ -10,14 +11,24 @@ import { db, dailyReports, extractions, rawItems } from "../src/db";
 const skill: Skill = {
   name: "read_report",
   description:
-    "Read a daily briefing. Returns the report text and what went into it. Read-only: reports are " +
-    "final and cannot be edited - act on notes, todos, the calendar or the long-term context instead.",
+    "Read a daily briefing. Returns the report text and what went into it. Pass query to instead " +
+    "search all past briefings for a name or topic (every word must appear) and get the matching " +
+    "dates with an excerpt, then read one by date. Read-only: reports are final and cannot be " +
+    "edited - act on notes, todos, the calendar or the long-term context instead.",
   risk_level: "low",
   parameters: {
     date: { type: "string", required: false, description: "Report date as YYYY-MM-DD (default: the most recent report)" },
     section: { type: "string", required: false, description: "'full' (default) or 'summary' for just the short summary" },
+    query: { type: "string", required: false, description: "Search past briefings instead of reading one: matching dates plus an excerpt each, newest first" },
   },
   execute: async (params) => {
+    const query = params.query ? String(params.query).trim() : "";
+    if (query) {
+      const hits = await searchReports(query);
+      if (hits.length === 0) return `No briefing contains all of: ${tokenize(query).join(", ")}. Try fewer or shorter words.`;
+      return hits.map((h) => `Briefing ${h.date}\n${h.excerpt}`).join("\n\n---\n\n");
+    }
+
     const date = params.date ? String(params.date).trim() : "";
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must be YYYY-MM-DD");
 

@@ -68,7 +68,7 @@ changes. One note per call. If the user's wording could mean two different notes
 
   context: {
     label: "Context",
-    skills: ["read_context", "revise_context", "revert_context_revision", "write_note", "list_notes", "run_web_search"],
+    skills: ["read_context", "read_report", "revise_context", "revert_context_revision", "write_note", "list_notes", "run_web_search"],
     prompt: `The user is on the harvested long-term context: the Context Builder's document, the
 standing rules it wrote (also editable directly on /rules), or the context chat. This layer is
 never overwritten. \`revise_context\` records a correction
@@ -77,7 +77,11 @@ correction so the model can see what it is being told to disregard.
 
 Look before you write: \`read_context\` to find the exact wrong wording and a real target_key
 (query 'outline' lists the document's headings). One fact per \`revise_context\` call. Quote the
-wrong text in \`supersedes\` verbatim. Corrections are reversible with \`revert_context_revision\`.`,
+wrong text in \`supersedes\` verbatim. Corrections are reversible with \`revert_context_revision\`.
+
+Users usually bring something they read in a briefing. The long-term context does not contain
+briefings, so when a name or fact is missing from it, search the briefings with \`read_report\`
+(pass \`query\`) before concluding it is unknown.`,
     hints: [
       "The context says X about my job - that is out of date.",
       "Add that I no longer live in that city.",
@@ -87,7 +91,7 @@ wrong text in \`supersedes\` verbatim. Corrections are reversible with \`revert_
 
   entities: {
     label: "Entities",
-    skills: ["read_context", "revise_context", "list_notes"],
+    skills: ["read_context", "read_report", "revise_context", "list_notes"],
     prompt: `The user is on /entities, the knowledge graph. Entity rows come from the pipeline and
 from the Context Builder harvest, so they are not edited directly: a \`revise_context\` call with
 target_kind 'entity' records the correction and merges only the named fields into the row, keeping

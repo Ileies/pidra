@@ -312,8 +312,8 @@ export async function reconcileQueue(
   const answer = await extractJson<ModelAnswer>(prompt.text, JSON.stringify(payload), {
     schema: SCHEMA,
     // Deciding that two questions are "the same" or that a note settles one is the whole job.
-    reasoningEffort: "medium",
-    maxOutputTokens: 4000,
+    reasoningEffort: "high",
+    maxOutputTokens: 10000,
     onUsage: (inTokens, outTokens) => {
       tokensIn += inTokens;
       tokensOut += outTokens;

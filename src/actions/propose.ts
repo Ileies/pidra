@@ -528,8 +528,8 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
   const answer = await extractJson<{ actions: ModelAction[] }>(prompt.text, JSON.stringify(payload), {
     schema: ACTIONS_SCHEMA,
     // Judgement is the whole job here, and a wrong "yes" is the failure that matters.
-    reasoningEffort: "medium",
-    maxOutputTokens: 6000,
+    reasoningEffort: "high",
+    maxOutputTokens: 12000,
     onUsage: (inTokens, outTokens) => {
       tokensIn += inTokens;
       tokensOut += outTokens;

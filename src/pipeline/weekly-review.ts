@@ -5,6 +5,9 @@ import { createNote } from "../notes/store";
 import { mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
 import { applyPlan, listOpen, markAbsorbed, unabsorbedReviewAnswers } from "../questions/store";
 
+// The cap covers reasoning tokens too, so it sits well above the default 4096 that high effort would exhaust.
+const REVIEW_OPTS = { reasoningEffort: "high", maxOutputTokens: 12000 } as const;
+
 const WEEKLY_REVIEW_PROMPT = `You are a personal assistant helping the user reflect on their week.
 Based on the weekly context provided, decide whether this week actually gives you something worth
 asking the reader to reflect on. If it does, generate up to 3 short, thoughtful reflection questions -
@@ -57,7 +60,7 @@ Week ${weekStart} to ${today}:
 
   // Generate questions. An empty array is a legitimate result - a quiet week with nothing worth
   // asking about - not a failure, so only a parse error aborts the run.
-  const { text: questionsRaw } = await synthesize(WEEKLY_REVIEW_PROMPT, contextText);
+  const { text: questionsRaw } = await synthesize(WEEKLY_REVIEW_PROMPT, contextText, REVIEW_OPTS);
   let questionTexts: string[];
   try {
     const parsed = JSON.parse(questionsRaw.match(/\[[\s\S]*\]/)?.[0] ?? "[]");
@@ -116,7 +119,7 @@ export async function absorbReviewAnswers(): Promise<{ tokensIn: number; tokensO
   }
 
   const answersText = answered.map((q) => `Q: ${q.question}\nA: ${q.answer}`).join("\n\n");
-  const result = await synthesize(SYNTHESIS_PROMPT, answersText);
+  const result = await synthesize(SYNTHESIS_PROMPT, answersText, REVIEW_OPTS);
 
   let insights: string[];
   try {

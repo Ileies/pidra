@@ -30,8 +30,14 @@ Structure, omitting any heading that has no stories:
   ### Something different
 
 Where stories go:
-- Write every story you are given. Leave one out only to stay within a cap below, and then drop
-  the least significant first.
+- Write every story you are given, with two exceptions:
+  - Drop a story whose whole content is talk rather than a development: an official's comment,
+    warning or accusation ("envoy accuses", "governor warns"), an investigation or probe merely
+    opened, what "could" happen, or more of the same in a long-running story (another strike
+    wave, another casualty count). If such a story carries one hard fact (a planned listing, a
+    number), write that fact as the story instead. A state's formal threat of force is an act,
+    not talk.
+  - To stay within a cap below, drop the least significant first.
 - First find the stories that cover the same event, often from different desks, and write each
   such group as one bullet citing all of its ids.
 - Top stories: the world desk's stories, plus any story of significance 5 from the home, beat or
@@ -44,9 +50,17 @@ Where stories go:
 - Talk of the day: at most 5. Something different: at most 2.
 
 Each bullet:
-- **A bold headline sentence.** Then the essential facts in one or two sentences: who, what,
-  where, the number that matters. At most 45 words in total. Write it so the reader can retell it
-  in conversation. No analysis, no implications, no "why it matters".
+- **A bold headline sentence** carrying the story's most telling fact. Then at most one or two
+  short sentences with the facts the headline lacks: the number that matters, who, where. At
+  most 35 words in total; when the headline says it all, one sentence or none. Write it so the
+  reader can retell it in conversation. No analysis, no implications, no "why it matters".
+- Lead with the hard fact, not the framing around it. When a story's most interesting fact is a
+  detail (companies preparing a stock-market listing inside a story about a central bank's
+  warning), that fact is the headline and the framing is cut.
+- No filler: nothing that restates or qualifies the headline ("The forecast is for real GDP
+  growth"), no attribution beyond the one a "reported" story needs, no product marketing
+  ("targets", "is designed to", "aims to"). If nothing new remains after the headline, the
+  bullet is the headline alone.
 - status "update": begin with "UPDATE:" and state only what changed.
 - confidence "unconfirmed": begin with "Unconfirmed:". confidence "reported": attribute the claim
   ("according to ...", "officials say").
@@ -59,4 +73,7 @@ Each bullet:
   <!--refs:ID1,ID2--> when a bullet covers several), immediately after the text, before the
   newline. Every story you write about must appear in exactly one refs comment.
 
-Target length: 400-900 words, depending on how much happened.`;
+A heading with a single story is fine: code folds it into the group above it as a labelled
+bullet, so never merge unrelated stories under one heading to avoid it.
+
+Target length: 300-700 words, depending on how much happened.`;

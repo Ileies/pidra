@@ -118,7 +118,9 @@ function deskPayload(desk: Desk, inputs: DeskInputs): Record<string, unknown> {
     case "field":
       return { ...base, interests: inputs.interests || null, priorities: inputs.priorities, beat_desk: inputs.beatDesk };
     case "talk":
-      return { ...base, home: home ? { country: home.countryName } : null };
+      // reader_notes: the intel notes, so a kind of story the reader excludes (sport, celebrity)
+      // is left out here too - this desk used to sweep sport regardless.
+      return { ...base, home: home ? { country: home.countryName } : null, reader_notes: inputs.priorities };
     case "serendipity":
       return { ...base, avoid: inputs.priorities };
   }

@@ -70,7 +70,7 @@ function fallbackQueries(desk: Desk, payload: Record<string, unknown>): string[]
     home: [`${place} breaking news`, `${place} politics`, `${place} local news`, `${home?.country ?? place} national news`, `${place} transport weather`, `${home?.also_countries?.join(" ") || place} top news`],
     beat: [`${first} latest news`, `${first} releases launches`, `${first} leading companies`, `${first} regulation policy`, `${first} funding acquisitions`, `${first} research breakthrough`, `${first} security incident`],
     field: [`${other} latest news`, `${other} major companies`, `${other} regulation`, `${other} research`],
-    talk: ["trending culture entertainment", `sports results ${home?.country ?? "world"}`, "celebrity viral stories", "film music entertainment"],
+    talk: ["trending culture entertainment", `${home?.country ?? "world"} talked about today`, "viral stories", "film music entertainment"],
     serendipity: ["unusual surprising news", "remarkable human animal discovery", "strange cultural discovery record"],
   };
   return terms[desk.id];

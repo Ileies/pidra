@@ -1,3 +1,4 @@
+import { NEWS_CAPS } from "../../news/config";
 import { BRIEFING_STYLE } from "./style";
 
 /**
@@ -41,13 +42,16 @@ Where stories go:
 - First find the stories that cover the same event, often from different desks, and write each
   such group as one bullet citing all of its ids.
 - Top stories: the world desk's stories, plus any story of significance 5 from the home, beat or
-  field desk. Most significant first, at most 8.
+  field desk. Most significant first, at most ${NEWS_CAPS.top}.
 - {home.label}: the home desk's stories about the home city, region and country, most significant
-  first, at most 6. Home stories about an also_country go under that country's heading, at most 3.
+  first, at most ${NEWS_CAPS.home}. Home stories about an also_country go under that country's
+  heading, at most ${NEWS_CAPS.alsoCountry}.
 - Field headings: the beat and field desks' stories grouped by field, under the field's broad
   name as the priorities give it ("AI", never "AI policy" and "AI business" side by side). At
-  most 6 per field and 12 in total.
-- Talk of the day: at most 5. Something different: at most 2.
+  most ${NEWS_CAPS.perField} per field and ${NEWS_CAPS.fields} in total.
+- Talk of the day: at most ${NEWS_CAPS.talk}. Something different: at most ${NEWS_CAPS.serendipity}.
+- The caps are hard: code removes anything past them, so choose what stays rather than leaving
+  it to be cut.
 
 Each bullet:
 - **A bold headline sentence** carrying the story's most telling fact. Then at most one or two
@@ -76,4 +80,4 @@ Each bullet:
 A heading with a single story is fine: code folds it into the group above it as a labelled
 bullet, so never merge unrelated stories under one heading to avoid it.
 
-Target length: 300-700 words, depending on how much happened.`;
+Target length: 250-550 words, depending on how much happened.`;

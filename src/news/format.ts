@@ -15,7 +15,7 @@
  * directly, so a synthesis hiccup never hides the news. Pure, so all of it is testable.
  */
 
-import { DESKS, type HomeConfig } from "./config";
+import { DESKS, NEWS_CAPS, type HomeConfig } from "./config";
 import type { NewsExtraction } from "./validate";
 
 export interface NewsItem {
@@ -186,14 +186,88 @@ export function foldSingleStoryGroups(markdown: string): string {
   return [...preamble, ...kept.flatMap((group) => [`### ${group.heading}`, ...group.lines])].join("\n").trim();
 }
 
+type CapKind = "top" | "home" | "alsoCountry" | "field" | "talk" | "serendipity";
+
+interface Bullet {
+  group: number;
+  from: number;
+  to: number;
+  significance: number;
+}
+
+function significanceOf(text: string, refs: Map<string, NewsItem>): number {
+  let best = 0;
+  for (const match of text.matchAll(REFS)) {
+    for (const id of match[1].split(",")) best = Math.max(best, refs.get(id.trim().toLowerCase())?.story.significance ?? 0);
+  }
+  return best;
+}
+
 /**
- * The editor's markdown, made safe for the report: its own links removed, short ids mapped to
- * extraction ids (an id that maps to nothing is dropped, like a dead ref in Phase 6), the checked
- * sources linked in, single-story groups folded into labelled bullets, and the `## News` heading
- * the report parser keys on guaranteed.
+ * Applies `NEWS_CAPS` to the editor's markdown, which the prompt asks for but nothing used to
+ * check: a 38-story section got through on 2026-10-01. Bullets are the unit (a merged bullet
+ * citing several stories counts once), ranked by the most significant story they cite, ties kept
+ * in written order. A heading left with no bullets goes with them. Bullets before the first
+ * `###` heading, and headings that match none of the named groups (the field names), fall under
+ * the field caps.
  */
-export function finishNewsSection(markdown: string, refs: Map<string, NewsItem>): string {
-  let text = markdown.replace(SYSTEM_BLOCK, "").replace(EDITOR_LINK, "$1").trim();
+export function enforceNewsCaps(markdown: string, refs: Map<string, NewsItem>, home: HomeConfig | null): string {
+  const lines = markdown.split("\n");
+  const alsoNames = new Set((home?.also ?? []).map((c) => c.name.toLowerCase()));
+  const homeLabel = home?.label.toLowerCase();
+  const kindOf = (heading: string): CapKind => {
+    const name = heading.replace(/\*/g, "").trim().toLowerCase();
+    if (name === "top stories") return "top";
+    if (name === homeLabel) return "home";
+    if (alsoNames.has(name)) return "alsoCountry";
+    if (name === "talk of the day") return "talk";
+    if (name === "something different") return "serendipity";
+    return "field";
+  };
+
+  const headings: { line: number; kind: CapKind }[] = [];
+  const bullets: Bullet[] = [];
+  lines.forEach((line, i) => {
+    const heading = GROUP_HEADING.exec(line);
+    if (heading) {
+      headings.push({ line: i, kind: kindOf(heading[1]) });
+      return;
+    }
+    if (headings.length === 0) return;
+    const group = headings.length - 1;
+    const last = bullets[bullets.length - 1];
+    if (BULLET_START.test(line)) bullets.push({ group, from: i, to: i, significance: 0 });
+    else if (line.trim() !== "" && last && last.group === group && last.to === i - 1) last.to = i;
+  });
+  for (const b of bullets) b.significance = significanceOf(lines.slice(b.from, b.to + 1).join("\n"), refs);
+
+  const dropped = new Set<Bullet>();
+  const trim = (list: Bullet[], max: number) => {
+    const live = list.filter((b) => !dropped.has(b));
+    [...live].sort((a, b) => b.significance - a.significance || a.from - b.from).slice(max).forEach((b) => dropped.add(b));
+  };
+  const perGroup = { top: NEWS_CAPS.top, home: NEWS_CAPS.home, alsoCountry: NEWS_CAPS.alsoCountry, field: NEWS_CAPS.perField, talk: NEWS_CAPS.talk, serendipity: NEWS_CAPS.serendipity };
+  headings.forEach((h, g) => trim(bullets.filter((b) => b.group === g), perGroup[h.kind]));
+  trim(bullets.filter((b) => headings[b.group].kind === "field"), NEWS_CAPS.fields);
+  if (dropped.size === 0) return markdown;
+
+  const skip = new Set<number>();
+  for (const b of dropped) for (let i = b.from; i <= b.to; i++) skip.add(i);
+  headings.forEach((h, g) => {
+    const own = bullets.filter((b) => b.group === g);
+    if (own.length > 0 && own.every((b) => dropped.has(b))) skip.add(h.line);
+  });
+  return lines.filter((_, i) => !skip.has(i)).join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
+/**
+ * The editor's markdown, made safe for the report: its own links removed, the per-section caps
+ * enforced, short ids mapped to extraction ids (an id that maps to nothing is dropped, like a dead
+ * ref in Phase 6), the checked sources linked in, single-story groups folded into labelled
+ * bullets, and the `## News` heading the report parser keys on guaranteed.
+ */
+export function finishNewsSection(markdown: string, refs: Map<string, NewsItem>, home: HomeConfig | null = null): string {
+  let text = enforceNewsCaps(markdown.replace(SYSTEM_BLOCK, "").replace(EDITOR_LINK, "$1").trim(), refs, home);
 
   text = text.replace(REFS, (_block, inner: string, offset: number, whole: string) => {
     const cited = [
@@ -217,8 +291,6 @@ export function finishNewsSection(markdown: string, refs: Map<string, NewsItem>)
   return foldSingleStoryGroups(text);
 }
 
-const CAPS = { top: 8, home: 6, field: 12, talk: 5, serendipity: 2 };
-
 function bullet(item: NewsItem): string {
   const { story } = item;
   const prefix = story.status === "update" ? "UPDATE: " : story.confidence === "unconfirmed" ? "Unconfirmed: " : "";
@@ -241,17 +313,17 @@ export function renderNewsFallback(items: NewsItem[], home: HomeConfig | null): 
   const sorted = [...items].sort((a, b) => b.story.significance - a.story.significance);
   const top = sorted
     .filter((i) => i.story.desk === "world" || (i.story.significance === 5 && promotes.has(i.story.desk)))
-    .slice(0, CAPS.top);
+    .slice(0, NEWS_CAPS.top);
   const rest = sorted.filter((i) => !top.includes(i));
   const byDesk = (desks: NewsExtraction["desk"][], cap: number) =>
     rest.filter((i) => desks.includes(i.story.desk)).slice(0, cap);
 
   const groups: [string, NewsItem[]][] = [
     ["Top stories", top],
-    [home?.label ?? "Home", byDesk(["home"], CAPS.home)],
-    ["Your fields", byDesk(["beat", "field"], CAPS.field)],
-    ["Talk of the day", byDesk(["talk"], CAPS.talk)],
-    ["Something different", byDesk(["serendipity"], CAPS.serendipity)],
+    [home?.label ?? "Home", byDesk(["home"], NEWS_CAPS.home)],
+    ["Your fields", byDesk(["beat", "field"], NEWS_CAPS.fields)],
+    ["Talk of the day", byDesk(["talk"], NEWS_CAPS.talk)],
+    ["Something different", byDesk(["serendipity"], NEWS_CAPS.serendipity)],
   ];
 
   const body = groups

@@ -64,7 +64,7 @@ if (args.includes("--editor") && passed.length > 0) {
   const prompt = await activePrompt("news");
   const result = await synthesize(prompt.text, payload);
   console.log(`\n----- News section (${result.tokensIn} in, ${result.tokensOut} out) -----\n`);
-  console.log(finishNewsSection(result.text, refs));
+  console.log(finishNewsSection(result.text, refs, outcome.home));
 }
 
 process.exit(0);

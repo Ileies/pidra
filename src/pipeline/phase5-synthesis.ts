@@ -167,5 +167,5 @@ export async function runNewsSection(ctx: ContextPayload, runDate: string) {
   );
 
   const result = await synthesizeSection("News", "news", payload);
-  return { text: finishNewsSection(result.text, refs), tokensIn: result.tokensIn, tokensOut: result.tokensOut, aiCalls: 1 };
+  return { text: finishNewsSection(result.text, refs, ctx.newsDesk.home), tokensIn: result.tokensIn, tokensOut: result.tokensOut, aiCalls: 1 };
 }

@@ -49,6 +49,14 @@ export const DESKS: readonly Desk[] = [
   { id: "serendipity", label: "Something different desk", section: "news_serendipity", locality: null, effort: "medium" },
 ];
 
+/**
+ * How many stories each part of the News section may show. The editor prompt states these numbers
+ * and `enforceNewsCaps` (`format.ts`) applies them in code, so a model that overshoots is trimmed
+ * rather than trusted. Lowered on 2026-10-01 after a 38-story report ("not going to read an entire
+ * newspaper"); `fields` is the total across all field headings, `perField` the limit for one.
+ */
+export const NEWS_CAPS = { top: 6, home: 4, alsoCountry: 2, perField: 4, fields: 8, talk: 3, serendipity: 1 } as const;
+
 /** 27 desk requests plus up to three Section 1 search slots make a full run's 30. */
 export const SEARCH_BUDGET: Record<DeskId, readonly [number, number]> = {
   world: [4, 2], home: [3, 2], beat: [3, 3], field: [2, 2], talk: [2, 1], serendipity: [1, 2],

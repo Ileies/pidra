@@ -44,9 +44,9 @@ export const DESKS: readonly Desk[] = [
   { id: "world", label: "World news desk", section: "news_world", locality: null, effort: "high" },
   { id: "home", label: "Home news desk", section: "news_home", locality: "city", effort: "high" },
   { id: "beat", label: "Beat news desk", section: "news_beat", locality: null, effort: "high" },
-  { id: "field", label: "Fields news desk", section: "news_field", locality: null, effort: "medium" },
+  { id: "field", label: "Fields news desk", section: "news_field", locality: null, effort: "high" },
   { id: "talk", label: "Talk of the day desk", section: "news_talk", locality: "country", effort: "high" },
-  { id: "serendipity", label: "Something different desk", section: "news_serendipity", locality: null, effort: "medium" },
+  { id: "serendipity", label: "Something different desk", section: "news_serendipity", locality: null, effort: "high" },
 ];
 
 /**

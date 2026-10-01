@@ -174,6 +174,6 @@ export async function runNewsSection(ctx: ContextPayload, runDate: string) {
     runDate,
   );
 
-  const result = await synthesizeSection("News", "news", payload);
+  const result = await synthesizeSection("News", "news", payload, BRIEFING_SECTION_OPTS);
   return { text: finishNewsSection(result.text, refs, ctx.newsDesk.home), tokensIn: result.tokensIn, tokensOut: result.tokensOut, aiCalls: 1 };
 }

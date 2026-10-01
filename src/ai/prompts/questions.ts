@@ -44,8 +44,10 @@ For every candidate choose one action:
 - attach: an open question already asks this, or one answer would settle both (the same sender,
   the same matter). Give its id in target. If its wording does not cover the candidate yet,
   rewrite that open question.
-- ask: genuinely new. Give in target the id of an entry you add to new_questions ("n1", ...).
-  Several candidates that ask the same thing share one new question.
+- ask: genuinely new. Give in target the id of an entry you add to new_questions ("n1", ...). Use
+  the candidate's own wording as-is unless several candidates ask the same thing and share one new
+  question, or the wording needs a small edit to stand alone outside the mail. Never trade a
+  candidate's specifics (a count, a date, a name) for a vaguer, more generic phrasing.
 - drop: the answer is already in the input; say where in reason. Only when you are sure: a
   question the reader never sees is only better than one they answer if the answer really is
   already there.
@@ -54,10 +56,11 @@ Wording rules:
 - One question per entry, in English, at most 35 words, answerable in a sentence or two. Name the
   sender or the matter, so the question stands on its own without the mail open.
 - A question about a sender asks who they are and how they relate to the reader, not whether the
-  reader "recognizes" a mail. A question about an entity (about.type "entity") asks what it is and
-  why it keeps recurring, never who a sender is - it never merges or attaches with a mail question,
-  even about someone or something with the same name, unless the input actually says they are the
-  same thing.
+  reader "recognizes" a mail. A question about an entity (about.type "entity") stays as specific
+  as the candidate's own wording - how many times it has come up and since when - rather than a
+  bare "what is X" definition request; it never asks who a sender is, and it never merges or
+  attaches with a mail question, even about someone or something with the same name, unless the
+  input actually says they are the same thing.
 - Make a question more general only when one answer really settles every case it covers. Two
   different people or two different matters stay two questions.
 - Never ask for a password, a code, a card or account number, or anything that grants access.

@@ -32,6 +32,14 @@ const MAX_QUESTION_CHARS = 400;
 const MAX_REASON_CHARS = 300;
 /** How far back answers count as "the reader already said this". */
 const ANSWER_MEMORY_DAYS = 30;
+/**
+ * Caps how many brand-new questions one run can add to the standing queue. Without this, a run
+ * with many unplaced candidates (e.g. several low-confidence entities crossing threshold on the
+ * same day) can dump a double-digit pile on the reader at once (11 in one night, 2026-10-01).
+ * Uncreated candidates are simply left out of this run's plan, not resolved or dropped, so they
+ * are reconsidered on the next run rather than permanently suppressed.
+ */
+const MAX_NEW_QUESTIONS_PER_RUN = 3;
 
 interface ModelAnswer {
   existing: { id: string; action: "keep" | "rewrite" | "resolve" | "merge"; question: string; into: string; reason: string }[];
@@ -104,6 +112,15 @@ export interface ReconcileResult {
 
 export function emptyPlan(): QueuePlan {
   return { rewrites: [], resolves: [], merges: [], attaches: [], created: [], dropped: [] };
+}
+
+/**
+ * Enforces `MAX_NEW_QUESTIONS_PER_RUN`. The excess groups are dropped from the plan entirely
+ * (not marked resolved/dropped), so their candidates are untouched and reappear as candidates on
+ * the next run instead of being permanently suppressed.
+ */
+export function capCreated(plan: QueuePlan, max = MAX_NEW_QUESTIONS_PER_RUN): QueuePlan {
+  return plan.created.length <= max ? plan : { ...plan, created: plan.created.slice(0, max) };
 }
 
 function clean(text: string | null | undefined, max: number): string {
@@ -303,7 +320,7 @@ export async function reconcileQueue(
     },
   });
 
-  const plan = buildPlan(answer, openIds, candidateIds);
+  const plan = capCreated(buildPlan(answer, openIds, candidateIds));
   console.log(
     `[Questions] ${open.length} open, ${candidates.length} candidate(s): ` +
       `${plan.created.length} new, ${plan.attaches.length} attached, ${plan.dropped.length} dropped, ` +

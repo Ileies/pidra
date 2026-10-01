@@ -18,7 +18,7 @@ import { and, eq } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { lowConfidenceEntityCandidates } from "./entity-questions";
 import { staleContextCandidates } from "./stale-context-questions";
-import { mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
+import { capCreated, mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
 import { applyPlan, askedExtractionIds, listOpen, listRecentlyAnswered, setBlocking, stillOpen } from "../questions/store";
 import type { ContextPayload } from "./phase3-context";
 import { absorbReviewAnswers } from "./weekly-review";
@@ -133,7 +133,7 @@ async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepA
   } catch (err) {
     if (err instanceof StepError) errors.push(...err.attempts);
     console.error("[Phase 4] Question reconcile failed, adding the candidates by sender only:", err);
-    plan = mechanicalPlan(candidates, await listOpen());
+    plan = capCreated(mechanicalPlan(candidates, await listOpen()));
   }
 
   const waitFor = await applyPlan(plan, runDate);

@@ -2,7 +2,7 @@ import type Imap from "imap";
 import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
 import { db, ingestDrops, rawItems, rawItemExists, sourceQuality } from "../db";
-import { classifyEmail } from "./sources";
+import { classifyEmail, isBulkMail } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
 import { findUnsubscribeLink } from "./unsubscribe";
@@ -108,7 +108,11 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string, 
     if (messageId && await rawItemExists(messageId)) continue;
 
     const { sourceType, sourceName } = account.isNewsAccount
-      ? classifyEmail(from, newsletterConfig)
+      ? classifyEmail(from, newsletterConfig, isBulkMail({
+          listUnsubscribe: parsed.headers.get("list-unsubscribe"),
+          listId: parsed.headers.get("list-id"),
+          precedence: parsed.headers.get("precedence"),
+        }))
       : { sourceType: "personal_email" as const, sourceName: senderEmail };
 
     // Skip newsletters covered by RSS - RSS content is cleaner and already ingested

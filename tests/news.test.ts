@@ -5,7 +5,7 @@ import {
   resolveStorySources, tidyStory, toExtraction, verifySources, withinWindow,
   type Candidate, type DeskStory, type NewsExtraction, type NewsValidation,
 } from "../src/news/validate";
-import { editorStories, finishNewsSection, renderNewsFallback, sourceLinks, type NewsItem } from "../src/news/format";
+import { editorStories, finishNewsSection, foldSingleStoryGroups, renderNewsFallback, sourceLinks, type NewsItem } from "../src/news/format";
 import { decideGate } from "../src/pipeline/gate";
 
 /**
@@ -307,6 +307,12 @@ describe("the News section", () => {
     expect(out).toContain("[Pub u1](https://u1.example.com/story) · [Pub u2](https://u2.example.com/story) <!--refs:u1,u2-->");
   });
 
+  test("links attached to a comment written flush against the text get their own space", () => {
+    const refs = new Map([["n1", item("u1", "world")]]);
+    const out = finishNewsSection("## News\n\n- **A.** Facts.<!--refs:n1-->", refs);
+    expect(out).toContain("Facts. [Pub u1](https://u1.example.com/story) <!--refs:u1-->");
+  });
+
   test("an id that maps to nothing is dropped, like a dead ref", () => {
     const refs = new Map([["n1", item("u1", "world")]]);
     const out = finishNewsSection("## News\n\n- **A.** Facts. <!--refs:n9-->", refs);
@@ -341,8 +347,10 @@ describe("the News section", () => {
       [
         item("w", "world"),
         item("h", "home"),
+        item("h2", "home"),
         item("h5", "home", { significance: 5 }),
         item("s", "serendipity", { status: "update" }),
+        item("s2", "serendipity"),
       ],
       { city: "Lyon", region: null, country: "FR", countryName: "France", also: [], label: "Lyon & France" },
     );
@@ -354,8 +362,36 @@ describe("the News section", () => {
   });
 
   test("a 5 on the something-different desk is a curiosity, not a top story", () => {
-    const out = renderNewsFallback([item("w", "world"), item("odd", "serendipity", { significance: 5 })], null);
+    const out = renderNewsFallback(
+      [item("w", "world"), item("odd", "serendipity", { significance: 5 }), item("odd2", "serendipity")],
+      null,
+    );
     expect(out.indexOf("Headline odd")).toBeGreaterThan(out.indexOf("### Something different"));
+  });
+
+  test("a lone single-story group joins the group above it, labelled", () => {
+    const out = foldSingleStoryGroups(
+      "## News\n\n### Top stories\n\n- **A.** Facts. <!--refs:n1-->\n- **B.** Facts. <!--refs:n2-->\n\n" +
+        "### Talk of the day\n\n- plain bullet <!--refs:n4-->\n\n" +
+        "### Something different\n\n- **D.** <!--refs:n5-->\n- **E.** <!--refs:n6-->",
+    );
+    expect(out).not.toContain("### Talk of the day");
+    expect(out).toContain("- **B.** Facts. <!--refs:n2-->\n- **Talk of the day:** plain bullet <!--refs:n4-->\n\n### Something different");
+    expect(out).toContain("### Something different\n\n- **D.**");
+  });
+
+  test("several single-story groups in a row share one In brief heading", () => {
+    const out = foldSingleStoryGroups(
+      "## News\n\n### Top stories\n\n- **A.** <!--refs:n1-->\n- **B.** <!--refs:n2-->\n\n" +
+        "### AI\n\n- **C.** Facts. <!--refs:n3-->\n\n### Markets\n\n- **D.** Facts. <!--refs:n4-->",
+    );
+    expect(out).not.toContain("### AI");
+    expect(out).toContain("### In brief\n\n- **AI: C.** Facts. <!--refs:n3-->\n- **Markets: D.** Facts. <!--refs:n4-->");
+  });
+
+  test("the first group keeps its heading even with a single story", () => {
+    const md = "## News\n\n### Top stories\n\n- **A.** Facts. <!--refs:n1-->";
+    expect(foldSingleStoryGroups(md)).toBe(md);
   });
 
   test("the beat and fields desks share one heading", () => {
@@ -400,6 +436,29 @@ describe("the gate on news stories", () => {
     expect(gate({ abroad: true }, 3)).toMatchObject({ passed: false, reason: "below_threshold" });
     expect(gate({ abroad: true }, 3).detail.threshold).toBe(4);
     expect(gate({ abroad: true }, 4).passed).toBe(true);
+  });
+});
+
+describe("the gate on newsletter items", () => {
+  const gate = (substance: string | undefined, relevanceScore = 4) =>
+    decideGate({
+      sourceType: "newsletter",
+      aiFailed: false,
+      extractedJson: { headline: "x", key_claim: "y", ...(substance ? { substance } : {}) },
+      relevanceScore,
+      trustScore: 1,
+      sourceCount: 1,
+    });
+
+  test("a teaser is held back whatever it scored", () => {
+    expect(gate("teaser", 5)).toMatchObject({ passed: false, reason: "teaser_only" });
+  });
+
+  test("a fact or an argument is judged on its score, and so is an item extracted before the field existed", () => {
+    expect(gate("fact").passed).toBe(true);
+    expect(gate("argument").passed).toBe(true);
+    expect(gate(undefined).passed).toBe(true);
+    expect(gate("fact", 2).reason).toBe("below_threshold");
   });
 });
 

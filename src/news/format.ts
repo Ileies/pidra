@@ -117,16 +117,85 @@ const SYSTEM_BLOCK = /<!--SYSTEM[\s\S]*?-->/g;
 /** Any markdown link the editor wrote. Its text stays; its target was never checked. */
 const EDITOR_LINK = /\[([^\]]*)\]\([^)\s]*\)/g;
 const NEWS_HEADING = /^#{1,2}\s+news\b.*$/im;
+const GROUP_HEADING = /^###\s+(?!#)(.+?)\s*$/;
+const BULLET_START = /^(\s{0,3}[-*+]\s+)(.*)$/;
+
+/** `- **Headline.** facts` becomes `- **Label: Headline.** facts`; an unbolded bullet gets its own bold label. */
+function labelBullet(line: string, label: string): string {
+  const [, marker, rest] = BULLET_START.exec(line)!;
+  const name = label.replace(/\*/g, "").trim();
+  return rest.startsWith("**") ? `${marker}**${name}: ${rest.slice(2)}` : `${marker}**${name}:** ${rest}`;
+}
+
+interface Group {
+  heading: string;
+  lines: string[];
+}
+
+const IN_BRIEF = "In brief";
+
+/** A single-story group's lines with its heading moved into the bullet, blank lines dropped. */
+function labelledLines(group: Group): string[] {
+  let labelled = false;
+  return group.lines.filter((line) => line.trim() !== "").map((line) => {
+    if (labelled || !BULLET_START.test(line)) return line;
+    labelled = true;
+    return labelBullet(line, group.heading);
+  });
+}
+
+/**
+ * A `###` group holding a single story loses its heading, labelled inline instead ("**Talk of
+ * the day: ...**"). Asked for by the owner (2026-10-01): one heading per story turned a short
+ * section into a column of headings. A lone one joins the group above it; two or more in a row
+ * share one "In brief" heading, since three labelled AI, markets and startups stories under the
+ * home heading read as home news. The first group always keeps its heading, since there is
+ * nothing above it to join.
+ */
+export function foldSingleStoryGroups(markdown: string): string {
+  const preamble: string[] = [];
+  const groups: Group[] = [];
+  for (const line of markdown.split("\n")) {
+    const heading = GROUP_HEADING.exec(line);
+    if (heading) groups.push({ heading: heading[1], lines: [] });
+    else if (groups.length > 0) groups[groups.length - 1].lines.push(line);
+    else preamble.push(line);
+  }
+
+  const single = (group: Group) => group.lines.filter((line) => BULLET_START.test(line)).length === 1;
+  const kept: Group[] = [];
+  for (let i = 0; i < groups.length; i++) {
+    if (i === 0 || !single(groups[i])) {
+      kept.push(groups[i]);
+      continue;
+    }
+    let end = i;
+    while (end + 1 < groups.length && single(groups[end + 1])) end++;
+    const run = groups.slice(i, end + 1);
+    const lines = run.flatMap(labelledLines);
+    if (run.length === 1) {
+      const target = kept[kept.length - 1];
+      while (target.lines.length > 0 && target.lines[target.lines.length - 1].trim() === "") target.lines.pop();
+      target.lines.push(...lines, "");
+    } else {
+      kept.push({ heading: IN_BRIEF, lines: ["", ...lines, ""] });
+    }
+    i = end;
+  }
+
+  return [...preamble, ...kept.flatMap((group) => [`### ${group.heading}`, ...group.lines])].join("\n").trim();
+}
 
 /**
  * The editor's markdown, made safe for the report: its own links removed, short ids mapped to
  * extraction ids (an id that maps to nothing is dropped, like a dead ref in Phase 6), the checked
- * sources linked in, and the `## News` heading the report parser keys on guaranteed.
+ * sources linked in, single-story groups folded into labelled bullets, and the `## News` heading
+ * the report parser keys on guaranteed.
  */
 export function finishNewsSection(markdown: string, refs: Map<string, NewsItem>): string {
   let text = markdown.replace(SYSTEM_BLOCK, "").replace(EDITOR_LINK, "$1").trim();
 
-  text = text.replace(REFS, (_block, inner: string) => {
+  text = text.replace(REFS, (_block, inner: string, offset: number, whole: string) => {
     const cited = [
       ...new Map(
         inner
@@ -138,11 +207,14 @@ export function finishNewsSection(markdown: string, refs: Map<string, NewsItem>)
     ];
     if (cited.length === 0) return "";
     const links = sourceLinks(cited);
-    return `${links ? `${links} ` : ""}<!--refs:${cited.map((item) => item.id).join(",")}-->`;
+    // The prompt puts the comment straight after the text, so links need their own space or
+    // they read as part of the last word ("irresponsible.The Guardian").
+    const gap = links && offset > 0 && !/\s/.test(whole[offset - 1]) ? " " : "";
+    return `${links ? `${gap}${links} ` : ""}<!--refs:${cited.map((item) => item.id).join(",")}-->`;
   });
 
   text = NEWS_HEADING.test(text) ? text.replace(NEWS_HEADING, "## News") : `## News\n\n${text}`;
-  return text.trim();
+  return foldSingleStoryGroups(text);
 }
 
 const CAPS = { top: 8, home: 6, field: 12, talk: 5, serendipity: 2 };
@@ -186,5 +258,5 @@ export function renderNewsFallback(items: NewsItem[], home: HomeConfig | null): 
     .filter(([, group]) => group.length > 0)
     .map(([heading, group]) => `### ${heading}\n\n${group.map(bullet).join("\n")}`)
     .join("\n\n");
-  return `## News\n\n${body}`;
+  return foldSingleStoryGroups(`## News\n\n${body}`);
 }

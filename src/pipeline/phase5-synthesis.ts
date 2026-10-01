@@ -1,5 +1,5 @@
 import { activePrompt, type PromptSection } from "../ai/active-prompts";
-import { synthesize } from "../ai/openai";
+import { synthesize, type SynthesizeOptions } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
 import type { ContextPayload, ExtractionWithSource } from "./phase3-context";
 import type { QuestionAnswer } from "./phase4-questiongate";
@@ -122,20 +122,28 @@ function buildSection2Payload(
   });
 }
 
+// The cap covers reasoning tokens too, so it sits well above the default 4096 that high effort would exhaust.
+const BRIEFING_SECTION_OPTS: SynthesizeOptions = { reasoningEffort: "high", maxOutputTokens: 12000 };
+
 // The prompt is resolved here rather than imported, so activating a version on /prompts takes
 // effect on the next run without a deploy. `activePrompt` falls back to the code constant.
-async function synthesizeSection(name: string, section: PromptSection, payload: string) {
+async function synthesizeSection(
+  name: string,
+  section: PromptSection,
+  payload: string,
+  opts: SynthesizeOptions = {},
+) {
   const prompt = await activePrompt(section);
   const label = prompt.source === "db" ? `prompt v${prompt.version}` : "code prompt";
   console.log(`[Phase 5] ${name} synthesis starting (${label})`);
-  const result = await synthesize(prompt.text, payload);
+  const result = await synthesize(prompt.text, payload, opts);
   console.log(`[Phase 5] ${name} done - ${result.tokensIn} in, ${result.tokensOut} out`);
   return result;
 }
 
 export async function runSection1(ctx: ContextPayload, runDate: string) {
   const selected = ctx.newsletterItems.slice(0, SECTION1_CAPACITY);
-  const result = await synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate));
+  const result = await synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate), BRIEFING_SECTION_OPTS);
   if (selected.length > 0) {
     await db.update(extractions)
       .set({ synthesisHandoff: "sent" })
@@ -145,7 +153,7 @@ export async function runSection1(ctx: ContextPayload, runDate: string) {
 }
 
 export function runSection2(ctx: ContextPayload, runDate: string, questionAnswers: QuestionAnswer[] = []) {
-  return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, runDate, questionAnswers));
+  return synthesizeSection("Section 2", "section2", buildSection2Payload(ctx, runDate, questionAnswers), BRIEFING_SECTION_OPTS);
 }
 
 /**

@@ -60,7 +60,7 @@ rename, reorder or drop a section, and do not emit a section that only says what
 function call(
   system: string,
   user: string,
-  opts: { maxOutputTokens: number; effort: "low" | "medium" },
+  opts: { maxOutputTokens: number; effort: "low" | "medium" | "high" },
 ): Promise<string> {
   return aiSynthesize(system, user, {
     maxOutputTokens: opts.maxOutputTokens,
@@ -178,7 +178,7 @@ This document will be injected into daily briefings to personalize them.
 
 ${CORRECTIONS_RULES}`,
     JSON.stringify({ ...parts, context_corrections: corrections }),
-    { maxOutputTokens: 24000, effort: "medium" },
+    { maxOutputTokens: 32000, effort: "high" },
   );
 }
 
@@ -212,6 +212,6 @@ The existing_context below was written before these corrections were made, so it
 the text they correct. Where a correction and the existing context disagree, the existing
 context is the one that is wrong.`,
     JSON.stringify({ existing_context: existingContext, delta: deltaSummaries, context_corrections: corrections }),
-    { maxOutputTokens: 24000, effort: "medium" },
+    { maxOutputTokens: 32000, effort: "high" },
   );
 }

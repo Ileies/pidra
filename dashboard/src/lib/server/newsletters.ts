@@ -62,11 +62,14 @@ export async function listSenderRules(): Promise<SenderRuleRow[]> {
     ORDER BY match_kind, pattern`;
 }
 
-export async function createFeed(name: string, url: string): Promise<void> {
+export async function createFeed(name: string, url: string): Promise<FeedRow> {
   const db = sql();
-  const rows = await db`INSERT INTO rss_feeds (source_name, url)
-    VALUES (${sourceName(name)}, ${feedUrl(url)}) ON CONFLICT DO NOTHING RETURNING source_name`;
+  const rows = await db<FeedRow[]>`INSERT INTO rss_feeds (source_name, url)
+    VALUES (${sourceName(name)}, ${feedUrl(url)}) ON CONFLICT DO NOTHING
+    RETURNING source_name AS "sourceName", url, last_error AS "lastError",
+    last_error_at AS "lastErrorAt", last_success_at AS "lastSuccessAt"`;
   if (!rows.length) throw new NewsletterSettingsError("That source already has an RSS feed.");
+  return rows[0];
 }
 
 export async function updateFeed(oldName: string, name: string, url: string): Promise<void> {

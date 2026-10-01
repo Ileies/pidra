@@ -18,8 +18,8 @@ export const actions: Actions = {
   createFeed: async ({ request }) => {
     const data = await request.formData();
     try {
-      await createFeed(field(data, "sourceName"), field(data, "url"));
-      return { message: "Feed added." };
+      const feed = await createFeed(field(data, "sourceName"), field(data, "url"));
+      return { message: "Feed added.", feed };
     } catch (err) { return settingsError(err); }
   },
   updateFeed: async ({ request }) => {

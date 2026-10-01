@@ -396,7 +396,7 @@ export const questions = pgTable("questions", {
   lastAsked: dateStr("last_asked").notNull(),
   /** How many runs raised it: a question asked every morning is worth answering first. */
   timesAsked: integer("times_asked").notNull().default(1),
-  /** Set while a run's Section 2 waits on this question. */
+  /** Unused: Section 2 no longer waits on questions. Kept so no migration is needed. */
   blocksUntil: timestamptz("blocks_until"),
   /** A review answer turned into insight notes (`absorbReviewAnswers`). */
   absorbedAt: timestamptz("absorbed_at"),

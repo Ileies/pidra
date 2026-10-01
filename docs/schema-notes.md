@@ -16,7 +16,7 @@ See `src/db/schema.ts` for the full schema - it is the single source of truth an
 - `ingest_drops` - mail the IMAP ingest discarded before it became a `raw_items` row, with the rule that discarded it
 - `active_topics` - running story summaries, continuity across days
 - `report_actions` - the quick actions a report offers, with their state (`proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code threw a proposal out)
-- `questions` - the standing question queue (`open | answered | dismissed | resolved | merged`), with the mails behind each question, earlier wordings in `history` and the reason a question was closed
+- `questions` - the standing question queue (`open | answered | dismissed | resolved | merged`), with the mails behind each question, earlier wordings in `history` and the reason a question was closed; `blocks_until` is unused (Section 2 no longer waits) and kept without a migration
 - `question_events` - append-only outcome log for `questions`: one row per asked/reasked/rewritten/answered/dismissed/reopened/merged/resolved/dropped event, with the reason, so history isn't lost when a later event overwrites `questions.status_detail`
 - `entities` / `entity_mentions` / `entity_appearances` - entities seen across newsletters and harvested sources, `entity_mentions` as the one-row-per-source provenance behind `mention_count` (dedup'd to one per newsletter, one per harvested item), `entity_appearances` as the timeline of report days an entity was actually cited in
 - `source_quality` / `source_daily_scores` - per-source trust scores and 30-day rolling history

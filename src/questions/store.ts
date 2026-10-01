@@ -222,21 +222,6 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
   });
 }
 
-/** Marks the questions a run's Section 2 is waiting for, so the page can say so. */
-export async function setBlocking(ids: string[], until: Date | null): Promise<void> {
-  if (ids.length === 0) return;
-  await db.update(questions).set({ blocksUntil: until?.toISOString() ?? null }).where(inArray(questions.id, ids));
-}
-
-export async function stillOpen(ids: string[]): Promise<string[]> {
-  if (ids.length === 0) return [];
-  const rows = await db
-    .select({ id: questions.id })
-    .from(questions)
-    .where(and(inArray(questions.id, ids), eq(questions.status, "open")));
-  return rows.map((r) => r.id);
-}
-
 async function getQuestion(id: string): Promise<Question> {
   const [row] = await db.select().from(questions).where(eq(questions.id, id)).limit(1);
   if (!row) throw new QuestionError("not_found", "Question not found");
@@ -259,7 +244,7 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
 
   const [updated] = await db
     .update(questions)
-    .set({ status: "answered", answer: text, answeredAt: new Date().toISOString(), blocksUntil: null, updatedAt: sql`now()` })
+    .set({ status: "answered", answer: text, answeredAt: new Date().toISOString(), updatedAt: sql`now()` })
     .where(and(eq(questions.id, id), eq(questions.status, "open")))
     .returning();
   if (!updated) throw new QuestionError("conflict", "This question was closed in the meantime");
@@ -301,7 +286,7 @@ async function teachContact(identifier: string, answer: string, firstSeen: strin
 export async function dismissQuestion(id: string): Promise<Question> {
   const [updated] = await db
     .update(questions)
-    .set({ status: "dismissed", statusDetail: "Dismissed by the reader.", blocksUntil: null, updatedAt: sql`now()` })
+    .set({ status: "dismissed", statusDetail: "Dismissed by the reader.", updatedAt: sql`now()` })
     .where(and(eq(questions.id, id), eq(questions.status, "open")))
     .returning();
   if (updated) {

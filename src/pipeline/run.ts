@@ -98,7 +98,7 @@ async function executePipeline(date: string, run: { id: string }, start: number)
     const ctx = await withRetry("phase3", () => runPhase3(date, news));
 
     // Section 1, the News section, the quick actions and the question gate run in parallel.
-    // Section 2 blocks until this run's questions are answered or the gate times out.
+    // Section 2 starts once these are done; the gate only reconciles questions and never waits for answers.
     const editorErrors: StepAttemptError[] = [];
     const actionErrors: StepAttemptError[] = [];
     const questionErrors: StepAttemptError[] = [];

@@ -6,27 +6,24 @@
  * (`entity-questions.ts`), and known contacts a mail now sits oddly against
  * (`stale-context-questions.ts`) - go through the reconcile call against every question still
  * open, so a sender or entity asked about already is not asked again, and an open question that a
- * note or a correction has settled in the meantime is closed. Section 2 then waits, up to
- * `TIMEOUT_MINUTES`, for the questions this run's candidates landed on, and for nothing else: an
- * old review question left open does not hold up the morning. The reader answers one at a time on
- * `/questions`, and each answer counts the moment it is sent.
+ * note or a correction has settled in the meantime is closed. Nothing waits on the questions:
+ * Section 2 used to hold for up to 45 minutes for an answer nobody gave in time, which made
+ * unattended mornings 45 minutes long. The reader answers one at a time on `/questions`, whenever
+ * they get to it.
  *
- * What Section 2 receives is every item answer of the last `ANSWER_DAYS`, not only this morning's,
- * since an answer sent after yesterday's briefing went out is just as much news to today's.
+ * What Section 2 receives is every item answer of the last `ANSWER_DAYS`, so an answer sent after
+ * one briefing went out is used by the next run's.
  */
 import { and, eq } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { lowConfidenceEntityCandidates } from "./entity-questions";
 import { staleContextCandidates } from "./stale-context-questions";
 import { capCreated, mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
-import { applyPlan, askedExtractionIds, listOpen, listRecentlyAnswered, setBlocking, stillOpen } from "../questions/store";
+import { applyPlan, askedExtractionIds, listOpen, listRecentlyAnswered } from "../questions/store";
 import type { ContextPayload } from "./phase3-context";
 import { absorbReviewAnswers } from "./weekly-review";
 import { StepError, withRetry, type StepAttemptError } from "./withRetry";
-import { setDetail, span } from "../util/trace";
 
-const TIMEOUT_MINUTES = 45;
-const POLL_INTERVAL_MS = 10_000;
 const ANSWER_DAYS = 7;
 const EXCERPT_CHARS = 700;
 
@@ -38,7 +35,7 @@ export interface QuestionAnswer {
 }
 
 export interface GateResult {
-  /** Whether Section 2 had anything of this run's to wait for. */
+  /** Whether this run's candidates landed on any open question (stored as `question_gate_fired`). */
   fired: boolean;
   answers: QuestionAnswer[];
   /** Genuinely new questions this run added to the queue (`plan.created`) - what the questions push counts. */
@@ -110,8 +107,8 @@ async function tolerantAbsorb(errors: StepAttemptError[]) {
 }
 
 /**
- * Reconciles this run's candidates into the queue and returns the questions Section 2 should wait
- * for. The reconcile call is tolerant: when it exhausts its retries the queue still gets the
+ * Reconciles this run's candidates into the queue and returns the questions this run touched.
+ * The reconcile call is tolerant: when it exhausts its retries the queue still gets the
  * candidates through `mechanicalPlan`, and its attempts go to `step_errors`.
  */
 async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepAttemptError[]) {
@@ -137,9 +134,9 @@ async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepA
     plan = capCreated(mechanicalPlan(candidates, await listOpen()));
   }
 
-  const waitFor = await applyPlan(plan, runDate);
+  const raised = await applyPlan(plan, runDate);
   return {
-    waitFor,
+    raised,
     newQuestionCount: plan.created.length,
     tokensIn: usage.tokensIn + absorbed.tokensIn,
     tokensOut: usage.tokensOut + absorbed.tokensOut,
@@ -158,43 +155,20 @@ async function recentAnswers(): Promise<QuestionAnswer[]> {
     }));
 }
 
-/** Phase 4 in full: reconcile, then wait for this run's questions. Runs alongside Section 1. */
+/**
+ * Phase 4 in full: reconcile this run's candidates into the queue and hand back the answers
+ * already given. It never waits: a question raised this morning is answered whenever the reader
+ * gets to it, and Section 2 of a later run uses the answer.
+ */
 export async function runQuestionGate(ctx: ContextPayload, runDate: string, errors: StepAttemptError[]): Promise<GateResult> {
   const opened = await withRetry("phase4", () => openQuestions(ctx, runDate, errors));
   const usage = { tokensIn: opened.tokensIn, tokensOut: opened.tokensOut, aiCalls: opened.aiCalls };
 
-  if (opened.waitFor.length === 0) {
-    console.log("[Phase 4] Nothing of this run's to ask - Section 2 does not wait");
-    return { fired: false, answers: await recentAnswers(), newQuestionCount: opened.newQuestionCount, ...usage };
-  }
-
-  const deadline = new Date(Date.now() + TIMEOUT_MINUTES * 60_000);
-  await setBlocking(opened.waitFor, deadline);
-  console.log(`[Phase 4] Waiting up to ${TIMEOUT_MINUTES} min for ${opened.waitFor.length} question(s)`);
-
-  // A span of its own, because this is the one step whose length is the reader's, not the
-  // pipeline's: a morning with an unanswered question costs the full timeout.
-  const open = await span("phase4-wait", async () => {
-    let waiting = opened.waitFor;
-    while (waiting.length > 0 && Date.now() < deadline.getTime()) {
-      await Bun.sleep(POLL_INTERVAL_MS);
-      waiting = await stillOpen(waiting);
-    }
-    setDetail({
-      questions: opened.waitFor.length,
-      unanswered: waiting.length,
-      outcome: waiting.length === 0 ? "answered" : "timed_out",
-      timeoutMinutes: TIMEOUT_MINUTES,
-    });
-    return waiting;
-  });
-
-  // Unanswered ones stay in the queue: only this morning stops waiting for them.
-  await setBlocking(open, null);
+  const raised = opened.raised.length;
   console.log(
-    open.length === 0
-      ? "[Phase 4] All of this run's questions settled"
-      : `[Phase 4] Timed out with ${open.length} question(s) still open - they stay on /questions`,
+    raised === 0
+      ? "[Phase 4] Nothing of this run's to ask"
+      : `[Phase 4] ${raised} question(s) of this run's are open on /questions - Section 2 does not wait for them`,
   );
-  return { fired: true, answers: await recentAnswers(), newQuestionCount: opened.newQuestionCount, ...usage };
+  return { fired: raised > 0, answers: await recentAnswers(), newQuestionCount: opened.newQuestionCount, ...usage };
 }

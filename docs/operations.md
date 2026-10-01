@@ -46,7 +46,13 @@ News desks: every enabled desk in parallel, started before Phase 1 and awaited b
 
 Quick actions: one call, run alongside Section 1 once Phase 3 is done. A failure costs the buttons and nothing else; its attempts go to `step_errors` under `phase5-actions`.
 
-Section 1 synthesis never waits for the question gate. Section 2 blocks for up to 45 minutes, and only on the questions this run's mail landed on; the reconcile call runs alongside Section 1.
+Section 1 synthesis never waits for the question gate. Section 2 blocks for up to 45 minutes (`TIMEOUT_MINUTES` in `phase4-questiongate.ts`), and only on the questions this run's mail landed on; the reconcile call runs alongside Section 1.
+
+## Step timing
+
+A run that takes 45+ minutes is the question gate timing out, not slow work: unanswered questions hold Section 2 for the full `TIMEOUT_MINUTES`, so slow runs cluster at 2724-2969 s against 46-363 s for the rest. The gate behaviour is unchanged; step timing exists to make this visible.
+
+`src/util/trace.ts` is an `AsyncLocalStorage` span tracer writing `pipeline_run_steps`. `traceRun` opens the root span in `run.ts`, `span(step, fn)` nests under the current one, and outside a run both are a plain call, so the weekly jobs that share `withRetry` and the OpenAI client pay nothing. Spans sit in `run.ts`, Phases 1-4 and one per news desk; every `withRetry` attempt is a span named by its step, with its attempt number. `phase4-wait` is the gate's poll loop, with `questions`, `unanswered`, `outcome` (`answered | timed_out`) and `timeoutMinutes` in `detail`. Model calls (`src/ai/openai.ts`), Brave searches (`src/search/brave.ts`) and flex backoffs report to the current span through `recordUsage`/`recordAiCall`/`recordSearch`/`recordFlexRetry`; counters are a span's own values, and the dashboard sums descendants, so a parent never double-counts. Every trace write is swallowed: a failed insert costs a bar, never a briefing. Read it at `/runs/[id]` (see `docs/dashboard.md`). Runs before 2026-10-01 have no step data.
 
 ## Synthesis output parsing
 

@@ -9,6 +9,7 @@ import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/run";
 import { handoffForOrder, orderNewsletterItems, SECTION1_CAPACITY } from "./section1-handoff";
 import { revivableTopics } from "./topic-lifecycle";
 import { normalizeEntityKey } from "../util/entities";
+import { span } from "../util/trace";
 
 /** How many entities Section 1 gets context for. The gate and SECTION1_CAPACITY already bound
  *  how many claims reach synthesis; this bounds the entity side of the same payload the same way. */
@@ -152,7 +153,7 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "todo"))),
-    runAllSlots(topicsResult, runDate).catch((err) => {
+    span("phase3-websearch", () => runAllSlots(topicsResult, runDate)).catch((err) => {
       console.warn("[Phase 3] Web search failed, continuing without:", err);
       return [] as WebSearchResult[];
     }),

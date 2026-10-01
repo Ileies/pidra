@@ -12,6 +12,7 @@ See `src/db/schema.ts` for the full schema - it is the single source of truth an
 
 - `raw_items` - all ingested content before processing, including one delivery per news desk per day (`source_type = 'web_news'`, with the desk's queries and consulted URLs in `raw_content`)
 - `extractions` - the extraction stage's structured output per item, with effective relevance scores and the Phase 3 gate verdict (`gate_passed`, `gate_reason`, `gate_detail`); a news story carries its checks in `extracted_json.validation`
+- `pipeline_run_steps` - span tree per `pipeline_runs` row (`parent_id`, `step`, `attempt`, start/end, `duration_ms`, own tokens, AI calls, searches, flex retries, `detail` JSONB); written by `src/util/trace.ts`, absent for runs before 2026-10-01, deleted with the run
 - `ingest_drops` - mail the IMAP ingest discarded before it became a `raw_items` row, with the rule that discarded it
 - `active_topics` - running story summaries, continuity across days
 - `report_actions` - the quick actions a report offers, with their state (`proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code threw a proposal out)

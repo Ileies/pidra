@@ -5,6 +5,7 @@ import { buildPersonalEmailPrompt, type ClassificationContext } from "../ai/prom
 import { loadEmailAccounts } from "../config/email-accounts";
 import { emailEffectiveRelevance } from "./email-category";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { setDetail } from "../util/trace";
 
 const CONCURRENCY = 4;
 /** Recent notes cost tokens on every personal/sms item in a run; cap rather than send the archive. */
@@ -248,5 +249,6 @@ export async function runPhase2(runDate: string): Promise<void> {
     );
   }
 
+  setDetail({ items: activeItems.length, failed, concurrency: CONCURRENCY });
   console.log(`[Phase 2] Extraction complete (${failed}/${results.length} failed)`);
 }

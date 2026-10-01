@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { ReasoningEffort } from "openai/resources/shared";
 import type { FunctionTool, ResponseInput, ResponseInputItem } from "openai/resources/responses/responses";
 import { stripControlChars } from "../util/text";
+import { recordAiCall, recordFlexRetry, recordUsage } from "../util/trace";
 
 if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
 
@@ -33,6 +34,7 @@ export async function withFlexRetry<T>(fn: () => Promise<T>): Promise<T> {
       return await fn();
     } catch (err) {
       if (isRetryable(err) && i < FLEX_RETRY_DELAYS_MS.length) {
+        recordFlexRetry();
         await Bun.sleep(FLEX_RETRY_DELAYS_MS[i]);
         continue;
       }
@@ -89,6 +91,8 @@ export async function extractJson<T>(
       })
     );
 
+    recordAiCall();
+    recordUsage(response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0);
     opts.onUsage?.(response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0);
 
     // A truncated response can still be JSON-shaped, so check status explicitly rather than
@@ -131,6 +135,8 @@ export async function synthesize(
 
   const tokensIn = response.usage?.input_tokens ?? 0;
   const tokensOut = response.usage?.output_tokens ?? 0;
+  recordAiCall();
+  recordUsage(tokensIn, tokensOut);
   opts.onUsage?.(tokensIn, tokensOut);
 
   return { text: response.output_text, tokensIn, tokensOut };
@@ -179,6 +185,8 @@ export async function converse(
 
   const tokensIn = response.usage?.input_tokens ?? 0;
   const tokensOut = response.usage?.output_tokens ?? 0;
+  recordAiCall();
+  recordUsage(tokensIn, tokensOut);
   opts.onUsage?.(tokensIn, tokensOut);
 
   const functionCalls = response.output

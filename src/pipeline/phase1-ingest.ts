@@ -6,6 +6,7 @@ import { ingestGoogleCalendar, ingestGoogleTasks } from "../ingest/google";
 import { loadEmailAccounts } from "../config/email-accounts";
 import { loadNewsletterConfig } from "../config/newsletter-sources";
 import { loadRssFeeds } from "../config/rss-feeds";
+import { span } from "../util/trace";
 
 export interface SourceFailure {
   source: string;
@@ -54,10 +55,12 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
   }
 
   const [imapResults, rssResult, calendarResult, todoResult] = await Promise.all([
-    Promise.allSettled(accounts.map((account) => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames, checkedUnsubscribeSources))),
-    Promise.allSettled([ingestRssFeeds(runDate, feeds)]),
-    Promise.allSettled([ingestGoogleCalendar(runDate)]),
-    Promise.allSettled([ingestGoogleTasks(runDate)]),
+    Promise.allSettled(accounts.map((account) =>
+      span(`ingest:imap:${account.user}`, () => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames, checkedUnsubscribeSources)),
+    )),
+    Promise.allSettled([span("ingest:rss", () => ingestRssFeeds(runDate, feeds))]),
+    Promise.allSettled([span("ingest:calendar", () => ingestGoogleCalendar(runDate))]),
+    Promise.allSettled([span("ingest:tasks", () => ingestGoogleTasks(runDate))]),
   ]);
 
   const failures: SourceFailure[] = [];

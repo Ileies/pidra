@@ -19,6 +19,7 @@ import { db, extractions, notes, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
 import { DeskResearchError, researchDesk, type SearchEvidence } from "./research";
 import { loadLongTermContext } from "../pipeline/long-term-context";
+import { span } from "../util/trace";
 import { decideGate } from "../pipeline/gate";
 import {
   DESKS, NEWS_SOURCE_TYPE, deskMessageId, deskSource, enabledDesks, homeConfig, newsWindow,
@@ -351,7 +352,7 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
     (reused.length ? `, reusing ${reused.map((d) => d.id).join(", ")} from an earlier run today` : ""),
   );
 
-  const settled = await Promise.allSettled(toRun.map((desk) => research(desk, inputs)));
+  const settled = await Promise.allSettled(toRun.map((desk) => span(`news:${desk.id}`, () => research(desk, inputs))));
 
   // Everything the day already holds takes part in the duplicate check, stored stories included,
   // so a desk re-run after a failure cannot repeat a story another desk stored this morning.

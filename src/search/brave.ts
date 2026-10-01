@@ -1,5 +1,6 @@
 import { db, braveDailyUsage } from "../db";
 import { lt, sql } from "drizzle-orm";
+import { recordSearch } from "../util/trace";
 
 const BASE_URL = "https://api.search.brave.com/res/v1";
 const MIN_INTERVAL_MS = 1100;
@@ -65,6 +66,7 @@ async function braveRequest(url: URL, onAttempt?: () => void): Promise<Response>
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     await reserveRequest();
+    recordSearch();
     onAttempt?.();
     try {
       const res = await fetch(url.toString(), {

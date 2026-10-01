@@ -13,6 +13,7 @@ import { EMPTY_NEWS_DESK, runNewsDesk, type NewsDeskOutcome } from "../news/run"
 import { renderNewsFallback } from "../news/format";
 import { proposeQuickActions } from "../actions/propose";
 import { saveProposals } from "../actions/store";
+import { span, traceRun } from "../util/trace";
 import type { ContextPayload } from "./phase3-context";
 
 /**
@@ -67,6 +68,12 @@ export async function runPipeline(runDate?: string): Promise<string> {
     .values({ runDate: date, status: "running" })
     .returning({ id: pipelineRuns.id });
 
+  // The root span of `pipeline_run_steps`: every step below nests under it, which is what
+  // `/runs/[id]` draws.
+  return traceRun(run.id, () => executePipeline(date, run, start));
+}
+
+async function executePipeline(date: string, run: { id: string }, start: number): Promise<string> {
   const markFailed = async (step: string, stepErrors: StepAttemptError[]) => {
     await db
       .update(pipelineRuns)
@@ -84,7 +91,7 @@ export async function runPipeline(runDate?: string): Promise<string> {
     // Started first and awaited only before Phase 3: the desks need nothing the ingest produces,
     // and at half a minute to five minutes each on the flex tier (in parallel), running them after
     // Phase 2 would add all of that to every morning. Phase 3 is where their stories meet the gate.
-    const newsDesk = tolerantNewsDesk(date);
+    const newsDesk = span("news", () => tolerantNewsDesk(date));
     const ingest = await withRetry("phase1", () => runPhase1(date));
     await withRetry("phase2", () => runPhase2(date));
     const news = await newsDesk;
@@ -168,17 +175,19 @@ export async function runPipeline(runDate?: string): Promise<string> {
     // once: not on 2026-09-10, not on 2026-09-12. There is no `[push]` line in any journal entry
     // for a completed run, while the awaited failure path logged "Sent 3/4" the first morning it
     // existed. A few seconds of latency at the very end of a 79 s run costs nothing.
-    await sendPushNotifications(
-      date,
-      notificationSummary,
-      [...ingest.failures, ...news.failures].map((f) => f.source),
-    ).catch(console.error);
+    await span("push", () =>
+      sendPushNotifications(
+        date,
+        notificationSummary,
+        [...ingest.failures, ...news.failures].map((f) => f.source),
+      ).catch(console.error),
+    );
 
     // A second, distinct push: new questions are new state the reader has not seen, not a lesser
     // version of the briefing above, so they get their own notification rather than a mention
     // folded into the summary. Awaited for the same reason the briefing push is (see above).
     if (gate.newQuestionCount > 0) {
-      await sendNewQuestionsNotification(date, gate.newQuestionCount).catch(console.error);
+      await span("push-questions", () => sendNewQuestionsNotification(date, gate.newQuestionCount).catch(console.error));
     }
 
     console.log(`\n=== Pipeline complete in ${Math.round(durationMs / 1000)}s ===\n`);

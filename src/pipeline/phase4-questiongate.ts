@@ -23,6 +23,7 @@ import { applyPlan, askedExtractionIds, listOpen, listRecentlyAnswered, setBlock
 import type { ContextPayload } from "./phase3-context";
 import { absorbReviewAnswers } from "./weekly-review";
 import { StepError, withRetry, type StepAttemptError } from "./withRetry";
+import { setDetail, span } from "../util/trace";
 
 const TIMEOUT_MINUTES = 45;
 const POLL_INTERVAL_MS = 10_000;
@@ -171,11 +172,22 @@ export async function runQuestionGate(ctx: ContextPayload, runDate: string, erro
   await setBlocking(opened.waitFor, deadline);
   console.log(`[Phase 4] Waiting up to ${TIMEOUT_MINUTES} min for ${opened.waitFor.length} question(s)`);
 
-  let open = opened.waitFor;
-  while (open.length > 0 && Date.now() < deadline.getTime()) {
-    await Bun.sleep(POLL_INTERVAL_MS);
-    open = await stillOpen(open);
-  }
+  // A span of its own, because this is the one step whose length is the reader's, not the
+  // pipeline's: a morning with an unanswered question costs the full timeout.
+  const open = await span("phase4-wait", async () => {
+    let waiting = opened.waitFor;
+    while (waiting.length > 0 && Date.now() < deadline.getTime()) {
+      await Bun.sleep(POLL_INTERVAL_MS);
+      waiting = await stillOpen(waiting);
+    }
+    setDetail({
+      questions: opened.waitFor.length,
+      unanswered: waiting.length,
+      outcome: waiting.length === 0 ? "answered" : "timed_out",
+      timeoutMinutes: TIMEOUT_MINUTES,
+    });
+    return waiting;
+  });
 
   // Unanswered ones stay in the queue: only this morning stops waiting for them.
   await setBlocking(open, null);

@@ -457,6 +457,31 @@ export const pipelineRuns = pgTable("pipeline_runs", {
 });
 
 /**
+ * One row per measured stretch of a pipeline run, written by `src/util/trace.ts`. Spans nest
+ * through `parent_id`: the root span `run` covers the whole run, each `withRetry` attempt is a
+ * child of whatever was running when it started, and the model calls, search requests and flex
+ * backoffs that happen inside a span are counted on it (self values, not rolled up - the
+ * dashboard sums descendants itself, so nothing is counted twice). `/runs/[id]` draws these.
+ */
+export const pipelineRunSteps = pgTable("pipeline_run_steps", {
+  id: uuid("id").primaryKey(),
+  runId: uuid("run_id").notNull().references(() => pipelineRuns.id, { onDelete: "cascade" }),
+  parentId: uuid("parent_id"),
+  step: text("step").notNull(),
+  attempt: integer("attempt").notNull().default(1),
+  status: text("status").notNull().default("running"), // running | ok | failed
+  startedAt: timestamptz("started_at").notNull(),
+  endedAt: timestamptz("ended_at"),
+  durationMs: integer("duration_ms"),
+  tokensIn: integer("tokens_in").notNull().default(0),
+  tokensOut: integer("tokens_out").notNull().default(0),
+  aiCalls: integer("ai_calls").notNull().default(0),
+  searchCalls: integer("search_calls").notNull().default(0),
+  flexRetries: integer("flex_retries").notNull().default(0),
+  detail: jsonb("detail").$type<Record<string, unknown>>(),
+});
+
+/**
  * Acknowledgements for dashboard notifications. Notifications themselves are projections of
  * reports, open questions, and pipeline runs, so the source tables remain authoritative.
  */

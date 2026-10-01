@@ -1,4 +1,5 @@
 import type { StepAttemptError } from "../db/schema";
+import { span } from "../util/trace";
 
 export type { StepAttemptError };
 
@@ -28,7 +29,7 @@ export async function withRetry<T>(
       if (attempt > 1) {
         console.log(`[${step}] Attempt ${attempt}/${maxAttempts}…`);
       }
-      return await fn();
+      return await span(step, fn, attempt);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       attempts.push({

@@ -291,13 +291,105 @@ const stores = {
 
 export const ETAG = "blackhole-fixture";
 
+function snapshotOf(etag: string, from: Record<string, { id: string }[]>) {
+  return {
+    version: etag,
+    etag,
+    mode: "full",
+    base: null,
+    generatedAt: NOW,
+    stores: from,
+    ids: Object.fromEntries(Object.entries(from).map(([name, rows]) => [name, rows.map((row) => row.id)])),
+  };
+}
+
 /** The body `/api/offline/snapshot` answers a full pull with (`#lib/server/snapshotCache.ts`). */
-export const SNAPSHOT = {
-  version: "blackhole-fixture",
-  etag: ETAG,
-  mode: "full",
-  base: null,
-  generatedAt: NOW,
-  stores,
-  ids: Object.fromEntries(Object.entries(stores).map(([name, rows]) => [name, rows.map((row) => row.id)])),
+export const SNAPSHOT = snapshotOf(ETAG, stores);
+
+// --- the layout lane's snapshot: the same data with several rows per table ---
+//
+// The offline lanes address single rows by their text (`getByText(F.TEXT.note)`, "1 change"), so
+// they keep the small snapshot above. A layout is only judged on tables that have more than one
+// row, on a report with every urgency and section, and on a document with its section rail.
+
+const BULK_ROWS = 6;
+const bulkId = (kind: number, i: number) => `00000000-0000-4000-8000-${kind.toString(16).padStart(6, "0")}${i.toString(16).padStart(6, "0")}`;
+const bulk = <T>(make: (i: number) => T): T[] => Array.from({ length: BULK_ROWS }, (_, i) => make(i + 1));
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toLocaleDateString("sv-SE");
+
+const bulkExtractions = bulk((i) => extraction(bulkId(0x10, i), `Example bulk headline ${i}`));
+const entry = (text: string, i: number) => ({ html: `<p>${text}</p>`, refIds: [bulkExtractions[i % BULK_ROWS].id] });
+
+const layoutReports: MirroredReport[] = [
+  {
+    ...reports[0],
+    structured: {
+      personal: [
+        { urgency: "critical", entries: [entry("Example critical entry that needs an answer today.", 0)] },
+        { urgency: "high", entries: [{ html: `<p>${TEXT.personal}</p>`, refIds: [EXTRACTION.personal] }, entry("Example high entry about a placeholder appointment.", 1)] },
+        { urgency: "normal", entries: [entry("Example normal entry with a longer sentence so the line has to wrap inside the article column on a narrow track.", 2), entry("Another example normal entry.", 3)] },
+        { urgency: "mentions", entries: [entry("Example mention.", 4)] },
+      ],
+      news: [
+        { group: "World", entries: [{ html: `<p>${TEXT.news}</p>`, refIds: [EXTRACTION.news] }, entry("A second example world story.", 5)] },
+        { group: "Home", entries: [entry("An example local story.", 0)] },
+      ],
+      intel: [
+        { domain: "Technology", entries: [{ html: `<p>${TEXT.intel}</p>`, refIds: [EXTRACTION.intel] }, entry("A second example technology item.", 1)] },
+        { domain: "Science", entries: [entry("An example science item.", 2)] },
+      ],
+      alsoNoted: [],
+    },
+  },
+  report(YESTERDAY, {
+    personal: [],
+    news: [],
+    intel: [{ domain: "Technology", entries: [{ html: `<p>${TEXT.yesterday}</p>`, refIds: [] }] }],
+    alsoNoted: [],
+  }),
+  ...[2, 3, 4, 5, 6].map((n) => report(daysAgo(n), { personal: [], news: [], intel: [{ domain: "Technology", entries: [entry(`Example entry from ${n} days ago.`, n)] }], alsoNoted: [] })),
+];
+
+const layoutRules: MirroredRule[] = [...rules, ...bulk((i): MirroredRule => ({ id: bulkId(0x11, i), key: `example_rule_${i}`, value: `Example standing rule ${i}, worded long enough to wrap inside a card on a narrow column.`, source: "user", updatedAt: NOW }))];
+
+const layoutContextDoc: MirroredContextDoc = {
+  ...contextDoc,
+  doc: {
+    generatedAt: `${YESTERDAY}T03:30:00.000Z`,
+    date: YESTERDAY,
+    path: "context-builder/output/example.md",
+    chars: 300,
+    fullContextHtml: [1, 2, 3, 4, 5].map((n) => `<h1>${n}. Example section ${n}</h1><p>${n === 3 ? TEXT.harvest : `Example harvested text for section ${n}.`}</p>`).join(""),
+    sections: [1, 2, 3, 4, 5].map((n) => ({ key: String(n), title: n === 3 ? "3. Interests" : `${n}. Example section ${n}`, html: `<p>${n === 3 ? TEXT.harvest : `Example harvested text for section ${n}.`}</p>`, chars: 40 })),
+  },
+  standing: layoutRules,
+  corrections: [
+    ...contextDoc.corrections,
+    ...bulk((i) => ({ ...contextDoc.corrections[0], id: bulkId(0x12, i), target_key: String((i % 5) + 1), statement: `Example correction statement ${i}.` })),
+  ],
 };
+
+const layoutStores = {
+  reports: layoutReports,
+  extractions: [...extractions, ...bulkExtractions],
+  notes: [
+    ...notes,
+    ...bulk((i): NoteRow => ({ ...notes[0], id: bulkId(0x13, i), content: `Example bulk note ${i}: a placeholder line long enough to wrap inside a card.`, scope: i % 2 ? "global" : "personal", revision_count: 0 })),
+  ],
+  rules: layoutRules,
+  corrections: layoutContextDoc.corrections,
+  contextDoc: [layoutContextDoc],
+  entities: [
+    ...entities,
+    ...bulk((i): MirroredEntity => ({ ...entities[1], id: bulkId(0x14, i), name: `Example Bulk Entity ${i}`, summary: i % 2 ? "An example summary." : null, mentionCount: i })),
+  ],
+  entityAppearances: [
+    ...entityAppearances,
+    ...bulk((i): MirroredAppearance => ({ ...entityAppearances[0], id: bulkId(0x15, i), reportDate: daysAgo(i), contextSnippet: `Example snippet ${i}.` })),
+  ],
+  contacts: [...contacts, ...bulk((i): MirroredContact => ({ ...contacts[0], id: bulkId(0x16, i), identifier: `sender${i}@example.com`, name: `Example Sender ${i}` }))],
+  topics: [...topics, ...bulk((i): MirroredTopic => ({ ...topics[0], id: bulkId(0x17, i), headline: `Example bulk story ${i}` }))],
+} satisfies Record<string, { id: string }[]>;
+
+export const LAYOUT_ETAG = "blackhole-layout-fixture";
+export const LAYOUT_SNAPSHOT = snapshotOf(LAYOUT_ETAG, layoutStores);

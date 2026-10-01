@@ -50,7 +50,10 @@ export class LaneProxy {
   readonly delivered: Delivered[] = [];
   private server: ReturnType<typeof Bun.serve> | null = null;
 
-  constructor(private readonly upstream: string) {
+  constructor(
+    private readonly upstream: string,
+    private readonly snapshot: { etag: string; body: unknown } = { etag: ETAG, body: SNAPSHOT },
+  ) {
     this.listen();
     this.origin = `http://127.0.0.1:${this.port}`;
   }
@@ -123,8 +126,9 @@ export class LaneProxy {
     const stamp = { "x-pidra": "1", "Cache-Control": "no-store" };
 
     if (url.pathname === "/api/offline/snapshot") {
-      if ((req.headers.get("if-none-match") ?? "").includes(ETAG)) return new Response(null, { status: 304, headers: { ...stamp, ETag: `"${ETAG}"` } });
-      return Response.json(SNAPSHOT, { headers: { ...stamp, ETag: `"${ETAG}"` } });
+      const { etag, body } = this.snapshot;
+      if ((req.headers.get("if-none-match") ?? "").includes(etag)) return new Response(null, { status: 304, headers: { ...stamp, ETag: `"${etag}"` } });
+      return Response.json(body, { headers: { ...stamp, ETag: `"${etag}"` } });
     }
     if (req.method !== "GET" && WRITE.test(url.pathname)) {
       const text = await req.text();

@@ -25,6 +25,7 @@
  *   bun run scripts/blackhole/run.ts                build, then every lane
  *   bun run scripts/blackhole/run.ts --no-build     against the existing build/
  *   bun run scripts/blackhole/run.ts --only gated   one mode (blackhole | gated | refused | offline)
+ *   bun run scripts/blackhole/run.ts --only layout  just the desktop layout lane (`layout.ts`)
  *
  * Chrome is `PIDRA_CHROME`, else the first of google-chrome, chromium on PATH.
  */
@@ -37,6 +38,7 @@ import { chromium, type BrowserContext, type Locator, type Page } from "playwrig
 import { isMirroredPath, MIRRORED_ROUTES, onlineOnlyFor, ONLINE_ONLY, STATIC_OFFLINE_ROUTES } from "../../src/lib/routes.ts";
 import { LaneProxy, type Mode, type Tracked } from "./proxy.ts";
 import * as F from "./fixture.ts";
+import { runLayout } from "./layout.ts";
 
 const DASHBOARD = join(import.meta.dir, "..", "..");
 const ARTIFACTS = join(tmpdir(), "pidra-blackhole");
@@ -830,7 +832,14 @@ const started = performance.now();
 const server = await startServer();
 const browser = await chromium.launch({ executablePath: chromePath(), headless: true });
 try {
-  await Promise.all(lanes().map((lane) => runLane(browser, lane, server.url)));
+  const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
+  const layoutRoutes = [...MIRRORED_ROUTES, ...STATIC_OFFLINE_ROUTES]
+    .filter((id) => id !== "/")
+    .map((id) => ({ id, path: pathFor(id), text: expectedText(id) }));
+  await Promise.all([
+    ...lanes().map((lane) => runLane(browser, lane, server.url)),
+    ...(!only || only === "layout" ? [runLayout(browser, server.url, layoutRoutes, ARTIFACTS).then((layout) => void results.push(...layout))] : []),
+  ]);
 } finally {
   await browser.close();
   server.stop();

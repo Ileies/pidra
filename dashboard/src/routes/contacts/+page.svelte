@@ -42,6 +42,7 @@
   const PRIORITIES = ["critical", "high", "normal", "low"];
 
   let editing = $state<string | null>(null);
+  let submitting = $state(false);
 </script>
 
 <Page title="Contacts" size="app" class="flex flex-col gap-5">
@@ -109,12 +110,19 @@
             <form
               method="POST"
               action="?/update"
-              use:enhance={() => async ({ update, result }) => {
-                if (result.type === "success") editing = null;
-                await update();
-                // Written on the server, not through the outbox, so this page's offline copy only
-                // shows it after a pull; forced, because the throttle would skip it.
-                if (result.type === "success") await sync({ force: true });
+              use:enhance={() => {
+                submitting = true;
+                return async ({ update, result }) => {
+                  try {
+                    if (result.type === "success") editing = null;
+                    await update();
+                    // Written on the server, not through the outbox, so this page's offline copy
+                    // only shows it after a pull; forced, because the throttle would skip it.
+                    if (result.type === "success") await sync({ force: true });
+                  } finally {
+                    submitting = false;
+                  }
+                };
               }}
               class="flex flex-col gap-3 border-t border-surface-800 pt-3"
             >
@@ -153,8 +161,9 @@
 
               <button
                 type="submit"
-                class="tap self-start px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer"
-              >Save as a correction</button>
+                disabled={submitting}
+                class="tap self-start px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >{submitting ? "Saving…" : "Save as a correction"}</button>
             </form>
           {/if}
         </li>

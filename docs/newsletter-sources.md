@@ -2,6 +2,8 @@
 
 The 32 newsletters curated for the daily pipeline, with the tiering and rationale behind each pick. The live RSS feeds and email sender rules are managed at `/settings/newsletters` and loaded by `src/config/rss-feeds.ts` and `src/config/newsletter-sources.ts`. Cut from an original 50 candidates - the 18 removed were pure redundancy, wrong format for LLM parsing, or low signal-to-token ratio. Token cost was never the constraint (~$2-3/month at 50).
 
+A newly subscribed newsletter needs no rule to be picked up: on accounts flagged `isNewsAccount`, mail from a sender with no matching sender rule is still ingested as a newsletter when it carries `List-Unsubscribe`, `List-Id` or `Precedence: bulk`/`list` (`isBulkMail` and `classifyEmail` in `src/ingest/sources.ts`), named by the sender's display name, else its domain. Explicit address and domain rules always win, and non-news accounts are unchanged because transactional mail carries `List-Unsubscribe` too. Add a rule at `/settings/newsletters` to pin a canonical source name.
+
 Tier S = essential daily reads. A = high-value, subscribe immediately. B = niche but earns its place. C = narrow but frontier-relevant.
 
 | # | Tier | Name | Author | Domain | Cadence | Free tier | Why it's here |

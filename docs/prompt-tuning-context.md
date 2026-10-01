@@ -16,6 +16,8 @@ The actual profile lives in Postgres now (`standing_context`, `profile_*` keys) 
 
 Extraction's `relevance_score` feeds the gate directly (`effective_relevance = relevance_score * trust_score`, threshold 3.0 - `docs/scoring-formulas.md`), so it has to actually discriminate, not just express these priorities in words. A week of real mornings (2026-09-24 to 2026-09-30) showed it clustering at 3 for 68% of newsletter items, which put most items on the pass/fail line by construction; the rubric in `src/ai/prompts/extraction.ts` was tightened 2026-09-30 to anchor all five levels and tell the model not to default to the middle.
 
+A further pass on 2026-10-01 added a `substance` field (`fact|argument|teaser`) to extraction, plus gate reason `teaser_only` checked before the score: 11 of 26 gate-passed newsletter items that day were link-list or teaser lines scoring exactly 3.00 at the threshold, and every one was rated not relevant. The rubric now also caps "talk" (statements, accusations, opened investigations, "could" scenarios, minor personnel moves below the head of an organisation, abstract analyses with no new finding) at 2, scores a new dev tool at least 3, treats an essay as one to three items rather than one per paragraph (a single ChinaTalk essay had been becoming 15), and requires `key_claim` to state the claim itself rather than describe the newsletter. Still being observed, same as the 2026-09-30 change above.
+
 Ordered - when forced to choose between two stories, rank by this list:
 
 1. AI/LLM - breakthroughs, model releases, capability jumps, safety developments, policy changes
@@ -48,12 +50,13 @@ Functional requirements, not style preferences:
 - Cross-domain connections made explicit - if an AI story connects to a China story, state the link directly, never implicitly.
 - Section 2 urgency labels are load-bearing: Critical/High/Normal must be correct. A wrongly-labeled urgent item that gets skipped has real consequences.
 - **Target length: Section 1 at most 900 words, less on a light day. Section 2: 300-500 words.** Revised 2026-09-25 from "600-900 regardless of input volume": the floor was what turned a thin day's six items (a neurology society's leadership election, an 18th-century book) into two-paragraph essays, and the reader had started scrolling past Section 1 altogether. With the News section now carrying what happened, Section 1 is the depth layer and is as long as its material warrants. The same revision dropped the old "go deeper on a light day" 2.5 relevance floor, which the gate had already made dead (nothing under 3 reaches synthesis).
-- News section: one bullet per story, a bold headline sentence plus the facts needed to retell it, at most 45 words. No analysis - it's read to know what happened, the newsletters are where depth lives.
+- News section: one bullet per story, a bold headline sentence plus the facts needed to retell it, at most 35 words. No analysis - it's read to know what happened, the newsletters are where depth lives.
 
 ## Newsletter processing tiers
 
 - **Daily/high-volume sources** (TLDR AI, Money Stuff, Term Sheet, MIT Tech Review, The Diff, War on the Rocks, Sinocism, Noahpinion): short extraction pass, focused on claim + entity identification.
 - **Weekly/irregular, dense sources** (Astral Codex Ten, The Intrinsic Perspective, Not Boring, The Generalist, Works in Progress, SemiAnalysis): intended to get a richer extraction prompt capturing the central argument, not just claims, with `source_format: "essay"` giving synthesis room for more depth. **Not implemented** - `phase2-extract.ts` runs the one newsletter extraction prompt for every source regardless of tier (confirmed 2026-09-30, see `docs/todo/now.md`).
+- **RSS body content** (`src/ingest/rss.ts`, added 2026-10-01): prefers the full post from `content:encoded` over the `contentSnippet` teaser, capped at 16000 characters. Stored bodies had been 35-660 characters against feeds carrying up to 125k, so extraction was writing items like "The newsletter examines X" from a title alone. Money Stuff (Bloomberg RSS), Console.dev and War on the Rocks carry no full text in their feeds, so those three still extract from a short snippet.
 
 ## Ongoing stories
 

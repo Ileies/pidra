@@ -4,7 +4,7 @@ The gate, trust-score and entity-pruning math as actually implemented, checked a
 
 ## Relevance gate (`src/pipeline/gate.ts`)
 
-Newsletter items: `effective_relevance = relevance_score * trust_score + corroboration_bonus`, inclusion threshold `>= 3.0`.
+Newsletter items: `effective_relevance = relevance_score * trust_score + corroboration_bonus`, inclusion threshold `>= 3.0`. A `teaser_only` check runs before this score (added 2026-10-01): an item whose extracted `substance` is `"teaser"` is held back regardless of what it scored, since a teaser scoring exactly 3.0 at the threshold was reaching synthesis with nothing in it to report.
 
 This is only the newsletter path. The gate is a single pure function with a named `GateReason` per outcome (see `CLAUDE.md`, "Every item the pipeline discards says why"), and the other two source types have their own rules, not this formula:
 - `personal_email` / `sms`: category-based, not score-based.

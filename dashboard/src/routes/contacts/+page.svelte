@@ -50,13 +50,6 @@
     <h1 class="text-xl font-bold text-surface-50">Sender directory</h1>
     <!-- Six rows from 1,432 emails is the correct outcome, not a seeding bug, and saying so here
          saves the next person from going looking for the missing rows (CLAUDE.md §8). -->
-    <p class="text-xs text-surface-400 max-w-prose">
-      Who a From address belongs to, and how much triage should care. Deliberately not a social
-      graph: none of the messaging platforms where the actual social circle lives are ingested, so
-      a small table is the expected steady state. Personal relationships come from the long-term
-      context, not from here. Filling in a row here saves the question gate from asking about that
-      sender again.
-    </p>
     {#if isOffline}
       <p class="text-xs text-warning-400 max-w-prose">
         Editing needs the connection: a change here is recorded as a correction, and corrections are

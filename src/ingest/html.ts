@@ -1,3 +1,8 @@
+/** A numeric entity's character, or the entity untouched when it names no valid code point. */
+function codePoint(code: number, entity: string): string {
+  return Number.isInteger(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+}
+
 // Strip HTML to clean plain text suitable for LLM extraction.
 // Removes: style, script, images, tracking pixels, unsubscribe footers.
 export function stripHtml(html: string): string {
@@ -21,6 +26,8 @@ export function stripHtml(html: string): string {
     .replace(/&mdash;/g, "-")
     .replace(/&ndash;/g, "–")
     .replace(/&hellip;/g, "…")
+    .replace(/&#(\d+);/g, (entity, code: string) => codePoint(Number(code), entity))
+    .replace(/&#x([0-9a-f]+);/gi, (entity, code: string) => codePoint(parseInt(code, 16), entity))
     // Collapse runs of whitespace/blank lines
     .replace(/\r/g, "")
     .replace(/\n{3,}/g, "\n\n")

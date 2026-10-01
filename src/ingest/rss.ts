@@ -2,12 +2,34 @@ import Parser from "rss-parser";
 import { eq } from "drizzle-orm";
 import { db, rawItems, rawItemExists, rssFeeds } from "../db";
 import type { RssFeed } from "../config/rss-feeds";
+import { removeFooter, stripHtml } from "./html";
 
 const parser = new Parser({ timeout: 15000 });
 
 export interface RssIngestResult {
   count: number;
   failures: { source: string; error: string }[];
+}
+
+/**
+ * Long enough for an essay's whole argument, short enough that a 120k-character post does not
+ * cost 30k tokens twice (newsletter and entity extraction both read it). The mail path caps at
+ * 6000, but a feed item is one article rather than a digest of many.
+ */
+const RSS_BODY_CHARS = 16000;
+
+/**
+ * The article itself where the feed carries it. Substack and most WordPress feeds put the full
+ * post in `content:encoded` and only a teaser in `content`/`contentSnippet`, which is all this
+ * used to read: on 2026-10-01 the stored bodies were 35-660 characters while the feeds carried up
+ * to 125k, so extraction wrote items like "The newsletter examines X" from a title alone.
+ */
+export function rssBody(item: Parser.Item): string {
+  const encoded = (item as Parser.Item & { "content:encoded"?: unknown })["content:encoded"];
+  const full = typeof encoded === "string" ? removeFooter(stripHtml(encoded)) : "";
+  const short = (item.contentSnippet ?? item.content ?? item.summary ?? "").trim();
+  const body = full.length > short.length ? full : short;
+  return body.length > RSS_BODY_CHARS ? `${body.slice(0, RSS_BODY_CHARS)}\n[truncated]` : body;
 }
 
 function buildRawContent(item: Parser.Item, sourceName: string): string {
@@ -19,8 +41,8 @@ function buildRawContent(item: Parser.Item, sourceName: string): string {
   if (item.link) parts.push(`Link: ${item.link}`);
   parts.push("");
 
-  const body = item.contentSnippet ?? item.content ?? item.summary ?? "";
-  if (body) parts.push(body.trim());
+  const body = rssBody(item);
+  if (body) parts.push(body);
 
   return parts.join("\n");
 }

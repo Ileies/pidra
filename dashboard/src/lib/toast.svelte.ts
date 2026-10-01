@@ -7,6 +7,8 @@
  * next to the field it is about.
  */
 
+import { untrack } from "svelte";
+
 export type ToastTone = "info" | "success" | "error";
 
 export interface ToastItem {
@@ -90,6 +92,10 @@ export function toastFormResult(
   form: { error?: string; message?: string; success?: boolean } | null | undefined,
 ): void {
   if (!form) return;
-  if (form.error) toasts.error(form.error);
-  else if (form.message) toasts.success(form.message);
+  const { error, message } = form;
+  // `show()` reads `items` before writing it; untracked, the calling effect depends on `form` only.
+  untrack(() => {
+    if (error) toasts.error(error);
+    else if (message) toasts.success(message);
+  });
 }

@@ -102,7 +102,8 @@
 {/snippet}
 
 <Page title="Sources" size="app" class="flex flex-col gap-4">
-  <p class="text-xs text-surface-400 leading-relaxed max-w-prose">
+  <h1 class="text-xl font-bold text-surface-50">Sources</h1>
+  <pclass="text-xs text-surface-400 leading-relaxed max-w-prose">
     Score 0-10, a weighted average over the last 30 days: relevance x 7 + include rate x 3.
     Deleting a source removes it for good and stops it being polled or matched. The name links
     to every delivery the source made, which is where the score comes from.

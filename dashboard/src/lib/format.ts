@@ -136,11 +136,12 @@ export function fmtMs(ms: number | null | undefined): string {
   return fmtDuration(ms);
 }
 
-/** "2m 14s" since a timestamp. */
-export function fmtElapsed(since: DateInput): string {
+/** "2m 14s" since a timestamp, or between two when `until` is given (a finished run stops counting). */
+export function fmtElapsed(since: DateInput, until?: DateInput): string {
   const date = toDate(since);
   if (!date) return EMPTY;
-  return fmtDuration(Date.now() - date.getTime());
+  const end = toDate(until)?.getTime() ?? Date.now();
+  return fmtDuration(end - date.getTime());
 }
 
 /**

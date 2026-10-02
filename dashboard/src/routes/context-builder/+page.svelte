@@ -318,7 +318,7 @@
           </Badge>
           {#if status?.dbRun}
             <span class="text-surface-400 text-xs">{displayLabel(status.dbRun.mode)} mode</span>
-            <span class="text-surface-400 text-xs tabular-nums">· {fmtElapsed(status.dbRun.started_at)} elapsed</span>
+            <span class="text-surface-400 text-xs tabular-nums">· {fmtElapsed(status.dbRun.started_at, status.dbRun.completed_at)} elapsed</span>
             <span class="text-surface-400 text-xs tabular-nums">· {fmtNum(status.dbRun.items_indexed)} items indexed</span>
           {:else if status}
             <span class="text-surface-400 text-xs">No runs yet.</span>

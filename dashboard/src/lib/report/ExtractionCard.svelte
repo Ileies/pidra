@@ -4,7 +4,10 @@
    * (C5), so the two show the same thing.
    */
   import Badge from "#lib/components/Badge.svelte";
+  import Spinner from "#lib/components/Spinner.svelte";
   import { fmtDateTime } from "#lib/format.js";
+  import { netJson } from "#lib/offline/net.js";
+  import { offline } from "#lib/offline/state.svelte.js";
   import { label as displayLabel } from "#lib/labels.js";
   import type { ExtractionItem } from "#lib/server/extractions.js";
 
@@ -34,6 +37,26 @@
 
   /** The pipeline stores http(s) only; checked again here rather than trusted, like all model output. */
   const safeHref = (url: string) => /^https?:\/\//i.test(url);
+
+  // The stored body never rides along with the extraction (not in the mirror, not in the live
+  // read), so it is fetched on request and lives only in this component's state.
+  let body = $state<string | null>(null);
+  let fetching = $state(false);
+  let fetchError = $state<string | null>(null);
+
+  async function fetchBody() {
+    fetching = true;
+    fetchError = null;
+    try {
+      const res = await netJson<{ rawContent: string | null }>(`/api/extractions/${encodeURIComponent(item.id)}/raw`);
+      if (res.rawContent) body = res.rawContent;
+      else fetchError = "No stored content for this item.";
+    } catch (e) {
+      fetchError = e instanceof Error ? e.message : "Could not fetch the contents.";
+    } finally {
+      fetching = false;
+    }
+  }
 </script>
 
 <article
@@ -136,10 +159,38 @@
     </div>
   {/if}
 
-  {#if !compact && item.rawContent}
-    <details class="mt-1">
-      <summary class="tap text-xs text-surface-400 cursor-pointer select-none hover:text-surface-200">Show the original email</summary>
-      <pre class="mt-3 text-xs whitespace-pre-wrap break-words text-surface-300 max-h-96 overflow-y-auto bg-surface-950 border border-surface-700 rounded px-4 py-3 leading-relaxed">{item.rawContent}</pre>
-    </details>
+  <!-- A desk delivery is one shared record for every story of the day, not a message. -->
+  {#if !compact && !news}
+    <div class="mt-1 flex flex-col gap-2">
+      {#if body === null}
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="tap inline-flex items-center gap-2 px-3 py-1.5 bg-surface-800 border border-surface-600 text-surface-200 rounded-md text-xs cursor-pointer hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={fetching || offline.reachable === "offline"}
+            onclick={fetchBody}
+          >
+            {#if fetching}<Spinner label="Fetching" />{/if}
+            {fetching ? "Fetching…" : "Fetch contents"}
+          </button>
+          {#if offline.reachable === "offline"}
+            <span class="text-xs text-surface-400">Needs the connection.</span>
+          {:else if fetchError}
+            <span class="text-xs text-error-400">{fetchError}</span>
+          {:else}
+            <span class="text-xs text-surface-400">Read once, not saved on this device.</span>
+          {/if}
+        </div>
+      {:else}
+        <button
+          type="button"
+          class="tap self-start text-xs text-surface-400 cursor-pointer hover:text-surface-200"
+          onclick={() => (body = null)}
+        >
+          Hide contents
+        </button>
+        <pre class="text-xs whitespace-pre-wrap break-words text-surface-300 max-h-[32rem] overflow-y-auto bg-surface-950 border border-surface-700 rounded px-4 py-3 leading-relaxed">{body}</pre>
+      {/if}
+    </div>
   {/if}
 </article>

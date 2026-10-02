@@ -585,7 +585,7 @@
 {#if showBackToTop}
   <button
     type="button"
-    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-30 left-1/2 -translate-x-1/2 bottom-[calc(4.5rem+var(--safe-b))] xl:bottom-[calc(1.5rem+var(--safe-b))] transition-opacity"
+    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-30 left-1/2 -translate-x-1/2 bottom-[calc(4.5rem+var(--safe-b))] lg:bottom-[calc(1.5rem+var(--safe-b))] transition-opacity"
     onclick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
     aria-label="Back to top"
   >↑ Top</button>

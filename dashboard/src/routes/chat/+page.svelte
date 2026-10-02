@@ -90,7 +90,7 @@
 </svelte:head>
 
 <div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-0 lg:px-8 pt-3 lg:pt-6 gap-3
-            pb-[calc(3.5rem+1px+var(--safe-b))] lg:pb-[calc(4.5rem+1px+var(--safe-b))] xl:pb-6">
+            pb-[calc(3.5rem+1px+var(--safe-b))] lg:pb-6">
   <!-- Below lg: one pane at a time, with New chat always in reach. Below `lg` the page has no side
        padding so the transcript can use the full width; the rows that are not the transcript
        carry their own gutter instead. -->

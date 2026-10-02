@@ -3,7 +3,7 @@
  *
  * Every other lane drives Chrome at 390x844, so nothing in `bun run check` had rendered a page at
  * a laptop or desktop size. The `/[date]` grid collapse, the `size` mismatch on the management
- * pages and the Navbar wrapping below 1280px (all 2026-09-29) were each visible on the first look
+ * pages and the Navbar wrapping below its desktop breakpoint (all 2026-09-29) were each visible on the first look
  * at a wide screen and none of them would have failed a check.
  *
  * Online, against the layout snapshot (`fixture.ts`: several rows per table, a report with every
@@ -39,8 +39,9 @@ export interface LayoutResult {
   error?: string;
 }
 
-/** 1280 is the first width with the full navbar, 1366 the common laptop, 1920 past the 1600px cap. */
+/** 1024 is the first width with the full navbar, 1280 where the report rail appears, 1366 the common laptop, 1920 past the 1600px cap. */
 const VIEWPORTS = [
+  { width: 1024, height: 768 },
   { width: 1280, height: 720 },
   { width: 1366, height: 768 },
   { width: 1920, height: 1080 },

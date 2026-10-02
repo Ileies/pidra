@@ -4,7 +4,7 @@
    *
    * Four destinations - Report, Notes, Chat, More - each a full-height target, which makes this
    * the first thing in the app to satisfy the 44px minimum. Chat being a tab is also what
-   * removes the floating launcher below `xl`: the panel already took the whole screen there, so
+   * removes the floating launcher below `lg`: the panel already took the whole screen there, so
    * the button bought nothing and collided with the toast and the home indicator.
    *
    * `h-14` plus the safe-area inset, so the bar sits above the iOS home indicator rather than
@@ -49,7 +49,7 @@
   <button
     type="button"
     aria-label="Close menu"
-    class="fixed inset-0 z-40 bg-surface-950/70 xl:hidden"
+    class="fixed inset-0 z-40 bg-surface-950/70 lg:hidden"
     onclick={() => onOpenChange(false)}
   ></button>
 
@@ -57,7 +57,7 @@
     role="dialog"
     aria-label="More"
     aria-modal="true"
-    class="fixed inset-x-0 bottom-0 z-50 xl:hidden max-h-[80dvh] overflow-y-auto
+    class="fixed inset-x-0 bottom-0 z-50 lg:hidden max-h-[80dvh] overflow-y-auto
            rounded-t-2xl border-t border-surface-700 bg-surface-900
            px-4 pt-3 pb-[calc(1rem+var(--safe-b))] flex flex-col gap-2 shadow-2xl"
   >
@@ -95,7 +95,7 @@
 
 <nav
   aria-label="Primary"
-  class="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-surface-700 bg-surface-900
+  class="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-surface-700 bg-surface-900
          pb-[var(--safe-b)] grid grid-cols-4"
 >
   {#each TABS as tab (tab.href)}

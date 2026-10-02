@@ -5,10 +5,10 @@
   import Panel from "#lib/assistant/Panel.svelte";
 
   /**
-   * The floating assistant: one button, bottom right, on every page from `xl` up. Mounted once
+   * The floating assistant: one button, bottom right, on every page from `lg` up. Mounted once
    * in the root layout, so a turn keeps streaming while the user navigates.
    *
-   * Below `xl` there is no launcher. The panel already took the whole screen
+   * Below `lg` there is no launcher. The panel already took the whole screen
    * there, so the button bought nothing and collided with the bottom bar, the toast and the iOS
    * home indicator; the bottom bar's Chat tab is the mobile entry point instead.
    *
@@ -54,10 +54,10 @@
     aria-label="PIDRA assistant"
     class="fixed z-40 flex flex-col bg-surface-950 border border-surface-700 shadow-2xl
            inset-0 rounded-none
-           xl:inset-auto xl:bottom-5 xl:right-5 xl:rounded-xl
-           xl:w-[26rem] xl:h-[70vh]"
+           lg:inset-auto lg:bottom-5 lg:right-5 lg:rounded-xl
+           lg:w-[26rem] lg:h-[70vh]"
   >
-    <header class="flex items-center gap-2 px-4 py-2 border-b border-surface-800 bg-surface-900 xl:rounded-t-xl pt-[calc(0.5rem+var(--safe-t))] xl:pt-2">
+    <header class="flex items-center gap-2 px-4 py-2 border-b border-surface-800 bg-surface-900 lg:rounded-t-xl pt-[calc(0.5rem+var(--safe-t))] lg:pt-2">
       <span class="text-xs font-semibold tracking-wide text-surface-200">{label}</span>
       {#if assistant.info?.notice}
         <span class="text-xs text-warning-400 truncate">· final</span>
@@ -73,7 +73,7 @@
         href={assistant.conversationId ? `/chat?c=${assistant.conversationId}` : "/chat"}
         aria-label="Open full screen"
         title="Open full screen"
-        class="hidden xl:block text-surface-400 hover:text-surface-200 text-xs no-underline px-1"
+        class="hidden lg:block text-surface-400 hover:text-surface-200 text-xs no-underline px-1"
       >⤢</a>
       <button
         onclick={() => assistant.close()}
@@ -93,7 +93,7 @@
     onclick={() => assistant.toggle()}
     aria-label="Open assistant"
     title="Assistant (Ctrl+J)"
-    class="group fixed z-50 hidden xl:flex h-14 w-14 p-0 border-none bg-transparent
+    class="group fixed z-50 hidden lg:flex h-14 w-14 p-0 border-none bg-transparent
            bottom-[calc(1.25rem+var(--safe-b))] right-5
            cursor-pointer items-center justify-center
            drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] transition-transform duration-150

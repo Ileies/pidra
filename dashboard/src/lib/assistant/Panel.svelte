@@ -181,7 +181,7 @@
     {/if}
   </div>
 
-  <form onsubmit={submit} class="border-t border-surface-800 p-3 bg-surface-950 {variant === 'widget' ? 'pb-[calc(0.75rem+var(--safe-b))] xl:pb-3' : ''}">
+  <form onsubmit={submit} class="border-t border-surface-800 p-3 bg-surface-950 {variant === 'widget' ? 'pb-[calc(0.75rem+var(--safe-b))] lg:pb-3' : ''}">
     <div
       class="flex w-full items-end gap-2 rounded-3xl border border-surface-700 bg-surface-900 py-1.5 pl-4 pr-1.5 shadow-md shadow-black/20 transition-colors focus-within:border-primary-700 focus-within:ring-2 focus-within:ring-primary-700/30"
     >

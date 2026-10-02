@@ -7,14 +7,16 @@
    *
    * Two forms (M-1):
    *
-   * - **`xl` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
+   * - **`lg` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
    *   a single ungrouped row was the cause of the mobile header, and it was not much of a
    *   desktop layout either. Now the row only ever shows a page's `secondary: false` entries -
    *   the rest, plus the badges they may carry, live behind one "More" menu, the same cutoff
-   *   the mobile sheet uses. `xl` (1280px) rather than `sm`: below that the ten-to-twelve pills
+   *   the mobile sheet uses. `lg` (1024px) rather than `sm`: below that the ten-to-twelve pills
    *   do not fit in one line even grouped, and a wrapped row squeezed the page title down to a
    *   few truncated characters on anything narrower than roughly 1100px - a common laptop width.
-   * - **Below `xl`:** the app icon, page title, sync state, notifications and settings stay in
+   *   Between `lg` and `xl` the row is compacted instead (smaller pill padding, tighter gaps, the
+   *   wordmark hidden next to the icon) so it still fits on one line at 1024px.
+   * - **Below `lg`:** the app icon, page title, sync state, notifications and settings stay in
    *   the header. Navigation lives in the bottom tab bar and its More sheet, so there is one
    *   predictable, thumb-reachable place to open it.
    *
@@ -88,7 +90,7 @@
   <div class="flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2">
     <a href="/" class="flex items-center gap-1.5 no-underline hover:opacity-90 transition-opacity shrink-0">
       <img src="/icons/icon.svg" alt="" class="h-8 w-8 drop-shadow-[0_0_3px_rgba(120,157,104,0.55)]" />
-      <span class="font-bold tracking-widest text-lg text-surface-50">PIDRA</span>
+      <span class="font-bold tracking-widest text-lg text-surface-50 lg:max-xl:hidden">PIDRA</span>
       <span class="sr-only">- home</span>
     </a>
 
@@ -114,7 +116,7 @@
     <a
       href="/settings"
       aria-label="Settings"
-      class="tap xl:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 no-underline hover:border-surface-500 hover:text-surface-100 transition-colors"
+      class="tap lg:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 no-underline hover:border-surface-500 hover:text-surface-100 transition-colors"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -122,7 +124,7 @@
     </a>
 
     <!-- Desktop: the primary entries, grouped, plus everything secondary behind one menu. -->
-    <nav aria-label="Main" class="hidden xl:flex items-center justify-end gap-2 flex-wrap">
+    <nav aria-label="Main" class="hidden lg:flex items-center justify-end gap-2 lg:max-xl:gap-1 flex-wrap">
       {#each byGroup as group, index (group[0].href)}
         {#if index > 0}
           <span class="w-px h-4 bg-surface-700 mx-0.5" aria-hidden="true"></span>
@@ -137,7 +139,7 @@
             aria-current={isCurrentEntry(entry) ? "page" : undefined}
             data-sveltekit-preload-data={unavailable ? "off" : undefined}
             title={unavailable ? "Needs the connection" : undefined}
-            class="nav-btn {isCurrentEntry(entry)
+            class="nav-btn lg:max-xl:px-2 {isCurrentEntry(entry)
               ? 'nav-btn-active'
               : unavailable
                 ? 'nav-btn-muted border-dashed'
@@ -159,7 +161,7 @@
             aria-expanded={moreOpen}
             aria-haspopup="true"
             onclick={() => (moreOpen = !moreOpen)}
-            class="nav-btn nav-btn-muted cursor-pointer relative"
+            class="nav-btn lg:max-xl:px-2 nav-btn-muted cursor-pointer relative"
           >
             More
             {#if overflowPending}

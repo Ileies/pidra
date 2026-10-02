@@ -34,7 +34,7 @@
   onclick={(event) => {
     if (event.target === dialog) onclose();
   }}
-  class="m-auto w-[min(40rem,calc(100%-2rem))] overflow-hidden rounded-lg border border-surface-600 bg-surface-900 p-0 text-surface-200 shadow-2xl backdrop:bg-surface-950/70 max-sm:mb-0 max-sm:mt-auto max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none"
+  class="m-auto w-[min(40rem,calc(100%-2rem))] overflow-hidden rounded-lg border border-surface-600 bg-surface-900 p-0 text-surface-200 shadow-2xl backdrop:bg-(--app-scrim) max-sm:mb-0 max-sm:mt-auto max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none"
 >
   <div class="flex max-h-[85dvh] flex-col">
     <div class="flex items-center gap-3 border-b border-surface-700 px-4 py-2 sm:px-5">

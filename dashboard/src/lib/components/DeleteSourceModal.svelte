@@ -47,7 +47,7 @@
 </button>
 
 {#if open}
-  <button type="button" aria-label="Close" class="fixed inset-0 z-40 bg-surface-950/70" onclick={close}></button>
+  <button type="button" aria-label="Close" class="fixed inset-0 z-40 bg-(--app-scrim)" onclick={close}></button>
 
   <div
     role="dialog"

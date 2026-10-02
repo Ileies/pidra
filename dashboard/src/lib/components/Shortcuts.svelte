@@ -108,7 +108,7 @@
 
 {#if overlayOpen}
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <button type="button" aria-label="Close shortcuts" class="absolute inset-0 bg-surface-950/80 cursor-default" onclick={() => (overlayOpen = false)}></button>
+    <button type="button" aria-label="Close shortcuts" class="absolute inset-0 bg-(--app-scrim) cursor-default" onclick={() => (overlayOpen = false)}></button>
 
     <div role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" class="relative w-full max-w-md rounded-lg border border-surface-600 bg-surface-900 p-5 shadow-2xl">
       <h2 class="mb-3 text-sm font-semibold text-surface-50">Keyboard shortcuts</h2>

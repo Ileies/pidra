@@ -143,6 +143,22 @@
   --color-surface-900: light-dark(#ffffff, #1a1c1f);
   --color-surface-950: light-dark(#f0f2f5, #111214);
 
+  /* Skeleton's own `light-dark(--color-surface-A, --color-surface-B)` pairs (global `code`, the
+     blockquote/kbd/hr rules, the placeholder colour, the tap highlight) assume a ramp that does
+     NOT flip with the mode, so on this mirrored ramp they flipped twice in light mode: near-white
+     text on a pale chip, a placeholder one shade off the field. Re-stated for the mirrored ramp:
+     light mode wants the standard stop A, which is this ramp's stop 1000-A; dark mode wants B. */
+  --color-surface-50-950: var(--color-surface-950);
+  --color-surface-100-900: var(--color-surface-900);
+  --color-surface-200-800: var(--color-surface-800);
+  --color-surface-300-700: var(--color-surface-700);
+  --color-surface-400-600: var(--color-surface-600);
+  --color-surface-600-400: var(--color-surface-400);
+  --color-surface-700-300: var(--color-surface-300);
+  --color-surface-800-200: var(--color-surface-200);
+  --color-surface-900-100: var(--color-surface-100);
+  --color-surface-950-50: var(--color-surface-50);
+
   /* The accent ramps used to stop at four stops each, so every `border-success-700`,
      `bg-primary-600` and `text-error-400` in the app silently resolved to a cerberus
      default from a different palette. Full ramps, so a class picks a colour on purpose. */
@@ -232,6 +248,9 @@
   --app-accent: var(--color-primary-400);
   --app-accent-dim: var(--color-primary-900);
   --app-emphasis: var(--color-primary-200);
+  /* Behind a modal or drawer. `surface-950` at 70-80% is the page colour in light mode, so it
+     covers nothing; a scrim has to be dark in both. */
+  --app-scrim: light-dark(rgb(17 24 39 / 0.5), rgb(17 18 20 / 0.75));
   /* A solid fill under white text must not follow the ramp: error-600 mirrors to a pale red. */
   --app-solid-error: #c03e3e;
 
@@ -282,6 +301,22 @@
     text-decoration: underline;
   }
 
+  /* On white-on-grey a 1px hairline is all that separates a card from the page, which reads flat.
+     Light mode gets a soft two-layer lift; dark mode resolves both colours to transparent. */
+  :root {
+    --app-shadow-panel:
+      0 1px 2px light-dark(rgb(16 24 40 / 0.06), transparent),
+      0 2px 8px -2px light-dark(rgb(16 24 40 / 0.07), transparent);
+  }
+}
+
+@layer components {
+  .bg-surface-900.border:is(.rounded, .rounded-md, .rounded-lg, .rounded-xl) {
+    box-shadow: var(--app-shadow-panel);
+  }
+}
+
+@layer base {
   /* A5: one focus ring for the whole app. Individual components no longer get to
      remove the outline without providing a replacement. */
   :focus-visible {

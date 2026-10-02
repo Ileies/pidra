@@ -52,7 +52,7 @@
     bind:this={panel}
     role="dialog"
     aria-label="PIDRA assistant"
-    class="fixed z-40 flex flex-col bg-surface-950 border border-surface-700 shadow-2xl
+    class="fixed z-40 flex flex-col bg-surface-950 border border-surface-600 shadow-2xl shadow-black/40
            inset-0 rounded-none
            lg:inset-auto lg:bottom-5 lg:right-5 lg:rounded-xl
            lg:w-[26rem] lg:h-[70vh]"

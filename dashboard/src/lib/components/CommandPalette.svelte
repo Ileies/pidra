@@ -158,7 +158,7 @@
 
 {#if open}
   <div class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10dvh]">
-    <button type="button" aria-label="Close search" class="absolute inset-0 bg-surface-950/80 cursor-default" onclick={() => onOpenChange(false)}></button>
+    <button type="button" aria-label="Close search" class="absolute inset-0 bg-(--app-scrim) cursor-default" onclick={() => onOpenChange(false)}></button>
 
     <div
       role="dialog"

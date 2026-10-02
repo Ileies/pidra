@@ -191,7 +191,7 @@
 {#if modalMode}
   {@const editTarget = modalAccount === "new" ? undefined : (modalAccount as EmailAccountRow)}
   <div class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[6dvh] sm:pt-[10dvh]">
-    <button type="button" aria-label="Close" class="absolute inset-0 bg-surface-950/80 cursor-default" onclick={closeModal}></button>
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-(--app-scrim) cursor-default" onclick={closeModal}></button>
 
     <div
       role="dialog"

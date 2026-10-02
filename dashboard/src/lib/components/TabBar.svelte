@@ -51,7 +51,7 @@
   <button
     type="button"
     aria-label="Close menu"
-    class="fixed inset-0 z-40 bg-surface-950/70 lg:hidden"
+    class="fixed inset-0 z-40 bg-(--app-scrim) lg:hidden"
     onclick={() => onOpenChange(false)}
   ></button>
 

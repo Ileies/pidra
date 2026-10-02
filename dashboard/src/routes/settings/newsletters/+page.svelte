@@ -86,7 +86,7 @@
 
 {#if editingFeed}
   <div class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10dvh]">
-    <button type="button" aria-label="Close" class="absolute inset-0 bg-surface-950/80 cursor-default" onclick={closeFeedModal}></button>
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-(--app-scrim) cursor-default" onclick={closeFeedModal}></button>
 
     <div role="dialog" aria-modal="true" aria-labelledby="edit-feed-title" class="relative w-full max-w-xl max-h-[88dvh] rounded-lg border border-surface-600 bg-surface-900 shadow-2xl overflow-hidden flex flex-col">
       <div class="flex items-center justify-between gap-3 border-b border-surface-700 px-4 sm:px-5 py-3 shrink-0">

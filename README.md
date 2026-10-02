@@ -43,7 +43,7 @@ The full invariants are in [`docs/architecture-rules.md`](./docs/architecture-ru
 - **No vector store in the pipeline.** A similarity threshold silently drops items, and a daily briefing has to be complete. A vector store is planned for archive search only, as its own project.
 - **Credentials never reach a cloud API.** Other personal content, diary included, is deliberately in scope for the Context Builder.
 - **No prompt change without human approval.** The system proposes weekly; the owner approves each change.
-- **The briefing works without the network.** The dashboard is read on a train. The phone keeps a local IndexedDB copy of the last 60 briefings, the notes, the rules, the context document and the reference tables, so every mirrored page opens without waiting on the network. Notes, rule edits and ratings made offline are queued and delivered in order on reconnect; anything acting on live state says it needs the connection. Every request has a hard time budget, and an unreachable server is detected within about 3.5 s even when packets vanish silently. Details in [`docs/offline-mode.md`](./docs/offline-mode.md).
+- **The briefing works without the network.** The dashboard is read on a train. The phone keeps a local IndexedDB copy of the last 60 briefings, the notes, the context document and the reference tables, so every mirrored page opens without waiting on the network. Notes and ratings made offline are queued and delivered in order on reconnect; anything acting on live state says it needs the connection. Every request has a hard time budget, and an unreachable server is detected within about 3.5 s even when packets vanish silently. Details in [`docs/offline-mode.md`](./docs/offline-mode.md).
 
 ## Tools
 

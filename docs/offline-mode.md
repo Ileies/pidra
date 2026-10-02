@@ -1,6 +1,6 @@
 # Offline mode
 
-The installed app reads the briefing archive, notes, rules, context document and reference tables without a network, and accepts notes, rule edits and ratings while offline; they land in Postgres through the existing single writers when the connection is back.
+The installed app reads the briefing archive, notes, context document and reference tables without a network, and accepts notes and ratings while offline; they land in Postgres through the existing single writers when the connection is back.
 
 The failure it is built for is not a fast error. A weak signal, a captive portal, or `pidra.de` resolving with pronix not answering behind it is a **blackhole**: the request neither succeeds nor fails, and a bare `fetch` waits for the OS connect timeout. DevTools' offline mode is fail-fast and cannot reproduce that, which is how a Questions tap once spun for minutes and ended in "500 Internal Error".
 
@@ -10,7 +10,8 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 **The mirror is a cache and the outbox is a queue, never a source of truth.**
 
-- **Store:** IndexedDB (`$lib/offline/db.ts`), filled only from `GET /api/offline/snapshot`. It holds the newest `MIRROR_DAYS = 60` (`#lib/server/snapshotCache.ts`) report dates with their open and done quick actions (never an action's error text), the extractions they cite, every note including the trash, standing rules, active corrections, the newest harvest document, entities, contacts (removed ones left out), topics, and the entity appearances inside the window.
+- **Store:** IndexedDB (`$lib/offline/db.ts`), filled only from `GET /api/offline/snapshot`. It holds the newest `MIRROR_DAYS = 60` (`#lib/server/snapshotCache.ts`) report dates with their open and done quick actions (never an action's error text), the extractions they cite, every note including the trash (standing rules are `personal` notes, so they arrive here), active corrections, the newest harvest document, entities, contacts (removed ones left out), topics, and the entity appearances inside the window.
+- **Schema version:** `DB_VERSION` is 4. The upgrade drops the `rules` store (standing rules became notes) and deletes any queued or failed `rule.*` intent, which no longer has an endpoint and would otherwise jam the drain.
 - **Exclusions are enforced in the endpoint, not in a consumer:** no `raw_items.raw_content`, nothing from `chat_messages`, `skill_executions` or `push_subscriptions`, and `step_errors` only as the `ingestFailures` digest (source plus one fixed word).
 - **Rendered on the server:** the snapshot ships sanitised HTML, so `renderMarkdown()` stays out of the client bundle.
 - **Transfer:** a `304`, a delta against the client's ETag, or everything (`snapshotCache.ts`). A build the client has not seen replaces the mirror instead of merging into it.
@@ -36,10 +37,10 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 ## Writes
 
-**One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`, `rule.*`; `intents.ts`), never into the mirror directly.
+**One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`; `intents.ts`), never into the mirror directly.
 
-- An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*`, `/api/feedback` and `/api/rules/*`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`, `#lib/server/rules.ts`).
-- Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rule create that upserts on its key, a rating that replaces the previous one.
+- An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*` and `/api/feedback`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`).
+- Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rating that replaces the previous one.
 - A transport failure retries; a 4xx moves the intent to `failed`, shown on the row it belongs to (`FailedWrite`).
 - A queued note edit whose row moved on the server still lands and is flagged, since `note_revisions` keeps both versions.
 - **Never queued:** corrections and contact edits, topic curation, quick actions, pipeline and Context Builder runs, deep dives, revision reverts, skill approvals and the chat. Once the app knows it is offline they are disabled with the reason; a tap before that is answered "Not sent" with what was typed kept.

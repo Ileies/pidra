@@ -5,7 +5,7 @@ import { executeSkill } from "../../skills/execute";
 import { loadPromptVars } from "../../settings/store";
 import { normaliseContext, systemPrompt, type TurnContextInput } from "./context";
 import { skillTools, SKILL_TOUCHES } from "./tools";
-import { buildHistory } from "./history";
+import { buildHistory, MAX_TOOL_RESULT_CHARS } from "./history";
 import { persistAssistantTurn } from "./persist";
 
 // Enough for read → write → read-back on several facts in one turn, with a hard stop so a model
@@ -113,7 +113,7 @@ export async function* streamMessage(
         input.push({
           type: "function_call_output",
           call_id: call.callId,
-          output: `${executed.status}: ${executed.message}`.slice(0, 4000),
+          output: `${executed.status}: ${executed.message}`.slice(0, MAX_TOOL_RESULT_CHARS),
         });
         toolCalls.push({ call_id: call.callId, name: call.name, arguments: args, result: executed.message, status: executed.status });
         yield { type: "tool_result", name: call.name, status: executed.status, message: executed.message };

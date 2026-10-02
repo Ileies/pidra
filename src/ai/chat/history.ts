@@ -2,18 +2,21 @@ import { eq } from "drizzle-orm";
 import { db, chatMessages } from "../../db";
 import type { ResponseInput } from "../openai";
 
-/** History replay caps. A widget one click away from every page produces long conversations. */
-export const MAX_HISTORY_MESSAGES = 20;
-export const MAX_TOOL_LOG_CHARS = 8000;
+/**
+ * Caps are generous on purpose: input tokens are cheap, and a follow-up question that makes the
+ * model re-run a tool it already ran costs more than the tokens it would have replayed.
+ */
+export const MAX_HISTORY_MESSAGES = 60;
+export const MAX_TOOL_RESULT_CHARS = 40_000;
+export const MAX_TOOL_LOG_CHARS = 400_000;
 
 /**
  * Rebuilds the model input from the stored transcript. Only user text and assistant text are
  * replayed - reasoning items and raw function calls are not, because they are only valid within
- * the request that produced them. Past tool results travel as part of the assistant's own text
- * summary plus the tool-call log rendered below, which is enough for follow-up questions and
- * avoids replaying stale call ids.
+ * the request that produced them. Past tool results travel in full as a tool-call log appended to
+ * the assistant's text, so a follow-up question can be answered without calling the tool again.
  *
- * Capped from the end: recent turns keep their tool log, older ones lose it before they lose
+ * Budgeted from the end: recent turns keep their tool log, older ones lose it before they lose
  * their text.
  */
 export async function buildHistory(conversationId: string): Promise<ResponseInput> {
@@ -31,7 +34,7 @@ export async function buildHistory(conversationId: string): Promise<ResponseInpu
     const calls = row.toolCalls ?? [];
     if (calls.length === 0 || budget <= 0) continue;
     const log = `\n\n[skills used: ${calls
-      .map((c) => `${c.name}(${JSON.stringify(c.arguments)}) -> ${c.status ?? "executed"}: ${(c.result ?? "").slice(0, 300)}`)
+      .map((c) => `${c.name}(${JSON.stringify(c.arguments)}) -> ${c.status ?? "executed"}: ${(c.result ?? "").slice(0, MAX_TOOL_RESULT_CHARS)}`)
       .join(" | ")}]`;
     if (log.length > budget) continue;
     budget -= log.length;

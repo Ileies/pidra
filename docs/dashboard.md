@@ -29,7 +29,7 @@ Intelligence:
 Memory:
 
 - `/notes` - click-to-edit content, inline scope and expiry, search, sort, trash with restore, per-revision history with revert, bulk actions, undo on delete. System notes are editable too; provenance stays visible via `created_by` / `updated_by`.
-- `/rules` - `standing_context` CRUD, with a preview of the block as the Section 2 prompt receives it.
+- `/rules` - `standing_context` CRUD. The block as the Section 2 prompt receives it is previewed on `/prompts`.
 - `/context-builder` - the harvested document and source summaries, and run controls. The status bar carries link buttons to `/rules` ("Standing rules (N)") and `/context-builder/corrections` ("Corrections (N)"). At `xl`+ a Quick Links rail (document headings and source summaries, scrollspy highlighting) sits beside the document; below `xl` there are no quick links.
 - `/context-builder/corrections` - the active `context_corrections` over the harvest; a revert is written on the server, never queued.
 
@@ -42,7 +42,7 @@ Questions and assistant:
 System:
 
 - `/skills` - the pending high-risk approval queue and the read-only registry with an enable/disable toggle. The registry header shows the total skill count ("N skills", plus "(M shown)" while searching) with a search box and a sort dropdown: alphabetical (default), most used, or risk level (critical first). Each row shows its 30-day usage, the count of non-pending `skill_executions` rows from the last 30 days (`uses` on `SkillInfo`, loaded in `+page.server.ts`). `/skills/executions` is the last 100 non-pending executions.
-- `/prompts` - prompt versions: diff against whatever is running for that section, activate, delete.
+- `/prompts` - prompt versions: diff against whatever is running for that section, activate, delete. The `section2` card also has a collapsible preview of the `standing_rules` block as the payload carries it.
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log. Each row is a two-line block whose "N sources failed" / failed-step text toggles its error card, with a Breakdown link pinned right. A failed or degraded run not yet reviewed carries "Mark reviewed" (the `reviewRun` form action) and is what the Runs badge counts; RSS feed failures count as run issues here.
 - `/runs/[id]` - one run's step timing from `pipeline_run_steps`: a Gantt-style graph, a callout when the old question-gate wait dominates (present only on historic runs, and can be shrunk), and cost per phase and step from `$lib/pricing.ts`. Online-only; empty for runs before 2026-10-01.
 - `/settings` - see below.

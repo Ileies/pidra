@@ -14,7 +14,6 @@ import type {
   MirroredEntity,
   MirroredExtraction,
   MirroredReport,
-  MirroredRule,
   MirroredTopic,
 } from "../../src/lib/offline/repo.ts";
 import type { NoteRow } from "../../src/lib/notes/api.ts";
@@ -33,7 +32,6 @@ export const EXTRACTION = {
 
 export const NOTE_ID = "00000000-0000-4000-8000-0000000000a1";
 export const TRASHED_NOTE_ID = "00000000-0000-4000-8000-0000000000a2";
-export const RULE_ID = "00000000-0000-4000-8000-0000000000b1";
 export const ENTITY_ID = "00000000-0000-4000-8000-0000000000c1";
 const OTHER_ENTITY_ID = "00000000-0000-4000-8000-0000000000c2";
 export const CONTACT_ID = "00000000-0000-4000-8000-0000000000d1";
@@ -48,7 +46,6 @@ export const TEXT = {
   yesterday: "Yesterday's example briefing entry.",
   note: "Example note: bring the placeholder folder.",
   trashedNote: "Example note that was deleted.",
-  rule: "Keep the example briefing short on weekends.",
   harvest: "Example harvested interests section.",
   entity: "Example Organisation",
   otherEntity: "Example Project",
@@ -172,8 +169,6 @@ const notes: NoteRow[] = [
   },
 ];
 
-const rules: MirroredRule[] = [{ id: RULE_ID, key: "example_rule", value: TEXT.rule, source: "user", updatedAt: NOW }];
-
 const contextDoc: MirroredContextDoc = {
   id: "current",
   run: {
@@ -195,7 +190,6 @@ const contextDoc: MirroredContextDoc = {
   },
   docError: null,
   skipped: [],
-  standing: rules,
   corrections: [
     {
       id: "00000000-0000-4000-8000-0000000000f2",
@@ -209,7 +203,7 @@ const contextDoc: MirroredContextDoc = {
       created_at: NOW,
     },
   ],
-  counts: { contacts: 1, entities: 2, standing_context: 1, indexed_email: 10, indexed_keep: 2 },
+  counts: { contacts: 1, entities: 2, indexed_email: 10, indexed_keep: 2 },
 };
 
 const entities: MirroredEntity[] = [
@@ -280,7 +274,6 @@ const stores = {
   reports,
   extractions,
   notes,
-  rules,
   corrections: contextDoc.corrections,
   contextDoc: [contextDoc],
   entities,
@@ -350,8 +343,6 @@ const layoutReports: MirroredReport[] = [
   ...[2, 3, 4, 5, 6].map((n) => report(daysAgo(n), { personal: [], news: [], intel: [{ domain: "Technology", entries: [entry(`Example entry from ${n} days ago.`, n)] }], alsoNoted: [] })),
 ];
 
-const layoutRules: MirroredRule[] = [...rules, ...bulk((i): MirroredRule => ({ id: bulkId(0x11, i), key: `example_rule_${i}`, value: `Example standing rule ${i}, worded long enough to wrap inside a card on a narrow column.`, source: "user", updatedAt: NOW }))];
-
 const layoutContextDoc: MirroredContextDoc = {
   ...contextDoc,
   doc: {
@@ -362,7 +353,6 @@ const layoutContextDoc: MirroredContextDoc = {
     fullContextHtml: [1, 2, 3, 4, 5].map((n) => `<h1>${n}. Example section ${n}</h1><p>${n === 3 ? TEXT.harvest : `Example harvested text for section ${n}.`}</p>`).join(""),
     sections: [1, 2, 3, 4, 5].map((n) => ({ key: String(n), title: n === 3 ? "3. Interests" : `${n}. Example section ${n}`, html: `<p>${n === 3 ? TEXT.harvest : `Example harvested text for section ${n}.`}</p>`, chars: 40 })),
   },
-  standing: layoutRules,
   corrections: [
     ...contextDoc.corrections,
     ...bulk((i) => ({ ...contextDoc.corrections[0], id: bulkId(0x12, i), target_key: String((i % 5) + 1), statement: `Example correction statement ${i}.` })),
@@ -376,7 +366,6 @@ const layoutStores = {
     ...notes,
     ...bulk((i): NoteRow => ({ ...notes[0], id: bulkId(0x13, i), content: `Example bulk note ${i}: a placeholder line long enough to wrap inside a card.`, scope: i % 2 ? "global" : "personal", revision_count: 0 })),
   ],
-  rules: layoutRules,
   corrections: layoutContextDoc.corrections,
   contextDoc: [layoutContextDoc],
   entities: [

@@ -39,7 +39,7 @@ const NGINX_403 =
   "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n";
 
 /** The outbox's endpoints (`intents.ts`), answered here so a replay never reaches a real writer. */
-const WRITE = /^\/api\/(notes(\/[^/]+(\/restore)?)?|feedback|rules(\/[^/]+)?)$/;
+const WRITE = /^\/api\/(notes(\/[^/]+(\/restore)?)?|feedback)$/;
 
 export class LaneProxy {
   /** Picked by the OS on the first listen and kept, so a refusal can end and the origin stays. */

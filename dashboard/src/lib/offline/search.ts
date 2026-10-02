@@ -1,7 +1,7 @@
 /**
  * The command palette's search while pronix is out of reach. Online the
  * palette asks `/api/search`, which ranks with Postgres `tsvector`; offline it asks this, which
- * matches plain text over what the mirror holds: reports, notes, standing rules and entities. The
+ * matches plain text over what the mirror holds: reports, notes and entities. The
  * palette says which one answered, because the two do not find the same things - no stemming, no
  * ranking beyond a count, and only the mirrored window.
  *
@@ -10,10 +10,10 @@
  */
 
 import * as db from "./db.js";
-import type { MirroredEntity, MirroredReport, MirroredRule } from "./repo.js";
+import type { MirroredEntity, MirroredReport } from "./repo.js";
 import type { NoteRow } from "#lib/notes/api.js";
 
-export type OfflineHitKind = "report" | "note" | "rule" | "entity";
+export type OfflineHitKind = "report" | "note" | "entity";
 
 export interface OfflineHit {
   id: string;
@@ -90,10 +90,9 @@ export async function searchMirror(query: string, limit = 20): Promise<OfflineHi
   const terms = termsOf(query);
   if (terms.length === 0) return [];
 
-  const [reports, notes, rules, entities] = await Promise.all([
+  const [reports, notes, entities] = await Promise.all([
     db.getAll<MirroredReport>("reports"),
     db.getAll<NoteRow>("notes"),
-    db.getAll<MirroredRule>("rules"),
     db.getAll<MirroredEntity>("entities"),
   ]);
 
@@ -113,9 +112,6 @@ export async function searchMirror(query: string, limit = 20): Promise<OfflineHi
       { id: note.id, kind: "note", title: note.content.slice(0, 60) || "Note", href: `/notes?q=${encodeURIComponent(query)}`, meta: `Note · ${note.scope}` },
       note.content,
     );
-  }
-  for (const rule of rules) {
-    consider({ id: rule.id, kind: "rule", title: rule.key, href: "/rules", meta: "Standing rule" }, `${rule.key} ${rule.value}`);
   }
   for (const entity of entities) {
     consider(

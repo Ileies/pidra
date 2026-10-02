@@ -56,13 +56,19 @@ export const load: PageServerLoad = async () => {
     if (!known.has(section)) sections.push({ section, effective: null, versions });
   }
 
-  // Exactly what the standing_rules key looks like where it lands in the Section 2 payload.
-  const rules = await sql()`SELECT value FROM standing_context ORDER BY key` as unknown as { value: string }[];
-  const standingRulesBlock = rules.length === 0
-    ? "standing_rules: null"
-    : `standing_rules: [\n${rules.map((rule) => `  ${JSON.stringify(rule.value)}`).join(",\n")}\n]`;
+  // Exactly what the notes_personal key looks like where it lands in the Section 2 payload: the
+  // live personal and global notes, which is also where the standing rules from Keep now sit.
+  const personal = await sql()`
+    SELECT content FROM notes
+    WHERE deleted_at IS NULL AND scope IN ('personal', 'global')
+      AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
+    ORDER BY created_at
+  ` as unknown as { content: string }[];
+  const personalNotesBlock = personal.length === 0
+    ? "notes_personal: []"
+    : `notes_personal: [\n${personal.map((note) => `  ${JSON.stringify(note.content)}`).join(",\n")}\n]`;
 
-  return { sections, standingRulesBlock };
+  return { sections, personalNotesBlock };
 };
 
 export const actions: Actions = {

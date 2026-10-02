@@ -55,8 +55,8 @@
           <div class="flex flex-col gap-3">
             {#if group.section === "section2"}
               <details class="bg-surface-900 border border-surface-700 rounded-lg p-3">
-                <summary class="cursor-pointer text-xs text-surface-300">Standing rules block as injected</summary>
-                <pre class="mt-3 text-xs text-surface-200 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">{data.standingRulesBlock}</pre>
+                <summary class="cursor-pointer text-xs text-surface-300">Personal notes and standing rules as injected</summary>
+                <pre class="mt-3 text-xs text-surface-200 bg-surface-950 rounded px-3 py-2 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">{data.personalNotesBlock}</pre>
               </details>
             {/if}
 

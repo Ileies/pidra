@@ -57,7 +57,6 @@ const SIZE: Record<string, "read" | "legal"> = {
 /** A row beyond the first on each table-like page, so a fixture shrunk back to one row fails here. */
 const SECOND_ROW: Record<string, string> = {
   "/notes": "Example bulk note 2",
-  "/rules": "Example standing rule 2",
   "/entities": "Example Bulk Entity 2",
   "/contacts": "Example Sender 2",
   "/topics": "Example bulk story 2",

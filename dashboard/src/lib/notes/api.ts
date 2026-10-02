@@ -24,6 +24,8 @@ export interface NoteRow {
   created_by: string | null;
   updated_by: string | null;
   deleted_at: string | null;
+  /** Set on a rule the Context Builder seeded from Keep; such a note is never purged from the trash. */
+  source_key?: string | null;
   revision_count: number;
   /** Mirror-only, set by the outbox: an offline edit's `base_updated_at`
    *  did not match the row's actual `updated_at` when it flushed - "changed on the server while

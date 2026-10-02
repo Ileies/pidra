@@ -76,7 +76,6 @@ function expectedText(id: string): string {
     "/[date]": F.TEXT.personal,
     "/[date]/detail/[ids]": "Example permit reminder",
     "/notes": F.TEXT.note,
-    "/rules": F.TEXT.rule,
     "/context-builder": F.TEXT.harvest,
     "/context-builder/corrections": F.TEXT.correction,
     "/entities": F.TEXT.entity,
@@ -97,7 +96,7 @@ const UNDESIGNED = ["Internal Error", "Nothing stored on this device yet", "Down
 
 // --- the budgets every request is held to (`net.ts` BUDGET, the worker's constants) ---
 
-const WRITE = /^\/api\/(notes(\/[^/]+(\/restore)?)?|feedback|rules(\/[^/]+)?)$/;
+const WRITE = /^\/api\/(notes(\/[^/]+(\/restore)?)?|feedback)$/;
 
 function budgetFor(t: Tracked): number {
   const path = t.path.split("?")[0];
@@ -390,36 +389,6 @@ const CONTROLS: Record<string, Control[]> = {
         await visible(page.getByText("Offline note from the suite", { exact: true }), deadline);
         await page.getByText(F.TEXT.trashedNote, { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
         await page.getByLabel("Search notes").fill("");
-      },
-    },
-  ],
-  "/rules": [
-    {
-      name: "create a rule",
-      async run(page, deadline) {
-        await page.getByRole("button", { name: "+ New rule" }).click({ timeout: remaining(deadline) });
-        await page.locator('input[name="key"]').fill("offline_rule");
-        await page.locator('textarea[name="value"]').fill("Offline rule from the suite");
-        await page.getByRole("button", { name: "Add rule" }).click({ timeout: remaining(deadline) });
-        await visible(page.getByText("Offline rule from the suite"), deadline);
-        await visible(card(page, "Offline rule from the suite", page.getByText("Queued", { exact: true })), deadline);
-      },
-    },
-    {
-      name: "edit a rule",
-      async run(page, deadline) {
-        await page.getByRole("button", { name: F.TEXT.rule }).click({ timeout: remaining(deadline) });
-        await page.getByLabel("Rule text").fill("Edited rule offline");
-        await page.getByRole("button", { name: "Save", exact: true }).click({ timeout: remaining(deadline) });
-        await visible(page.getByText("Edited rule offline", { exact: true }), deadline);
-      },
-    },
-    {
-      name: "delete a rule",
-      async run(page, deadline) {
-        const del = page.getByRole("button", { name: "Delete this rule" });
-        await card(page, "Edited rule offline", del).getByRole("button", { name: "Delete this rule" }).click({ timeout: remaining(deadline) });
-        await page.getByText("Edited rule offline", { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
       },
     },
   ],
@@ -750,9 +719,6 @@ const EXPECTED_WRITES = [
   `PATCH /api/notes/${F.NOTE_ID}`,
   `DELETE /api/notes/${F.NOTE_ID}`,
   `POST /api/notes/${F.TRASHED_NOTE_ID}/restore`,
-  `POST /api/rules`,
-  `PATCH /api/rules/${F.RULE_ID}`,
-  `DELETE /api/rules/${F.RULE_ID}`,
 ];
 
 function checkDelivered(proxy: LaneProxy): void {
@@ -767,7 +733,6 @@ function checkDelivered(proxy: LaneProxy): void {
   // Ordered per row: an edit cannot overtake the create or the delete it belongs with.
   const order = (a: string, b: string) => got.indexOf(a) < got.indexOf(b);
   if (!order(`PATCH /api/notes/${F.NOTE_ID}`, `DELETE /api/notes/${F.NOTE_ID}`)) problems.push("note delete overtook its edit");
-  if (!order(`PATCH /api/rules/${F.RULE_ID}`, `DELETE /api/rules/${F.RULE_ID}`)) problems.push("rule delete overtook its edit");
   const rating = proxy.delivered.find((d) => d.path === "/api/feedback")?.body as { extraction_id?: string; signal?: string } | undefined;
   // The report's + and the detail page's − on the same extraction collapse to the last one.
   if (rating && (rating.extraction_id !== F.EXTRACTION.personal || rating.signal !== "-1")) problems.push(`rating sent as ${JSON.stringify(rating)}`);

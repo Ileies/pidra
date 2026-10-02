@@ -73,7 +73,6 @@ async function fingerprint(): Promise<string> {
       (SELECT count(*)::text || '/' || coalesce(max(created_at)::text, '') FROM extractions),
       (SELECT md5(coalesce(string_agg(n::text, ',' ORDER BY n.id), '')) FROM notes n),
       (SELECT count(*)::text FROM note_revisions),
-      (SELECT md5(coalesce(string_agg(s::text, ',' ORDER BY s.id), '')) FROM standing_context s),
       (SELECT md5(coalesce(string_agg(c::text, ',' ORDER BY c.id), '')) FROM context_corrections c),
       (SELECT md5(coalesce(string_agg(r::text, ',' ORDER BY r.id), '')) FROM context_builder_runs r),
       (SELECT md5(coalesce(string_agg(ct::text, ',' ORDER BY ct.id), '')) FROM contacts ct),

@@ -92,6 +92,7 @@ const LABELS: Record<string, string> = {
   user: "You",
   chat: "The assistant",
   system: "The system",
+  harvest: "Keep import",
 
   // context correction operations
   add: "Added",

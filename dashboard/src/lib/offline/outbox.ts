@@ -133,18 +133,6 @@ export async function rate(extractionId: string, signal: "1" | "-1"): Promise<vo
   await enqueue("rate", { extractionId, signal });
 }
 
-export async function createRule(key: string, value: string): Promise<void> {
-  await enqueue("rule.create", { localId: crypto.randomUUID(), key, value });
-}
-
-export async function updateRule(id: string, value: string): Promise<void> {
-  await enqueue("rule.update", { id, value });
-}
-
-export async function deleteRule(id: string): Promise<void> {
-  await enqueue("rule.delete", { id });
-}
-
 // --- flush ---
 
 let flushing: Promise<void> | null = null;

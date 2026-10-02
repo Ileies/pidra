@@ -149,7 +149,7 @@
         <span class={expiry.tone}>{expiry.text}</span>
       {/if}
       <span title={provenance}>
-        {#if deleted}Deleted {fmtAgo(note.deleted_at)} · purged after 30 days{:else}{when}{/if}
+        {#if deleted}Deleted {fmtAgo(note.deleted_at)}{note.source_key ? " · kept so Keep does not re-add it" : " · purged after 30 days"}{:else}{when}{/if}
       </span>
       {#if queued}
         <Badge tone="warning">Queued</Badge>

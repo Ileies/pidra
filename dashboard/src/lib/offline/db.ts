@@ -12,14 +12,15 @@ const DB_NAME = "pidra-offline";
 /** 2: the reference tables (entities, relations, appearances, contacts, topics).
  *  3: the relation graph is gone (no confirmed edges, no evidence, never read by synthesis - see
  *  docs/scoring-formulas.md) - `entityRelations` is dropped on upgrade rather than left as dead,
- *  unsynced data. An upgrade otherwise only ever adds stores, so it keeps what is there. */
-const DB_VERSION = 3;
+ *  unsynced data. An upgrade otherwise only ever adds stores, so it keeps what is there.
+ *  4: standing rules became notes - the `rules` store is dropped, along with any queued or failed
+ *  `rule.*` writes, which no longer have an endpoint. */
+const DB_VERSION = 4;
 
 export const STORES = [
   "reports",
   "extractions",
   "notes",
-  "rules",
   "corrections",
   "contextDoc",
   "entities",
@@ -38,7 +39,6 @@ export const MIRROR_STORES = [
   "reports",
   "extractions",
   "notes",
-  "rules",
   "corrections",
   "contextDoc",
   "entities",
@@ -79,6 +79,20 @@ function openDb(): Promise<IDBDatabase> {
       }
       // Dropped in version 3, kept here rather than left around unsynced.
       if (db.objectStoreNames.contains("entityRelations")) db.deleteObjectStore("entityRelations");
+      if (db.objectStoreNames.contains("rules")) db.deleteObjectStore("rules");
+      // A queued or failed rule write has nowhere to go any more; leaving it would jam the drain.
+      const tx = req.transaction;
+      if (tx) {
+        for (const name of ["outbox", "failed"] as const) {
+          const cursor = tx.objectStore(name).openCursor();
+          cursor.onsuccess = () => {
+            const at = cursor.result;
+            if (!at) return;
+            if (String((at.value as { kind?: unknown }).kind ?? "").startsWith("rule.")) at.delete();
+            at.continue();
+          };
+        }
+      }
     };
     req.onsuccess = () => {
       const db = req.result;

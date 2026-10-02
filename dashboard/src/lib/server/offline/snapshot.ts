@@ -189,7 +189,7 @@ async function buildNotes() {
   const rows = await sql()`
     SELECT
       n.id, n.content, n.scope, n.created_at, n.updated_at, n.expires_at,
-      n.created_by, n.updated_by, n.deleted_at,
+      n.created_by, n.updated_by, n.deleted_at, n.source_key,
       (SELECT count(*) FROM note_revisions r WHERE r.note_id = n.id)::int AS revision_count
     FROM notes n
     ORDER BY n.created_at DESC
@@ -205,18 +205,8 @@ async function buildNotes() {
     created_by: (row.created_by as string | null) ?? null,
     updated_by: (row.updated_by as string | null) ?? null,
     deleted_at: (row.deleted_at as string | null) ?? null,
+    source_key: (row.source_key as string | null) ?? null,
     revision_count: row.revision_count as number,
-  }));
-}
-
-async function buildRules() {
-  const rows = await sql()`SELECT id, key, value, source, updated_at FROM standing_context ORDER BY source, key`;
-  return rows.map((row) => ({
-    id: row.id as string,
-    key: row.key as string,
-    value: row.value as string,
-    source: (row.source as string | null) ?? "context_builder",
-    updatedAt: (row.updated_at as string | null) ?? null,
   }));
 }
 
@@ -245,13 +235,12 @@ async function buildContextCounts() {
     SELECT
       (SELECT count(*) FROM contacts WHERE removed_at IS NULL)::int AS contacts,
       (SELECT count(*) FROM entities)::int                        AS entities,
-      (SELECT count(*) FROM standing_context)::int                AS standing_context,
       (SELECT count(*) FROM context_builder_indexed_items
         WHERE source = 'email')::int                              AS indexed_email,
       (SELECT count(*) FROM context_builder_indexed_items
         WHERE source = 'keep')::int                               AS indexed_keep
   `;
-  return counts as { contacts: number; entities: number; standing_context: number; indexed_email: number; indexed_keep: number };
+  return counts as { contacts: number; entities: number; indexed_email: number; indexed_keep: number };
 }
 
 // --- the reference tables ---
@@ -344,7 +333,6 @@ export async function assemble(): Promise<SnapshotStores> {
   const [
     { reports, extractionIds },
     notes,
-    rules,
     corrections,
     counts,
     harvest,
@@ -355,7 +343,6 @@ export async function assemble(): Promise<SnapshotStores> {
   ] = await Promise.all([
     buildReports(),
     buildNotes(),
-    buildRules(),
     buildCorrections(),
     buildContextCounts(),
     loadHarvestDocument(),
@@ -375,10 +362,9 @@ export async function assemble(): Promise<SnapshotStores> {
     doc: harvest.doc,
     docError: harvest.docError,
     skipped: harvest.skipped,
-    // Same rows as stores.rules/stores.corrections - the /context-builder page shows both
-    // alongside the harvest, so its mirror entry carries its own copy rather than the page
-    // having to reach into two other stores to reassemble what it needs.
-    standing: rules,
+    // Same rows as stores.corrections - the /context-builder page shows them alongside the
+    // harvest, so its mirror entry carries its own copy rather than the page having to reach
+    // into another store to reassemble what it needs.
     corrections,
     counts,
   };
@@ -389,7 +375,6 @@ export async function assemble(): Promise<SnapshotStores> {
     reports,
     extractions,
     notes,
-    rules,
     corrections,
     contextDoc: [contextDoc],
     entities,

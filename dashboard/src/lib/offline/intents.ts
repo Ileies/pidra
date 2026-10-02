@@ -14,12 +14,11 @@
 import * as db from "./db.js";
 import type { MirrorStore } from "./db.js";
 import type { NoteRow } from "#lib/notes/api.js";
-import type { MirroredReport, MirroredExtraction, MirroredRule } from "./repo.js";
+import type { MirroredReport, MirroredExtraction } from "./repo.js";
 
 export type IntentKind =
   | "note.create" | "note.update" | "note.delete" | "note.restore"
-  | "rate"
-  | "rule.create" | "rule.update" | "rule.delete";
+  | "rate";
 
 export interface Intent {
   id: string;
@@ -37,19 +36,16 @@ export const INTENT_LABEL: Record<IntentKind, string> = {
   "note.delete": "Note deleted",
   "note.restore": "Note restored",
   rate: "Rating",
-  "rule.create": "New rule",
-  "rule.update": "Rule edit",
-  "rule.delete": "Rule deleted",
 };
 
-/** The row an intent is about: a note, a rule (a queued create's temporary id), or an extraction. */
+/** The row an intent is about: a note (a queued create's temporary id) or an extraction. */
 export function intentTarget(intent: Intent): string {
   const p = intent.payload as { id?: string; localId?: string; extractionId?: string };
   return p.localId ?? p.id ?? p.extractionId ?? "";
 }
 
 /** Whether an intent writes a row of this kind with this id, which is where its state is shown. */
-export function intentIsFor(intent: Intent, row: "note" | "rule" | "rate", id: string): boolean {
+export function intentIsFor(intent: Intent, row: "note" | "rate", id: string): boolean {
   const family = intent.kind === "rate" ? "rate" : intent.kind.split(".")[0];
   return family === row && intentTarget(intent) === id;
 }
@@ -58,7 +54,6 @@ export function intentIsFor(intent: Intent, row: "note" | "rule" | "rate", id: s
 export function intentSummary(intent: Intent): string {
   const p = intent.payload as Record<string, unknown>;
   if (intent.kind === "note.create") return String(p.content ?? "").slice(0, 60);
-  if (intent.kind === "rule.create") return String(p.key ?? "");
   const target = intentTarget(intent);
   return intent.kind === "rate" ? `extraction ${target.slice(0, 8)}…` : `${target.slice(0, 8)}…`;
 }
@@ -139,26 +134,6 @@ export async function applyOptimistic(intent: Intent): Promise<void> {
       await patchReportsRating(p.extractionId, p.signal === "1" ? "explicit_plus" : "explicit_minus");
       return;
     }
-    case "rule.create": {
-      const p = intent.payload as { localId: string; key: string; value: string };
-      // Only ever holds until the real row arrives on the next successful pull, keyed by the
-      // server's own id - that pull's id list does not name this temporary
-      // row, so `db.reconcile` drops it for us.
-      const rule: MirroredRule = { id: p.localId, key: p.key, value: p.value, source: "user", updatedAt: intent.createdAt };
-      await db.put("rules", rule);
-      return;
-    }
-    case "rule.update": {
-      const p = intent.payload as { id: string; value: string };
-      const current = await db.get<MirroredRule>("rules", p.id);
-      if (current) await db.put("rules", { ...current, value: p.value, source: "user", updatedAt: intent.createdAt });
-      return;
-    }
-    case "rule.delete": {
-      const p = intent.payload as { id: string };
-      await db.del("rules", p.id);
-      return;
-    }
   }
 }
 
@@ -176,8 +151,7 @@ export async function reapplyPending(): Promise<void> {
 
 /** The mirror stores an intent's optimistic effect writes, so exactly their loads re-run. */
 export function storesOf(kind: IntentKind): MirrorStore[] {
-  if (kind === "rate") return ["reports", "extractions"];
-  return kind.startsWith("note.") ? ["notes"] : ["rules"];
+  return kind === "rate" ? ["reports", "extractions"] : ["notes"];
 }
 
 // --- drain ---
@@ -211,18 +185,6 @@ function request(intent: Intent, send: Fetcher): Promise<Response> {
     case "rate": {
       const p = intent.payload as { extractionId: string; signal: "1" | "-1" };
       return send("/api/feedback", { method: "POST", headers, body: json({ extraction_id: p.extractionId, signal: p.signal }) });
-    }
-    case "rule.create": {
-      const p = intent.payload as { key: string; value: string };
-      return send("/api/rules", { method: "POST", headers, body: json({ key: p.key, value: p.value }) });
-    }
-    case "rule.update": {
-      const p = intent.payload as { id: string; value: string };
-      return send(`/api/rules/${p.id}`, { method: "PATCH", headers, body: json({ value: p.value }) });
-    }
-    case "rule.delete": {
-      const p = intent.payload as { id: string };
-      return send(`/api/rules/${p.id}`, { method: "DELETE" });
     }
   }
 }

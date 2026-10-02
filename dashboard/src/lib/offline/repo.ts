@@ -174,20 +174,6 @@ export function filterNotes(all: MirroredNote[], filter: NotesFilter): MirroredN
   return filtered.slice(0, NOTES_SHOWN);
 }
 
-export interface MirroredRule {
-  id: string;
-  key: string;
-  value: string;
-  source: string;
-  updatedAt: string | null;
-}
-
-export async function rules(depends: Depends): Promise<MirroredRule[]> {
-  watch(depends, "rules");
-  const rows = await db.getAll<MirroredRule>("rules");
-  return rows.sort((a, b) => a.source.localeCompare(b.source) || a.key.localeCompare(b.key));
-}
-
 export interface MirroredCorrection {
   id: string;
   target_kind: string;
@@ -206,9 +192,8 @@ export interface MirroredContextDoc {
   doc: HarvestDoc | null;
   docError: string | null;
   skipped: { startedAt: string; mode: string; reason: string }[];
-  standing: MirroredRule[];
   corrections: MirroredCorrection[];
-  counts: { contacts: number; entities: number; standing_context: number; indexed_email: number; indexed_keep: number };
+  counts: { contacts: number; entities: number; indexed_email: number; indexed_keep: number };
 }
 
 const EMPTY_CONTEXT_DOC: MirroredContextDoc = {
@@ -217,9 +202,8 @@ const EMPTY_CONTEXT_DOC: MirroredContextDoc = {
   doc: null,
   docError: null,
   skipped: [],
-  standing: [],
   corrections: [],
-  counts: { contacts: 0, entities: 0, standing_context: 0, indexed_email: 0, indexed_keep: 0 },
+  counts: { contacts: 0, entities: 0, indexed_email: 0, indexed_keep: 0 },
 };
 
 export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> {

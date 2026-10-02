@@ -1,47 +1,55 @@
 # Scoring formulas
 
-The gate, trust-score and entity-pruning math as actually implemented, checked against the live code on 2026-09-29. **If this drifts from the code, trust the code** - these numbers are exactly the kind of thing that changes during tuning without anyone remembering to update a doc.
+The gate, trust-score, pruning and topic-lifecycle math as implemented, checked against the code on 2026-10-02. **If this drifts from the code, trust the code**: these numbers change during tuning without anyone updating a doc.
 
 ## Relevance gate (`src/pipeline/gate.ts`)
 
-Newsletter items: `effective_relevance = relevance_score * trust_score + corroboration_bonus`, inclusion threshold `>= 3.0`. A `teaser_only` check runs before this score (added 2026-10-01): an item whose extracted `substance` is `"teaser"` is held back regardless of what it scored, since a teaser scoring exactly 3.0 at the threshold was reaching synthesis with nothing in it to report.
+The gate is one pure function with a named `GateReason` per outcome (see "Every item the pipeline discards says why" in `docs/architecture-rules.md`). Read `gate.ts` for the exact current rules per source type; it is the one place guaranteed not to disagree with `/[date]/triage`.
 
-This is only the newsletter path. The gate is a single pure function with a named `GateReason` per outcome (see `CLAUDE.md`, "Every item the pipeline discards says why"), and the other two source types have their own rules, not this formula:
-- `personal_email` / `sms`: category-based, not score-based.
-- `web_news` (the news desks): its own validation checks (source actually returned by search, inside the window, not a duplicate, not already told) run before a score threshold of 3 (4 if the story is about somewhere other than the reader's home).
+**Newsletter items:** `effective_relevance = relevance_score * trust_score + corroboration_bonus`, passed at `>= 3.0`. Two checks run before the score:
 
-Read `src/pipeline/gate.ts` directly for the exact current rules per source type - this is the one place they're guaranteed not to disagree with what `/[date]/triage` shows.
+- `skipped_by_extraction`: extraction found nothing worth extracting.
+- `teaser_only`: the extracted `substance` is `"teaser"`. A teaser scoring exactly 3.0 used to reach synthesis with nothing in it to report.
+
+**Corroboration bonus**, by the number of distinct raw items sharing an entity with the item (itself included): 2 sources +0.3, 3 sources +0.7, 4 or more +1.0, otherwise 0.
+
+**`personal_email` / `sms`:** category-based, not score-based. `spam` and `general_news` are dropped; `automated` passes only at `critical` or `high` urgency; anything else passes on a positive score.
+
+**`web_news` (the news desks):** the validation checks written by `src/news/validate.ts` run first, in this order: unverified source, outside the window, duplicate of another desk, already reported on an earlier day. Then a significance threshold of 3, or 4 for a story about somewhere other than the reader's home.
 
 ## Source trust score (`src/pipeline/weekly-source-scoring.ts`)
 
-`trust_score = clamp(0.5, 2.0, composite_score_30d / 5)`, where the composite score is a rolling 30-day figure. A 7-day vs. 30-day comparison sets `quality_trend` to `improving` / `declining` / `stable`.
+`trust_score = clamp(0.5, 2.0, composite_score_30d / 5)`, so a composite of 5/10 is neutral (1.0), 10/10 is 2.0 and 0/10 is 0.5. The composite is a rolling 30-day figure. `quality_trend` compares the item-weighted 7-day composite with the 30-day one: more than 0.5 above is `improving`, more than 0.5 below `declining`, otherwise `stable`.
 
-This replaced an earlier conditional-bump design (`if include_rate > 0.6 and avg_relevance > 3.8, +0.10 ...`) that's no longer in the code - don't reintroduce it without checking why it changed.
+This replaced an earlier conditional-bump design (`if include_rate > 0.6 and avg_relevance > 3.8, +0.10 ...`). Do not reintroduce it without checking why it changed.
 
-## Entity graph pruning (`src/pipeline/entity-pruning.ts`)
+## Entity lifecycle
 
-- Dormant entities (not `importance = high`, not locked by a correction) are archived after 60 days of absence.
-- Archived entities are deleted after 180 days if `mention_count <= 2`; `entity_mentions` cascades on delete via FK, so no separate cleanup step is needed.
+Entities move through three stages, with the first running at the end of each pipeline run and the others in the Sunday 02:00 `prune` job (`src/pipeline/entity-pruning.ts`):
 
-There is no relation graph in the current schema (`entity_relations` was dropped - it had zero confirmed edges, zero evidence, and was never read by synthesis) - entity pruning only ever deals with the `entities` row itself.
+- **Dormant:** an `active` entity not mentioned for 14 days (`src/pipeline/phase6/dormant.ts`). A new mention reactivates a dormant or archived entity. Entities locked by a correction are skipped in both directions.
+- **Archived:** a dormant entity not mentioned for 60 days, unless `importance = high`.
+- **Deleted:** an archived entity absent for 180 days with `mention_count <= 2`. `entity_mentions` cascades on delete via FK.
+
+There is no relation graph (`entity_relations` was dropped in migration 0029: zero confirmed edges, zero evidence, never read by synthesis), so pruning only deals with the `entities` row itself.
 
 ## Topic lifecycle (`src/pipeline/topic-lifecycle.ts`)
 
-- An active topic with no story update for 7 days becomes dormant.
-- A dormant topic with no story update for 30 days becomes archived. Archived topics and their summaries are retained.
-- Dormant and archived topics that match a new newsletter claim are offered to Section 1 for a same-story decision. A confirmed continuation reactivates the existing row.
-- `resolved` requires evidence of an ending from today's claim. Inactivity alone never resolves a topic.
-- At most `TOPIC_ACTIVE_CAP` (15) topics are `active` at once. A candidate that would grow that count - a `new_topics` entry, or a dormant/archived topic Section 1 revives back to active - only gets in at capacity by out-valuing `weakestActiveTopic()` (ranked by `importance`, tie-broken by lower `update_count`, then older `last_updated`); a strict win (`isMoreValuable()`) bumps the incumbent to dormant, a tie or loss leaves the candidate at its current status, untouched. Candidates are ranked by `importance` (`high|normal|low`, model-supplied, default `normal`) and processed strongest-first. Resolving or refreshing an already-active topic doesn't touch the active count, so those always apply directly.
+- An active topic with no story update for 7 days becomes dormant (`TOPIC_DORMANT_DAYS`); a dormant one with none for 30 days becomes archived (`TOPIC_ARCHIVE_DAYS`). Archived topics and their summaries are retained.
+- Dormant and archived topics matching a new newsletter claim are offered to Section 1 for a same-story decision. A confirmed continuation reactivates the existing row.
+- `resolved` requires evidence of an ending in today's claim. Inactivity alone never resolves a topic.
+- At most `TOPIC_ACTIVE_CAP` (15) topics are `active`. A candidate that would grow that count (a `new_topics` entry, or a dormant/archived topic revived to active) only gets in at capacity by out-valuing `weakestActiveTopic()`: ranked by `importance`, tie-broken by lower `update_count`, then older `last_updated`. A strict win (`isMoreValuable()`) bumps the incumbent to dormant; a tie or loss leaves the candidate at its current status. Candidates are ranked by model-supplied `importance` (`high|normal|low`, default `normal`) and processed strongest first. Resolving or refreshing an already-active topic never touches the count.
 
 ## Feedback signals
 
-Implicit behavioral detection (calendar/todo writes correlating with a report item) lives in `src/pipeline/implicit-feedback.ts`; explicit +/- ratings go through `rateExtraction()`. Read those files directly for the current weighting - this doc intentionally doesn't restate exact numbers here since they're the most likely to have moved since last checked.
+Implicit behavioral detection (calendar and to-do writes correlating with a report item) lives in `src/pipeline/implicit-feedback.ts`; explicit +/- ratings go through `rateExtraction()`. Read those files for the current weighting; the numbers move too often to restate here.
 
 ## Web search slots (`src/search/slots.ts`)
 
-Three Brave-search slots feed Section 1, conceptually:
-1. Deep-dive on the day's top active topic or highest-corroboration story.
-2. Dormant high-importance entity monitor.
-3. Self/project reputation rotation (one target per day from a maintained list in `notes`, scope `search`).
+Three Brave-search slots feed Section 1:
 
-Slots 4 (pre-meeting research) and 5 (user-specified search intent) are deliberately unbuilt - see `CLAUDE.md`, "What not to build (yet)".
+1. **Topic deep-dive:** the active topic with the highest `update_count`.
+2. **Watched entity monitor:** entities with `importance = high` (the Watch control on `/entities/[id]`) that have gone 10 or more days unmentioned. Rotates by least recently searched (`last_watch_search`) so one target cannot monopolise the shared Brave quota.
+3. **Self/project reputation:** one target per day, rotating by day of year through `notes` with scope `search`.
+
+Slots 4 (pre-meeting research) and 5 (user-specified search intent) are deliberately unbuilt (see "What's next" in `CLAUDE.md`).

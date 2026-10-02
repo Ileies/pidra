@@ -58,6 +58,12 @@ Functional requirements, not style preferences:
 - **Weekly/irregular, dense sources** (Astral Codex Ten, The Intrinsic Perspective, Not Boring, The Generalist, Works in Progress, SemiAnalysis): intended to get a richer extraction prompt capturing the central argument, not just claims, with `source_format: "essay"` giving synthesis room for more depth. **Not implemented** - `phase2-extract.ts` runs the one newsletter extraction prompt for every source regardless of tier (confirmed 2026-09-30, see `docs/todo/now.md`).
 - **RSS body content** (`src/ingest/rss.ts`, added 2026-10-01): prefers the full post from `content:encoded` over the `contentSnippet` teaser, capped at 16000 characters. Stored bodies had been 35-660 characters against feeds carrying up to 125k, so extraction was writing items like "The newsletter examines X" from a title alone. Money Stuff (Bloomberg RSS), Console.dev and War on the Rocks carry no full text in their feeds, so those three still extract from a short snippet.
 
+## Output language and prompt tags
+
+Prompt text may contain `{{tag}}` placeholders, filled in by `renderPrompt` (`src/ai/prompt-vars.ts`) in one pass from values the code chose. The only tag today is `{{language}}`, the English name of the owner's content language. `activePrompt()` returns the rendered text; `resolveActivePrompts()` stays raw, so `/prompts` and the weekly prompt review see the template as written. An unknown tag is left in place and logged.
+
+The sections the reader reads (`section1`, `section2`, `news`, `quick_actions`, `questions`; `LANGUAGE_SECTIONS` in `src/ai/prompt-catalog.ts`) carry the shared `OUTPUT_LANGUAGE` rule from `src/ai/prompts/language.ts`. A DB prompt version written without `{{language}}` ignores the setting and logs a warning, so keep the tag when approving a rewrite. The rule keeps what code parses in English: `##` and fixed `###` headings, refs comments and SYSTEM block keys and fixed values. Never translate those in a prompt edit. Extraction, the news desks and answer classification stay English on purpose.
+
 ## Ongoing stories
 
 The most common digest-briefing failure mode is re-explaining background every day. `active_topics` plus the `UPDATE:` prefix solve this: a story running for a week becomes two sentences - what changed today, what it implies.

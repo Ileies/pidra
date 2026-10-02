@@ -29,5 +29,6 @@ See `src/db/schema.ts` for the full schema - it is the single source of truth an
 - `chat_conversations` / `chat_messages` - the context revision chat's transcript, and the provenance trail for every correction it made
 - `notes` - user and system notes, scoped by `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`
 - `note_revisions` - append-only pre-change state per note mutation, with the skill execution and conversation that caused it; drives the undo and the history panel on `/notes`
+- `user_settings` - one row (`id = 1`) of owner preferences: `ui_language` and `content_language` as two-letter codes, `CHECK`-constrained so free text is impossible; read through `src/settings/store.ts`, which resolves each code against the allowlist in `src/config/languages.ts` and falls back to the default for a missing row or a retired code
 - `feedback_events` - explicit +/- ratings and implicit behavioral signals per extraction
 - `push_subscriptions` - Web Push VAPID subscriptions for PWA notifications

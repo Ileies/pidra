@@ -529,14 +529,6 @@ export const notificationReads = pgTable("notification_reads", {
   readAt: timestamptz("read_at").default(sql`now()`),
 });
 
-export const standingContext = pgTable("standing_context", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  key: text("key").unique().notNull(), // e.g. daily_life_rules | recurring_commitments | university
-  value: text("value").notNull(),
-  source: text("source").default("context_builder"), // context_builder | user | system
-  updatedAt: timestamptz("updated_at").default(sql`now()`),
-});
-
 export const contextBuilderRuns = pgTable("context_builder_runs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   mode: text("mode").notNull(), // full | update | resume
@@ -575,8 +567,8 @@ export const contextBuilderRuns = pgTable("context_builder_runs", {
  */
 export const contextCorrections = pgTable("context_corrections", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  targetKind: text("target_kind").notNull(), // document | standing_context | entity | contact
-  // Document heading, standing_context key, entity name, or contact identifier.
+  targetKind: text("target_kind").notNull(), // document | entity | contact (standing_context on rows from before 0038)
+  // Document heading, entity name, or contact identifier.
   targetKey: text("target_key").notNull(),
   operation: text("operation").notNull(), // amend | complement | retract
   /** The correct fact in the user's voice. Injected verbatim into the daily synthesis payload. */

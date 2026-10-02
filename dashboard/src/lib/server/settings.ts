@@ -1,7 +1,7 @@
 /**
- * `user_settings` reads and writes for `/settings/language`, the single writer.
+ * `user_settings` reads and writes for the language fields on `/settings`, the single writer.
  *
- * The form's values are untrusted: a request can carry anything in `contentLanguage`. Both are
+ * The request's values are untrusted: a request can carry anything in `contentLanguage`. Both are
  * checked against the allowlist in `src/config/languages.ts` before they touch SQL, and what is
  * stored is only ever the code. The pipeline resolves it through the same allowlist again before
  * it reaches a prompt (`src/settings/store.ts`), and the table's CHECKs refuse anything but a
@@ -36,8 +36,11 @@ export async function loadSettings(): Promise<UserSettings> {
   };
 }
 
-export async function saveLanguages(input: { uiLanguage: unknown; contentLanguage: unknown }): Promise<void> {
-  const { uiLanguage, contentLanguage } = input;
+/** Saves whichever of the two is present and keeps the stored value of the other. */
+export async function saveLanguages(input: { uiLanguage?: unknown; contentLanguage?: unknown }): Promise<UserSettings> {
+  const current = await loadSettings();
+  const uiLanguage = input.uiLanguage === undefined ? current.uiLanguage : input.uiLanguage;
+  const contentLanguage = input.contentLanguage === undefined ? current.contentLanguage : input.contentLanguage;
   if (!isUiLanguage(uiLanguage)) throw new SettingsError("That interface language is not available.");
   if (!isContentLanguage(contentLanguage)) throw new SettingsError("That content language is not available.");
 
@@ -49,4 +52,5 @@ export async function saveLanguages(input: { uiLanguage: unknown; contentLanguag
           content_language = EXCLUDED.content_language,
           updated_at = now()
   `;
+  return { uiLanguage, contentLanguage };
 }

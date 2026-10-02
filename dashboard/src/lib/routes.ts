@@ -244,7 +244,7 @@ export const ROUTES: RouteDef[] = [
     group: "system",
     icon: ICON.settings,
     mobileHeader: true,
-    children: ["/settings/language", "/settings/email-accounts", "/settings/newsletters", "/settings/newsletters/rules"],
+    children: ["/settings/email-accounts", "/settings/newsletters", "/settings/newsletters/rules"],
   },
   {
     href: "/chat",
@@ -281,15 +281,6 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.auth,
-    hidden: true,
-  },
-  {
-    href: "/settings/language",
-    id: "/settings/language",
-    label: "Language",
-    surface: "global",
-    group: "system",
-    icon: ICON.settings,
     hidden: true,
   },
   {
@@ -403,10 +394,6 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/notifications": { label: "Notifications", reason: "Notification state is live so reports and run issues can be marked as read or reviewed." },
   "/chat": { label: "Chat", reason: "The assistant needs a live connection to the model." },
   "/[date]/triage": { label: "Triage", reason: "Triage is a live query against the pipeline's own tables." },
-  "/settings/language": {
-    label: "Language",
-    reason: "Language settings are written to the pipeline's own tables and need a live connection.",
-  },
   "/settings/email-accounts": {
     label: "Email accounts",
     reason: "Managing IMAP/SMTP credentials needs a live connection, and offline is never the right place to queue a password change.",

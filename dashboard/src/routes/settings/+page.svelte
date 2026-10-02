@@ -4,18 +4,58 @@
    * These used to be individual controls on the navbar - one gear icon replaces five, and the
    * mobile tab bar gains a way to log out at all, which it never had.
    *
-   * No data of its own: everything here is either a link to a page that already handles its own
-   * state (`/setup`, `/privacy`, `/terms`) or a client-side control (`NotifyButton`, log out)
-   * that talks to its endpoint directly. That is what keeps it mirrored rather than online-only.
+   * No server load: everything here is either a link to a page that already handles its own
+   * state (`/setup`, `/privacy`, `/terms`) or a client-side control (`NotifyButton`, log out, the
+   * language selects) that talks to its endpoint directly. That is what keeps it mirrored rather
+   * than online-only.
    */
   import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
   import Page from "#lib/components/Page.svelte";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
   import { netJson } from "#lib/offline/net.js";
   import { offline } from "#lib/offline/state.svelte.js";
+  import { toasts } from "#lib/toast.svelte.js";
+  import { CONTENT_LANGUAGES, UI_LANGUAGES } from "$pipeline/config/languages";
 
   const isOffline = $derived(offline.reachable === "offline");
   let loggingOut = $state(false);
+
+  // The language fields save on change, through `/api/settings`: this page has no server load
+  // (it is mirrored), so the stored values are fetched here and the selects stay disabled until
+  // they arrive, or while offline.
+  interface Languages {
+    uiLanguage: string;
+    contentLanguage: string;
+  }
+  let languages = $state<Languages | null>(null);
+  const languageDisabled = $derived(!languages || isOffline);
+
+  onMount(async () => {
+    try {
+      languages = await netJson<Languages>("/api/settings");
+    } catch {
+      // Offline or slow: the selects stay disabled, and the rest of the page is unaffected.
+    }
+  });
+
+  async function saveContentLanguage(select: HTMLSelectElement) {
+    if (!languages) return;
+    const previous = languages.contentLanguage;
+    const next = select.value;
+    if (next === previous) return;
+    try {
+      languages = await netJson<Languages>("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentLanguage: next }),
+      });
+      toasts.success("Content language changed. Applies from the next briefing.");
+    } catch (err) {
+      select.value = previous;
+      toasts.error(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   // Not queued, same as the other actions that touch live server state while offline (contact
   // edits, topic curation): logging out is disabled with the reason rather than attempted, since
@@ -44,6 +84,42 @@
       <NotifyButton variant="row" />
     </section>
 
+    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-surface-100">Language</h2>
+
+      <div class="flex flex-col gap-1">
+        <label for="content-language" class="text-sm font-semibold text-surface-100">Content language</label>
+        <select
+          id="content-language"
+          value={languages?.contentLanguage}
+          disabled={languageDisabled}
+          onchange={(event) => saveContentLanguage(event.currentTarget)}
+          class="input-base-flush font-normal disabled:opacity-50"
+        >
+          {#each Object.entries(CONTENT_LANGUAGES) as [code, lang] (code)}
+            <option value={code}>{lang.native}{lang.native === lang.name ? "" : ` (${lang.name})`}</option>
+          {/each}
+        </select>
+        <p class="text-xs text-surface-400">What the briefing, questions and chat are written in. Applies from the next briefing.</p>
+        {#if isOffline}<p class="text-xs text-surface-400">Needs the connection to change.</p>{/if}
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label for="ui-language" class="text-sm font-semibold text-surface-100">Interface language</label>
+        <select
+          id="ui-language"
+          value={languages?.uiLanguage}
+          disabled
+          class="input-base-flush font-normal disabled:opacity-50"
+        >
+          {#each Object.entries(UI_LANGUAGES) as [code, lang] (code)}
+            <option value={code}>{lang.native}{lang.native === lang.name ? "" : ` (${lang.name})`}</option>
+          {/each}
+        </select>
+        <p class="text-xs text-surface-400">Soon.</p>
+      </div>
+    </section>
+
     <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
       <h2 class="text-sm font-semibold text-surface-100">Account</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -53,13 +129,6 @@
         >
           <span>Passkey and PIN</span>
           <span class="text-xs text-surface-400">Register a device, change the PIN</span>
-        </a>
-        <a
-          href="/settings/language"
-          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-        >
-          <span>Language</span>
-          <span class="text-xs text-surface-400">Interface language and the language the briefing is written in</span>
         </a>
         <a
           href="/settings/email-accounts"

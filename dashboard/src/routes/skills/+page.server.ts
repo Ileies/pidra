@@ -11,6 +11,8 @@ export interface SkillInfo {
   description: string;
   risk_level: "low" | "medium" | "high" | "critical";
   enabled: boolean;
+  /** Executions in the last 30 days, pending ones excluded. */
+  uses: number;
 }
 
 interface PendingExecution {
@@ -27,8 +29,14 @@ interface PendingExecution {
 export const load: PageServerLoad = async () => {
   // The bridge owns edits and execution, but the registered catalog is part of this checkout.
   // Load it here too so the page can still explain what skills exist while the bridge is down.
-  const [skillsRes, pendingRows] = await Promise.all([
+  const [skillsRes, usageRows, pendingRows] = await Promise.all([
     fetch(`${API}/skills`).catch(() => null),
+    sql()`
+      SELECT skill_name, count(*)::int AS uses
+      FROM skill_executions
+      WHERE created_at > now() - interval '30 days' AND status <> 'pending'
+      GROUP BY skill_name
+    `,
     sql()`
       SELECT id, run_date, skill_name, parameters, status, result, triggered_by, created_at
       FROM skill_executions
@@ -43,8 +51,11 @@ export const load: PageServerLoad = async () => {
     description: skill.description,
     risk_level: skill.risk_level,
     enabled: true,
+    uses: 0,
   }));
-  const skills: SkillInfo[] = skillsRes?.ok ? await skillsRes.json() : localSkills;
+  const baseSkills: Omit<SkillInfo, "uses">[] = skillsRes?.ok ? await skillsRes.json() : localSkills;
+  const usage = new Map<string, number>(usageRows.map((row) => [row.skill_name as string, Number(row.uses)]));
+  const skills: SkillInfo[] = baseSkills.map((skill) => ({ ...skill, uses: usage.get(skill.name) ?? 0 }));
 
   const pending = pendingRows.map((row) => ({
     ...row,

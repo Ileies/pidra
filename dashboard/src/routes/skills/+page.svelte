@@ -26,13 +26,22 @@
     critical: "error",
   } as const;
 
+  const RISK_RANK = { critical: 3, high: 2, medium: 1, low: 0 } as const;
+
+  type SortKey = "usage" | "name" | "risk";
+
   let searchQuery = $state("");
+  let sortKey = $state<SortKey>("name");
 
   let filteredSkills = $derived.by(() => {
     const q = searchQuery.trim().toLowerCase();
     return data.skills
       .filter((skill) => !q || skill.name.toLowerCase().includes(q) || skill.description.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        if (sortKey === "usage" && a.uses !== b.uses) return b.uses - a.uses;
+        if (sortKey === "risk" && a.risk_level !== b.risk_level) return RISK_RANK[b.risk_level] - RISK_RANK[a.risk_level];
+        return a.name.localeCompare(b.name);
+      });
   });
 </script>
 
@@ -96,14 +105,25 @@
   {/if}
 
   <section class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-end justify-end gap-3">
-      <input
-        type="search"
-        placeholder="Search skills…"
-        aria-label="Search skills"
-        bind:value={searchQuery}
-        class="input-base flex-1 sm:w-48 sm:flex-none"
-      />
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-surface-300">
+        {data.skills.length} skills{#if filteredSkills.length !== data.skills.length}
+          <span class="text-surface-400">({filteredSkills.length} shown)</span>{/if}
+      </p>
+      <div class="flex flex-wrap items-center gap-2 flex-1 sm:flex-none justify-end">
+        <input
+          type="search"
+          placeholder="Search skills…"
+          aria-label="Search skills"
+          bind:value={searchQuery}
+          class="input-base flex-1 sm:w-72 sm:flex-none"
+        />
+        <select bind:value={sortKey} aria-label="Sort skills" class="input-base">
+          <option value="name">Alphabetical</option>
+          <option value="usage">Most used (30 days)</option>
+          <option value="risk">Risk level</option>
+        </select>
+      </div>
     </div>
 
     {#if filteredSkills.length === 0}
@@ -118,6 +138,7 @@
                 <!-- The risk level was a 6px coloured dot with a title=. On a touch device that
                      is nothing at all (P7, M13), so it is a word with a hue behind it. -->
                 <Badge tone={RISK_TONE[skill.risk_level] ?? "muted"}>{skill.risk_level}</Badge>
+                <span class="text-xs text-surface-400">{skill.uses} {skill.uses === 1 ? "use" : "uses"} in 30 days</span>
               </span>
               <span class="text-sm text-surface-300">{skill.description}</span>
             </div>

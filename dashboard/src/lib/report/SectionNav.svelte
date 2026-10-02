@@ -18,9 +18,14 @@
     sections: NavTarget[];
     /** Domains inside the briefing, for the jump list. */
     domains: NavTarget[];
+    /**
+     * `bar` is the sticky pill under the header and hides from `xl`; `rail` is the card the report
+     * page puts in its right-hand rail, which only exists from `xl`.
+     */
+    variant?: "bar" | "rail";
   }
 
-  let { sections, domains }: Props = $props();
+  let { sections, domains, variant = "bar" }: Props = $props();
 
   // Null until the observer has an opinion, so the first section reads as current on arrival
   // without pinning the initial value of `sections`.
@@ -63,9 +68,29 @@
   }
 </script>
 
+{#if variant === "rail"}
+  <div class="rounded-lg border border-surface-800 bg-surface-900 p-1.5">
+    <nav aria-label="Report sections" class="flex flex-wrap gap-1">
+      {#each sections as section (section.id)}
+        <button
+          type="button"
+          aria-current={active === section.id ? "true" : undefined}
+          onclick={() => jump(section.id)}
+          class="flex-1 whitespace-nowrap rounded px-2 py-1 text-center text-xs border transition-colors cursor-pointer
+            {active === section.id
+              ? 'bg-surface-800 border-surface-500 text-surface-50'
+              : 'bg-transparent border-transparent text-surface-400 hover:bg-surface-800 hover:text-primary-300'}"
+        >
+          {section.label}
+        </button>
+      {/each}
+    </nav>
+  </div>
+{:else}
 <div
-  class="sticky z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 bg-surface-950/95 backdrop-blur border-b border-surface-800"
-  style="top: var(--header-h)"
+  class="sticky z-20 w-full sm:w-fit rounded-xl border border-surface-700/60 p-1 xl:hidden
+         bg-[color-mix(in_oklab,var(--app-bg)_70%,transparent)] backdrop-blur-md shadow-lg shadow-black/30"
+  style="top: calc(var(--header-h) + 0.25rem)"
 >
   <div class="flex items-center gap-1 xs:gap-2">
     <!-- Below `sm` the tabs share the row equally and the jump list collapses to an icon, so all
@@ -130,3 +155,4 @@
     {/if}
   </div>
 </div>
+{/if}

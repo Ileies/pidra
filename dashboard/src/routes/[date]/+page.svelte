@@ -202,9 +202,6 @@
 			newsGroups.length > 0 ? { id: 'news', label: 'News' } : null,
 			(data.structured?.intel.length ?? 0) > 0
 				? { id: 'intel', label: 'Briefing' }
-				: null,
-			(data.structured?.alsoNoted.length ?? 0) > 0
-				? { id: 'also-noted', label: 'Also noted' }
 				: null
 		].filter((target): target is NavTarget => target !== null)
 	);
@@ -528,8 +525,8 @@
          place, and a permanent copy of `SectionNav`'s domain dropdown. Sticky, so it stays in view
          while the article scrolls past it. -->
 		<aside
-			class="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky"
-			style="top: calc(var(--header-h) + 1.5rem)"
+			class="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky xl:overflow-y-auto xl:overscroll-contain"
+			style="top: calc(var(--header-h) + 1.5rem); max-height: calc(100dvh - var(--header-h) - 3rem)"
 		>
 			<div
 				class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
@@ -539,7 +536,7 @@
 				>
 					Run stats
 				</h2>
-				<dl class="flex flex-col gap-1.5">
+				<dl class="grid grid-cols-2 gap-x-3 gap-y-1.5">
 					{#each stats as stat (stat.label)}
 						<div
 							class="flex items-baseline justify-between gap-3 text-sm"
@@ -577,6 +574,14 @@
 						{/each}
 					</ul>
 				</div>
+			{/if}
+
+			{#if data.structured && sectionTargets.length > 1}
+				<SectionNav
+					variant="rail"
+					sections={sectionTargets}
+					domains={domainTargets}
+				/>
 			{/if}
 
 			{#if domainTargets.length > 0}

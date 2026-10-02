@@ -1,4 +1,5 @@
 import { NEWS_CAPS } from "../../news/config";
+import { OUTPUT_LANGUAGE } from "./language";
 import { BRIEFING_STYLE } from "./style";
 
 /**
@@ -80,4 +81,6 @@ Each bullet:
 A heading with a single story is fine: code folds it into the group above it as a labelled
 bullet, so never merge unrelated stories under one heading to avoid it.
 
-Target length: 250-550 words, depending on how much happened.`;
+Target length: 250-550 words, depending on how much happened.
+
+${OUTPUT_LANGUAGE} In this section that includes every "###" heading above: "Top stories", "Talk of the day" and "Something different" stay in English, and the home, country and field headings stay exactly as the input names them, because code applies the caps by matching them.`;

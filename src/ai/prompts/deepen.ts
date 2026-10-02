@@ -14,4 +14,6 @@ Rules:
 - If web_search_results is present: integrate the freshest angles not covered in the original items.
 - Connections: link to related entities, ongoing trends, or prior context the user would care about.
 - Max 350 words. Dense. No preamble ("Here is", "This topic"). No headers. Bold key terms. Bullets only where genuinely list-like.
-- Plain Markdown output.`;
+- Plain Markdown output.
+
+Output language: write in {{language}}, whatever language the input is in. Names of people, organisations, products and places stay as their owners write them.`;

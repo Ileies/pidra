@@ -69,7 +69,7 @@ Rules:
 Fields, for every action (all are required; use "" for each that does not apply to the kind):
 - kind: add_event | update_event | add_todo | complete_todo
 - mail_ids: the ids of the mails behind it
-- why: what the mail asks or confirms, one sentence of at most 15 words, in English, without
+- why: what the mail asks or confirms, one sentence of at most 15 words, in {{language}}, without
   mentioning buttons, the calendar or the to-do list ("The dentist confirms Tuesday's check-up.")
 - title: add_event and add_todo: short and specific, at most 8 words, as the reader would write it
   in their own calendar or list, and in the language their calendar and list entries use (English

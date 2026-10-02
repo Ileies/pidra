@@ -5,7 +5,7 @@ import { inArray, eq, desc, gte, and } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
 import { db, extractions, rawItems, sourceQuality, sourceDailyScores, rssFeeds, newsletterSenderRules, skillExecutions, rawItemExists, promptVersions } from "../db";
 import { answerQuestion, dismissQuestion, reopenQuestion, QuestionError } from "../questions/store";
-import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
+import { PROMPT_SECTIONS, renderPromptText, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { braveSearch } from "../search/brave";
 import { DEEPEN_PROMPT } from "../ai/prompts";
@@ -176,7 +176,7 @@ app.post("/api/deepen", async (c) => {
     web_search_results: webResults || null,
   });
 
-  const { text } = await synthesize(DEEPEN_PROMPT, userContent);
+  const { text } = await synthesize(await renderPromptText(DEEPEN_PROMPT), userContent);
   return c.json({ text });
 });
 

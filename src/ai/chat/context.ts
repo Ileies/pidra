@@ -1,5 +1,6 @@
 import type { PageContextSnapshot } from "../../db";
 import { SURFACES, resolveSurface, type Surface } from "../surfaces";
+import { renderPrompt, type PromptVars } from "../prompt-vars";
 
 const BASE_PROMPT = `You are PIDRA's assistant, embedded in the user's own dashboard. You help them
 change the system's content: notes, the harvested long-term context, entities, todos and calendar
@@ -19,8 +20,7 @@ How to work:
   pretending or working around it.
 - Never claim a change you did not make. A rejected or failed skill call is information the user
   needs, not something to paper over.
-- Answer in the same language as the user's current message, not whatever language earlier turns
-  used.
+- Answer in {{language}}.
 - Answer in plain prose. The panel renders your text verbatim rather than as HTML, so markdown
   syntax would show up as literal asterisks.`;
 
@@ -78,6 +78,11 @@ function renderContext(ctx: TurnContext): string {
   return lines.join("\n");
 }
 
-export function systemPrompt(ctx: TurnContext): string {
-  return [BASE_PROMPT, SURFACES[ctx.surface].prompt, renderContext(ctx)].join("\n\n");
+/**
+ * Only the fixed parts are rendered: `renderContext` carries text the client sent, which is
+ * appended afterwards so it is never scanned for `{{tags}}`.
+ */
+export function systemPrompt(ctx: TurnContext, vars: PromptVars): string {
+  const fixed = renderPrompt([BASE_PROMPT, SURFACES[ctx.surface].prompt].join("\n\n"), vars);
+  return [fixed, renderContext(ctx)].join("\n\n");
 }

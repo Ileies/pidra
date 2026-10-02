@@ -1,3 +1,4 @@
+import { OUTPUT_LANGUAGE } from "./language";
 import { BRIEFING_STYLE } from "./style";
 
 export const SECTION1_SYSTEM_PROMPT = `${BRIEFING_STYLE}
@@ -96,4 +97,6 @@ Output rules:
     "new_entities": [],
     "skill_suggestions": []
   }
-  -->`;
+  -->
+
+${OUTPUT_LANGUAGE}`;

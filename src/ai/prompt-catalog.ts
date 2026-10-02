@@ -37,6 +37,14 @@ export const PROMPT_SECTIONS = [
 
 export type PromptSection = (typeof PROMPT_SECTIONS)[number];
 
+/**
+ * Sections whose output the reader reads, so their prompt must carry `{{language}}`. The rest
+ * stay English by design: extraction compresses raw content into the structure the pipeline
+ * matches on (entities, topics, dedupe), the news desks research in English and the editor writes
+ * the section, and the answer classification only feeds a label into the sender directory.
+ */
+export const LANGUAGE_SECTIONS: readonly PromptSection[] = ["section1", "section2", "news", "quick_actions", "questions"];
+
 const BASELINES: Record<PromptSection, string> = {
   section1: SECTION1_SYSTEM_PROMPT,
   section2: SECTION2_SYSTEM_PROMPT,

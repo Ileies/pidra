@@ -55,6 +55,13 @@
           <span class="text-xs text-surface-400">Register a device, change the PIN</span>
         </a>
         <a
+          href="/settings/language"
+          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+        >
+          <span>Language</span>
+          <span class="text-xs text-surface-400">Interface language and the language the briefing is written in</span>
+        </a>
+        <a
           href="/settings/email-accounts"
           class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
         >

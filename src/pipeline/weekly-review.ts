@@ -1,6 +1,7 @@
 import { db, dailyReports, activeTopics } from "../db";
 import { eq, desc, gte } from "drizzle-orm";
 import { synthesize } from "../ai/openai";
+import { renderPromptText } from "../ai/active-prompts";
 import { createNote } from "../notes/store";
 import { mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
 import { applyPlan, listOpen, markAbsorbed, unabsorbedReviewAnswers } from "../questions/store";
@@ -15,13 +16,13 @@ never invent one just to reach a count. A quiet week with nothing notable can wa
 When there is something worth asking, draw from: what was most valuable, what was missed or
 deprioritized, and a forward-looking question about next week - whichever of those the week's context
 actually supports. Ground every question in the context given, not a generic template.
-Keep questions concrete and personal. Max 20 words each.
+Keep questions concrete and personal. Max 20 words each. Write them in {{language}}.
 Return ONLY a JSON array of 0 to 3 strings, e.g. ["question1", "question2"], or [] if none are warranted.`;
 
 const SYNTHESIS_PROMPT = `You are a personal assistant helping the user reflect on their week.
 Given the user's answers to reflection questions, write 2-3 short insight notes (1-2 sentences each).
 These will be saved as standing context notes for future briefings.
-Focus on actionable insights, patterns, or preferences revealed by the answers.
+Focus on actionable insights, patterns, or preferences revealed by the answers. Write them in {{language}}.
 Return ONLY a JSON array of strings: ["insight1", "insight2", ...]`;
 
 /**
@@ -60,7 +61,7 @@ Week ${weekStart} to ${today}:
 
   // Generate questions. An empty array is a legitimate result - a quiet week with nothing worth
   // asking about - not a failure, so only a parse error aborts the run.
-  const { text: questionsRaw } = await synthesize(WEEKLY_REVIEW_PROMPT, contextText, REVIEW_OPTS);
+  const { text: questionsRaw } = await synthesize(await renderPromptText(WEEKLY_REVIEW_PROMPT), contextText, REVIEW_OPTS);
   let questionTexts: string[];
   try {
     const parsed = JSON.parse(questionsRaw.match(/\[[\s\S]*\]/)?.[0] ?? "[]");
@@ -119,7 +120,7 @@ export async function absorbReviewAnswers(): Promise<{ tokensIn: number; tokensO
   }
 
   const answersText = answered.map((q) => `Q: ${q.question}\nA: ${q.answer}`).join("\n\n");
-  const result = await synthesize(SYNTHESIS_PROMPT, answersText, REVIEW_OPTS);
+  const result = await synthesize(await renderPromptText(SYNTHESIS_PROMPT), answersText, REVIEW_OPTS);
 
   let insights: string[];
   try {

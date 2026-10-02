@@ -341,6 +341,26 @@ export const disabledSkills = pgTable("disabled_skills", {
   disabledAt: timestamptz("disabled_at").default(sql`now()`),
 });
 
+/**
+ * The owner's preferences: one row, `id = 1`. A missing row means the defaults, so the system
+ * runs before anyone opens the settings page.
+ *
+ * Both languages hold a two-letter *code*, never a name or free text, and the CHECKs keep it that
+ * way at the database level. What each code means, and which are offered, lives in
+ * `src/config/languages.ts`; the pipeline resolves a stored code through that allowlist before it
+ * reaches a prompt, so nothing in this table is ever interpolated as-is.
+ */
+export const userSettings = pgTable("user_settings", {
+  id: integer("id").primaryKey().default(1),
+  uiLanguage: text("ui_language").notNull().default("en"),
+  contentLanguage: text("content_language").notNull().default("en"),
+  updatedAt: timestamptz("updated_at").default(sql`now()`),
+}, (t) => [
+  check("user_settings_singleton", sql`${t.id} = 1`),
+  check("user_settings_ui_language_code", sql`${t.uiLanguage} ~ '^[a-z]{2}$'`),
+  check("user_settings_content_language_code", sql`${t.contentLanguage} ~ '^[a-z]{2}$'`),
+]);
+
 export const skillExecutions = pgTable("skill_executions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   runDate: dateStr("run_date"),

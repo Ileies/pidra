@@ -2,6 +2,7 @@ import { db, chatConversations, chatMessages, type ChatToolCall } from "../../db
 import { eq } from "drizzle-orm";
 import { converse, type ResponseInput } from "../openai";
 import { executeSkill } from "../../skills/execute";
+import { loadPromptVars } from "../../settings/store";
 import { normaliseContext, systemPrompt, type TurnContextInput } from "./context";
 import { skillTools, SKILL_TOUCHES } from "./tools";
 import { buildHistory } from "./history";
@@ -66,13 +67,14 @@ export async function* streamMessage(
 
   const input: ResponseInput = [...history, { role: "user", content: text }];
   const tools = await skillTools(ctx.surface);
+  const vars = await loadPromptVars();
   const toolCalls: ChatToolCall[] = [];
   const touched = new Set<string>();
   let reply = "";
 
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      const result = await converse(systemPrompt(ctx), input, { tools, maxOutputTokens: 4096 });
+      const result = await converse(systemPrompt(ctx, vars), input, { tools, maxOutputTokens: 4096 });
       if (result.text) {
         reply = result.text;
         yield { type: "text", text: result.text };

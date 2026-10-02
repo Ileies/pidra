@@ -45,7 +45,7 @@ For every candidate choose one action:
   the same matter). Give its id in target. If its wording does not cover the candidate yet,
   rewrite that open question.
 - ask: genuinely new. Give in target the id of an entry you add to new_questions ("n1", ...). Use
-  the candidate's own wording as-is unless several candidates ask the same thing and share one new
+  the candidate's own wording as-is (apart from the language rule below) unless several candidates ask the same thing and share one new
   question, or the wording needs a small edit to stand alone outside the mail. Never trade a
   candidate's specifics (a count, a date, a name) for a vaguer, more generic phrasing.
 - drop: the answer is already in the input; say where in reason. Only when you are sure: a
@@ -53,7 +53,8 @@ For every candidate choose one action:
   already there.
 
 Wording rules:
-- One question per entry, in English, at most 35 words, answerable in a sentence or two. Name the
+- One question per entry, written in {{language}} (translate a candidate's wording when it is in
+  another language, keeping every name, count and date), at most 35 words, answerable in a sentence or two. Name the
   sender or the matter, so the question stands on its own without the mail open.
 - A question about a sender asks who they are and how they relate to the reader, not whether the
   reader "recognizes" a mail. A question about an entity (about.type "entity") stays as specific

@@ -1,3 +1,4 @@
+import { OUTPUT_LANGUAGE } from "./language";
 import { BRIEFING_STYLE } from "./style";
 
 export const SECTION2_SYSTEM_PROMPT = `${BRIEFING_STYLE}
@@ -73,4 +74,6 @@ Output rules:
     "new_contacts": [{"identifier": "sender@example.com", "name": "Sender display name", "relationship": "service", "priority": "normal"}],
     "notes_to_write": []
   }
-  -->`;
+  -->
+
+${OUTPUT_LANGUAGE}`;

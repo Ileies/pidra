@@ -4,7 +4,6 @@ Open security work, ordered by impact; every entry was re-checked against the co
 
 ## Immediate: close bypasses
 
-- **[BUG] SMS webhook:** `POST /webhook/sms` in `src/server/index.ts` skips the check when `SMS_WEBHOOK_SECRET` is empty and compares with `!==`. Reject every request when the secret is unset, compare without a timing leak, document the required setting, and test the unset, wrong and valid cases.
 - **[BUG] Bridge execution:** `POST /skills/execute` calls `executeSkill()` without a surface, bypassing the per-page allowlist. Remove it if no caller needs it, or give manual execution its own authenticated, constrained policy. Preserve the existing audit and risk checks.
 - **[BUG] Notes proxy:** `dashboard/src/routes/api/notes/[...path]/+server.ts` builds the bridge URL from a catch-all path. Replace it with explicit allowed bridge routes and methods, and test encoded and nested paths so a dashboard session cannot steer it to another bridge endpoint.
 - **[BUG] Outbound mail:** Give `send_mail` an explicit recipient allowlist with an empty default. Remove the hardcoded default recipient from `send_email`; use configured SMTP account settings and require TLS. Raise both mail skills to high risk, and add a per-day outbound cap enforced at execution time.

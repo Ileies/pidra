@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { inArray, eq, desc, gte, and } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
+import { smsSecretAuthorized } from "./sms-auth";
 import { db, extractions, rawItems, sourceQuality, sourceDailyScores, skillExecutions, rawItemExists, promptVersions } from "../db";
 import { answerQuestion, dismissQuestion, getAnsweredQuestion, reopenQuestion, QuestionError } from "../questions/store";
 import { processAnswer } from "../questions/process-answer";
@@ -104,10 +105,9 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 // SMS forwarding webhook - receives messages from Android SMS forwarder app.
 // Expected payload: { from: string, body: string, timestamp?: number }
-// Auth: X-SMS-Secret header must match SMS_WEBHOOK_SECRET env var.
+// Auth: X-SMS-Secret header must match SMS_WEBHOOK_SECRET; with the variable unset every request is rejected.
 app.post("/webhook/sms", async (c) => {
-  const secret = process.env.SMS_WEBHOOK_SECRET;
-  if (secret && c.req.header("X-SMS-Secret") !== secret) {
+  if (!smsSecretAuthorized(process.env.SMS_WEBHOOK_SECRET, c.req.header("X-SMS-Secret"))) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 

@@ -17,6 +17,10 @@
     read_context: "Read the long-term context",
     revise_context: "Recorded a context correction",
     revert_context_revision: "Reverted a correction",
+    remove_context_item: "Removed a context item",
+    add_contact: "Added a contact",
+    list_questions: "Read the open questions",
+    create_question: "Asked you a question",
     read_report: "Read the briefing",
     add_todo_item: "Added a to-do",
     complete_todo_item: "Completed a to-do",
@@ -44,6 +48,7 @@
   const MAIL = "M4 5h16v14H4zM4 6l8 7 8-7";
   const FILE = "M6 3h9l5 5v13H6zM15 3v5h5";
   const EXTERNAL = "M9 15L20 4M14 4h6v6M6 9v11h11v-5";
+  const QUESTION = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4M12 17h.01";
   const WRENCH = "M14.7 6.3a4 4 0 1 0-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-2.4-.6-.6-2.4z";
 
   const ICON_PATHS: Record<string, string> = {
@@ -55,6 +60,10 @@
     read_context: CONTEXT,
     revise_context: CONTEXT,
     revert_context_revision: CONTEXT,
+    remove_context_item: CONTEXT,
+    add_contact: CONTEXT,
+    list_questions: QUESTION,
+    create_question: QUESTION,
     read_report: REPORT,
     add_todo_item: TODO,
     complete_todo_item: TODO,
@@ -68,6 +77,13 @@
     create_file: FILE,
     open_project_in_editor: EXTERNAL,
   };
+
+  /** One `name: value` line per argument: no braces or quotes around a payload meant to be read. */
+  function formatArguments(args: Record<string, unknown>): string {
+    return Object.entries(args)
+      .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
+      .join("\n");
+  }
 
   const chipLabel = $derived(LABELS[call.name] ?? call.name);
   const iconPath = $derived(ICON_PATHS[call.name] ?? WRENCH);
@@ -113,7 +129,7 @@
   <div class="px-2.5 pb-2 ml-8 flex flex-col gap-1 text-xs border-t border-surface-900 pt-2">
     <code class="text-surface-400">{call.name}</code>
     {#if Object.keys(call.arguments).length > 0}
-      <pre class="text-surface-300 whitespace-pre-wrap break-words">{JSON.stringify(call.arguments, null, 2)}</pre>
+      <pre class="text-surface-300 whitespace-pre-wrap break-words">{formatArguments(call.arguments)}</pre>
     {/if}
     {#if call.message}
       <div class="text-surface-200 whitespace-pre-wrap break-words">{call.message}</div>

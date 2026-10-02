@@ -11,6 +11,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!-- Matches the real body background. #0f1117 left a visible seam at the status bar. -->
     <meta name="theme-color" content="#111214" />
+    <!-- Applies this device's stored theme before first paint, so a light or system choice never
+         flashes dark. Same key and values as `$lib/theme.svelte.ts`; its hash lives in hooks.server.ts
+         (INLINE_THEME_HASH). -->
+    <script>
+      try {
+        var m = localStorage.getItem('pidra:theme');
+        if (m === 'light' || m === 'system') {
+          document.documentElement.dataset.mode = m;
+          var l = m === 'light' || matchMedia('(prefers-color-scheme: light)').matches;
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', l ? '#f0f2f5' : '#111214');
+        }
+      } catch (e) {}
+    </script>
     <!-- The News section links out to dozens of news sites a day. The browser default would hand
          each of them this dashboard's origin, which is not something to give a stranger's site. -->
     <meta name="referrer" content="no-referrer" />

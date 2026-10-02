@@ -108,9 +108,12 @@ const INLINE_SW_MIGRATION_HASH = "'sha256-Voat3aUhvKNrqeBzYGoQdZqdKoW30wLAQWlses
 /** `app.html`'s other inline script: stashes `beforeinstallprompt` before hydration. Same rule as above. */
 const INLINE_INSTALL_PROMPT_HASH = "'sha256-hquMtZi0IFK1YGzqBD29Px5iqPtAd2h7x8lFP6X67PU='";
 
+/** `app.html`'s theme script: applies the stored light/system choice before first paint. Same rule as above. */
+const INLINE_THEME_HASH = "'sha256-C72l7v7bAGyNBfas58GpcwxS2axkSdhtuoECMO9yYlo='";
+
 const RESOURCE_CSP = [
   "default-src 'self'",
-  `script-src 'self' ${INLINE_SW_MIGRATION_HASH} ${INLINE_INSTALL_PROMPT_HASH}`,
+  `script-src 'self' ${INLINE_SW_MIGRATION_HASH} ${INLINE_INSTALL_PROMPT_HASH} ${INLINE_THEME_HASH}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data:",

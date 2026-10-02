@@ -105,10 +105,15 @@
 /* ==========================================================================
    Palette (A4)
 
-   Dark-only by decision, so there is no light theme to fall back to and every
-   contrast failure here is permanent. Measured with `bun run scripts/contrast.ts`
-   (WCAG 2.1, sRGB); re-run it after any edit below.
+   Dark by default, light or follow-the-OS by a per-device choice in Settings. Every stop is a
+   `light-dark(light, dark)` pair, and the light value is the dark ramp mirrored (50 <-> 950, so
+   `text-surface-200` on `bg-surface-900` is still body copy on a panel), then nudged where the
+   mirror fails a threshold: the page is #f0f2f5 and a panel is white, and the accent 400/500
+   stops are darker than a straight mirror so badges and scores stay readable on a pale tint.
+   Measured with `bun run scripts/contrast.ts` for both modes (WCAG 2.1, sRGB); re-run it after
+   any edit below, and keep its two palettes in step with this block.
 
+   Dark:
      surface-200 on surface-900   11.74:1   body copy
      surface-400 on surface-900    5.28:1   muted text (metadata, labels)
      surface-400 on surface-950    5.83:1   muted text on the page
@@ -117,79 +122,85 @@
      success-400 on success-950    6.53:1   success badge
      warning-400 on warning-950    8.28:1   warning badge
 
-   Retired as text at any size: surface-500 (3.53:1), surface-600 (2.08:1) and
-   surface-700 (1.24:1). 600 and 700 are borders and disabled states only.
+   Retired as text at any size, in dark: surface-500 (3.53:1), surface-600 (2.08:1) and
+   surface-700 (1.24:1). 600 and 700 are borders and disabled states only (in both modes).
    ========================================================================== */
 
+/* `:root` as well as the body's `data-theme`: `--app-bg` and the other semantic tokens are
+   defined on `:root` and inherit from there, so with the ramp only on <body> they resolved
+   against Skeleton's stock neutral ramp and the page canvas never matched the palette. */
+:root,
 [data-theme="cerberus"] {
-  --color-surface-50: #f0f2f5;
-  --color-surface-100: #e8eaef;
-  --color-surface-200: #d4d6db;
-  --color-surface-300: #b8bac0;
-  --color-surface-400: #8b8f9a;
-  --color-surface-500: #6b7280;
-  --color-surface-600: #4a4f5a;
-  --color-surface-700: #2a2d33;
-  --color-surface-800: #22252a;
-  --color-surface-900: #1a1c1f;
-  --color-surface-950: #111214;
+  --color-surface-50: light-dark(#111214, #f0f2f5);
+  --color-surface-100: light-dark(#1a1c1f, #e8eaef);
+  --color-surface-200: light-dark(#2a2d33, #d4d6db);
+  --color-surface-300: light-dark(#3a3e46, #b8bac0);
+  --color-surface-400: light-dark(#4a4f5a, #8b8f9a);
+  --color-surface-500: light-dark(#6b7280, #6b7280);
+  --color-surface-600: light-dark(#b8bac0, #4a4f5a);
+  --color-surface-700: light-dark(#d4d6db, #2a2d33);
+  --color-surface-800: light-dark(#e8eaef, #22252a);
+  --color-surface-900: light-dark(#ffffff, #1a1c1f);
+  --color-surface-950: light-dark(#f0f2f5, #111214);
 
   /* The accent ramps used to stop at four stops each, so every `border-success-700`,
      `bg-primary-600` and `text-error-400` in the app silently resolved to a cerberus
      default from a different palette. Full ramps, so a class picks a colour on purpose. */
-  --color-primary-50: #eaf1fe;
-  --color-primary-100: #d5e3fd;
-  --color-primary-200: #abc7fb;
-  --color-primary-300: #8bb4fa;
-  --color-primary-400: #4f8ef7;
-  --color-primary-500: #4080f0;
-  --color-primary-600: #3068d0;
-  --color-primary-700: #2755aa;
-  --color-primary-800: #24467f;
-  --color-primary-900: #1e3a6e;
-  --color-primary-950: #162d58;
+  --color-primary-50: light-dark(#0f2145, #eaf1fe);
+  --color-primary-100: light-dark(#162d58, #d5e3fd);
+  --color-primary-200: light-dark(#1e3a6e, #abc7fb);
+  --color-primary-300: light-dark(#24467f, #8bb4fa);
+  --color-primary-400: light-dark(#2755aa, #4f8ef7);
+  --color-primary-500: light-dark(#3068d0, #4080f0);
+  --color-primary-600: light-dark(#4f8ef7, #3068d0);
+  --color-primary-700: light-dark(#8bb4fa, #2755aa);
+  --color-primary-800: light-dark(#abc7fb, #24467f);
+  --color-primary-900: light-dark(#d5e3fd, #1e3a6e);
+  --color-primary-950: light-dark(#eaf1fe, #162d58);
 
-  --color-success-50: #e9f7f0;
-  --color-success-100: #cdeade;
-  --color-success-200: #9dd7bd;
-  --color-success-300: #6fc79c;
-  --color-success-400: #5abb8f;
-  --color-success-500: #4caf82;
-  --color-success-600: #3d8f69;
-  --color-success-700: #2f6f52;
-  --color-success-800: #23503c;
-  --color-success-900: #193b2c;
-  --color-success-950: #0f2a1e;
+  --color-success-50: light-dark(#0f2a1e, #e9f7f0);
+  --color-success-100: light-dark(#193b2c, #cdeade);
+  --color-success-200: light-dark(#23503c, #9dd7bd);
+  --color-success-300: light-dark(#2a6048, #6fc79c);
+  --color-success-400: light-dark(#2f6f52, #5abb8f);
+  --color-success-500: light-dark(#2f7a57, #4caf82);
+  --color-success-600: light-dark(#5abb8f, #3d8f69);
+  --color-success-700: light-dark(#9dd7bd, #2f6f52);
+  --color-success-800: light-dark(#cdeade, #23503c);
+  --color-success-900: light-dark(#dcf1e6, #193b2c);
+  --color-success-950: light-dark(#e9f7f0, #0f2a1e);
 
-  --color-warning-50: #fdf5e3;
-  --color-warning-100: #fae9c0;
-  --color-warning-200: #f4d281;
-  --color-warning-300: #eec050;
-  --color-warning-400: #e9b036;
-  --color-warning-500: #e0a020;
-  --color-warning-600: #b8811a;
-  --color-warning-700: #8f6414;
-  --color-warning-800: #66470f;
-  --color-warning-900: #47320a;
-  --color-warning-950: #2a1e00;
+  --color-warning-50: light-dark(#2a1e00, #fdf5e3);
+  --color-warning-100: light-dark(#47320a, #fae9c0);
+  --color-warning-200: light-dark(#66470f, #f4d281);
+  --color-warning-300: light-dark(#7a550f, #eec050);
+  --color-warning-400: light-dark(#8f6414, #e9b036);
+  --color-warning-500: light-dark(#996a12, #e0a020);
+  --color-warning-600: light-dark(#e0a020, #b8811a);
+  --color-warning-700: light-dark(#f4d281, #8f6414);
+  --color-warning-800: light-dark(#fae9c0, #66470f);
+  --color-warning-900: light-dark(#fcf0d4, #47320a);
+  --color-warning-950: light-dark(#fdf5e3, #2a1e00);
 
-  --color-error-50: #fdecec;
-  --color-error-100: #fbd8d8;
-  --color-error-200: #f5b0b0;
-  --color-error-300: #ee8888;
-  --color-error-400: #e96e6e;
-  --color-error-500: #e05555;
-  --color-error-600: #c03e3e;
-  --color-error-700: #942f2f;
-  --color-error-800: #6b2222;
-  --color-error-900: #4a1818;
-  --color-error-950: #2a1010;
+  --color-error-50: light-dark(#2a1010, #fdecec);
+  --color-error-100: light-dark(#4a1818, #fbd8d8);
+  --color-error-200: light-dark(#6b2222, #f5b0b0);
+  --color-error-300: light-dark(#942f2f, #ee8888);
+  --color-error-400: light-dark(#a83535, #e96e6e);
+  --color-error-500: light-dark(#c03e3e, #e05555);
+  --color-error-600: light-dark(#e96e6e, #c03e3e);
+  --color-error-700: light-dark(#ee8888, #942f2f);
+  --color-error-800: light-dark(#f5b0b0, #6b2222);
+  --color-error-900: light-dark(#fbd8d8, #4a1818);
+  --color-error-950: light-dark(#fdecec, #2a1010);
 
-  --body-background-color: #111214;
+  /* Skeleton reads the plain variable under a light colour-scheme and the `-dark` one under a
+     dark scheme, so the plain ones carry the light values. */
+  --body-background-color: #f0f2f5;
   --body-background-color-dark: #111214;
-  --base-font-color: #d4d6db;
+  --base-font-color: #2a2d33;
   --base-font-color-dark: #d4d6db;
-  --anchor-font-color: #4f8ef7;
+  --anchor-font-color: #2755aa;
   --anchor-font-color-dark: #4f8ef7;
 }
 
@@ -202,7 +213,9 @@
    ========================================================================== */
 
 :root {
-  /* Forces dark so `light-dark()` adaptive vars always resolve to dark values. */
+  /* Dark unless the viewer chose otherwise. `data-mode` is set on <html> from the device's stored
+     theme choice (inline script in app.html, `$lib/theme.svelte.ts`); every `light-dark()` ramp
+     above follows this property, and `system` hands the decision to the OS. */
   color-scheme: dark;
 
   --app-bg: var(--color-surface-950);
@@ -219,6 +232,8 @@
   --app-accent: var(--color-primary-400);
   --app-accent-dim: var(--color-primary-900);
   --app-emphasis: var(--color-primary-200);
+  /* A solid fill under white text must not follow the ramp: error-600 mirrors to a pale red. */
+  --app-solid-error: #c03e3e;
 
   /* Set by the root layout from the real header height, so sticky elements never
      hard-code a desktop number: the mobile header is a different height from the
@@ -231,6 +246,13 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
+}
+
+:root[data-mode="light"] {
+  color-scheme: light;
+}
+:root[data-mode="system"] {
+  color-scheme: light dark;
 }
 
 @layer base {

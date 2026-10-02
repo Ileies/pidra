@@ -7,7 +7,7 @@
    * No server load: everything here is either a link to a page that already handles its own
    * state (`/setup`, `/privacy`, `/terms`) or a client-side control (`NotifyButton`, log out, the
    * language selects) that talks to its endpoint directly. That is what keeps it mirrored rather
-   * than online-only.
+   * than online-only. The theme select is device-local (`$lib/theme.svelte.ts`), so it works offline.
    */
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -17,6 +17,7 @@
   import { netJson } from "#lib/offline/net.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { toasts } from "#lib/toast.svelte.js";
+  import { THEME_MODES, setTheme, theme, type ThemeMode } from "#lib/theme.svelte.js";
   import { CONTENT_LANGUAGES, UI_LANGUAGES } from "$pipeline/config/languages";
 
   const isOffline = $derived(offline.reachable === "offline");
@@ -89,7 +90,22 @@
     <InstallApp />
 
     <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-4">
-      <h2 class="text-sm font-semibold text-surface-100">Language</h2>
+      <h2 class="text-sm font-semibold text-surface-100">Preferences</h2>
+
+      <div class="flex flex-col gap-1">
+        <label for="theme" class="text-sm font-semibold text-surface-100">Theme</label>
+        <select
+          id="theme"
+          value={theme.mode}
+          onchange={(event) => setTheme(event.currentTarget.value as ThemeMode)}
+          class="input-base-flush font-normal"
+        >
+          {#each THEME_MODES as mode (mode.value)}
+            <option value={mode.value}>{mode.label}</option>
+          {/each}
+        </select>
+        <p class="text-xs text-surface-400">Applies to this device only. System follows your device's light or dark setting.</p>
+      </div>
 
       <div class="flex flex-col gap-1">
         <label for="content-language" class="text-sm font-semibold text-surface-100">Content language</label>

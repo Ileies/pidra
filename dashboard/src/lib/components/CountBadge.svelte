@@ -12,5 +12,5 @@
 </script>
 
 {#if count > 0}
-  <span class="min-w-5 rounded-full bg-error-600 px-1 text-center text-[10px] font-bold leading-5 text-white tabular-nums {extra}" aria-hidden="true">{count > 99 ? "99+" : count}</span>
+  <span class="min-w-5 rounded-full bg-(--app-solid-error) px-1 text-center text-[10px] font-bold leading-5 text-white tabular-nums {extra}" aria-hidden="true">{count > 99 ? "99+" : count}</span>
 {/if}

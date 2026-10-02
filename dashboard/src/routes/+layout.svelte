@@ -20,6 +20,7 @@
   import { navOrigin } from "#lib/navOrigin.svelte.js";
   import { pwa } from "#lib/pwa.svelte.js";
   import { push } from "#lib/push.svelte.js";
+  import { loadTheme } from "#lib/theme.svelte.js";
 
   let { children } = $props();
 
@@ -55,6 +56,7 @@
   });
 
   $effect(() => {
+    loadTheme();
     appUpdate.start();
     pwa.start();
     void push.start();

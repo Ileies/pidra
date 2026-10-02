@@ -20,6 +20,8 @@ Extraction's `relevance_score` feeds the gate directly (`effective_relevance = r
 
 The same rubric caps "talk" at 2 (statements, accusations, opened investigations, "could" scenarios, minor personnel moves, abstract analyses with no new finding), scores a new dev tool at least 3, counts an essay as one to three items rather than one per paragraph, and requires `key_claim` to state the claim itself, not describe the newsletter. Its effect is judged on real mornings; see `docs/todo/now.md`.
 
+**Where this ranking lives:** it is the reader's intent, not code. No prompt in `src/ai/prompts/` states it; Section 1 is only told not to override "the topic priorities in `notes_intel`", so the list is expected to be kept in the `intel` notes (`notes` scope `intel`), and extraction's rubric refers to a "priority domain" without naming one. Check those notes before tuning against this list. Boosts and exclusions below are likewise intent. The China pre-trip boost is not implemented.
+
 When two stories compete, the intended ranking is:
 
 1. AI/LLM: breakthroughs, model releases, capability jumps, safety, policy

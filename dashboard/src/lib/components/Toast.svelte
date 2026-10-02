@@ -5,7 +5,8 @@
    *
    * Position: above the mobile tab bar and above the safe area, and left-aligned rather than
    * centred, because a centred toast at the bottom of a phone sits exactly where the thumb is
-   * (M7). On desktop it sits bottom-left, clear of the floating assistant on the right.
+   * (M7). From `sm` up it is a compact bottom-left card instead of full width, clear of the
+   * floating assistant on the right; only the bottom offset waits for `xl`, when the tab bar goes.
    */
   import { toasts } from "#lib/toast.svelte.js";
 
@@ -18,7 +19,7 @@
 
 {#if toasts.items.length > 0}
   <div
-    class="fixed z-50 flex flex-col gap-2 left-4 right-4 xl:right-auto xl:max-w-md
+    class="fixed z-50 flex flex-col gap-2 left-4 right-4 sm:right-auto sm:max-w-md
            bottom-[calc(4.5rem+var(--safe-b))] xl:bottom-[calc(1.5rem+var(--safe-b))]"
     role="region"
     aria-label="Notifications"

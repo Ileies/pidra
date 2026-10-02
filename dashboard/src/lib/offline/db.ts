@@ -11,7 +11,7 @@
 const DB_NAME = "pidra-offline";
 /** 2: the reference tables (entities, relations, appearances, contacts, topics).
  *  3: the relation graph is gone (no confirmed edges, no evidence, never read by synthesis - see
- *  docs/todo/entities.md) - `entityRelations` is dropped on upgrade rather than left as dead,
+ *  docs/scoring-formulas.md) - `entityRelations` is dropped on upgrade rather than left as dead,
  *  unsynced data. An upgrade otherwise only ever adds stores, so it keeps what is there. */
 const DB_VERSION = 3;
 

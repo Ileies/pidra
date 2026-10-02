@@ -6,6 +6,9 @@
   import Sparkline from "#lib/components/Sparkline.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import { enhance } from "$app/forms";
+  import Spinner from "#lib/components/Spinner.svelte";
+  import { toasts } from "#lib/toast.svelte.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtTime } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
@@ -38,6 +41,7 @@
   } as const;
 
   let expanded = $state<Record<string, boolean>>({});
+  let reviewing = $state<string | null>(null);
 
   /** Oldest first, so both trends read left to right like time does. */
   const chronological = $derived([...data.runs].reverse());
@@ -155,6 +159,31 @@
                   </button>
                 {:else if failed && run.failedStep}
                   <span class="text-xs text-error-400 font-mono">{run.failedStep}</span>
+                {/if}
+                {#if run.unreviewed}
+                  <form
+                    method="POST"
+                    action="?/reviewRun"
+                    use:enhance={() => {
+                      reviewing = run.id;
+                      return async ({ result, update }) => {
+                        reviewing = null;
+                        if (result.type === "success") toasts.success("Run issue marked as reviewed.");
+                        else if (result.type === "failure") toasts.error(String(result.data?.error ?? "That did not go through."));
+                        await update({ reset: false });
+                      };
+                    }}
+                  >
+                    <input type="hidden" name="id" value={run.id} />
+                    <button
+                      type="submit"
+                      disabled={reviewing !== null}
+                      class="tap inline-flex items-center gap-1.5 rounded border border-surface-600 px-2 py-0.5 text-xs text-surface-300 hover:border-surface-400 hover:text-surface-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                    >
+                      {#if reviewing === run.id}<Spinner label="Marking as reviewed" />{/if}
+                      Mark reviewed
+                    </button>
+                  </form>
                 {/if}
               </div>
 

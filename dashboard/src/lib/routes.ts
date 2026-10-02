@@ -40,8 +40,8 @@ export interface RouteDef {
   children?: string[];
   /** Present on the four mobile tab destinations, in bar order. */
   tab?: number;
-  /** Rendered as a dedicated control in the mobile header, outside the bottom bar and More sheet. */
-  mobileHeader?: boolean;
+  /** Rendered as an icon-only control in the header at every width, outside the bottom bar, the More sheet and the desktop nav row. */
+  headerIcon?: boolean;
   /**
    * The letter that follows `g` to jump here (E1). Declared rather than derived from the label:
    * first-letter-wins left Rules, Runs, Chat, Context and Skills with no key at all, because
@@ -49,10 +49,9 @@ export interface RouteDef {
    */
   key?: string;
   /**
-   * Folded into the "More" menu instead of the desktop nav row, and grouped under the mobile
-   * overflow sheet's own heading there: reachable, but not one of the handful of things always on
-   * screen. `Navbar.svelte` and `TabBar.svelte` both read this rather than each keeping its own
-   * cutoff, so the two surfaces agree on what counts as primary.
+   * Folded into the desktop "More" menu instead of the desktop nav row: reachable, but not one of
+   * the handful of things always on screen. Read by `Navbar.svelte` only. The mobile tab bar keeps
+   * its own cutoff (`tab`), so Notes and Chat stay tabs there.
    */
   secondary?: boolean;
   /**
@@ -76,7 +75,6 @@ const ICON = {
   prompts: "M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5",
   runs: "M4 19V5M4 19h16M8 15l3.5-4.5 3 2.5L19 7",
   questions: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4M12 17h.01",
-  notifications: "M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
   legal: "M5 3h10l4 4v14H5zM15 3v5h5M8 12h8M8 16h8",
   chat: "M21 11.5a8.4 8.4 0 0 1-9 8.3 9 9 0 0 1-2.8-.4L3 21l1.6-4.8A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.3 8.4 8.4 0 0 1 8.4 8.3z",
   settings:
@@ -88,8 +86,10 @@ const ICON = {
 } as const;
 
 /**
- * Order is the desktop nav order. Daily actions first, then the three groups, then chat.
- * The dividers in the nav row fall between groups.
+ * Order is the nav order, and the order of the tiles in the More grid (three to a row, read left
+ * to right): daily use (Questions, Chat, Sources), people and subjects (Contacts, Entities,
+ * Topics), what the system knows and how it is tuned (Rules, Context, Feedback), then the
+ * machinery (Skills, Prompts, Runs). The nav row draws no dividers between groups.
  */
 export const ROUTES: RouteDef[] = [
   {
@@ -112,6 +112,18 @@ export const ROUTES: RouteDef[] = [
     group: "report",
     icon: ICON.questions,
     children: ["/questions/closed"],
+    secondary: true,
+  },
+  {
+    href: "/chat",
+    id: "/chat",
+    label: "Chat",
+    key: "c",
+    surface: "context",
+    group: "chat",
+    icon: ICON.chat,
+    tab: 2,
+    secondary: true,
   },
   {
     href: "/sources",
@@ -122,15 +134,16 @@ export const ROUTES: RouteDef[] = [
     group: "intel",
     icon: ICON.sources,
     children: ["/sources/[name]"],
+    secondary: true,
   },
   {
-    href: "/feedback",
-    id: "/feedback",
-    label: "Feedback",
-    key: "f",
-    surface: "sources",
+    href: "/contacts",
+    id: "/contacts",
+    label: "Contacts",
+    key: "o",
+    surface: "context",
     group: "intel",
-    icon: ICON.feedback,
+    icon: ICON.contacts,
     secondary: true,
   },
   {
@@ -157,15 +170,6 @@ export const ROUTES: RouteDef[] = [
     secondary: true,
   },
   {
-    href: "/contacts",
-    id: "/contacts",
-    label: "Contacts",
-    key: "o",
-    surface: "context",
-    group: "intel",
-    icon: ICON.contacts,
-  },
-  {
     href: "/notes",
     id: "/notes",
     label: "Notes",
@@ -183,6 +187,7 @@ export const ROUTES: RouteDef[] = [
     surface: "context",
     group: "memory",
     icon: ICON.rules,
+    secondary: true,
   },
   {
     href: "/context-builder",
@@ -193,6 +198,17 @@ export const ROUTES: RouteDef[] = [
     group: "memory",
     icon: ICON.context,
     children: ["/context-builder/corrections"],
+    secondary: true,
+  },
+  {
+    href: "/feedback",
+    id: "/feedback",
+    label: "Feedback",
+    key: "f",
+    surface: "sources",
+    group: "intel",
+    icon: ICON.feedback,
+    secondary: true,
   },
   {
     href: "/skills",
@@ -227,15 +243,6 @@ export const ROUTES: RouteDef[] = [
     children: ["/runs/[id]"],
   },
   {
-    href: "/notifications",
-    id: "/notifications",
-    label: "Notifications",
-    surface: "global",
-    group: "system",
-    icon: ICON.notifications,
-    hidden: true,
-  },
-  {
     href: "/settings",
     id: "/settings",
     label: "Settings",
@@ -243,18 +250,8 @@ export const ROUTES: RouteDef[] = [
     surface: "global",
     group: "system",
     icon: ICON.settings,
-    mobileHeader: true,
+    headerIcon: true,
     children: ["/settings/email-accounts", "/settings/newsletters", "/settings/newsletters/rules"],
-  },
-  {
-    href: "/chat",
-    id: "/chat",
-    label: "Chat",
-    key: "c",
-    surface: "context",
-    group: "chat",
-    icon: ICON.chat,
-    tab: 2,
   },
   {
     href: "/privacy",
@@ -314,7 +311,7 @@ export const ROUTES: RouteDef[] = [
 
 export const MORE_ICON = ICON.more;
 
-/** Desktop nav order, grouped. Dividers go between groups. */
+/** Desktop nav order, grouped. */
 export const NAV_GROUPS: NavGroup[] = ["report", "intel", "memory", "system", "chat"];
 
 /** The four mobile tab destinations, in bar order. The fourth is More, which is not a route. */
@@ -391,7 +388,6 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/runs/[id]": { label: "Run breakdown", reason: "A run's step timing and cost are a live query against the pipeline's own tables." },
   "/questions": { label: "Questions", reason: "The question queue is live state: an answer queued offline could land on a question the pipeline has since merged or closed." },
   "/questions/closed": { label: "Recently closed questions", reason: "Question history is live state and a reopened question can return to the queue at any time." },
-  "/notifications": { label: "Notifications", reason: "Notification state is live so reports and run issues can be marked as read or reviewed." },
   "/chat": { label: "Chat", reason: "The assistant needs a live connection to the model." },
   "/[date]/triage": { label: "Triage", reason: "Triage is a live query against the pipeline's own tables." },
   "/settings/email-accounts": {

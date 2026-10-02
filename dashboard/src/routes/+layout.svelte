@@ -110,18 +110,6 @@
     <ServerStatus />
   {/if}
 
-  {#if appUpdate.ready}
-    <!-- Never automatic: taking over mid-read would reload the page under the reader. -->
-    <div role="status" class="flex items-center justify-center gap-3 border-b border-surface-700 bg-surface-900 px-4 py-2 text-xs text-surface-300">
-      <span>A new version of PIDRA is ready.</span>
-      <button
-        type="button"
-        onclick={() => appUpdate.apply()}
-        class="tap rounded border border-primary-700 bg-primary-900 px-3 py-1 text-primary-200 hover:bg-primary-800 cursor-pointer"
-      >Reload</button>
-    </div>
-  {/if}
-
   <div id="main-content" class="flex flex-1 flex-col min-h-0">
     {#if firstSync}
       <FirstSync />

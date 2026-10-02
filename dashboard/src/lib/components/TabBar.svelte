@@ -14,7 +14,7 @@
   import { ROUTES, TABS, MORE_ICON, needsConnection, routeFor } from "#lib/routes.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
-  import Badge from "#lib/components/Badge.svelte";
+  import CountBadge from "#lib/components/CountBadge.svelte";
 
   interface Props {
     open: boolean;
@@ -25,11 +25,12 @@
 
   const current = $derived(routeFor(page.route.id));
   const badges = $derived(navBadges.counts);
-  const anyPending = $derived(Object.values(badges).some((count) => count > 0));
   const isOffline = $derived(offline.reachable === "offline");
 
-  /** Everything the tab bar does not already reach, minus mobile-header and settings-only pages. */
-  const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined && !route.mobileHeader && !route.hidden));
+  /** Everything the tab bar does not already reach, minus header-icon and settings-only pages. */
+  const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined && !route.headerIcon && !route.hidden));
+  /** What the More tab shows: the sum of the counts on the rows inside the sheet. */
+  const sheetTotal = $derived(sheetRoutes.reduce((sum, entry) => sum + (badges[entry.href] ?? 0), 0));
 
   // A navigation closes the sheet: leaving it open over the page it just opened is a trap.
   $effect(() => {
@@ -86,7 +87,8 @@
         {#if unavailable}
           <span class="text-xs text-surface-400">Needs the connection</span>
         {:else if badge > 0}
-          <Badge tone="warning">{badge} pending</Badge>
+          <CountBadge count={badge} />
+          <span class="sr-only">{badge} waiting for you</span>
         {/if}
       </a>
     {/each}
@@ -100,18 +102,20 @@
 >
   {#each TABS as tab (tab.href)}
     {@const unavailable = isOffline && needsConnection(tab)}
+    {@const badge = badges[tab.href] ?? 0}
     <a
       href={tab.href}
       aria-current={current?.href === tab.href ? "page" : undefined}
       data-sveltekit-preload-data={unavailable ? "off" : undefined}
-      aria-label={unavailable ? `${tab.label} (needs the connection)` : undefined}
-      class="flex h-14 flex-col items-center justify-center gap-0.5 no-underline text-xs transition-colors
+      aria-label={unavailable ? `${tab.label} (needs the connection)` : badge > 0 ? `${tab.label}, ${badge} waiting for you` : undefined}
+      class="relative flex h-14 flex-col items-center justify-center gap-0.5 no-underline text-xs transition-colors
         {current?.href === tab.href ? 'text-primary-300' : 'text-surface-400'} {unavailable ? 'opacity-70' : ''}"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d={tab.icon} />
       </svg>
       {tab.label}
+      <CountBadge count={badge} class="absolute top-1 left-1/2 ml-1" />
     </a>
   {/each}
 
@@ -119,6 +123,7 @@
     type="button"
     onclick={() => onOpenChange(!open)}
     aria-expanded={open}
+    aria-label={sheetTotal > 0 ? `More, ${sheetTotal} waiting for you` : undefined}
     class="relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs cursor-pointer bg-transparent border-none
       {open ? 'text-primary-300' : 'text-surface-400'}"
   >
@@ -126,8 +131,6 @@
       <path d={MORE_ICON} />
     </svg>
     More
-    {#if anyPending}
-      <span class="absolute top-2 right-1/4 h-2 w-2 rounded-full bg-warning-500" aria-hidden="true"></span>
-    {/if}
+    <CountBadge count={sheetTotal} class="absolute top-1 left-1/2 ml-1" />
   </button>
 </nav>

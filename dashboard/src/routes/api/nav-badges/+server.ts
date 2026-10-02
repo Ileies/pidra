@@ -30,10 +30,11 @@ export const GET = async () => {
 
   const questions = (openQuestions?.n as number | undefined) ?? 0;
   const skills = (pendingSkills?.n as number | undefined) ?? 0;
-  const notifications = questions + ((unreadReports?.n as number | undefined) ?? 0) + ((unreviewedRuns?.n as number | undefined) ?? 0);
+  const reports = (unreadReports?.n as number | undefined) ?? 0;
+  const runs = (unreviewedRuns?.n as number | undefined) ?? 0;
 
   return Response.json({
     hasPendingQuestions: questions > 0,
-    navBadges: { "/questions": questions, "/skills": skills, "/notifications": notifications } as Record<string, number>,
+    navBadges: { "/": reports, "/questions": questions, "/runs": runs, "/skills": skills } as Record<string, number>,
   });
 };

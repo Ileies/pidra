@@ -1,4 +1,6 @@
-import type { PageServerLoad } from "./$types";
+import type { Actions, PageServerLoad } from "./$types";
+import { fail } from "@sveltejs/kit";
+import { acknowledgeNotification, runNotificationKey } from "#lib/server/notifications.js";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import type { StepAttempt } from "#lib/pipeline.js";
@@ -27,6 +29,8 @@ export interface RunRow {
   tokensIn: number | null;
   tokensOut: number | null;
   itemsIncluded: number | null;
+  /** Failed or degraded, and not yet marked reviewed: the rows the Runs badge counts. */
+  unreviewed: boolean;
 }
 
 export const load: PageServerLoad = async () => {
@@ -42,9 +46,12 @@ export const load: PageServerLoad = async () => {
       r.duration_ms,
       d.tokens_in,
       d.tokens_out,
-      d.items_included
+      d.items_included,
+      (n.notification_key IS NULL
+        AND (r.status = 'failed' OR COALESCE(jsonb_array_length(r.step_errors), 0) > 0)) AS unreviewed
     FROM pipeline_runs r
     LEFT JOIN daily_reports d ON d.report_date = r.run_date
+    LEFT JOIN notification_reads n ON n.notification_key = 'run:' || r.id::text
     ORDER BY r.started_at DESC
     LIMIT 90
   `;
@@ -61,6 +68,7 @@ export const load: PageServerLoad = async () => {
     tokensIn: (row.tokens_in as number | null) ?? null,
     tokensOut: (row.tokens_out as number | null) ?? null,
     itemsIncluded: (row.items_included as number | null) ?? null,
+    unreviewed: row.unreviewed === true,
   }));
 
   const completed = runs.filter((run) => run.status === "completed");
@@ -75,6 +83,15 @@ export const load: PageServerLoad = async () => {
       medianDurationMs: median(completed.map((run) => run.durationMs).filter((ms): ms is number => ms != null)),
     },
   };
+};
+
+export const actions: Actions = {
+  reviewRun: async ({ request }) => {
+    const id = String((await request.formData()).get("id") ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { error: "Invalid run id." });
+    await acknowledgeNotification(runNotificationKey(id));
+    return { reviewedRun: id };
+  },
 };
 
 /** Median, not mean: one 40-minute question-gate wait should not describe every other run. */

@@ -34,7 +34,7 @@
       <h1 class="text-xl font-bold text-surface-50">Newsletter sources <Badge tone="muted">{feeds.length}</Badge></h1>
       <p class="text-xs text-surface-400 max-w-prose">
         Changes take effect on the next pipeline run. A feed listed here takes precedence over its
-        email copy, and a failed fetch appears below its link and in Notifications.
+        email copy, and a failed fetch appears below its link and in the run's issues on Runs.
       </p>
     </div>
     <a href="/settings/newsletters/rules" class="tap shrink-0 text-xs text-surface-400 hover:text-primary-300">Email sender rules &rarr;</a>

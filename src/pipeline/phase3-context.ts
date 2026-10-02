@@ -1,5 +1,5 @@
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, or, gte, isNull, inArray } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { decideGate, type GateDecision } from "./gate";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
@@ -139,8 +139,8 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
       with: { rawItem: true },
     }),
     db.select().from(sourceQuality),
-    // Soft-deleted notes must not keep steering the briefing.
-    db.select().from(notes).where(isNull(notes.deletedAt)),
+    // Soft-deleted and expired notes must not keep steering the briefing; a note is live through its expiry day.
+    db.select().from(notes).where(and(isNull(notes.deletedAt), or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)))),
     db.select().from(contacts).where(isNull(contacts.removedAt)),
     db.select().from(entities).where(eq(entities.status, "active")),
     db.select().from(activeTopics).where(inArray(activeTopics.status, ["dormant", "archived"])),

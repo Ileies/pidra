@@ -55,7 +55,7 @@ The invariants of the system. Read this before any change that touches extractio
   - Never add a code path that rewrites the context document or an existing standing rule in place.
 - **Notes are the mutable working layer, and the only one.**
   - `notes` rows are edited in place, but only through `src/notes/store.ts`, the single writer. Every mutation appends the pre-change state to `note_revisions`, and a delete only sets `deleted_at`, so dashboard and chat can both undo.
-  - Every reader must filter `deleted_at IS NULL` (currently `phase3-context.ts` and `search/slots.ts`).
+  - Every reader must filter `deleted_at IS NULL` and skip expired notes, `expires_at IS NULL OR expires_at >= runDate` (a note is live through its expiry day). Currently `phase3-context.ts`, `search/slots.ts` and, for intel notes, `news/run.ts`.
   - Never write `notes` directly from a new caller; never give the harvest this treatment.
 
 ## Report content

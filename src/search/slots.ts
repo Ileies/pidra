@@ -1,7 +1,7 @@
 import { braveSearch, type BraveResult } from "./brave";
 import { extractJson } from "../ai/openai";
 import { db, notes, entities } from "../db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, or, gte, isNull } from "drizzle-orm";
 import type { activeTopics } from "../db";
 
 export interface WebSearchResult {
@@ -72,7 +72,11 @@ export async function runSlot3(runDate: string): Promise<WebSearchResult | null>
   const searchTargets = await db
     .select({ content: notes.content })
     .from(notes)
-    .where(and(eq(notes.scope, "search"), isNull(notes.deletedAt)));
+    .where(and(
+      eq(notes.scope, "search"),
+      isNull(notes.deletedAt),
+      or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
+    ));
 
   if (searchTargets.length === 0) return null;
 

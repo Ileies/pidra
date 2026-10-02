@@ -7,8 +7,7 @@
   import DataTable from "#lib/components/DataTable.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
   import type { Column } from "#lib/components/table.js";
-  import { fmtPct, fmtScore } from "#lib/format.js";
-  import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
+  import { fmtDate, fmtPct, fmtScore } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { SourceRow } from "./+page.server";
   import type { ActionData, PageData } from "./$types";
@@ -74,12 +73,8 @@
   <span class="tabular-nums">{fmtPct(includeRate(source))}</span>
 {/snippet}
 
-{#snippet trendCell(source: SourceRow)}
-  <!-- The glyph never travels alone: an arrow on its own is colour-and-shape only (P7). -->
-  <span class="whitespace-nowrap text-surface-300">
-    <span aria-hidden="true">{TREND_GLYPH[source.qualityTrend ?? "stable"] ?? "→"}</span>
-    {displayLabel(source.qualityTrend ?? "stable")}
-  </span>
+{#snippet lastDeliveryCell(source: SourceRow)}
+  <span class="whitespace-nowrap text-surface-300">{fmtDate(source.lastDelivery)}</span>
 {/snippet}
 
 {#snippet actionCell(source: SourceRow)}
@@ -116,7 +111,7 @@
       { key: "score", header: "Score 30d", align: "right", card: "row", cell: scoreCell },
       { key: "history", header: "History", width: "w-40", showAt: "md", card: "row", cell: historyCell },
       { key: "rate", header: "Include rate", align: "right", card: "row", cell: rateCell },
-      { key: "trend", header: "Trend", showAt: "sm", card: "row", cell: trendCell },
+      { key: "lastDelivery", header: "Last delivery", showAt: "sm", card: "row", cell: lastDeliveryCell },
       { key: "action", header: "", width: "w-56", align: "right", card: "actions", cell: actionCell },
     ] as Column<SourceRow>[]}
   />

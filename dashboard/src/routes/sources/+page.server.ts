@@ -20,7 +20,7 @@ export interface SourceRow {
   disabledAt: string | null;
   disabledReason: string | null;
   trustScore: number | null;
-  qualityTrend: string | null;
+  lastDelivery: string | Date | null;
   compositeScore30d: number | null;
   unsubscribeUrl: string | null;
   dailyScores: DailyScore[];
@@ -29,11 +29,11 @@ export interface SourceRow {
 export const load: PageServerLoad = async () => {
   const db = sql();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
-  const [qualityRows, dailyRows] = await Promise.all([
+  const [qualityRows, dailyRows, deliveryRows] = await Promise.all([
     db`
       SELECT source_name AS "sourceName", is_active AS "isActive",
              disabled_at::text AS "disabledAt", disabled_reason AS "disabledReason",
-             trust_score AS "trustScore", quality_trend AS "qualityTrend",
+             trust_score AS "trustScore",
              composite_score_30d AS "compositeScore30d", unsubscribe_url AS "unsubscribeUrl"
       FROM source_quality
       ORDER BY composite_score_30d DESC NULLS LAST
@@ -47,7 +47,17 @@ export const load: PageServerLoad = async () => {
       WHERE run_date >= ${thirtyDaysAgo}
       ORDER BY run_date DESC
     `,
+    db`
+      SELECT source_name AS "sourceName", max(received_at) AS "lastDelivery"
+      FROM raw_items
+      GROUP BY source_name
+    `,
   ]);
+
+  const lastDeliveryBySource = new Map<string, string | Date | null>();
+  for (const row of deliveryRows as unknown as { sourceName: string; lastDelivery: string | Date | null }[]) {
+    lastDeliveryBySource.set(row.sourceName, row.lastDelivery);
+  }
 
   const dailyBySource = new Map<string, DailyScore[]>();
   for (const row of dailyRows as unknown as DailyScore[]) {
@@ -56,8 +66,9 @@ export const load: PageServerLoad = async () => {
     dailyBySource.set(row.sourceName, scores);
   }
 
-  const sources: SourceRow[] = (qualityRows as unknown as Omit<SourceRow, "dailyScores">[]).map((row) => ({
+  const sources: SourceRow[] = (qualityRows as unknown as Omit<SourceRow, "dailyScores" | "lastDelivery">[]).map((row) => ({
     ...row,
+    lastDelivery: lastDeliveryBySource.get(row.sourceName) ?? null,
     dailyScores: (dailyBySource.get(row.sourceName) ?? []).slice(0, 30),
   }));
   return { sources };

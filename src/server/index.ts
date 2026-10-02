@@ -4,7 +4,8 @@ import { streamSSE } from "hono/streaming";
 import { inArray, eq, desc, gte, and } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
 import { db, extractions, rawItems, sourceQuality, sourceDailyScores, rssFeeds, newsletterSenderRules, skillExecutions, rawItemExists, promptVersions } from "../db";
-import { answerQuestion, dismissQuestion, reopenQuestion, QuestionError } from "../questions/store";
+import { answerQuestion, dismissQuestion, getAnsweredQuestion, reopenQuestion, QuestionError } from "../questions/store";
+import { processAnswer } from "../questions/process-answer";
 import { PROMPT_SECTIONS, renderPromptText, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { braveSearch } from "../search/brave";
@@ -260,7 +261,16 @@ app.post("/api/questions/:id/:op", async (c) => {
     if (op === "answer") {
       const body = await c.req.json().catch(() => ({})) as { answer?: unknown };
       const question = await answerQuestion(id, typeof body.answer === "string" ? body.answer : "");
+      // Not awaited: acting on the answer is a tool-calling turn that can take a minute. Its result
+      // is recorded on the question (`answer_status`) and shown on /questions/closed.
+      void processAnswer(question.id);
       return c.json({ id: question.id, status: question.status });
+    }
+    if (op === "reprocess") {
+      const question = await getAnsweredQuestion(id);
+      if (question.answerStatus === "done") return c.json({ error: "The answer was already acted on" }, 409);
+      void processAnswer(id);
+      return c.json({ id, status: question.status });
     }
     if (op === "dismiss") {
       const question = await dismissQuestion(id);
@@ -270,7 +280,7 @@ app.post("/api/questions/:id/:op", async (c) => {
       const question = await reopenQuestion(id);
       return c.json({ id: question.id, status: question.status });
     }
-    return c.json({ error: "op must be answer, dismiss or reopen" }, 400);
+    return c.json({ error: "op must be answer, dismiss, reopen or reprocess" }, 400);
   } catch (err) {
     if (err instanceof QuestionError) {
       return c.json({ error: err.message }, err.kind === "not_found" ? 404 : err.kind === "invalid" ? 400 : 409);

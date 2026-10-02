@@ -22,7 +22,10 @@ import { activePrompt } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
 
 export type Question = typeof questions.$inferSelect;
-export type QuestionKind = "item" | "review";
+export type QuestionKind = "item" | "review" | "chat";
+
+/** Open questions the assistant itself may have in the queue at once, so a chatty model cannot flood it. */
+const MAX_OPEN_CHAT_QUESTIONS = 10;
 
 /** Closed by the reader or the pipeline, and so reopenable. `answered` is not: edit by answering again. */
 const REOPENABLE = ["dismissed", "resolved", "merged"];
@@ -52,6 +55,73 @@ export interface QueuePlan {
 
 export async function listOpen(): Promise<Question[]> {
   return db.select().from(questions).where(eq(questions.status, "open")).orderBy(questions.createdAt);
+}
+
+function normaliseText(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/**
+ * A question the assistant raises mid-conversation because it found something only the reader can
+ * settle. Goes into the same queue as the pipeline's: an identical open question is returned
+ * instead of asked twice, and the reconcile call tidies near-duplicates on the next run.
+ */
+export async function createChatQuestion(
+  text: string,
+  why: string | null,
+  conversationId: string | null,
+): Promise<{ question: Question; duplicate: boolean }> {
+  const wording = text.trim();
+  if (!wording) throw new QuestionError("invalid", "The question is empty");
+
+  const open = await listOpen();
+  const same = open.find((q) => normaliseText(q.question) === normaliseText(wording));
+  if (same) return { question: same, duplicate: true };
+  if (open.filter((q) => q.kind === "chat").length >= MAX_OPEN_CHAT_QUESTIONS) {
+    throw new QuestionError("conflict", `There are already ${MAX_OPEN_CHAT_QUESTIONS} open questions from the assistant; ask the user to answer some first`);
+  }
+
+  const today = new Date().toISOString().split("T")[0]!;
+  const [row] = await db
+    .insert(questions)
+    .values({ kind: "chat", question: wording, sources: [], firstAsked: today, lastAsked: today })
+    .returning();
+  await logEvent(db, row!.id, "asked", why?.trim() || null, { by: "chat", conversation_id: conversationId });
+  return { question: row!, duplicate: false };
+}
+
+/** Why a question was asked, from its "asked" event: the assistant's note on what it saw. */
+export async function askedReason(id: string): Promise<string | null> {
+  const [row] = await db
+    .select({ reason: questionEvents.reason })
+    .from(questionEvents)
+    .where(and(eq(questionEvents.questionId, id), eq(questionEvents.event, "asked")))
+    .limit(1);
+  return row?.reason ?? null;
+}
+
+/** Records how acting on an answer went (`process-answer.ts`). */
+export async function setAnswerOutcome(
+  id: string,
+  status: "running" | "done" | "failed",
+  outcome: string | null,
+  conversationId?: string | null,
+): Promise<void> {
+  await db
+    .update(questions)
+    .set({
+      answerStatus: status,
+      answerOutcome: outcome,
+      ...(conversationId ? { answerConversationId: conversationId } : {}),
+      updatedAt: sql`now()`,
+    })
+    .where(eq(questions.id, id));
+}
+
+export async function getAnsweredQuestion(id: string): Promise<Question> {
+  const row = await getQuestion(id);
+  if (row.status !== "answered") throw new QuestionError("conflict", `This question is ${row.status}, not answered`);
+  return row;
 }
 
 /** Answers given in the last `days`, oldest first: what the reader has already told the system. */

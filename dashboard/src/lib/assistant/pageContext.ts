@@ -12,7 +12,7 @@
 
 import { surfaceForPath } from "#lib/routes.js";
 
-export type Surface = "notes" | "context" | "entities" | "report" | "sources" | "prompts" | "global";
+export type Surface = "notes" | "context" | "entities" | "report" | "sources" | "prompts" | "questions" | "global";
 
 export interface FocusItem {
   kind: string;

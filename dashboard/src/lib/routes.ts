@@ -108,7 +108,7 @@ export const ROUTES: RouteDef[] = [
     id: "/questions",
     label: "Questions",
     key: "q",
-    surface: "global",
+    surface: "questions",
     group: "report",
     icon: ICON.questions,
     children: ["/questions/closed"],

@@ -1,4 +1,8 @@
 import addCalendarEvent from "../../skills/add_calendar_event";
+import addContact from "../../skills/add_contact";
+import createQuestion from "../../skills/create_question";
+import listQuestions from "../../skills/list_questions";
+import removeContextItem from "../../skills/remove_context_item";
 import addTodoItem from "../../skills/add_todo_item";
 import completeTodoItem from "../../skills/complete_todo_item";
 import createFile from "../../skills/create_file";
@@ -56,6 +60,10 @@ export function provenanceOf(ctx: SkillContext) {
 
 const registry = new Map<string, Skill>([
   addCalendarEvent,
+  addContact,
+  createQuestion,
+  listQuestions,
+  removeContextItem,
   addTodoItem,
   completeTodoItem,
   createFile,

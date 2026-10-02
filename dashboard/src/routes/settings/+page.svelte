@@ -115,7 +115,7 @@
             <option value={code}>{lang.native}{lang.native === lang.name ? "" : ` (${lang.name})`}</option>
           {/each}
         </select>
-        <p class="text-xs text-surface-400">Coming soon. The interface is English only for now.</p>
+        <p class="text-xs text-surface-400">Translations coming soon.</p>
       </div>
     </section>
 

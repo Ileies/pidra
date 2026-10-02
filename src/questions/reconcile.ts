@@ -265,7 +265,7 @@ export async function reconcileQueue(
       .select({ content: notes.content, scope: notes.scope, createdAt: notes.createdAt })
       .from(notes)
       .where(and(isNull(notes.deletedAt), inArray(notes.scope, ["personal", "contact"]))),
-    senders.length > 0 ? db.select().from(contacts).where(inArray(contacts.identifier, senders)) : Promise.resolve([]),
+    senders.length > 0 ? db.select().from(contacts).where(and(inArray(contacts.identifier, senders), isNull(contacts.removedAt))) : Promise.resolve([]),
   ]);
 
   const openIds = new Map(open.map((q, i) => [`q${i + 1}`, q]));

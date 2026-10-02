@@ -94,7 +94,8 @@ async function loadClassificationContext(): Promise<ClassificationContext> {
   const [contactRows, noteRows] = await Promise.all([
     db
       .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, contextNotes: contacts.contextNotes })
-      .from(contacts),
+      .from(contacts)
+      .where(isNull(contacts.removedAt)),
     db
       .select({ content: notes.content, createdAt: notes.createdAt })
       .from(notes)

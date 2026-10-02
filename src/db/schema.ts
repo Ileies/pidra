@@ -256,6 +256,9 @@ export const contacts = pgTable("contacts", {
   updatedAt: timestamptz("updated_at").default(sql`now()`),
   // Set by a `revise_context` correction; `seedContacts` skips locked rows on re-seed.
   locked: boolean("locked").default(false),
+  // Set when the owner has the sender removed (`remove_context_item`). The row stays - locked, so a
+  // re-seed cannot resurrect it - and every reader skips it; reverting the correction clears this.
+  removedAt: timestamptz("removed_at"),
   // Seeded once from the Context Builder's corpus. Re-seeding never overwrites these metrics.
   // The live pipeline increments emailCount after the initial seed.
   emailCount: integer("email_count").default(0),
@@ -402,7 +405,7 @@ export interface QuestionRevision {
  */
 export const questions = pgTable("questions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  kind: text("kind").notNull(), // item | review
+  kind: text("kind").notNull(), // item | review | chat (asked by the assistant mid-conversation)
   question: text("question").notNull(),
   // open | answered | dismissed | resolved | merged
   status: text("status").notNull().default("open"),
@@ -421,6 +424,16 @@ export const questions = pgTable("questions", {
   /** A review answer turned into insight notes (`absorbReviewAnswers`). */
   absorbedAt: timestamptz("absorbed_at"),
   answeredAt: timestamptz("answered_at"),
+  /**
+   * What happened to the answer after it was given (`src/questions/process-answer.ts`): the
+   * assistant reads it and acts on it with the `questions` surface's skills. null = not applicable
+   * (open, closed without an answer, or a review answer, which the weekly review absorbs).
+   */
+  answerStatus: text("answer_status"), // running | done | failed
+  /** The assistant's own account of what it changed, or the error. */
+  answerOutcome: text("answer_outcome"),
+  /** The chat conversation holding every skill call the answer triggered. */
+  answerConversationId: uuid("answer_conversation_id"),
   createdAt: timestamptz("created_at").default(sql`now()`),
   updatedAt: timestamptz("updated_at").default(sql`now()`),
 });

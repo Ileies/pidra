@@ -243,7 +243,7 @@ async function buildCorrections() {
 async function buildContextCounts() {
   const [counts] = await sql()`
     SELECT
-      (SELECT count(*) FROM contacts)::int                        AS contacts,
+      (SELECT count(*) FROM contacts WHERE removed_at IS NULL)::int AS contacts,
       (SELECT count(*) FROM entities)::int                        AS entities,
       (SELECT count(*) FROM standing_context)::int                AS standing_context,
       (SELECT count(*) FROM context_builder_indexed_items
@@ -305,6 +305,7 @@ async function buildContacts() {
     SELECT id, identifier, name, relationship, priority, context_notes,
            first_seen::text AS first_seen, updated_at, locked, email_count
     FROM contacts
+    WHERE removed_at IS NULL
   `;
   return rows.map((row) => ({
     id: row.id as string,

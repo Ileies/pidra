@@ -30,6 +30,11 @@ export interface CorrectionInput {
   rationale?: string | null;
   /** Field-level merge for structured targets, e.g. `{ relationship: "girlfriend" }`. */
   fields?: Record<string, unknown> | null;
+  /**
+   * Take the entity (archive it) or the contact (set `removed_at`) out of use. Never a delete: the
+   * row stays, locked, with its pre-removal state on the correction so a revert puts it back.
+   */
+  remove?: boolean;
   source?: string;
   conversationId?: string | null;
 }
@@ -99,7 +104,7 @@ export async function recordCorrection(input: CorrectionInput): Promise<{ id: st
   let applied = "recorded as a correction over the harvested context";
 
   if (input.targetKind === "entity" || input.targetKind === "contact") {
-    const merge = await mergeStructuredRow(input.targetKind, targetKey, input.fields ?? null);
+    const merge = await mergeStructuredRow(input.targetKind, targetKey, input.fields ?? null, input.remove ?? false);
     previousState = merge.previousState;
     applied = merge.applied;
   } else if (input.targetKind === "standing_context" && input.operation === "complement") {
@@ -165,6 +170,7 @@ async function mergeStructuredRow(
   kind: "entity" | "contact",
   key: string,
   fields: Record<string, unknown> | null,
+  remove: boolean,
 ): Promise<{ previousState: Record<string, unknown> | null; applied: string }> {
   const allowed = MERGEABLE[kind];
   const candidate: Record<string, unknown> = {};
@@ -179,6 +185,15 @@ async function mergeStructuredRow(
   if (kind === "contact") {
     const [row] = await db.select().from(contacts).where(eq(contacts.identifier, key)).limit(1);
     if (!row) throw new CorrectionError(`no contact with identifier "${key}"`);
+    if (remove) {
+      if (row.removedAt) throw new CorrectionError(`contact ${key} is already removed`);
+      await db
+        .update(contacts)
+        .set({ removedAt: drizzleSql`now()`, locked: true, updatedAt: drizzleSql`now()` })
+        .where(eq(contacts.identifier, key));
+      return { previousState: row as Record<string, unknown>, applied: `removed contact ${key} (the row is kept, locked, and comes back if this correction is reverted)` };
+    }
+    if (row.removedAt) throw new CorrectionError(`contact ${key} was removed; revert that removal before editing it`);
     const patch = diffFromRow(candidate, row as Record<string, unknown>);
     if (Object.keys(patch).length === 0) {
       return { previousState: null, applied: "recorded as a correction; no contact field actually changed, so the row is unchanged" };
@@ -197,12 +212,88 @@ async function mergeStructuredRow(
     .where(drizzleSql`lower(${entities.name}) = lower(${key})`)
     .limit(1);
   if (!row) throw new CorrectionError(`no entity named "${key}"`);
+  if (remove) {
+    if (row.status === "archived") throw new CorrectionError(`entity ${row.name} is already removed`);
+    await db.update(entities).set({ status: "archived", locked: true }).where(eq(entities.id, row.id));
+    return { previousState: row as Record<string, unknown>, applied: `removed entity ${row.name} (archived and locked; it comes back if this correction is reverted)` };
+  }
   const patch = diffFromRow(candidate, row as Record<string, unknown>);
   if (Object.keys(patch).length === 0) {
     return { previousState: null, applied: "recorded as a correction; no entity field actually changed, so the row is unchanged" };
   }
   await db.update(entities).set({ ...patch, locked: true }).where(eq(entities.id, row.id));
   return { previousState: row as Record<string, unknown>, applied: `updated entity ${row.name}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };
+}
+
+const EMAIL_SHAPED = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
+
+/** The previous state of a contact that did not exist before the correction. */
+const CREATED_MARKER = { __created: true };
+
+export interface NewContact {
+  identifier: string;
+  name?: string | null;
+  relationship?: string | null;
+  priority?: string | null;
+  contextNotes?: string | null;
+  rationale?: string | null;
+  source?: string;
+  conversationId?: string | null;
+}
+
+/**
+ * Adds a sender the directory does not have, or brings back one that was removed. It is a
+ * `complement` correction like any other, so the log shows who added it and a revert takes it out
+ * again (as a removal: the row stays).
+ */
+export async function addContact(input: NewContact): Promise<{ id: string; applied: string }> {
+  const identifier = input.identifier.trim().toLowerCase();
+  if (!EMAIL_SHAPED.test(identifier)) throw new CorrectionError(`"${input.identifier}" is not an email address; contacts are an email sender directory`);
+  const priority = input.priority?.trim() || "normal";
+  if (!["critical", "high", "normal", "low"].includes(priority)) throw new CorrectionError("priority must be critical, high, normal or low");
+
+  const values = {
+    name: input.name?.trim() || null,
+    relationship: input.relationship?.trim() || null,
+    priority,
+    contextNotes: input.contextNotes?.trim() || null,
+  };
+
+  const [existing] = await db.select().from(contacts).where(eq(contacts.identifier, identifier)).limit(1);
+  let previousState: Record<string, unknown>;
+  let applied: string;
+
+  if (existing && !existing.removedAt) {
+    throw new CorrectionError(`contact ${identifier} already exists; use revise_context to change it`);
+  } else if (existing) {
+    previousState = existing as Record<string, unknown>;
+    await db
+      .update(contacts)
+      .set({ ...values, removedAt: null, locked: true, updatedAt: drizzleSql`now()` })
+      .where(eq(contacts.identifier, identifier));
+    applied = `restored previously removed contact ${identifier}`;
+  } else {
+    previousState = CREATED_MARKER;
+    await db.insert(contacts).values({ identifier, ...values, locked: true });
+    applied = `added contact ${identifier} (locked against re-seed)`;
+  }
+
+  const described = [values.name, values.relationship].filter(Boolean).join(", ");
+  const [row] = await db
+    .insert(contextCorrections)
+    .values({
+      targetKind: "contact",
+      targetKey: identifier,
+      operation: "complement",
+      statement: `${identifier} is ${described || "a known contact"}.`,
+      rationale: input.rationale?.trim() || null,
+      previousState,
+      source: input.source ?? "chat",
+      conversationId: input.conversationId ?? null,
+    })
+    .returning({ id: contextCorrections.id });
+
+  return { id: row.id, applied };
 }
 
 /**
@@ -217,7 +308,14 @@ export async function revertCorrection(id: string): Promise<string> {
   let restored = "";
   const prev = row.previousState;
 
-  if (prev && row.targetKind === "contact") {
+  if (prev && row.targetKind === "contact" && prev.__created === true) {
+    // Added by `addContact`: there is no earlier row to restore, so it is taken out of use again.
+    await db
+      .update(contacts)
+      .set({ removedAt: drizzleSql`now()`, updatedAt: drizzleSql`now()` })
+      .where(eq(contacts.identifier, row.targetKey));
+    restored = `, contact ${row.targetKey} removed again`;
+  } else if (prev && row.targetKind === "contact") {
     await db
       .update(contacts)
       .set({
@@ -225,6 +323,7 @@ export async function revertCorrection(id: string): Promise<string> {
         relationship: (prev.relationship as string) ?? null,
         priority: (prev.priority as string) ?? null,
         contextNotes: (prev.contextNotes as string) ?? null,
+        removedAt: (prev.removedAt as string) ?? null,
         locked: (prev.locked as boolean) ?? false,
         updatedAt: drizzleSql`now()`,
       })

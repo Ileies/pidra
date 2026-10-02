@@ -141,7 +141,7 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     db.select().from(sourceQuality),
     // Soft-deleted notes must not keep steering the briefing.
     db.select().from(notes).where(isNull(notes.deletedAt)),
-    db.select().from(contacts),
+    db.select().from(contacts).where(isNull(contacts.removedAt)),
     db.select().from(entities).where(eq(entities.status, "active")),
     db.select().from(activeTopics).where(inArray(activeTopics.status, ["dormant", "archived"])),
     db.select({ rawContent: rawItems.rawContent })

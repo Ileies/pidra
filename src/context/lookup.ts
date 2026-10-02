@@ -100,7 +100,7 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
 
   if (want("entity")) {
     const rows = await db
-      .select({ name: entities.name, type: entities.type, summary: entities.summary, importance: entities.importance, locked: entities.locked })
+      .select({ name: entities.name, type: entities.type, summary: entities.summary, importance: entities.importance, locked: entities.locked, status: entities.status })
       .from(entities)
       .where(matchAllTokens([drizzleSql`${entities.name}`, drizzleSql`${entities.summary}`], tokens))
       .orderBy(desc(entities.mentionCount))
@@ -108,7 +108,7 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
     hits.push(...rows.map((r) => ({
       kind: "entity" as const,
       key: r.name,
-      text: `type=${r.type ?? "-"} importance=${r.importance ?? "-"}${r.locked ? " locked" : ""} - ${r.summary ?? "no summary"}`,
+      text: `type=${r.type ?? "-"} importance=${r.importance ?? "-"}${r.status === "archived" ? " REMOVED" : ""}${r.locked ? " locked" : ""} -${r.summary ?? "no summary"}`,
     })));
   }
 
@@ -116,7 +116,7 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
     const rows = await db
       .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, priority: contacts.priority, locked: contacts.locked })
       .from(contacts)
-      .where(matchAllTokens([drizzleSql`${contacts.identifier}`, drizzleSql`${contacts.name}`, drizzleSql`${contacts.relationship}`], tokens))
+      .where(drizzleSql`${contacts.removedAt} IS NULL AND ${matchAllTokens([drizzleSql`${contacts.identifier}`, drizzleSql`${contacts.name}`, drizzleSql`${contacts.relationship}`], tokens)}`)
       .limit(MAX_PER_KIND);
     hits.push(...rows.map((r) => ({
       kind: "contact" as const,

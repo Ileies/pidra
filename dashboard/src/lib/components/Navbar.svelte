@@ -105,11 +105,16 @@
 
     {#if appUpdate.ready}
       <!-- Never automatic: taking over mid-read would reload the page under the reader. -->
-      <!-- From `md` up it hangs from the top edge of the screen as a tab: a translucent backdrop whose
-           shoulders flare out to the edge at a shallow angle (see `.update-tab` below). -->
-      <div role="status" class="update-tab flex shrink-0 items-center gap-2 text-xs text-surface-200 max-md:ml-auto md:fixed md:left-1/2 md:top-0 md:z-10 md:-translate-x-1/2 md:px-[4.5rem] md:py-2">
-        <span class="update-tab-bg hidden md:block" aria-hidden="true"></span>
-        <span class="relative hidden md:inline">A new version of PIDRA is ready.</span>
+      <!-- From `md` up it hangs from the top edge of the screen as a tab: a body with a curved shoulder
+           on each side that sweeps out to the edge at a shallow angle and drops steeply into the box.
+           The pieces are opaque and the wrapper carries the opacity, so the seams never show. -->
+      <div role="status" class="flex shrink-0 items-center gap-2 text-xs text-surface-200 max-md:ml-auto md:fixed md:left-1/2 md:top-0 md:z-10 md:h-12 md:-translate-x-1/2 md:gap-0 md:opacity-95 md:drop-shadow-[0_6px_12px_rgb(0_0_0/0.4)]">
+        <svg viewBox="0 0 64 48" class="hidden h-12 w-16 shrink-0 -mr-px overflow-visible md:block" aria-hidden="true">
+          <path d="M0 0C18 0 30 5 35 22L39 38C41 45 45 48 53 48H64V0Z" class="fill-surface-900" />
+          <path d="M0 0C18 0 30 5 35 22L39 38C41 45 45 47.5 53 47.5H64" fill="none" class="stroke-surface-600" />
+        </svg>
+        <div class="contents md:flex md:h-full md:items-center md:gap-3 md:px-2 md:border-b md:border-surface-600 md:bg-surface-900">
+        <span class="hidden md:inline">A new version of PIDRA is ready.</span>
         <!-- Below `md` there is no room for a sentence: the button shrinks to a refresh icon with a
              dot, the same 40px square as Settings, and the title row truncates a little more. -->
         <button
@@ -125,6 +130,11 @@
           <span class="hidden md:inline">Reload</span>
           <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-primary-400 ring-2 ring-surface-950 md:hidden" aria-hidden="true"></span>
         </button>
+        </div>
+        <svg viewBox="0 0 64 48" class="hidden h-12 w-16 shrink-0 -ml-px -scale-x-100 overflow-visible md:block" aria-hidden="true">
+          <path d="M0 0C18 0 30 5 35 22L39 38C41 45 45 48 53 48H64V0Z" class="fill-surface-900" />
+          <path d="M0 0C18 0 30 5 35 22L39 38C41 45 45 47.5 53 47.5H64" fill="none" class="stroke-surface-600" />
+        </svg>
       </div>
     {/if}
 
@@ -230,22 +240,3 @@
 
   </div>
 </header>
-
-<style>
-  /* Outline, left to right: from the top edge 50px at about 20deg down, then about 75deg down to the
-     bottom of the box. The right side mirrors it. */
-  .update-tab-bg {
-    position: absolute;
-    inset: 0;
-    background: color-mix(in srgb, var(--color-surface-900) 80%, transparent);
-    backdrop-filter: blur(6px);
-    clip-path: polygon(
-      0 0,
-      100% 0,
-      calc(100% - 50px) 18px,
-      calc(100% - 57px) 100%,
-      57px 100%,
-      50px 18px
-    );
-  }
-</style>

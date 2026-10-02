@@ -30,6 +30,9 @@
     /** Runs after a successful submit, once `update()` has applied the result - for a caller
      *  that has client-side state of its own to reconcile (e.g. the active row was just deleted). */
     onSuccess?: () => void;
+    /** Renders the resting trigger as a borderless trash icon (`label` becomes its tooltip and
+     *  accessible name), to sit beside other icon buttons. The armed Confirm/Cancel stays text. */
+    icon?: boolean;
   }
 
   let {
@@ -43,6 +46,7 @@
     immediate = false,
     size = "xs",
     onSuccess,
+    icon = false,
   }: Props = $props();
 
   let armed = $state(false);
@@ -82,6 +86,16 @@
       {label}
     </button>
   </form>
+{:else if !armed && icon}
+  <button
+    type="button"
+    onclick={() => (armed = true)}
+    title={label}
+    aria-label={label}
+    class="tap inline-flex items-center justify-center text-surface-500 hover:text-error-400 cursor-pointer transition-colors"
+  >
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>
+  </button>
 {:else if !armed}
   <button
     type="button"

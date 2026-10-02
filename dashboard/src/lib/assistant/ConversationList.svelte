@@ -161,6 +161,7 @@
               action="?/delete"
               fields={{ id: conversation.id }}
               tone="error"
+              icon
               onSuccess={() => {
                 if (active) onDeletedActive?.();
               }}

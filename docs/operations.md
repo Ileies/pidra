@@ -33,7 +33,7 @@ It refuses rather than improvises: an uncommitted tree (unless `--force`), commi
 
 `drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw.
 
-**Apply a migration before deploying code that reads it.** The newest two are `0036_user_settings.sql` (the `user_settings` table, read by the settings loader and every prompt render) and `0037_question_actions.sql` (`contacts.removed_at` and the `questions.answer_*` columns, read by every contact reader and the answer processing).
+**Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap.
 
 ## Cron schedule (all `Europe/Berlin`)
 

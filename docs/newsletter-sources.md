@@ -51,5 +51,3 @@ Accounts not flagged `isNewsAccount` never produce newsletters, because transact
 | 30 | B | Console.dev | Dev Tools | Weekly | Curated developer tools and open-source projects |
 | 31 | B | Bytes.dev | JavaScript | Weekly | JS ecosystem, close to the SvelteKit stack |
 | 32 | C | NeuroNews International | Neuroscience/BCI | Weekly | Clinical neuroscience and BCI trials |
-
-Netzpolitik.org (German digital politics and EU regulation) was considered as a 33rd source and declined on 2026-09-10 with no re-evaluation (`CLAUDE.md`, "What's next"). At 32, a marginal source dilutes more than it adds.

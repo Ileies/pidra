@@ -86,6 +86,12 @@
     if (selecting) onToggleSelect(note.id, !selected);
     else onEdit(note);
   }
+
+  function footerClick(e: MouseEvent) {
+    if (!selecting) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    onToggleSelect(note.id, !selected);
+  }
 </script>
 
 <div
@@ -143,7 +149,12 @@
       >{expanded ? "Show less" : "Show more"}</button>
     {/if}
 
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 pb-3 pt-2.5 text-xs text-surface-400 sm:px-5">
+    <!-- Keyboard users toggle through the content button above; this only widens the tap target. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+    <div
+      onclick={footerClick}
+      class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 pb-3 pt-2.5 text-xs text-surface-400 sm:px-5 {selecting ?'cursor-pointer' : ''}"
+    >
       <span class="badge border {SCOPE_INFO[note.scope]?.classes ?? SCOPE_FALLBACK_CLASS}">{displayLabel(note.scope)}</span>
       {#if expiry}
         <span class={expiry.tone}>{expiry.text}</span>

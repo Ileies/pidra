@@ -87,11 +87,41 @@ export const revertRevision = (revisionId: string) =>
 
 export const NOTE_SCOPES = ["global", "intel", "personal", "contact", "search"] as const;
 
-/** Scope is the one place a note's colour carries meaning, and the word is always beside it. */
-export const SCOPE_CLASS: Record<string, string> = {
-  global: "text-primary-300 bg-primary-950 border-primary-800",
-  intel: "text-warning-400 bg-warning-950 border-warning-800",
-  personal: "text-success-400 bg-success-950 border-success-800",
-  contact: "text-surface-200 bg-surface-800 border-surface-600",
-  search: "text-surface-300 bg-surface-900 border-surface-700",
+/**
+ * Scope is the one place a note's colour carries meaning, and the word is always beside it.
+ * `hint` says what the scope does to the briefing, as `phase3-context.ts` and `search/slots.ts` read it.
+ */
+export const SCOPE_INFO: Record<string, { classes: string; hint: string }> = {
+  global: {
+    classes: "text-primary-300 bg-primary-950 border-primary-800",
+    hint: "Steers both Section 1 and Section 2 of every briefing.",
+  },
+  intel: {
+    classes: "text-warning-400 bg-warning-950 border-warning-800",
+    hint: "Steers Section 1, the intelligence briefing.",
+  },
+  personal: {
+    classes: "text-success-400 bg-success-950 border-success-800",
+    hint: "Steers Section 2, your personal briefing.",
+  },
+  contact: {
+    classes: "text-surface-200 bg-surface-800 border-surface-600",
+    hint: "Reference only: no briefing reads these yet.",
+  },
+  search: {
+    classes: "text-surface-300 bg-surface-900 border-surface-700",
+    hint: "Topics the daily monitoring web search looks up.",
+  },
 };
+
+export const SCOPE_FALLBACK_CLASS = "text-surface-300 bg-surface-900 border-surface-700";
+
+/** What an open editor holds: a new note (no row yet) or an edit of an existing one. */
+export interface Draft {
+  content: string;
+  scope: string;
+  /** `YYYY-MM-DD`, or "" for no expiry. */
+  expires: string;
+  saving: boolean;
+  error: string | null;
+}

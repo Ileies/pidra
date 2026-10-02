@@ -2,20 +2,27 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import NoteCard from "#lib/notes/NoteCard.svelte";
+  import NoteEditor from "#lib/notes/NoteEditor.svelte";
+  import NoteHistory from "#lib/notes/NoteHistory.svelte";
+  import NotesToolbar from "#lib/notes/NotesToolbar.svelte";
+  import Masonry from "#lib/components/Masonry.svelte";
   import Page from "#lib/components/Page.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
-  import Spinner from "#lib/components/Spinner.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import { toasts } from "#lib/toast.svelte.js";
-  import { createNote, deleteNote, restoreNote, updateNote, NOTE_SCOPES } from "#lib/notes/api.js";
-  import { filterNotes, type NotesFilter } from "#lib/offline/repo.js";
+  import {
+    createNote, deleteNote, restoreNote, updateNote,
+    NOTE_SCOPES,
+    type Draft, type NotePatch, type NoteRow,
+  } from "#lib/notes/api.js";
+  import { filterNotes, NOTES_SHOWN, type NotesFilter } from "#lib/offline/repo.js";
   import { sync } from "#lib/offline/sync.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { intentIsFor } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
+  import { label } from "#lib/labels.js";
   import type { PageData } from "./$types";
-  import type { NoteRow } from "#lib/notes/api.js";
 
   let { data }: { data: PageData } = $props();
 
@@ -78,10 +85,6 @@
     writeUrl();
   }
 
-  function onSearchInput(event: Event & { currentTarget: HTMLInputElement }) {
-    applyFilters({ query: event.currentTarget.value });
-  }
-
   const shown = $derived(filterNotes(data.notes, filter));
 
   // A failed create has no row once a pull has put the mirror back to the server's state; it is
@@ -92,6 +95,14 @@
   const counts = $derived({
     active: data.notes.filter((note) => !note.deleted_at).length,
     deleted: data.notes.filter((note) => !!note.deleted_at).length,
+  });
+  const scopeCounts = $derived.by(() => {
+    const out: Record<string, number> = {};
+    for (const note of data.notes) {
+      if (filter.view === "deleted" ? !note.deleted_at : !!note.deleted_at) continue;
+      out[note.scope] = (out[note.scope] ?? 0) + 1;
+    }
+    return out;
   });
 
   // What the assistant sees of this page. The focus list gives it real ids for the rows on
@@ -110,39 +121,100 @@
     });
   });
 
-  // --- add ---
+  // --- editing and adding ---
+  //
+  // Drafts live here, not in the cards: a card is rebuilt when a note arrives (the stack is dealt
+  // round-robin, so one more note shifts every column), and an open edit must survive that.
 
-  let adding = $state(false);
-  let newContent = $state("");
-  let newScope = $state("global");
-  let newExpires = $state("");
-  let creating = $state(false);
+  function blankDraft(scope = "global"): Draft {
+    return { content: "", scope, expires: "", saving: false, error: null };
+  }
 
-  async function submitNew() {
-    const content = newContent.trim();
-    if (!content || creating) return;
+  let drafts = $state<Record<string, Draft>>({});
+  let composer = $state<Draft>(blankDraft());
+  let composing = $state(false);
 
-    creating = true;
+  function startEdit(note: NoteRow) {
+    if (note.deleted_at || note.id in drafts) return;
+    drafts[note.id] = { content: note.content, scope: note.scope, expires: note.expires_at ?? "", saving: false, error: null };
+  }
+
+  function cancelEdit(note: NoteRow) {
+    delete drafts[note.id];
+  }
+
+  async function saveEdit(note: NoteRow) {
+    const draft = drafts[note.id];
+    if (!draft || draft.saving) return;
+
+    const content = draft.content.trim();
+    if (!content) {
+      draft.error = "A note cannot be empty.";
+      return;
+    }
+
+    const patch: NotePatch = {};
+    if (content !== note.content) patch.content = content;
+    if (draft.scope !== note.scope) patch.scope = draft.scope;
+    if ((draft.expires || null) !== (note.expires_at ?? null)) patch.expires_at = draft.expires || null;
+    if (Object.keys(patch).length === 0) {
+      delete drafts[note.id];
+      return;
+    }
+
+    draft.saving = true;
+    draft.error = null;
     try {
-      await createNote({ content, scope: newScope, expires_at: newExpires || null });
-      newContent = "";
-      newExpires = "";
-      adding = false;
-      toasts.success("Note added.");
+      await updateNote(note.id, patch);
+      delete drafts[note.id];
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
-    } finally {
-      creating = false;
+      // The editor stays open with the text intact: a failed save must not lose the edit.
+      draft.error = err instanceof Error ? err.message : String(err);
+      draft.saving = false;
     }
   }
 
-  // --- selection and bulk actions ---
+  function startNew() {
+    if (filter.view === "deleted") applyFilters({ view: "active" });
+    if (composing) return;
+    composer = blankDraft(filter.scope || "global");
+    composing = true;
+  }
 
+  async function saveNew() {
+    const content = composer.content.trim();
+    if (!content || composer.saving) return;
+
+    composer.saving = true;
+    composer.error = null;
+    try {
+      await createNote({ content, scope: composer.scope, expires_at: composer.expires || null });
+      composing = false;
+      toasts.success("Note added.");
+    } catch (err) {
+      composer.error = err instanceof Error ? err.message : String(err);
+      composer.saving = false;
+    }
+  }
+
+  // --- history ---
+
+  let historyId = $state<string | null>(null);
+  const historyNote = $derived(historyId ? (data.notes.find((note) => note.id === historyId) ?? null) : null);
+
+  // --- selection and bulk actions ---
+  //
+  // Selection is a mode, not a checkbox on every card. `selecting` is the explicit mode (the
+  // toolbar's Select); a hover checkbox on desktop starts one implicitly, and while anything is
+  // selected a tap on a card toggles it rather than opening the editor.
+
+  let selecting = $state(false);
   let selected = $state<Set<string>>(new Set());
   let busy = $state(false);
 
   const visibleIds = $derived(shown.map((note) => note.id));
   const selectedCount = $derived(selected.size);
+  const selectionActive = $derived(selecting || selectedCount > 0);
   const allSelected = $derived(visibleIds.length > 0 && visibleIds.every((id) => selected.has(id)));
 
   // A filter change can hide selected rows; acting on invisible selection is a nasty surprise.
@@ -164,6 +236,11 @@
     selected = allSelected ? new Set() : new Set(visibleIds);
   }
 
+  function endSelection() {
+    selecting = false;
+    selected = new Set();
+  }
+
   async function bulkScope(scope: string) {
     if (!scope || busy) return;
     busy = true;
@@ -171,7 +248,7 @@
     try {
       for (const id of ids) await updateNote(id, { scope });
       selected = new Set();
-      toasts.success(`${ids.length} notes set to "${scope}".`);
+      toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} set to "${scope}".`);
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -186,9 +263,24 @@
     try {
       for (const id of ids) await deleteNote(id);
       selected = new Set();
-      toasts.success(`${ids.length} notes deleted.`, async () => {
+      toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} deleted.`, async () => {
         for (const id of ids) await restoreNote(id);
       });
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function bulkRestore() {
+    if (busy) return;
+    busy = true;
+    const ids = [...selected];
+    try {
+      for (const id of ids) await restoreNote(id);
+      selected = new Set();
+      toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} restored.`);
     } catch (err) {
       toasts.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -199,6 +291,7 @@
   // --- single delete and restore, with undo ---
 
   async function handleDelete(note: NoteRow) {
+    delete drafts[note.id];
     try {
       await deleteNote(note.id);
       toasts.success("Note deleted.", async () => {
@@ -218,165 +311,130 @@
   }
 </script>
 
-<Page title="Notes" size="app" class="flex flex-col gap-4">
-  <div class="flex flex-wrap items-center gap-2">
-    <input
-      type="search"
-      value={filter.query}
-      oninput={onSearchInput}
-      placeholder="Search notes…"
-      aria-label="Search notes"
-      class="input-base flex-1 min-w-40"
-    />
-
-    <select
-      value={filter.scope}
-      onchange={(event) => applyFilters({ scope: event.currentTarget.value })}
-      aria-label="Filter by scope"
-      class="input-base"
-    >
-      <option value="">All scopes</option>
-      {#each NOTE_SCOPES as scope (scope)}
-        <option value={scope}>{scope}</option>
-      {/each}
-    </select>
-
-    <select
-      value={filter.sort}
-      onchange={(event) => applyFilters({ sort: event.currentTarget.value as NotesFilter["sort"] })}
-      aria-label="Sort order"
-      class="input-base"
-    >
-      <option value="newest">Newest first</option>
-      <option value="oldest">Oldest first</option>
-      <option value="edited">Last edited</option>
-    </select>
-
-    <button
-      onclick={() => applyFilters({ view: filter.view === "deleted" ? "active" : "deleted" })}
-      aria-pressed={filter.view === "deleted"}
-      class="tap px-3 py-1.5 rounded text-sm border cursor-pointer transition-colors {filter.view === 'deleted'
-        ? 'bg-surface-800 border-surface-500 text-surface-100'
-        : 'bg-surface-900 border-surface-700 text-surface-300 hover:bg-surface-800'}"
-    >
-      Trash{counts.deleted > 0 ? ` (${counts.deleted})` : ""}
-    </button>
-
-    <button
-      onclick={() => (adding = !adding)}
-      class="tap px-3 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
-    >
-      {adding ? "Cancel" : "+ New note"}
-    </button>
-  </div>
-
-  {#if adding}
-    <div class="bg-surface-900 border border-surface-700 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3">
-      <textarea
-        bind:value={newContent}
-        rows="3"
-        placeholder="Note content…"
-        aria-label="New note content"
-        onkeydown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            submitNew();
-          }
-        }}
-        class="input-base-flush w-full resize-y"
-      ></textarea>
-      <div class="flex items-center gap-3 flex-wrap">
-        <select bind:value={newScope} aria-label="Scope" class="input-base">
-          {#each NOTE_SCOPES as scope (scope)}
-            <option value={scope}>{scope}</option>
-          {/each}
-        </select>
-        <label class="text-xs text-surface-400 flex items-center gap-2">
-          Expires
-          <input type="date" bind:value={newExpires} class="input-base" />
-        </label>
-        <button
-          onclick={submitNew}
-          disabled={creating || newContent.trim() === ""}
-          class="tap inline-flex items-center gap-2 px-4 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {#if creating}<Spinner label="Adding" />{/if}Add
-        </button>
-      </div>
+{#snippet composerCard()}
+  {#if composing && filter.view !== "deleted"}
+    <div class="rounded-lg border border-primary-700 bg-surface-900">
+      <NoteEditor
+        bind:draft={composer}
+        dirty={composer.content.trim() !== ""}
+        onSave={saveNew}
+        onCancel={() => (composing = false)}
+      />
     </div>
   {/if}
+{/snippet}
+
+<Page title="Notes" size="app" class="flex flex-col gap-4">
+  <NotesToolbar
+    {filter}
+    {scopeCounts}
+    trashCount={counts.deleted}
+    {selecting}
+    onchange={applyFilters}
+    onNew={startNew}
+    onToggleSelecting={() => (selecting ? endSelection() : (selecting = true))}
+  />
 
   {#each orphanedFailures as intent (intent.id)}
     <FailedWrite {intent} showTarget />
   {/each}
 
-  {#if shown.length === 0}
-    <EmptyState
-      title={filter.view === "deleted" ? "The trash is empty." : "No notes found."}
-      hint={filter.view === "deleted"
-        ? undefined
-        : "Notes are standing instructions for the briefing: intel and global steer Section 1, personal and global steer Section 2."}
-    />
-  {:else}
-    <div class="flex items-center gap-3 text-xs text-surface-400">
-      <label class="tap-check">
-        <input type="checkbox" checked={allSelected} onchange={toggleSelectAll} class="accent-primary-600 cursor-pointer h-4 w-4" />
-        {shown.length} {shown.length === 1 ? "entry" : "entries"}
-      </label>
-      {#if filter.view === "deleted"}
-        <span>Trash: deleted notes no longer influence a briefing. Weekly cleanup purges each one after 30 days.</span>
-      {/if}
-    </div>
-
-    {#if selectedCount > 0}
-      <!-- Anchored to the measured header height, not a hard-coded 56px (X6, M8). -->
-      <div
-        class="flex items-center gap-3 flex-wrap bg-surface-800 border border-surface-500 rounded-lg px-4 py-2 text-sm sticky z-20"
-        style="top: calc(var(--header-h) + 0.5rem)"
-      >
-        <span class="text-surface-100">{selectedCount} selected</span>
-        <select
-          value=""
-          onchange={(event) => {
-            const scope = event.currentTarget.value;
-            event.currentTarget.value = "";
-            bulkScope(scope);
-          }}
-          disabled={busy}
-          aria-label="Set scope for the selection"
-          class="input-base bg-surface-950"
-        >
-          <option value="">Set scope…</option>
-          {#each NOTE_SCOPES as scope (scope)}
-            <option value={scope}>{scope}</option>
-          {/each}
-        </select>
+  {#if shown.length === 0 && !(composing && filter.view !== "deleted")}
+    {#if filter.view === "deleted"}
+      <EmptyState title="The trash is empty." />
+    {:else if counts.active === 0}
+      <EmptyState title="No notes yet." hint="Notes are standing instructions for the briefing.">
         <button
-          onclick={bulkDelete}
-          disabled={busy}
-          class="tap px-3 py-1 rounded text-xs bg-surface-900 border border-error-700 text-error-400 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
-        >Delete</button>
-        <button
-          onclick={() => (selected = new Set())}
-          class="tap ml-auto px-3 py-1 rounded text-xs bg-surface-900 border border-surface-500 text-surface-200 hover:bg-surface-950 cursor-pointer"
-        >Clear selection</button>
-      </div>
+          type="button"
+          onclick={startNew}
+          class="tap mt-2 rounded border border-primary-700 bg-primary-900 px-4 py-1.5 text-sm text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
+        >Write the first note</button>
+      </EmptyState>
+    {:else}
+      <EmptyState title="No notes match." hint="Try another search or scope." />
     {/if}
+  {:else}
+    <Masonry items={shown} key={(note) => note.id} lead={composerCard}>
+      {#snippet children(note)}
+        <NoteCard
+          {note}
+          highlighted={assistant.touchedIds.has(note.id)}
+          selected={selected.has(note.id)}
+          selecting={selectionActive}
+          bind:draft={drafts[note.id]}
+          onEdit={startEdit}
+          onToggleSelect={toggleSelect}
+          onSave={saveEdit}
+          onCancel={cancelEdit}
+          onDelete={handleDelete}
+          onRestore={handleRestore}
+          onHistory={(target) => (historyId = target.id)}
+        />
+      {/snippet}
+    </Masonry>
 
-    <div class="columns-1 md:columns-2 2xl:columns-3 gap-3">
-      {#each shown as note (note.id)}
-        <div class="break-inside-avoid mb-3">
-          <NoteCard
-            {note}
-            highlighted={assistant.touchedIds.has(note.id)}
-            selected={selected.has(note.id)}
-            onToggleSelect={toggleSelect}
-            onServerChange={() => void sync({ force: true })}
-            onDelete={handleDelete}
-            onRestore={handleRestore}
-          />
-        </div>
-      {/each}
-    </div>
+    {#if shown.length >= NOTES_SHOWN}
+      <p class="text-center text-xs text-surface-400">Showing the first {NOTES_SHOWN}. Search or pick a scope to narrow it down.</p>
+    {/if}
   {/if}
 </Page>
+
+<NoteHistory
+  note={historyNote}
+  onclose={() => (historyId = null)}
+  onreverted={() => void sync({ force: true })}
+/>
+
+{#if selectedCount > 0}
+  <!-- Fixed above the mobile tab bar (3.5rem plus the safe area), centred on desktop. -->
+  <div
+    role="toolbar"
+    aria-label="Selected notes"
+    class="fixed inset-x-3 bottom-[calc(4.25rem+var(--safe-b))] z-30 mx-auto flex max-w-xl flex-wrap items-center gap-2 rounded-lg border border-surface-500 bg-surface-800 px-3 py-2 text-sm shadow-2xl lg:bottom-6"
+  >
+    <span class="px-1 text-surface-100">{selectedCount} selected</span>
+    <button
+      type="button"
+      onclick={toggleSelectAll}
+      class="tap rounded border border-surface-500 bg-surface-900 px-3 py-1 text-xs text-surface-200 hover:bg-surface-950 cursor-pointer"
+    >{allSelected ? "Select none" : "Select all"}</button>
+
+    {#if filter.view === "deleted"}
+      <button
+        type="button"
+        onclick={bulkRestore}
+        disabled={busy}
+        class="tap rounded border border-surface-500 bg-surface-900 px-3 py-1 text-xs text-surface-100 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
+      >Restore</button>
+    {:else}
+      <select
+        value=""
+        onchange={(event) => {
+          const scope = event.currentTarget.value;
+          event.currentTarget.value = "";
+          bulkScope(scope);
+        }}
+        disabled={busy}
+        aria-label="Set scope for the selection"
+        class="input-base bg-surface-950"
+      >
+        <option value="">Set scope…</option>
+        {#each NOTE_SCOPES as scope (scope)}
+          <option value={scope}>{label(scope)}</option>
+        {/each}
+      </select>
+      <button
+        type="button"
+        onclick={bulkDelete}
+        disabled={busy}
+        class="tap rounded border border-error-700 bg-surface-900 px-3 py-1 text-xs text-error-400 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
+      >Delete</button>
+    {/if}
+
+    <button
+      type="button"
+      onclick={endSelection}
+      class="tap ml-auto rounded border border-surface-500 bg-surface-900 px-3 py-1 text-xs text-surface-200 hover:bg-surface-950 cursor-pointer"
+    >Done</button>
+  </div>
+{/if}

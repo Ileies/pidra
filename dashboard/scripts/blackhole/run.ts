@@ -330,7 +330,7 @@ const CONTROLS: Record<string, Control[]> = {
     {
       name: "create a note",
       async run(page, deadline) {
-        await page.getByRole("button", { name: "+ New note" }).click({ timeout: remaining(deadline) });
+        await page.getByRole("button", { name: "New note", exact: true }).click({ timeout: remaining(deadline) });
         await page.getByLabel("New note content").fill("Offline note from the suite");
         await page.getByRole("button", { name: "Add", exact: true }).click({ timeout: remaining(deadline) });
         const text = "Offline note from the suite";
@@ -344,6 +344,8 @@ const CONTROLS: Record<string, Control[]> = {
         await page.getByText("1 change", { exact: true }).click({ timeout: remaining(deadline) });
         // Known offline it is never sent; still checking, it is sent and cut off by the probe.
         await visible(page.getByText(/^(Needs the connection\.|Lost the connection before the server answered\.)$/), deadline);
+        // The sheet is modal: the rest of the page is inert until it is closed.
+        await page.getByRole("button", { name: "Close", exact: true }).click({ timeout: remaining(deadline) });
       },
     },
     {
@@ -359,8 +361,9 @@ const CONTROLS: Record<string, Control[]> = {
     {
       name: "delete a note",
       async run(page, deadline) {
-        const del = page.getByRole("button", { name: "Delete this note" });
-        await card(page, "Edited offline", del).getByRole("button", { name: "Delete this note" }).click({ timeout: remaining(deadline) });
+        // Delete lives in the open editor, not on the resting card.
+        await page.getByRole("button", { name: "Edited offline" }).click({ timeout: remaining(deadline) });
+        await page.getByRole("button", { name: "Delete this note" }).click({ timeout: remaining(deadline) });
         await visible(page.getByText("Note deleted."), deadline);
         await page.getByText("Edited offline", { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
       },
@@ -376,7 +379,7 @@ const CONTROLS: Record<string, Control[]> = {
         const restore = page.getByRole("button", { name: "Restore", exact: true });
         await card(page, F.TEXT.trashedNote, restore).getByRole("button", { name: "Restore", exact: true }).click({ timeout: remaining(deadline) });
         await page.getByText(F.TEXT.trashedNote, { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
-        await page.getByRole("button", { name: /^Trash/ }).click({ timeout: remaining(deadline) });
+        await page.getByRole("button", { name: "Notes", exact: true }).click({ timeout: remaining(deadline) });
         await visible(page.getByText(F.TEXT.trashedNote, { exact: true }), deadline);
       },
     },

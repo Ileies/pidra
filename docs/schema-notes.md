@@ -47,7 +47,7 @@
 - `context_builder_runs` / `context_builder_indexed_items`: Context Builder run history (including the harvested document itself, on `document`) and per-item index state used for delta detection on re-runs.
 - `context_corrections`: append-only correction layer over the harvested context; injected into both synthesis prompts and authoritative over them.
 - `notes`: user and system notes, scoped `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`.
-- `note_revisions`: append-only pre-change state per note mutation, with the skill execution and conversation that caused it; drives undo and the history panel on `/notes`.
+- `note_revisions`: append-only pre-change state per note mutation, with the skill execution and conversation that caused it; drives undo and the history sheet on `/notes`.
 
 ## Assistant, skills and settings
 

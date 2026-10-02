@@ -153,7 +153,7 @@ export interface NotesFilter {
 }
 
 /** How many notes one view renders, as the server-rendered page did. */
-const NOTES_SHOWN = 200;
+export const NOTES_SHOWN = 200;
 
 export function filterNotes(all: MirroredNote[], filter: NotesFilter): MirroredNote[] {
   const query = filter.query.trim().toLowerCase();

@@ -1,15 +1,18 @@
 import { sql } from "#lib/server/postgres.js";
 
 /**
- * Hard delete: drops the source from `/sources` and from the config tables that make it get
- * polled or matched. History in `raw_items`/`extractions`/`source_daily_scores` is kept, same as
- * `deleteFeed`/`deleteSenderRule` on /settings/newsletters.
+ * Hard delete of everything `/sources` knows about a source: its quality row, daily scores and
+ * polling/matching config, in one transaction. Nothing remembers it afterwards, so a later mail
+ * from the same sender starts a brand-new entry. Past reports and the data behind them
+ * (`raw_items`, `extractions`, feedback, entity mentions) are pipeline history and stay.
  */
 export async function deleteSource(sourceName: string): Promise<void> {
-  const db = sql();
-  await db`DELETE FROM source_quality WHERE source_name = ${sourceName}`;
-  await db`DELETE FROM rss_feeds WHERE source_name = ${sourceName}`;
-  await db`DELETE FROM newsletter_sender_rules WHERE source_name = ${sourceName}`;
+  await sql().begin(async (tx) => {
+    await tx`DELETE FROM source_daily_scores WHERE source_name = ${sourceName}`;
+    await tx`DELETE FROM source_quality WHERE source_name = ${sourceName}`;
+    await tx`DELETE FROM rss_feeds WHERE source_name = ${sourceName}`;
+    await tx`DELETE FROM newsletter_sender_rules WHERE source_name = ${sourceName}`;
+  });
 }
 
 /** Disabled sources are excluded from extraction; the row is created if the source has none yet. */

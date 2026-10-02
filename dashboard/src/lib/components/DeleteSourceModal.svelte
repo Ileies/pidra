@@ -58,8 +58,9 @@
     <div class="relative w-full max-w-sm rounded-lg border border-surface-600 bg-surface-900 p-5 shadow-2xl flex flex-col gap-4">
       <h2 class="text-sm font-semibold text-surface-100">Delete "{sourceName}"?</h2>
       <p class="text-xs text-surface-400 leading-relaxed">
-        This removes it from the sources list for good and stops it from being polled or matched.
-        Past deliveries and scores stay on record. This cannot be undone.
+        This erases the source's scores and settings for good and stops it from being polled or
+        matched. If it ever writes again, it starts over as a new source. Past reports are not
+        changed. This cannot be undone.
       </p>
 
       <form

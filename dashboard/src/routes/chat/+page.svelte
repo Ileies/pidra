@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import Panel from "#lib/assistant/Panel.svelte";
   import ConversationList from "#lib/assistant/ConversationList.svelte";
@@ -27,9 +28,23 @@
   type MobileView = "chat" | "conversations" | "corrections";
   let view = $state<MobileView>("chat");
 
-  // Hydrate the shared state from whichever conversation the URL selects.
+  // Hydrate the shared state from whichever conversation the URL selects. Only `data` is tracked:
+  // reading the assistant's own state here made this re-run when a turn finished, and re-adopt the
+  // old conversation over the new one the turn had just created, so the redirect below never fired.
+  let lastActive: string | null | undefined = undefined;
   $effect(() => {
-    assistant.adopt(data.activeId, data.messages);
+    const id = data.activeId;
+    const rows = data.messages;
+    untrack(() => {
+      const first = lastActive === undefined;
+      const navigated = !first && id !== lastActive;
+      lastActive = id;
+      // A navigation inside this page is an explicit choice of conversation, so it overrides an
+      // empty composer; a reload that merely lags behind the live conversation does not.
+      if (navigated) assistant.composingNew = false;
+      else if (!first && id !== assistant.conversationId) return;
+      assistant.adopt(id, rows);
+    });
   });
 
   // A turn that created a conversation moves the URL onto it, which also refreshes the sidebar
@@ -49,8 +64,12 @@
   });
 
   function newConversation() {
+    if (assistant.streaming) return;
     assistant.newConversation();
     view = "chat";
+    // Moves the URL off the old conversation, so choosing that one again in the list is a real
+    // navigation and the loader stops handing its transcript to this page.
+    goto("/chat?c=new", { reset: false });
   }
 
   /** The conversation the URL points at was just deleted: fall back to whatever is newest now. */
@@ -70,26 +89,41 @@
   <title>PIDRA - Assistant</title>
 </svelte:head>
 
-<div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-4 sm:px-6 lg:px-8 py-3 lg:py-6 gap-3
-            pb-[calc(3.5rem+var(--safe-b))] xl:pb-3 2xl:pb-6">
-  <!-- Below lg: one pane at a time. -->
-  <div class="lg:hidden grid grid-cols-3 gap-1.5 shrink-0">
-    {#each VIEWS as [key, viewLabel] (key)}
-      <button
-        type="button"
-        aria-pressed={view === key}
-        onclick={() => (view = key)}
-        class="tap nav-btn text-center cursor-pointer {view === key ? 'nav-btn-active' : 'nav-btn-muted'}"
-      >
-        {viewLabel}{key === "corrections" && data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}
-      </button>
-    {/each}
+<div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-0 sm:px-6 lg:px-8 py-3 lg:py-6 gap-3
+            pb-[calc(3.5rem+1px+var(--safe-b))] xl:pb-3 2xl:pb-6">
+  <!-- Below lg: one pane at a time, with New chat always in reach. Below `sm` the page has no side
+       padding so the transcript can use the full width; the rows that are not the transcript
+       carry their own gutter instead. -->
+  <div class="lg:hidden flex gap-1.5 shrink-0 px-4 sm:px-0">
+    <div class="grid flex-1 grid-cols-3 gap-1.5">
+      {#each VIEWS as [key, viewLabel] (key)}
+        <button
+          type="button"
+          aria-pressed={view === key}
+          onclick={() => (view = key)}
+          class="tap nav-btn text-center cursor-pointer {view === key ? 'nav-btn-active' : 'nav-btn-muted'}"
+        >
+          {viewLabel}{key === "corrections" && data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}
+        </button>
+      {/each}
+    </div>
+    <button
+      type="button"
+      onclick={newConversation}
+      disabled={assistant.streaming}
+      aria-label="New chat"
+      title="New chat"
+      class="tap nav-btn shrink-0 cursor-pointer border-primary-700 text-primary-300 hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed"
+    >+ New</button>
   </div>
 
-  <div class="flex-1 min-h-0 lg:grid lg:gap-6 lg:grid-cols-[16rem_minmax(0,1fr)_18rem]">
+  <!-- A flex column below lg so the visible pane is bounded by the viewport and scrolls inside
+       itself. As a plain block its height was its content, and a long transcript pushed the
+       composer past the bottom of the screen, under the tab bar. -->
+  <div class="flex flex-1 flex-col min-h-0 lg:grid lg:gap-6 lg:grid-cols-[16rem_minmax(0,1fr)_18rem]">
     <!-- Conversations -->
     <aside
-      class="min-h-0 {view === 'conversations' ? 'flex' : 'hidden'} lg:flex flex-col"
+      class="min-h-0 flex-1 px-4 sm:px-0 {view === 'conversations' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Conversations"
     >
       <ConversationList
@@ -103,14 +137,14 @@
 
     <!-- Transcript, the same component the floating widget uses -->
     <section
-      class="min-w-0 min-h-0 flex-col rounded-lg border border-surface-800 bg-surface-950 {view === 'chat' ? 'flex' : 'hidden'} lg:flex"
+      class="min-w-0 min-h-0 flex-1 flex-col rounded-none border-x-0 sm:rounded-lg sm:border-x border-y border-surface-800 bg-surface-950 {view === 'chat' ? 'flex' : 'hidden'} lg:flex"
     >
       <Panel variant="page" />
     </section>
 
     <!-- Active corrections -->
     <aside
-      class="min-w-0 min-h-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
+      class="min-w-0 min-h-0 flex-1 px-4 sm:px-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Active corrections"
     >
       <div class="rounded-lg border border-surface-800 bg-surface-900 p-4 flex flex-col gap-3 min-h-0">

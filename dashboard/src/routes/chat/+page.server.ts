@@ -39,9 +39,13 @@ export const load: PageServerLoad = async ({ url }) => {
   `;
 
   const requested = url.searchParams.get("c");
-  const activeId = requested && /^[0-9a-f-]{36}$/i.test(requested)
-    ? requested
-    : (conversations[0]?.id as string | undefined) ?? null;
+  // `?c=new` is an empty composer on purpose: without it, "no conversation" in the URL falls back
+  // to the newest one, which is indistinguishable from the one the user just walked away from.
+  const activeId = requested === "new"
+    ? null
+    : requested && /^[0-9a-f-]{36}$/i.test(requested)
+      ? requested
+      : (conversations[0]?.id as string | undefined) ?? null;
 
   const messages = activeId
     ? await db`

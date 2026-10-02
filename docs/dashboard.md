@@ -27,7 +27,7 @@
 - `/settings/email-accounts` - live IMAP/SMTP account settings, one row per account with folder/aliases/ignore/SMTP/custom-instructions detail behind a per-row disclosure
 - `/settings/newsletters` - live RSS feeds; a feed's latest fetch error sits below its URL and removing the row stops polling it
 - `/settings/newsletters/rules` - live email sender rules routing a sender to a newsletter source before extraction; exact addresses win over domains
-- `/chat` - the assistant full screen: the same `Panel` component the floating widget uses, plus the conversation list and the active corrections. Shares one live conversation with the widget
+- `/chat` - the assistant full screen: the same `Panel` component the floating widget uses, plus the conversation list and the active corrections. Shares one live conversation with the widget. `?c=<id>` opens that conversation and `?c=new` an empty composer (no param falls back to the newest conversation, which is why "new chat" can't just drop the param)
 
 The **floating assistant** is mounted once in `+layout.svelte`, so it is reachable from every page and a turn survives navigation. Each page declares what it is showing with `setPageContext()` (`$lib/assistant/state.svelte`); the `focus` list hands the model real ids for the rows on screen. Turns stream over SSE (`POST /api/assistant/chat`), tool calls appear as they execute, and a turn that wrote something triggers `invalidateAll()` plus a highlight on the changed rows. It is hidden on `/chat`, which is the same thing full screen, and below `sm`, where the bottom bar's Chat tab replaces it.
 

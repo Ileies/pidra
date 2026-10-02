@@ -84,15 +84,12 @@
 </script>
 
 <Page title="Topics" size="app" class="flex flex-col gap-4">
-  <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-bold text-surface-50">Topics</h1>
-    {#if isOffline}
-      <p class="text-xs text-warning-400 max-w-prose">
-        Resolving and archiving need the connection: they change what tomorrow's briefing carries
-        forward, so they are never queued offline.
-      </p>
-    {/if}
-  </div>
+  {#if isOffline}
+    <p class="text-xs text-warning-400 max-w-prose">
+      Resolving and archiving need the connection: they change what tomorrow's briefing carries
+      forward, so they are never queued offline.
+    </p>
+  {/if}
 
   {#if form?.error}
     <p class="text-error-400 text-sm">{form.error}</p>

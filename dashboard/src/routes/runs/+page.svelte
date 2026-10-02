@@ -70,7 +70,6 @@
 
 <Page title="Runs" size="app" class="flex flex-col gap-5">
   <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-bold text-surface-50">Pipeline runs</h1>
     <p class="text-xs text-surface-400 max-w-prose">
       Every run in <code>pipeline_runs</code>. A failed run's attempt log is the same one the
       report page shows, so a failure can be read here without going hunting for the day it

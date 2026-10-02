@@ -63,7 +63,6 @@
 
 <Page title="Rules" size="app" class="flex flex-col gap-5">
   <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-bold text-surface-50">Standing rules</h1>
     <p class="text-xs text-surface-400 max-w-prose">
       Persistent rules and preferences from <code>standing_context</code>, injected into the
       Section 2 prompt on every run. The synthesis follows them silently rather than announcing

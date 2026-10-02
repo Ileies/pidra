@@ -102,8 +102,6 @@
 {/snippet}
 
 <Page title="Sources" size="app" class="flex flex-col gap-4">
-  <h1 class="text-xl font-bold text-surface-50">Sources</h1>
-
   <DataTable
     rows={data.sources}
     key={(source) => source.sourceName}

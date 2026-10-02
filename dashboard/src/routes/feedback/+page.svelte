@@ -33,7 +33,6 @@
 
 <Page title="Feedback" size="app" class="flex flex-col gap-5">
   <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-bold text-surface-50">Rating log</h1>
     <p class="text-xs text-surface-400 max-w-prose">
       Implicit signals are recorded at 22:00 daily and count toward source scores.
     </p>

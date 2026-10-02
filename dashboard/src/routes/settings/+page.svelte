@@ -73,11 +73,10 @@
 </script>
 
 <Page title="Settings" size="app" class="flex flex-col gap-6">
-  <h1 class="text-xl font-bold text-surface-50">Settings</h1>
-
   <!-- Capped rather than left to fill `app`'s full width (M14, 2026-10-01): a menu of four tiles
        and a notification toggle has no content to grow into, and stretching the rows edge to edge
        on a wide monitor just put empty space between each label and its description. -->
+  <div class="flex flex-1 flex-col w-full">
   <div class="flex flex-1 flex-col gap-6 max-w-3xl mx-auto w-full">
     <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex items-center justify-between gap-4">
       <div class="flex min-w-0 flex-col gap-1">
@@ -165,5 +164,6 @@
       <a href="/privacy" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>
       <a href="/terms" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Terms of service</a>
     </nav>
+  </div>
   </div>
 </Page>

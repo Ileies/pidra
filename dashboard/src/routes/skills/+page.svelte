@@ -96,11 +96,7 @@
   {/if}
 
   <section class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <h1 class="text-xl font-bold text-surface-50">
-        Registered skills <span class="text-surface-400 font-normal text-base">({data.skills.length})</span>
-      </h1>
-
+    <div class="flex flex-wrap items-end justify-end gap-3">
       <input
         type="search"
         placeholder="Search skills…"

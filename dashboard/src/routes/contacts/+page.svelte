@@ -46,17 +46,14 @@
 </script>
 
 <Page title="Contacts" size="app" class="flex flex-col gap-5">
-  <div class="flex flex-col gap-1">
-    <h1 class="text-xl font-bold text-surface-50">Sender directory</h1>
-    <!-- Six rows from 1,432 emails is the correct outcome, not a seeding bug, and saying so here
-         saves the next person from going looking for the missing rows (CLAUDE.md §8). -->
-    {#if isOffline}
-      <p class="text-xs text-warning-400 max-w-prose">
-        Editing needs the connection: a change here is recorded as a correction, and corrections are
-        never queued offline.
-      </p>
-    {/if}
-  </div>
+  <!-- Six rows from 1,432 emails is the correct outcome, not a seeding bug, and saying so here
+       saves the next person from going looking for the missing rows (CLAUDE.md §8). -->
+  {#if isOffline}
+    <p class="text-xs text-warning-400 max-w-prose">
+      Editing needs the connection: a change here is recorded as a correction, and corrections are
+      never queued offline.
+    </p>
+  {/if}
 
   {#if data.contacts.length === 0}
     <EmptyState

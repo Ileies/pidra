@@ -15,12 +15,16 @@ interface Row {
   updated_at: Date;
   answered_at: Date | null;
   merged_question: string | null;
+  answer_status: string | null;
+  answer_outcome: string | null;
+  answer_conversation_id: string | null;
 }
 
 export const load: PageServerLoad = async () => {
   const closed = await sql()<Row[]>`
     SELECT
       q.id, q.kind, q.question, q.status, q.status_detail, q.answer, q.updated_at, q.answered_at,
+      q.answer_status, q.answer_outcome, q.answer_conversation_id,
       target.question AS merged_question
     FROM questions q
     LEFT JOIN questions target ON target.id = q.merged_into
@@ -40,22 +44,28 @@ export const load: PageServerLoad = async () => {
       updatedAt: q.updated_at,
       answeredAt: q.answered_at,
       mergedQuestion: q.merged_question,
+      answerStatus: q.answer_status,
+      answerOutcome: q.answer_outcome,
+      answerConversationId: q.answer_conversation_id,
     })),
   };
 };
 
-export const actions: Actions = {
-  reopen: async ({ request }) => {
-    const id = String((await request.formData()).get("id") ?? "");
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { id, error: "Invalid question id" });
+async function bridge(request: Request, op: "reopen" | "reprocess") {
+  const id = String((await request.formData()).get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { id, error: "Invalid question id" });
 
-    try {
-      const res = await fetch(`${API}/api/questions/${id}/reopen`, { method: "POST" });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) return fail(res.status, { id, error: json.error ?? "The skills bridge returned an error." });
-      return { id, reopened: true };
-    } catch {
-      return fail(503, { id, error: `The skills bridge is not reachable (${API}).` });
-    }
-  },
+  try {
+    const res = await fetch(`${API}/api/questions/${id}/${op}`, { method: "POST" });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return fail(res.status, { id, error: json.error ?? "The skills bridge returned an error." });
+    return { id, op };
+  } catch {
+    return fail(503, { id, error: `The skills bridge is not reachable (${API}).` });
+  }
+}
+
+export const actions: Actions = {
+  reopen: ({ request }) => bridge(request, "reopen"),
+  reprocess: ({ request }) => bridge(request, "reprocess"),
 };

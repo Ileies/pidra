@@ -16,7 +16,7 @@
   let busy = $state<string | null>(null);
 
   const DONE: Record<string, string> = {
-    answer: "Answer saved.",
+    answer: "Answer saved. The assistant is acting on it - see Recently closed questions.",
     dismiss: "Question dismissed.",
     reopen: "Question is back in the queue.",
   };
@@ -54,6 +54,7 @@
 
   function kindBadge(q: PageData["open"][number]): string {
     if (q.kind === "review") return "Weekly review";
+    if (q.kind === "chat") return "Asked by the assistant";
     return q.sources[0]?.source_type === "entity" ? "Entity" : "Mail";
   }
 </script>
@@ -90,8 +91,9 @@
         {data.open.length} open question{data.open.length === 1 ? "" : "s"}
       </h1>
       <p class="text-surface-400 text-xs">
-        Answer in any order, one at a time. The briefings never wait for them: each answer is used
-        from the next run on.
+        Answer in any order, one at a time. The briefings never wait for them. The assistant acts on
+        each answer right away - it can edit contacts, entities and the context, remove them, write
+        notes and to-dos - and says what it did under Recently closed questions.
       </p>
     </div>
 

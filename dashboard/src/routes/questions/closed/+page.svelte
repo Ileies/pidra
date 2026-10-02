@@ -18,13 +18,20 @@
     merged: "Merged",
   };
 
+  const OUTCOME: Record<string, { label: string; tone: "success" | "warning" | "error" | "muted" }> = {
+    running: { label: "Applying your answer", tone: "warning" },
+    done: { label: "Answer applied", tone: "success" },
+    failed: { label: "Applying failed", tone: "error" },
+  };
+
   function reopen(id: string): SubmitFunction {
-    return () => {
+    return ({ action }) => {
       busy = id;
+      const rerun = action.search.includes("reprocess");
       return async ({ result, update }) => {
         busy = null;
         if (result.type === "success") {
-          toasts.success("Question is back in the queue.");
+          toasts.success(rerun ? "Running the answer again." : "Question is back in the queue.");
         } else if (result.type === "failure") {
           toasts.error(String(result.data?.error ?? "That did not go through."));
         }
@@ -58,6 +65,33 @@
             <p class="text-surface-300 text-xs">{q.answer}</p>
           {:else if q.status === "merged" && q.mergedQuestion}
             <p class="text-surface-400 text-xs">Now part of: {q.mergedQuestion}</p>
+          {/if}
+          {#if q.status === "answered" && q.answerStatus}
+            {@const outcome = OUTCOME[q.answerStatus]}
+            <div class="mt-1 flex flex-col gap-1 rounded border border-surface-800 bg-surface-950 px-3 py-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <Badge tone={outcome?.tone ?? "muted"}>{outcome?.label ?? q.answerStatus}</Badge>
+                {#if q.answerConversationId}
+                  <a href="/chat?c={q.answerConversationId}" class="tap text-xs text-primary-300 hover:text-primary-200 no-underline">See every step</a>
+                {/if}
+              </div>
+              {#if q.answerOutcome}
+                <p class="text-surface-200 text-xs whitespace-pre-wrap break-words">{q.answerOutcome}</p>
+              {/if}
+              {#if q.answerStatus !== "done"}
+                <form method="POST" action="?/reprocess" use:enhance={reopen(q.id)}>
+                  <input type="hidden" name="id" value={q.id} />
+                  <button
+                    type="submit"
+                    disabled={busy !== null}
+                    class="tap inline-flex items-center gap-2 rounded border border-surface-600 px-3 py-1 text-xs text-surface-300 hover:border-surface-400 hover:text-surface-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  >
+                    {#if busy === q.id}<Spinner label="Running" />{/if}
+                    Run again
+                  </button>
+                </form>
+              {/if}
+            </div>
           {/if}
           {#if q.statusDetail && q.status !== "answered"}
             <p class="text-surface-400 text-xs">{q.statusDetail}</p>

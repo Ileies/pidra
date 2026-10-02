@@ -19,6 +19,7 @@
   import { MIRRORED_ROUTES } from "#lib/routes.js";
   import { navOrigin } from "#lib/navOrigin.svelte.js";
   import { pwa } from "#lib/pwa.svelte.js";
+  import { push } from "#lib/push.svelte.js";
 
   let { children } = $props();
 
@@ -56,6 +57,7 @@
   $effect(() => {
     appUpdate.start();
     pwa.start();
+    void push.start();
   });
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.

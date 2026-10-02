@@ -231,20 +231,21 @@ async function expectQueued(page: Page, deadline: number): Promise<void> {
 const CONTROLS: Record<string, Control[]> = {
   "/[date]": [
     {
-      name: "rate an entry",
-      async run(page, deadline) {
-        const plus = page.getByRole("button", { name: "Relevant - this was worth reading" }).first();
-        await plus.click({ timeout: remaining(deadline) });
-        await page.waitForFunction(() => document.querySelector('button[aria-pressed="true"]') !== null, null, { timeout: remaining(deadline) });
-        await expectQueued(page, deadline);
-      },
-    },
-    {
       name: "open the sources inline",
       async run(page, deadline) {
         // A tap on the prose itself, away from any link in it, is what a reader does.
         await page.locator("[data-expandable] .report-body").first().click({ position: { x: 4, y: 4 }, timeout: remaining(deadline) });
         await visible(page.getByText("Example permit reminder"), deadline);
+      },
+    },
+    {
+      name: "rate an entry",
+      async run(page, deadline) {
+        // The rating buttons live inside the opened entry, so this follows "open the sources inline".
+        const plus = page.getByRole("button", { name: "Relevant - this was worth reading" }).first();
+        await plus.click({ timeout: remaining(deadline) });
+        await page.waitForFunction(() => document.querySelector('button[aria-pressed="true"]') !== null, null, { timeout: remaining(deadline) });
+        await expectQueued(page, deadline);
       },
     },
     {

@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * One entry of the briefing: the prose, the rating controls, and the expansion (C4, C5).
+   * One entry of the briefing: the prose and the expansion, which holds the rating controls (C4, C5).
    *
    * Tapping an entry expands its extraction cards in place; it used to navigate to
    * `/[date]/detail/[ids]`, which lost the reader's place in a report several screens long. The
@@ -86,15 +86,6 @@
     </div>
 
     {#if expandable}
-      <!-- Always present on a phone, revealed on hover or focus on a pointer device: a control
-           that only exists on hover does not exist on a touch screen (M13). -->
-      <div class="shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
-        <RateButtons
-          extractionId={entry.refIds[0]}
-          rating={ratings[entry.refIds[0]] ?? null}
-          {onRate}
-        />
-      </div>
       <span class="sr-only">{open ? "Details shown. Press Enter to hide." : "Press Enter for details."}</span>
     {/if}
   </div>
@@ -114,9 +105,18 @@
       {#each items ?? [] as item (item.id)}
         <ExtractionCard {item} compact />
       {/each}
-      {#if items}
-        <a href={href} class="text-xs text-surface-400 hover:text-surface-200 self-start">Open the full detail page →</a>
-      {/if}
+      <div class="flex items-center justify-between gap-3">
+        {#if items}
+          <a href={href} class="text-xs text-surface-400 hover:text-surface-200">Open the full detail page →</a>
+        {:else}
+          <span></span>
+        {/if}
+        <RateButtons
+          extractionId={entry.refIds[0]}
+          rating={ratings[entry.refIds[0]] ?? null}
+          {onRate}
+        />
+      </div>
     </div>
   {/if}
 </div>

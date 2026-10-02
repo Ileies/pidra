@@ -1,11 +1,10 @@
 <script lang="ts">
   /**
-   * The +/- pair (C4, X4).
+   * The thumbs up/down pair (C4, X4).
    *
    * `feedback_events` is the relevance calibration loop, and it only filled up if the reader
-   * took a two-click detour to the detail page - so it was starved. These sit on the report
-   * entry itself: visible on hover on desktop, always visible and 44px on a phone, which is the
-   * viewport that actually matters for this.
+   * took a two-click detour to the detail page - so it was starved. These sit inside the opened
+   * report entry, 44px on a phone, which is the viewport that actually matters for this.
    *
    * The rating is optimistic and re-synced from the server on the next load, so a tap under a
    * thumb never waits on a round trip.
@@ -17,6 +16,8 @@
    * replaced by a plain button.
    */
   import { enhance } from "$app/forms";
+  import ThumbsDown from "@lucide/svelte/icons/thumbs-down";
+  import ThumbsUp from "@lucide/svelte/icons/thumbs-up";
   import * as outbox from "#lib/offline/outbox.js";
   import { offline } from "#lib/offline/state.svelte.js";
 
@@ -32,8 +33,8 @@
   let { extractionId, rating, onRate, action = "?/rate" }: Props = $props();
 
   const BUTTONS = [
-    { signal: "1", glyph: "+", event: "explicit_plus", name: "Relevant - this was worth reading", on: "bg-success-700 border-success-500 text-success-50" },
-    { signal: "-1", glyph: "−", event: "explicit_minus", name: "Not relevant", on: "bg-error-700 border-error-500 text-error-50" },
+    { signal: "1", icon: ThumbsUp, event: "explicit_plus", name: "Relevant - this was worth reading", on: "bg-success-700 border-success-500 text-success-50" },
+    { signal: "-1", icon: ThumbsDown, event: "explicit_minus", name: "Not relevant", on: "bg-error-700 border-error-500 text-error-50" },
   ] as const;
 
   /** Optimistic, but never pretending it is durable - a small dot rather than
@@ -64,10 +65,10 @@
       <button
         type="submit"
         aria-pressed={rating === button.event}
-        class="h-11 w-11 sm:h-8 sm:w-8 rounded text-base font-bold transition-colors border cursor-pointer
+        class="h-11 w-11 sm:h-8 sm:w-8 rounded transition-colors border cursor-pointer inline-flex items-center justify-center
           {rating === button.event ? button.on : 'bg-surface-800 border-surface-500 text-surface-300 hover:border-surface-400'}"
       >
-        <span aria-hidden="true">{button.glyph}</span>
+        <button.icon class="h-5 w-5 sm:h-4 sm:w-4" aria-hidden="true" />
         <span class="sr-only">{button.name}</span>
       </button>
     </form>

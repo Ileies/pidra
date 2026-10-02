@@ -13,6 +13,7 @@
   import { onMount } from "svelte";
   import Page from "#lib/components/Page.svelte";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
+  import InstallApp from "#lib/components/InstallApp.svelte";
   import { netJson } from "#lib/offline/net.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { toasts } from "#lib/toast.svelte.js";
@@ -85,6 +86,8 @@
       </div>
       <NotifyButton variant="row" labelledby="notifications-heading" />
     </section>
+
+    <InstallApp />
 
     <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-4">
       <h2 class="text-sm font-semibold text-surface-100">Language</h2>

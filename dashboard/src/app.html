@@ -14,6 +14,12 @@
     <!-- The News section links out to dozens of news sites a day. The browser default would hand
          each of them this dashboard's origin, which is not something to give a stranger's site. -->
     <meta name="referrer" content="no-referrer" />
+    <!-- Chrome fires beforeinstallprompt once, ~100 ms after load, which is before the app has
+         hydrated. The install button in Settings needs that event, so it is kept here (see
+         `$lib/pwa.svelte.ts`). Its hash lives in hooks.server.ts (INLINE_INSTALL_PROMPT_HASH). -->
+    <script>
+      window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__pidraInstallPrompt = e; });
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover" data-theme="cerberus">

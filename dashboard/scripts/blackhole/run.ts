@@ -721,9 +721,11 @@ async function runLane(browser: Awaited<ReturnType<typeof chromium.launch>>, lan
  * The browser's own update check of the worker script, which it makes on navigations and on
  * `registration.update()`, and of the one module the script imports. No code of the app can hand
  * them a signal, so they are not held to a budget; what matters is that nothing waits on them,
- * which every other assertion here covers.
+ * which every other assertion here covers. The manifest joins them for `getInstalledRelatedApps()`
+ * on the settings page, which makes the browser re-fetch it with no way to abort; `InstallApp`
+ * stops waiting after 3 s.
  */
-const BROWSER_OWNED = new Set(["/service-worker.js", "/_app/env.js"]);
+const BROWSER_OWNED = new Set(["/service-worker.js", "/_app/env.js", "/manifest.webmanifest"]);
 
 async function checkBudgets(proxy: LaneProxy): Promise<void> {
   const cutAt = performance.now();

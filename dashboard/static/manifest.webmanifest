@@ -9,6 +9,9 @@
   "display": "standalone",
   "display_override": ["standalone"],
   "orientation": "portrait-primary",
+  "related_applications": [
+    { "platform": "webapp", "url": "/manifest.webmanifest", "id": "https://pidra.de/" }
+  ],
   "background_color": "#111214",
   "theme_color": "#111214",
   "icons": [

@@ -105,9 +105,12 @@ const CSP_REPORT_ONLY = true;
  */
 const INLINE_SW_MIGRATION_HASH = "'sha256-Voat3aUhvKNrqeBzYGoQdZqdKoW30wLAQWlsesfoaMc='";
 
+/** `app.html`'s other inline script: stashes `beforeinstallprompt` before hydration. Same rule as above. */
+const INLINE_INSTALL_PROMPT_HASH = "'sha256-hquMtZi0IFK1YGzqBD29Px5iqPtAd2h7x8lFP6X67PU='";
+
 const RESOURCE_CSP = [
   "default-src 'self'",
-  `script-src 'self' ${INLINE_SW_MIGRATION_HASH}`,
+  `script-src 'self' ${INLINE_SW_MIGRATION_HASH} ${INLINE_INSTALL_PROMPT_HASH}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data:",

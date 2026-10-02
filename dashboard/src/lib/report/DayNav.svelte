@@ -33,14 +33,14 @@
     if (open) days = await archive(null);
   }
 
-  /** j and k step days, which is the one keyboard shortcut this page really wants (E1). */
+  /** The left and right arrow keys step days, which is the one keyboard shortcut this page really wants (E1). */
   function onKeydown(event: KeyboardEvent) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const target = event.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))) return;
 
-    if (event.key === "j" && prevDate) goto(`/${prevDate}`);
-    else if (event.key === "k" && nextDate) goto(`/${nextDate}`);
+    if (event.key === "ArrowLeft" && prevDate) goto(`/${prevDate}`);
+    else if (event.key === "ArrowRight" && nextDate) goto(`/${nextDate}`);
     else if (event.key === "Escape" && open) open = false;
   }
 </script>
@@ -116,7 +116,7 @@
         </ul>
 
         <p class="border-t border-surface-800 px-3 py-2 text-xs text-surface-400">
-          <kbd class="font-mono">j</kbd> / <kbd class="font-mono">k</kbd> step days.
+          <kbd class="font-mono">←</kbd> / <kbd class="font-mono">→</kbd> step days.
         </p>
       </div>
     {/if}

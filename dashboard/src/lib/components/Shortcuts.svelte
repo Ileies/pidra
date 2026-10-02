@@ -92,7 +92,7 @@
     ["Ctrl / Cmd + K", "Search and jump"],
     ["/", "Search and jump"],
     ["Ctrl / Cmd + J", "Open or close the assistant"],
-    ["j / k", "Previous or next report day"],
+    ["← / →", "Previous or next report day"],
     ["?", "This list"],
     ["Esc", "Close, or cancel a running turn"],
   ];

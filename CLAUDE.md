@@ -19,7 +19,7 @@ Read `docs/context-builder.md` and `context-builder/README.md` before touching a
 Everything under `docs/` is scoped to one concern, so a session only loads what it actually needs - check the relevant file before implementing anything non-trivial in that area, or exploring the code cold. This index should always match what's actually in `docs/`; the commit skill (see "Commit workflow" below) keeps it that way as part of every commit, so if you add or remove a doc, that's where the index gets updated, not by hand here.
 
 - `docs/architecture-rules.md` - the non-negotiable invariants: two-stage extraction/synthesis split, no in-pipeline embeddings, contacts scope, credential filtering, harvested-context immutability, discard/failure reporting, the News section, quick actions, questions queue, reports-are-final, notes as the mutable layer, assistant surfaces, prompt approval, dashboard-only notifications. Read before any change that touches these
-- `docs/dashboard.md` - every route, what it does, and the UI conventions (page widths, formatting helpers, dark-only palette, phone-first testing)
+- `docs/dashboard.md` - every route, what it does, and the UI conventions (page widths, formatting helpers, dark/light palette, phone-first testing)
 - `docs/offline-mode.md` - the mirror/outbox/service-worker architecture and the blackhole test suite
 - `docs/skills.md` - risk levels, the current skill registry, and how `executeSkill()` gates calls
 - `docs/operations.md` - deployment, DB access and manual migrations, the cron schedule, concurrency model, synthesis output parsing, and the retry/error-handling model

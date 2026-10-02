@@ -82,6 +82,24 @@ export function fmtDay(value: DateInput): string {
   });
 }
 
+/** "just now", "5m ago", "3h ago", "2d ago", then "12 Sep" (with the year when it is not this one). */
+export function fmtAgo(value: DateInput): string {
+  const date = toDate(value);
+  if (!date) return EMPTY;
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 14) return `${days}d ago`;
+  return date.toLocaleDateString(LOCALE, {
+    day: "numeric",
+    month: "short",
+    ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
+  });
+}
+
 /**
  * When something happens: "Tue 30 Sep, 14:00–15:00", "Tue 30 Sep, 22:00 – Wed 1 Oct, 02:00", or
  * for whole days "Tue 30 Sep" and "Tue 30 Sep – Thu 2 Oct". A whole-day `end` is the last day.

@@ -1,12 +1,12 @@
 # Security work
 
-Open security work, ordered by impact. [docs/security.md](../security.md) records the current controls and trust boundaries. Remove completed entries rather than leaving checked boxes.
+Open security work, ordered by impact; every entry was re-checked against the code on 2026-10-02 and is still open. [docs/security.md](../security.md) records the current controls and trust boundaries. Remove completed entries rather than leaving checked boxes.
 
 ## Immediate: close bypasses
 
-- **[BUG] SMS webhook:** Make `POST /webhook/sms` reject every request when `SMS_WEBHOOK_SECRET` is absent, compare the supplied secret without a timing leak, document the required setting, and test the unset, wrong and valid cases. `src/server/index.ts` currently skips the check when the setting is empty.
-- **[BUG] Bridge execution:** Remove `POST /skills/execute` if no caller needs it, or give manual execution its own authenticated, constrained policy. It currently calls `executeSkill()` without a surface, bypassing the per-page allowlist. Preserve the existing audit and risk checks.
-- **[BUG] Notes proxy:** Replace the catch-all `/api/notes/[...path]` URL construction with explicit allowed bridge routes and methods. Test encoded and nested paths so a dashboard session cannot steer it to another bridge endpoint.
+- **[BUG] SMS webhook:** `POST /webhook/sms` in `src/server/index.ts` skips the check when `SMS_WEBHOOK_SECRET` is empty and compares with `!==`. Reject every request when the secret is unset, compare without a timing leak, document the required setting, and test the unset, wrong and valid cases.
+- **[BUG] Bridge execution:** `POST /skills/execute` calls `executeSkill()` without a surface, bypassing the per-page allowlist. Remove it if no caller needs it, or give manual execution its own authenticated, constrained policy. Preserve the existing audit and risk checks.
+- **[BUG] Notes proxy:** `dashboard/src/routes/api/notes/[...path]/+server.ts` builds the bridge URL from a catch-all path. Replace it with explicit allowed bridge routes and methods, and test encoded and nested paths so a dashboard session cannot steer it to another bridge endpoint.
 - **[BUG] Outbound mail:** Give `send_mail` an explicit recipient allowlist with an empty default. Remove the hardcoded default recipient from `send_email`; use configured SMTP account settings and require TLS. Raise both mail skills to high risk, and add a per-day outbound cap enforced at execution time.
 
 ## Authorization and prompt injection
@@ -25,4 +25,4 @@ Open security work, ordered by impact. [docs/security.md](../security.md) record
 - **[INFRA] Secrets:** Move the pronix environment out of the checkout into a protected systemd credential or the existing agenix setup. Determine whether the Keep master token can be present only for the monthly job.
 - **[INFRA] Database and backups:** Verify the PIDRA Postgres role cannot access other databases or create databases, check `pg_hba` and listening addresses, confirm disk encryption, and add a tested encrypted backup to storage outside pronix. Document a restore drill.
 - **[INFRA] Detection:** Add append-only authentication events for login attempts, credential changes, session revocation and denied step-up. Alert on new credentials, repeated failures, sensitive admin actions and outbound mail. Provide a dashboard security view for sessions, credentials and recent events.
-- **[INFRA] Dependency and config checks:** Add a dependency audit to `bun run check`, make the resource CSP enforcing after browser validation, and repair the `dev` script that points to missing `src/index.ts`. Verify production nginx and systemd settings against the NixOS flake after rebuilds.
+- **[INFRA] Dependency and config checks:** Add a dependency audit to `bun run check`, make the resource CSP enforcing after browser validation, and repair or remove the root `dev` script, which points at the nonexistent `src/index.ts`. Verify production nginx and systemd settings against the NixOS flake after rebuilds.

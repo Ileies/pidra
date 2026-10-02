@@ -2,74 +2,83 @@
 
 ## Deployment
 
-**`bun run deploy` is how pronix gets new code. Never assemble the steps by hand.** A deploy is a pull plus the three things a pull cannot carry - the gitignored config and harvest files, the dependency install, and the dashboard build - and doing it manually is how `dashboard/build/` ends up a version behind its source, silently, because nothing about a stale build looks broken. `scripts/deploy.ts` also verifies more than systemd does: it follows `/` past its redirect and requests `/context-builder`, because a broken page still leaves a unit reporting `active`.
+**`bun run deploy` is how pronix gets new code. Never assemble the steps by hand.** A deploy is a pull plus the three things a pull cannot carry: the gitignored config and harvest files, the dependency install, and the dashboard build. Doing it manually is how `dashboard/build/` ends up a version behind its source with nothing looking broken. `scripts/deploy.ts` also verifies more than systemd does: it follows `/` past its redirect and requests `/context-builder`, because a broken page still leaves a unit reporting `active`.
 
-Flags: `--dry-run` prints every step without touching the server, `--push` pushes the branch instead of refusing, `--skip-check` skips `bun run check` entirely, `--quick-check` runs `bun run check --quick` instead of the full check, `--force` deploys past an uncommitted working tree, `--host <alias>` targets something other than `ros`.
+Flags:
 
-It refuses rather than improvises: an uncommitted tree (unless `--force`), commits not on origin (the server pulls from a *public* repo, so a deploy publishes them), a local branch behind origin, a dirty tree on the server, or a failing check in either the root or `dashboard/`. `--force` only lifts the uncommitted-tree refusal - it still deploys the last *commit*, never the uncommitted edits themselves, so it exists to acknowledge that gap, not to ship uncommitted work.
+- `--dry-run`: print every step without touching the server
+- `--push`: push the branch instead of refusing
+- `--skip-check`: skip `bun run check` entirely
+- `--quick-check`: run `bun run check --quick` instead of the full check (an explicit trade of coverage for speed, never the default)
+- `--force`: deploy past an uncommitted working tree. It still deploys the last *commit*, never the uncommitted edits, so it only acknowledges that gap
+- `--host <alias>`: target something other than `ros`
 
-**`bun run check` has a `--quick` / `-q` mode** (`scripts/check.ts`, `dashboard/scripts/check.ts`; also `bun run check:quick` in either `package.json`) that skips `dashboard/scripts/blackhole/run.ts`, the one step that dominates the full check's wall time (~65-70s against well under 4s for everything else combined). Use it while iterating on a change that plainly can't affect routing, offline behavior or rendering. It is not a substitute for the full check: the `commit` skill and a plain `bun run deploy` both run the full check by default, and `--quick-check` on deploy is an explicit, named trade of coverage for speed - not the default.
+It refuses rather than improvises: an uncommitted tree (unless `--force`), commits not on origin (the server pulls from a *public* repo, so a deploy publishes them), a local branch behind origin, a dirty tree on the server, or a failing check in either the root or `dashboard/`.
 
-Two things it deliberately does not carry:
+**Not carried by a deploy:**
 
-- **`.env`**, on either machine. Both files hold the same keys with different values - the server reaches Postgres locally, the workstation through a forward - so a copy in either direction breaks the other. Same for `context-builder/.checkpoint.json` and `errors.json`: the server runs its own monthly harvest and those are its live state, not a stale mirror. A new key means editing both `.env` files by hand.
-- **The systemd units.** They live in `hosts/pronix/pidra.nix` in the nixos flake, so a change to a unit, a timer, or the firewall needs `nixos-rebuild` **on pronix** and is not part of a deploy at all. A deploy that should have been a rebuild fails silently: the code lands and the unit keeps its old definition.
-- **The nginx headers.** `/service-worker.js` must be served with `Cache-Control: no-cache`, or a proxy-cached worker pins every installed phone to an old build. The rule is in `hosts/pronix/nginx.nix` (live since 2026-09-25); like the units, a change there is a `nixos-rebuild` on pronix.
+- **`.env`**, on either machine. Both files hold the same keys with different values (the server reaches Postgres locally, the workstation through a forward), so a copy in either direction breaks the other. The same goes for `context-builder/.checkpoint.json` and `errors.json`: the server runs its own monthly harvest and those are its live state. A new key means editing both `.env` files by hand.
+- **The systemd units.** They live in `hosts/pronix/pidra.nix` in the nixos flake, so a change to a unit, a timer or the firewall needs `nixos-rebuild` **on pronix**. A deploy that should have been a rebuild fails silently: the code lands and the unit keeps its old definition.
+- **The nginx headers.** `/service-worker.js` must be served with `Cache-Control: no-cache`, or a proxy-cached worker pins every installed phone to an old build. The rule is in `hosts/pronix/nginx.nix`; like the units, a change is a `nixos-rebuild` on pronix.
+
+## The check
+
+`bun run check` runs the root checks (`tsc`, `check-skill-writes.ts`, `check-route-surfaces.ts`) and the dashboard's check concurrently. The dashboard side ends with the offline blackhole suite, which dominates wall time (~65-70 s against well under 4 s for everything else).
+
+`bun run check --quick` (`-q`, or `bun run check:quick` in either `package.json`) skips only that suite. Use it while iterating on a change that cannot touch routing, offline behavior or rendering. The `commit` skill and a plain `bun run deploy` both require the full run.
 
 ## DB access and migrations
 
-`DATABASE_URL` points at `192.168.10.85`, which is reachable on the LAN only. To run from outside, tunnel first with `ssh -N -L 15432:127.0.0.1:5432 ros`, then point `DATABASE_URL` at `127.0.0.1:15432`.
+`DATABASE_URL` points at `192.168.10.85`, reachable on the LAN only. From outside, tunnel first with `ssh -N -L 15432:127.0.0.1:5432 ros` and point `DATABASE_URL` at `127.0.0.1:15432`.
 
-`drizzle-kit migrate` hangs in this environment. **Always apply schema changes manually** via a temporary Bun script using `new SQL(DATABASE_URL)`. After applying, delete the temp script. The `migrations/` folder and DrizzleORM schema stay in sync for reference, but the actual migration is applied raw.
+`drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw.
 
-`migrations/0037_question_actions.sql` adds `contacts.removed_at` and the three `questions.answer_*` columns. Apply it before deploying code that reads them: contact readers filter on `removed_at` and the answer processing writes the question columns. It has not been applied to the live database yet.
-
-`migrations/0036_user_settings.sql` creates the `user_settings` table. Apply it before deploying code that reads it: the settings loader and every prompt render query it.
-
-`migrations/0027_newsletter_sources.sql` creates and seeds the live sender rules and RSS feeds. Apply it before deploying code that reads those tables. Each RSS feed fetch records its latest error or success on the feed row; failures also enter the run error log, shown on Runs. RSS uses a 14-day lookback by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages do not get missed; message IDs deduplicate them.
+**Apply a migration before deploying code that reads it.** The newest two are `0036_user_settings.sql` (the `user_settings` table, read by the settings loader and every prompt render) and `0037_question_actions.sql` (`contacts.removed_at` and the `questions.answer_*` columns, read by every contact reader and the answer processing).
 
 ## Cron schedule (all `Europe/Berlin`)
 
-- Daily pipeline: configurable via `PIPELINE_RUN_TIME` env var (default 06:30)
-- Implicit feedback: 22:00 daily
-- Weekly source quality scoring: Sunday 23:00
-- Weekly review conversation: Sunday 20:00
-- Weekly meta-run (analytics + prompt diff): Sunday 23:30
-- Entity graph pruning: Sunday 02:00
-- Context Builder update run: 1st of the month, 03:00
+| Job | Schedule |
+|---|---|
+| `pipeline` | daily 06:30 (`PIPELINE_RUN_TIME` only tells implicit feedback when the briefing ran; the timer is what schedules it) |
+| `feedback` (implicit feedback) | daily 22:00 |
+| `prune` (entity graph pruning, trashed-note purge) | Sunday 02:00 |
+| `review` (weekly review conversation) | Sunday 20:00 |
+| `source-scoring` | Sunday 23:00 |
+| `meta-run` (analytics and prompt diff) | Sunday 23:30 |
+| `context-builder` (update run) | 1st of the month, 03:00 |
 
-Every one of these is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.nix` in the nixos flake, and runs `bun run src/job.ts <job>`. Adding a scheduled job means one entry in `JOBS` (`src/job.ts`) and one in `jobs` (`pidra.nix`), plus a line here.
+Each is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.nix`, running `bun run src/job.ts <job>`. A timer is `Persistent`, so a run missed while the box was off happens on boot. Adding a scheduled job means one entry in `JOBS` (`src/job.ts`), one in `jobs` (`pidra.nix`) and a row here and in `README.md`.
 
 ## Concurrency
 
-Phase 2 (extraction): `CONCURRENCY = 4` workers in `phase2-extract.ts`. It is an API concurrency limit: raising it trades rate-limit risk against wall-clock, not VRAM.
-
-Phase 3 (context assembly + web search): runs in parallel with Phase 2.
-
-News desks: every enabled desk in parallel, started before Phase 1 and awaited before Phase 3, so their half a minute to five minutes on the flex tier overlaps the ingest instead of following it. The editor runs alongside Section 1 in Phase 5; if it fails, `renderNewsFallback` writes the section from the stories directly. Tuning without a pipeline run: `bun run scripts/news-dry-run.ts [--editor]` (real calls, nothing stored).
-
-Quick actions: one call, run alongside Section 1 once Phase 3 is done. A failure costs the buttons and nothing else; its attempts go to `step_errors` under `phase5-actions`.
-
-Nothing waits on the question gate (Phase 4). It reconciles this run's candidates into the queue in one call that runs alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on, and are also acted on immediately: `POST /api/questions/:id/answer` starts `processAnswer` without awaiting it, since the tool-calling turn can take a minute. A bridge that dies mid-turn leaves `answer_status = 'running'`, and `/questions/closed` offers "Run again" (the `reprocess` op, refused once the answer is `done`). `questions.blocks_until` is unused and `daily_reports.question_gate_fired` now means "this run's candidates landed on at least one open question".
+- **Phase 2 (extraction):** `CONCURRENCY = 4` workers in `phase2-extract.ts`. It is an API concurrency limit: raising it trades rate-limit risk against wall-clock, not VRAM.
+- **Phase 3 (context assembly and web search):** runs in parallel with Phase 2.
+- **News desks:** every enabled desk in parallel, started before Phase 1 and awaited before Phase 3, so their half a minute to five minutes on the flex tier overlaps the ingest. The editor runs alongside Section 1 in Phase 5; if it fails, `renderNewsFallback` writes the section from the stories directly. Tune without a pipeline run: `bun run scripts/news-dry-run.ts [--editor]` (real calls, nothing stored).
+- **Quick actions:** one call, run alongside Section 1 once Phase 3 is done. A failure costs the buttons and nothing else; its attempts go to `step_errors` under `phase5-actions`.
+- **Question gate (Phase 4):** nothing waits on it. It reconciles this run's candidates into the queue in one call alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on, and are also acted on at once: `POST /api/questions/:id/answer` starts `processAnswer` without awaiting it, since the tool-calling turn can take a minute. A bridge that dies mid-turn leaves `answer_status = 'running'`, and `/questions/closed` offers "Run again" (the `reprocess` op, refused once the answer is `done`). `questions.blocks_until` is unused, and `daily_reports.question_gate_fired` means "this run's candidates landed on at least one open question".
 
 ## Step timing
 
-Step timing exists to show where a run spends its time. A long run is slow work (a news desk, a flex backoff, a synthesis retry), not the question gate, which no longer waits. Runs before the gate stopped waiting still show a `phase4-wait` span of up to 45 minutes on `/runs/[id]`; that is intended.
+Step timing shows where a run spends its time: a news desk, a flex backoff, a synthesis retry. It is read at `/runs/[id]` (see `docs/dashboard.md`).
 
-`src/util/trace.ts` is an `AsyncLocalStorage` span tracer writing `pipeline_run_steps`. `traceRun` opens the root span in `run.ts`, `span(step, fn)` nests under the current one, and outside a run both are a plain call, so the weekly jobs that share `withRetry` and the OpenAI client pay nothing. Spans sit in `run.ts`, Phases 1-4 and one per news desk; every `withRetry` attempt is a span named by its step, with its attempt number. Historic runs also carry `phase4-wait`, the old gate's poll loop (`detail`: `questions`, `unanswered`, `outcome`, `timeoutMinutes`); new runs never write it. Model calls (`src/ai/openai.ts`), Brave searches (`src/search/brave.ts`) and flex backoffs report to the current span through `recordUsage`/`recordAiCall`/`recordSearch`/`recordFlexRetry`; counters are a span's own values, and the dashboard sums descendants, so a parent never double-counts. Every trace write is swallowed: a failed insert costs a bar, never a briefing. Read it at `/runs/[id]` (see `docs/dashboard.md`). Runs before 2026-10-01 have no step data.
+`src/util/trace.ts` is an `AsyncLocalStorage` span tracer writing `pipeline_run_steps`. `traceRun` opens the root span in `run.ts` and `span(step, fn)` nests under the current one; outside a run both are a plain call, so weekly jobs sharing `withRetry` and the OpenAI client pay nothing. Spans sit in `run.ts`, Phases 1-4 and one per news desk, and every `withRetry` attempt is a span named by its step with its attempt number.
+
+- Model calls (`src/ai/openai.ts`), Brave searches (`src/search/brave.ts`) and flex backoffs report to the current span via `recordUsage` / `recordAiCall` / `recordSearch` / `recordFlexRetry`. Counters are a span's own values and the dashboard sums descendants, so a parent never double-counts.
+- Every trace write is swallowed: a failed insert costs a bar, never a briefing.
+- Runs before 2026-10-01 have no step data. Those before the question gate stopped waiting also show a `phase4-wait` span of up to 45 minutes (`detail`: `questions`, `unanswered`, `outcome`, `timeoutMinutes`); new runs never write it.
 
 ## Synthesis output parsing
 
-Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses this block to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic.
+Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses it to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic.
 
 ## Error handling model
 
-Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`). Rules:
+Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`):
 
-- Each step is retried up to **3 times** on failure (delays: 2 s after attempt 1, 5 s after attempt 2).
-- Each failed attempt is recorded as a `StepAttemptError` with `{step, attempt, error, stack, ts}`.
-- When all 3 attempts fail, a `StepError` is thrown with the full attempt log.
-- `run.ts` catches `StepError` and writes the run outcome to the `pipeline_runs` table: `status`, `failed_step`, `step_errors` (JSONB array), `duration_ms`.
-- The dashboard reads `pipeline_runs` and renders a detailed error card showing which step failed, each attempt's error message and timestamp, and an expandable stack trace.
+- Up to **3 attempts** per step, with a 2 s delay after attempt 1 and 5 s after attempt 2.
+- Each failed attempt is recorded as a `StepAttemptError` (`{step, attempt, error, stack, ts}`). When all fail, a `StepError` is thrown carrying the log.
+- `run.ts` catches `StepError` and writes the outcome to `pipeline_runs`: `status`, `failed_step`, `step_errors` (JSONB array), `duration_ms`. The dashboard renders it as an error card with each attempt's message and timestamp and an expandable stack trace.
 
-When adding a new pipeline phase, always wrap the call with `withRetry("phaseN", () => runPhaseN(...))` - never call phase functions directly in `run.ts`.
+When adding a pipeline phase, always call it as `withRetry("phaseN", () => runPhaseN(...))`, never directly in `run.ts`.
+
+RSS ingest looks back 14 days by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages are not missed; message IDs deduplicate. Each feed fetch records its latest error or success on the feed row, and failures also enter the run error log shown on `/runs`.

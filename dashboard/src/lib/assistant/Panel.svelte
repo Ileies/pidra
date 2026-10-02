@@ -203,7 +203,7 @@
         placeholder={assistant.conversationId ? "Message…" : "What should change?"}
         disabled={assistant.streaming}
         aria-label="Message"
-        class="flex-1 min-w-0 resize-none border-none bg-transparent py-1.5 text-base text-surface-100 placeholder-surface-400 focus:outline-none disabled:opacity-50 overflow-y-auto sm:text-sm"
+        class="flex-1 min-w-0 resize-none border-none bg-transparent py-1.5 text-base text-surface-100 placeholder-surface-400 focus:outline-none disabled:opacity-50 overflow-y-auto [scrollbar-width:none] sm:text-sm"
         style="max-height: {MAX_COMPOSER_HEIGHT}px"
       ></textarea>
       {#if assistant.streaming}

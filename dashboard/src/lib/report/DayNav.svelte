@@ -51,12 +51,12 @@
       href="/{prevDate}"
       class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
     >
-      <span aria-hidden="true">←</span>
+      <span aria-hidden="true">⬅️</span>
       <span class="hidden xs:inline tabular-nums">{prevDate}</span>
       <span class="sr-only">Previous day, {prevDate}</span>
     </a>
   {:else}
-    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">←</span>
+    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">⬅️</span>
   {/if}
 
   <div class="relative min-w-0 text-center">
@@ -124,10 +124,10 @@
       class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
     >
       <span class="hidden xs:inline tabular-nums">{nextDate}</span>
-      <span aria-hidden="true">→</span>
+      <span aria-hidden="true">➡️</span>
       <span class="sr-only">Next day, {nextDate}</span>
     </a>
   {:else}
-    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">→</span>
+    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">➡️</span>
   {/if}
 </nav>

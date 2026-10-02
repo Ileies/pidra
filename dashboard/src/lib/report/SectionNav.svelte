@@ -66,14 +66,16 @@
   class="sticky z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 bg-surface-950/95 backdrop-blur border-b border-surface-800"
   style="top: var(--header-h)"
 >
-  <div class="flex items-center gap-2">
-    <nav aria-label="Report sections" class="flex items-center gap-1 min-w-0 overflow-x-auto">
+  <div class="flex items-center gap-1 xs:gap-2">
+    <!-- Below `sm` the tabs share the row equally and the jump list collapses to an icon, so all
+         of them fit without a sideways scroll. From `sm` up they size to their labels. -->
+    <nav aria-label="Report sections" class="flex flex-1 items-center gap-0 xs:gap-1 min-w-0 overflow-x-auto sm:flex-none">
       {#each sections as section (section.id)}
         <button
           type="button"
           aria-current={active === section.id ? "true" : undefined}
           onclick={() => jump(section.id)}
-          class="tap shrink-0 rounded px-3 py-1.5 text-xs border transition-colors cursor-pointer
+          class="tap flex-1 whitespace-nowrap rounded px-0.5 py-1.5 text-center xs:px-1 text-xs border transition-colors cursor-pointer sm:flex-none sm:shrink-0 sm:px-3
             {active === section.id
               ? 'bg-surface-800 border-surface-500 text-surface-50'
               : 'bg-transparent border-transparent text-surface-400 hover:text-surface-200'}"
@@ -90,10 +92,13 @@
         <button
           type="button"
           aria-expanded={jumpOpen}
+          aria-label="Jump to a story"
+          title="Jump to a story"
           onclick={() => (jumpOpen = !jumpOpen)}
-          class="tap rounded border border-surface-700 bg-surface-900 px-3 py-1.5 text-xs text-surface-300 hover:text-surface-100 cursor-pointer"
+          class="tap flex items-center justify-center rounded border border-surface-700 bg-surface-900 px-2.5 py-1.5 text-xs text-surface-300 hover:text-surface-100 cursor-pointer sm:px-3"
         >
-          Jump to…
+          <svg viewBox="0 0 24 24" class="h-4 w-4 sm:hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></svg>
+          <span class="hidden sm:inline" aria-hidden="true">Jump to…</span>
         </button>
 
         {#if jumpOpen}

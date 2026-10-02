@@ -39,13 +39,9 @@ export const load: PageServerLoad = async ({ url }) => {
   `;
 
   const requested = url.searchParams.get("c");
-  // `?c=new` is an empty composer on purpose: without it, "no conversation" in the URL falls back
-  // to the newest one, which is indistinguishable from the one the user just walked away from.
-  const activeId = requested === "new"
-    ? null
-    : requested && /^[0-9a-f-]{36}$/i.test(requested)
-      ? requested
-      : (conversations[0]?.id as string | undefined) ?? null;
+  // No param (or `?c=new`) is an empty composer. The page itself carries the live conversation
+  // over a client-side navigation by redirecting to `?c=<id>`; a fresh load always starts new.
+  const activeId = requested && /^[0-9a-f-]{36}$/i.test(requested) ? requested : null;
 
   const messages = activeId
     ? await db`

@@ -44,22 +44,20 @@ export interface SurfaceInfo {
 const UUID_IN_TEXT = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 const STORAGE_OPEN = "pidra.assistant.open";
-const STORAGE_CONVERSATION = "pidra.assistant.conversation";
 const STORAGE_DRAFT = "pidra.assistant.draft";
 
-function readStored(store: "local" | "session", key: string): string | null {
+function readStored(key: string): string | null {
   try {
-    return (store === "local" ? localStorage : sessionStorage).getItem(key);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-function writeStored(store: "local" | "session", key: string, value: string | null) {
+function writeStored(key: string, value: string | null) {
   try {
-    const target = store === "local" ? localStorage : sessionStorage;
-    if (value === null) target.removeItem(key);
-    else target.setItem(key, value);
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
   } catch {
     // Private windows and blocked site data: the widget works without persistence.
   }
@@ -97,9 +95,8 @@ class Assistant {
   restore() {
     if (this.#restored) return;
     this.#restored = true;
-    this.open = readStored("local", STORAGE_OPEN) === "1";
-    this.conversationId = readStored("session", STORAGE_CONVERSATION);
-    this.draft = readStored("local", STORAGE_DRAFT) ?? "";
+    this.open = readStored(STORAGE_OPEN) === "1";
+    this.draft = readStored(STORAGE_DRAFT) ?? "";
     if (this.open) this.loadSurfaces();
   }
 
@@ -115,7 +112,7 @@ class Assistant {
 
   toggle() {
     this.open = !this.open;
-    writeStored("local", STORAGE_OPEN, this.open ? "1" : "0");
+    writeStored(STORAGE_OPEN, this.open ? "1" : "0");
     if (this.open) {
       this.unseen = false;
       this.loadSurfaces();
@@ -124,12 +121,12 @@ class Assistant {
 
   close() {
     this.open = false;
-    writeStored("local", STORAGE_OPEN, "0");
+    writeStored(STORAGE_OPEN, "0");
   }
 
   setDraft(value: string) {
     this.draft = value;
-    writeStored("local", STORAGE_DRAFT, value);
+    writeStored(STORAGE_DRAFT, value);
   }
 
   newConversation() {
@@ -137,7 +134,6 @@ class Assistant {
     this.messages = [];
     this.error = null;
     this.composingNew = true;
-    writeStored("session", STORAGE_CONVERSATION, null);
   }
 
   /**
@@ -161,7 +157,6 @@ class Assistant {
       })),
       createdAt: row.created_at,
     }));
-    writeStored("session", STORAGE_CONVERSATION, conversationId);
   }
 
   async loadSurfaces() {
@@ -286,7 +281,6 @@ class Assistant {
     if (type === "conversation") {
       this.composingNew = false;
       this.conversationId = String(event.id);
-      writeStored("session", STORAGE_CONVERSATION, this.conversationId);
       return;
     }
 

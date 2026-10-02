@@ -39,6 +39,9 @@
       const first = lastActive === undefined;
       const navigated = !first && id !== lastActive;
       lastActive = id;
+      // Arrived with the live conversation still in memory (a client-side navigation): the effect
+      // below moves the URL onto it, so do not clear it with the empty page the URL asked for.
+      if (first && id === null && assistant.conversationId) return;
       // A navigation inside this page is an explicit choice of conversation, so it overrides an
       // empty composer; a reload that merely lags behind the live conversation does not.
       if (navigated) assistant.composingNew = false;
@@ -51,7 +54,12 @@
   // and the corrections list from Postgres.
   $effect(() => {
     if (assistant.conversationId && assistant.conversationId !== data.activeId && !assistant.streaming) {
-      goto(`/chat?c=${assistant.conversationId}`, { refreshAll: true, reset: false });
+      // Replacing from the empty URL keeps Back from bouncing into a redirect loop.
+      goto(`/chat?c=${assistant.conversationId}`, {
+        refreshAll: true,
+        reset: false,
+        replaceState: data.activeId === null,
+      });
     }
   });
 

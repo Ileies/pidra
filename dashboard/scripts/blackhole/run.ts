@@ -242,7 +242,8 @@ const CONTROLS: Record<string, Control[]> = {
     {
       name: "open the sources inline",
       async run(page, deadline) {
-        await page.getByRole("link", { name: /^More on this/ }).first().click({ timeout: remaining(deadline) });
+        // A tap on the prose itself, away from any link in it, is what a reader does.
+        await page.locator("[data-expandable] .report-body").first().click({ position: { x: 4, y: 4 }, timeout: remaining(deadline) });
         await visible(page.getByText("Example permit reminder"), deadline);
       },
     },

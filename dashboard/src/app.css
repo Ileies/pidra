@@ -500,6 +500,29 @@
   border-color: var(--app-accent-dim);
   text-decoration: none;
 }
+/* The cue that a report entry opens when tapped: a chevron right after the last word, in the flow
+   of the text rather than in a row of its own. It flips while the entry is open. Entries that end
+   in a list or a code block get no chevron; the tint and the one-time hint still apply. */
+.entry-prose > p:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin-left: 0.2em;
+  vertical-align: -0.2em;
+  background-color: var(--app-text-muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 7.5l5 5 5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition:
+    transform 0.15s,
+    background-color 0.1s;
+}
+.group:hover .entry-prose > p:last-child::after,
+.group:focus-within .entry-prose > p:last-child::after {
+  background-color: var(--app-accent);
+}
+.entry-prose[data-open] > p:last-child::after {
+  transform: rotate(180deg);
+}
 /* Markdown tables have no width limit of their own, so they are the one thing in a
    report that can pan the page on a phone. */
 .report-body table {

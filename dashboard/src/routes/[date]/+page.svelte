@@ -9,6 +9,7 @@
 	import Badge from '#lib/components/Badge.svelte';
 	import DayNav from '#lib/report/DayNav.svelte';
 	import EntryGroup from '#lib/report/EntryGroup.svelte';
+	import EntryHint from '#lib/report/EntryHint.svelte';
 	import IngestWarning from '#lib/report/IngestWarning.svelte';
 	import NewsSection from '#lib/report/NewsSection.svelte';
 	import QuickActions from '#lib/report/QuickActions.svelte';
@@ -352,6 +353,8 @@
 			{#if sectionTargets.length > 1}
 				<SectionNav sections={sectionTargets} domains={domainTargets} />
 			{/if}
+
+			<EntryHint />
 
 			<!-- Section 2 leads, at every width. It is the actionable half; the briefing
          is the half you read when you have time. -->

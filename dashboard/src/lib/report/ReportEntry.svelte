@@ -2,9 +2,10 @@
   /**
    * One entry of the briefing: the prose, the rating controls, and the expansion (C4, C5).
    *
-   * "More on this" used to navigate to `/[date]/detail/[ids]`, which lost the reader's place in
-   * a report several screens long. It expands the same extraction cards in place now; the deep
-   * link stays as the shareable form and as the fallback for a browser with no JS.
+   * Tapping an entry expands its extraction cards in place; it used to navigate to
+   * `/[date]/detail/[ids]`, which lost the reader's place in a report several screens long. The
+   * chevron beside the prose says the entry opens; the deep link stays as the shareable form,
+   * offered inside the expansion.
    *
    * The cards come from the mirror, which holds every extraction a mirrored
    * report cites, so they open in the same frame online or not. This used to be a request per
@@ -12,6 +13,7 @@
    */
   import { extractionsFor, type MirroredExtraction } from "#lib/offline/repo.js";
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
+  import { markEntryHintSeen } from "#lib/report/entry-hint.svelte.js";
   import QuickActions from "#lib/report/QuickActions.svelte";
   import RateButtons from "#lib/report/RateButtons.svelte";
   import type { QuickAction } from "#lib/report/types.js";
@@ -36,24 +38,54 @@
   const href = $derived(`/${date}/detail/${entry.refIds.join(",")}`);
   const missing = $derived(items ? entry.refIds.length - items.length : 0);
 
-  async function toggle(event: MouseEvent) {
-    // Modifier-clicks and middle clicks stay navigations: the deep link is real and shareable.
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-    event.preventDefault();
+  const expandable = $derived(entry.refIds.length > 0);
 
+  async function toggle() {
     open = !open;
+    if (open) markEntryHintSeen();
     // Read on every open rather than once: a rating given since, or a sync, is in the mirror.
     if (open) items = await extractionsFor(null, entry.refIds);
+  }
+
+  /** A tap anywhere on the entry opens it, except where the tap meant something else: a link in
+   *  the prose, a rating button, or the end of a text selection (a drag to copy must not toggle). */
+  function onSurfaceClick(event: MouseEvent) {
+    if (event.button !== 0 || !(event.target instanceof Element)) return;
+    if (event.target.closest("a, button")) return;
+    if (!window.getSelection()?.isCollapsed) return;
+    void toggle();
+  }
+
+  function onSurfaceKeydown(event: KeyboardEvent) {
+    // Only when the entry itself has focus; Enter on a link or button inside keeps its own meaning.
+    if (event.target !== event.currentTarget) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    void toggle();
   }
 </script>
 
 <div class="group flex flex-col gap-2 {accent ? `border-l-2 pl-3 ${accent}` : ''}">
-  <div class="flex items-start gap-3">
-    <div class="report-body min-w-0 flex-1 text-sm">
+  <!-- The entry is the control: there is no button to find or to miss with a thumb. A chevron
+       at the end of the prose (`.entry-prose` in app.css) says it opens, the tint says it is
+       pressable, and the hint above the report says it once. `role="group"` rather than "button"
+       because the prose holds links, which a button would hide from a screen reader. -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+  <div
+    role="group"
+    data-expandable={expandable ? "" : undefined}
+    tabindex={expandable ? 0 : undefined}
+    onclick={expandable ? onSurfaceClick : undefined}
+    onkeydown={expandable ? onSurfaceKeydown : undefined}
+    class="flex items-start gap-3 {expandable
+      ? '-mx-2 -my-1 px-2 py-1 rounded-md cursor-pointer transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-surface-900 active:bg-surface-800 focus-visible:ring-2 focus-visible:ring-primary-500'
+      : ''}"
+  >
+    <div class="report-body min-w-0 flex-1 text-sm {expandable ? 'entry-prose' : ''}" data-open={open ? '' : undefined}>
       {@html entry.html}
     </div>
 
-    {#if entry.refIds.length > 0}
+    {#if expandable}
       <!-- Always present on a phone, revealed on hover or focus on a pointer device: a control
            that only exists on hover does not exist on a touch screen (M13). -->
       <div class="shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
@@ -63,26 +95,11 @@
           {onRate}
         />
       </div>
+      <span class="sr-only">{open ? "Details shown. Press Enter to hide." : "Press Enter for details."}</span>
     {/if}
   </div>
 
   <QuickActions {actions} />
-
-  {#if entry.refIds.length > 0}
-    <div class="flex items-center gap-3">
-      <a
-        {href}
-        onclick={toggle}
-        aria-expanded={open}
-        class="tap inline-flex items-center gap-1.5 self-start rounded border border-surface-700 bg-surface-900 px-2.5 py-1 text-xs text-surface-300 no-underline hover:border-primary-800 hover:text-primary-300 transition-colors"
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 transition-transform {open ? 'rotate-90' : ''}" aria-hidden="true">
-          <path d="M7 5l6 5-6 5V5z" />
-        </svg>
-        {open ? "Hide sources" : entry.refIds.length === 1 ? "More on this" : `More on this (${entry.refIds.length})`}
-      </a>
-    </div>
-  {/if}
 
   {#if open}
     <div class="flex flex-col gap-2 pl-1">

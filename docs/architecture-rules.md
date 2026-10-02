@@ -87,7 +87,7 @@ The invariants of the system. Read this before any change that touches extractio
 ## Assistant, prompts and language
 
 - **The assistant's capabilities are per page, enforced at the choke point.**
-  - `src/ai/surfaces.ts` maps each dashboard route to a surface with a declared skill list, a prompt fragment and the widget's example sentences. `executeSkill` checks the surface before the risk level and logs a rejection to `skill_executions`; the chat loop additionally offers only that surface's tools.
+  - `src/ai/surfaces.ts` maps each dashboard route to a surface with a declared skill list, a prompt fragment and the widget's sentence starters (empty-state hints the owner finishes, so each opens with a trailing space and fits any page content). `executeSkill` checks the surface before the risk level and logs a rejection to `skill_executions`; the chat loop additionally offers only that surface's tools.
   - An unknown route falls back to `global`, which touches nothing structural. A client-claimed surface can never widen what its route allows.
   - `list_questions` and `create_question` are on every surface. `/questions` has its own `questions` surface with the broad edit skills, because that is where answers are acted on.
   - `send_email`, `send_mail`, `create_file`, `open_project_in_editor` and `update_calendar_event` are on no surface.

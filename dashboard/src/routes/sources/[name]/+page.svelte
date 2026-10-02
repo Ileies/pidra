@@ -144,12 +144,6 @@
       {#if !isActive}
         <ConfirmButton label="Enable" action="?/toggle" fields={{ isActive: "true" }} tone="success" immediate />
       {/if}
-      <DeleteSourceModal
-        sourceName={data.sourceName}
-        unsubscribeUrl={data.quality?.unsubscribe_url ?? null}
-        action="?/delete"
-        onDeleted={() => goto("/sources")}
-      />
     </div>
   </section>
 
@@ -277,5 +271,22 @@
     {:else if visible.length === 0}
       <EmptyState title="No delivery matches the filter." compact />
     {/if}
+  </section>
+
+  <!-- Destructive and rare, so it lives apart from the page's everyday controls. -->
+  <section
+    class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-surface-800 pt-4"
+  >
+    <p class="text-xs text-surface-400">
+      Deleting removes this source's scores and settings. Past reports stay as they are.
+    </p>
+    <div class="shrink-0">
+      <DeleteSourceModal
+        sourceName={data.sourceName}
+        unsubscribeUrl={data.quality?.unsubscribe_url ?? null}
+        action="?/delete"
+        onDeleted={() => goto("/sources")}
+      />
+    </div>
   </section>
 </Page>

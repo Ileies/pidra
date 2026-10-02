@@ -62,6 +62,8 @@ Never use real personal information in code, comments, or examples - no real ema
 
 While iterating on a change, run `bun run check:quick` (or `bun run check --quick` / `-q`) instead of the full `bun run check` - it skips `dashboard/scripts/blackhole/run.ts`, the step that dominates the full check's wall time (~65-70s against well under 4s for everything else combined), so you still get `svelte-check`, contrast, offline-check and source-links feedback without the wait. Reach for it by default whenever you're confident the change in flight can't touch routing, offline behavior, or rendering - most single-file edits qualify. It is never a substitute for the full check right before finishing: the `commit` skill and `bun run deploy` both require the full run regardless.
 
+Check output is short by default: a passing step prints one `ok <step> (<secs>s): <last line>` line, a failing step or one with warnings prints its full output. Pass `--verbose` / `-v` (combinable with `--quick`) to stream every step's full output live.
+
 ## Commit workflow
 
 Use the `commit` skill (`.claude/skills/commit/SKILL.md`, `args: "<why>"`) for non-trivial changes - it runs checks and keeps docs in sync via `docs-committer`. For small changes (typos, one-liners, no doc impact), a plain `git commit` is fine.

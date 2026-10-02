@@ -25,6 +25,8 @@ It refuses rather than improvises: an uncommitted tree (unless `--force`), commi
 
 `bun run check` runs the root checks (`tsc`, `check-skill-writes.ts`, `check-route-surfaces.ts`) and the dashboard's check concurrently. The dashboard side ends with the offline blackhole suite, which dominates wall time (~65-70 s against well under 4 s for everything else).
 
+Output is kept short to save tokens: each step is buffered and a passing one prints a single `ok <step> (<secs>s): <last output line>`. A failing step prints its full stdout/stderr under `=== <step> failed ===`, and a passing step that reports warnings (a nonzero count or a `Warn:` line) still prints its full output under `--- <step> warnings ---`, so warnings are never silenced. The run ends with `dashboard: all steps pass` and `check: root and dashboard both pass.`. `bun run check --verbose` (`-v`, forwarded to the dashboard check, combinable with `--quick`) disables buffering so every step streams its full output live.
+
 `bun run check --quick` (`-q`, or `bun run check:quick` in either `package.json`) skips only that suite. Use it while iterating on a change that cannot touch routing, offline behavior or rendering. The `commit` skill and a plain `bun run deploy` both require the full run.
 
 ## DB access and migrations

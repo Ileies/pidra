@@ -164,7 +164,7 @@ export async function seedHarvestedNotes(items: { key: string; content: string }
   let refreshed = 0;
   for (const [key, content] of wanted) {
     const row = byKey.get(key);
-    if (!row || row.deletedAt || (row.updatedBy !== null && row.updatedBy !== "harvest") || row.content === content) continue;
+    if (!row || row.deletedAt || (row.updatedBy !== null && row.updatedBy !== "harvest") || row.content.trim() === content) continue;
     await db.transaction(async (tx) => {
       await tx.insert(noteRevisions).values({
         noteId: row.id,

@@ -22,7 +22,7 @@ Input (JSON):
   also the earlier step's classification and an excerpt)
 - recently_answered: what the reader answered in the last 30 days
 - known_contacts: what the sender directory says about the senders involved
-- notes, standing_rules, context_corrections, long_term_context: what the system already knows
+- notes, context_corrections, long_term_context: what the system already knows
   about the reader. context_corrections outrank long_term_context where they disagree
 
 For every open question choose one action:
@@ -32,7 +32,7 @@ For every open question choose one action:
   one answer settles both), or because part of it is settled and only the rest remains. Give the
   full new wording in question.
 - resolve: no longer worth asking, because the answer is already in the input (a note, a
-  correction, a standing rule, the long-term context, the sender directory, a recent answer), or
+  correction, the long-term context, the sender directory, a recent answer), or
   because it has gone stale: a review question that a newer review question covers, or a question
   about a one-off mail or an event that is long past and no longer matters. Say in reason exactly
   where the answer is or why it is stale ("A note written 2026-09-26 says ...", "Answered on

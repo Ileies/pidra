@@ -39,7 +39,7 @@ import {
   type SynthesisResult,
 } from "./pipeline/synthesize";
 import { listActiveCorrections, formatForPrompt } from "../src/context/corrections";
-import { seedContacts, seedEntities, seedStandingContext } from "./output/db-writer";
+import { seedContacts, seedEntities, seedRuleNotes } from "./output/db-writer";
 import { writeOutputFiles, type ContextDocument } from "./output/builder";
 
 export interface ContextBuilderOptions {
@@ -67,7 +67,7 @@ export interface ContextBuilderOptions {
 /**
  * Seeds each target table independently: these three are the whole point of the run, and a
  * failure writing one must not silently skip the others (a transient error during the entity
- * batch used to leave standing_context empty with the run still reported complete).
+ * batch used to leave rule notes unseeded with the run still reported complete).
  */
 async function runDbSeeding(
   contactProfiles: ReturnType<typeof batchContacts>,
@@ -77,7 +77,7 @@ async function runDbSeeding(
   for (const [label, seed] of [
     ["db-seed:contacts", () => seedContacts(contactProfiles)],
     ["db-seed:entities", () => seedEntities(emailExtractions, noteExtractions)],
-    ["db-seed:standing-context", () => seedStandingContext(noteExtractions)],
+    ["db-seed:rule-notes", () => seedRuleNotes(noteExtractions)],
   ] as const) {
     try {
       await seed();
@@ -325,7 +325,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   // off a single-note delta, and the Contacts Summary's low-importance breakdown vanished). Tasks
   // and GitHub don't have this problem since they're always refetched in full; email and Keep need
   // it explicitly because their fetch is delta-only via the skip-set. DB seeding below stays on
-  // the delta-only sets - seedContacts/seedEntities/seedStandingContext are upserts against
+  // the delta-only sets - seedContacts/seedEntities/seedRuleNotes are upserts against
   // already-seeded history, so re-processing everything already indexed would be wasted work, not
   // a correctness fix.
   let synthesisEmails = emailExtractions;

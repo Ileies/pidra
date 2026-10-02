@@ -59,7 +59,8 @@ export const SURFACES: Record<Surface, SurfaceDef> = {
     skills: [...NOTE_SKILLS, "read_context", ...QUESTION_SKILLS],
     prompt: `The user is on /notes, the notes store. Notes are standing instructions for the daily
 briefing: 'intel' and 'global' notes steer Section 1, 'personal' and 'global' steer Section 2,
-'search' notes are the reputation-monitoring targets of the web search module.
+'search' notes are the reputation-monitoring targets of the web search module. Rules the Context
+Builder found in Keep are 'personal' notes too (created by 'harvest'); edit or delete them like any other.
 
 Notes are the mutable working layer, so here you really do edit in place with \`update_note\`.
 Always \`list_notes\` first - never guess an id. Deleting is reversible (\`restore_note\`), and
@@ -76,19 +77,20 @@ changes. One note per call. If the user's wording could mean two different notes
     label: "Context",
     skills: [
       "read_context", "read_report", "revise_context", "revert_context_revision", "remove_context_item", "add_contact",
-      "write_note", "list_notes", "run_web_search", ...QUESTION_SKILLS,
+      ...NOTE_SKILLS, "run_web_search", ...QUESTION_SKILLS,
     ],
     prompt: `The user is on the harvested long-term context: the Context Builder's document, the
-standing rules it wrote (also editable directly on /rules), the sender directory on /contacts, or
-the context chat. This layer is never overwritten. \`revise_context\` records a correction
-that outranks the harvest in every future briefing, and the wrong text is deliberately kept on the
-correction so the model can see what it is being told to disregard.
+sender directory on /contacts, or the context chat. The document, entities and contacts are never
+overwritten. \`revise_context\` records a correction that outranks the harvest in every future
+briefing, and the wrong text is deliberately kept on the correction so the model can see what it
+is being told to disregard. The standing rules the Context Builder found in Keep are ordinary
+'personal' notes (created by 'harvest'): change those with \`update_note\` and \`delete_note\`.
 
 Look before you write: \`read_context\` to find the exact wrong wording and a real target_key
 (query 'outline' lists the document's headings). One fact per \`revise_context\` call. Quote the
 wrong text in \`supersedes\` verbatim. Corrections are reversible with \`revert_context_revision\`.
 
-Removing things: a sentence of the context document or a standing rule is dropped with
+Removing things: a sentence of the context document is dropped with
 \`revise_context\` (operation 'retract', the sentence in \`supersedes\`). A whole entity or contact is
 dropped with \`remove_context_item\`, which keeps the row (archived or marked removed) so it can come
 back. A sender the directory lacks is added with \`add_contact\`; an existing one is changed with
@@ -202,8 +204,8 @@ Acting on an answer:
   priority, contextNotes) if the contact exists, \`add_contact\` if it does not. An entity:
   \`revise_context\` with target_kind 'entity' and \`fields\` (type, domain, summary, importance, status).
 - "Delete it", "ignore this", "it is spam", "forget that": \`remove_context_item\` for a whole entity
-  or contact; \`revise_context\` with operation 'retract' for a sentence of the context document or a
-  standing rule. Both are reversible.
+  or contact; \`revise_context\` with operation 'retract' for a sentence of the context document;
+  \`delete_note\` for a standing rule (those are notes). All are reversible.
 - Something to keep in mind for the briefings: \`write_note\` ('intel' for Section 1, 'personal' for
   Section 2). A task or appointment: \`add_todo_item\`, \`add_calendar_event\`.
 - A source to switch off: \`set_source_active\`.

@@ -4,13 +4,13 @@ import { searchContext, documentOutline } from "../src/context/lookup";
 const skill: Skill = {
   name: "read_context",
   description:
-    "Search the harvested long-term context: the context document, standing rules, entities, contacts and existing corrections. " +
+    "Search the harvested long-term context: the context document, entities, contacts and existing corrections. " +
     "Use this before revising anything, to find the exact wrong wording and the right target_key. " +
-    "Pass query='outline' to list the context document's headings, or query='all' with a kind to list everything of that kind (e.g. every standing rule).",
+    "Pass query='outline' to list the context document's headings, or query='all' with a kind to list everything of that kind (e.g. every contact).",
   risk_level: "low",
   parameters: {
     query: { type: "string", required: true, description: "Search term, e.g. a person's name. 'outline' lists the document's headings; 'all' lists every row of the given kind." },
-    kind: { type: "string", required: false, description: "Restrict to one of: document | standing_context | entity | contact | correction (default: all)" },
+    kind: { type: "string", required: false, description: "Restrict to one of: document | entity | contact | correction (default: all)" },
   },
   execute: async (params) => {
     const query = String(params.query ?? "").trim();

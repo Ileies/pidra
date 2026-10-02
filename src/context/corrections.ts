@@ -1,13 +1,14 @@
-import { db, contextCorrections, contacts, entities, standingContext } from "../db";
+import { db, contextCorrections, contacts, entities } from "../db";
 import { and, desc, eq, sql as drizzleSql } from "drizzle-orm";
 
 /**
  * The correction layer over the harvested long-term context.
  *
  * The governing rule: harvested information is never overwritten, only adjusted and
- * complemented. The context document on disk and the `standing_context` values the Context
- * Builder wrote are therefore never rewritten here - corrections live in their own table and
- * are injected alongside the harvest, with the daily prompts told the correction wins.
+ * complemented. The context document the Context Builder wrote is therefore never rewritten
+ * here - corrections live in their own table and are injected alongside the harvest, with the
+ * daily prompts told the correction wins. (The standing rules it found in Keep are not covered:
+ * they are notes, and `src/notes/store.ts` handles their history.)
  *
  * Structured rows (`entities`, `contacts`) are the one place a write does reach the harvested
  * row, because `phase3-context` and Section 2 read those rows directly and would otherwise keep
@@ -15,7 +16,7 @@ import { and, desc, eq, sql as drizzleSql } from "drizzle-orm";
  * snapshotted into `previous_state`, and the row is locked against re-seeding.
  */
 
-export const TARGET_KINDS = ["document", "standing_context", "entity", "contact"] as const;
+export const TARGET_KINDS = ["document", "entity", "contact"] as const;
 export const OPERATIONS = ["amend", "complement", "retract"] as const;
 
 export type TargetKind = (typeof TARGET_KINDS)[number];
@@ -107,8 +108,6 @@ export async function recordCorrection(input: CorrectionInput): Promise<{ id: st
     const merge = await mergeStructuredRow(input.targetKind, targetKey, input.fields ?? null, input.remove ?? false);
     previousState = merge.previousState;
     applied = merge.applied;
-  } else if (input.targetKind === "standing_context" && input.operation === "complement") {
-    applied = await addStandingRule(targetKey, statement);
   }
 
   const [row] = await db
@@ -127,34 +126,6 @@ export async function recordCorrection(input: CorrectionInput): Promise<{ id: st
     .returning({ id: contextCorrections.id });
 
   return { id: row.id, applied };
-}
-
-/**
- * `complement` on `standing_context` is genuinely new information rather than a correction of
- * something harvested, so it becomes a real row. Its key is namespaced under `user_` so it can
- * never collide with the Context Builder's `keep_rule_*` keys and get overwritten by a re-seed.
- */
-async function addStandingRule(key: string, value: string): Promise<string> {
-  const safeKey = key.startsWith("user_") ? key : `user_${key.replace(/[^a-z0-9_]+/gi, "_").toLowerCase()}`;
-
-  const [existing] = await db
-    .select({ value: standingContext.value })
-    .from(standingContext)
-    .where(eq(standingContext.key, safeKey))
-    .limit(1);
-
-  if (existing) {
-    // Appending rather than replacing: an existing rule the user is adding to must keep what it
-    // already said. Replacing it here would be exactly the overwrite this module exists to avoid.
-    await db
-      .update(standingContext)
-      .set({ value: `${existing.value}\n${value}`, updatedAt: drizzleSql`now()` })
-      .where(eq(standingContext.key, safeKey));
-    return `appended to standing rule ${safeKey}`;
-  }
-
-  await db.insert(standingContext).values({ key: safeKey, value, source: "user" });
-  return `added standing rule ${safeKey}`;
 }
 
 /** Only the fields that actually differ from the current row belong in a merge patch. */
@@ -349,11 +320,5 @@ export async function revertCorrection(id: string): Promise<string> {
     .set({ status: "reverted", revertedAt: drizzleSql`now()` })
     .where(and(eq(contextCorrections.id, id), eq(contextCorrections.status, "active")));
 
-  // A standing rule added by `complement` is deliberately left in place: it is additive
-  // information the user asked for, not an edit to anything, and deleting it here would lose it.
-  const note = row.targetKind === "standing_context" && row.operation === "complement"
-    ? ", the standing rule it added was kept (delete it on /context-builder if unwanted)"
-    : "";
-
-  return `Correction ${id} reverted${restored}${note}.`;
+  return `Correction ${id} reverted${restored}.`;
 }

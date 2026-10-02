@@ -11,7 +11,7 @@ const skill: Skill = {
   name: "remove_context_item",
   description:
     "Remove an entity or a contact from use: the daily briefings stop seeing it. The row is kept (archived or marked removed, locked against a re-seed) and the removal is reversible with revert_context_revision. " +
-    "Use read_context first so target_key is the exact entity name or contact email address. To drop a single sentence of the context document or a standing rule, use revise_context with operation 'retract' instead.",
+    "Use read_context first so target_key is the exact entity name or contact email address. To drop a single sentence of the context document, use revise_context with operation 'retract' instead (a standing rule is a note: use delete_note).",
   risk_level: "medium",
   parameters: {
     target_kind: { type: "string", required: true, description: "entity | contact" },

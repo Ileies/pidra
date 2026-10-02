@@ -14,7 +14,7 @@ const skill: Skill = {
   risk_level: "medium",
   parameters: {
     target_kind: { type: "string", required: true, description: `One of: ${TARGET_KINDS.join(" | ")}` },
-    target_key: { type: "string", required: true, description: "Document heading, standing_context key, entity name, or contact email address" },
+    target_key: { type: "string", required: true, description: "Document heading, entity name, or contact email address" },
     operation: { type: "string", required: true, description: "amend (harvest is wrong) | complement (harvest is incomplete) | retract (harvest states something false)" },
     statement: { type: "string", required: true, description: "The correct fact, written as a plain statement about the user. This is injected verbatim into daily briefings." },
     supersedes: { type: "string", required: false, description: "The wrong text, quoted from the harvest. Required in practice for amend and retract - it is how the briefing knows what to disregard." },

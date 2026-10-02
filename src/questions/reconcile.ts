@@ -301,7 +301,6 @@ export async function reconcileQueue(
       notes: c.contextNotes,
     })),
     notes: noteRows.map((n) => ({ written: n.createdAt?.slice(0, 10) ?? null, text: n.content.slice(0, 600) })),
-    standing_rules: longTermContext.standingRules.map((r) => r.value),
     context_corrections: longTermContext.corrections.length > 0 ? formatForPrompt(longTermContext.corrections) : null,
     long_term_context: longTermContext.personalSections || null,
   };

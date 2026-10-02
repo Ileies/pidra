@@ -4,7 +4,7 @@
  * This repository is public, so identifying details must never be hardcoded here. Who the user
  * is now reaches the prompts at runtime instead, from two gitignored/DB-backed sources:
  *   - `long_term_context`, the Context Builder document (see pipeline/long-term-context.ts)
- *   - `standing_rules` from `standing_context`, and `notes_intel` from `notes` (scope 'intel'),
+ *   - `notes_personal` and `notes_intel` from `notes` (the standing rules live there too),
  *     which is where curation preferences such as topic priorities belong
  */
 export const BRIEFING_STYLE = `You are compiling a personal morning briefing for a single reader.
@@ -24,5 +24,5 @@ number, a date, a result.
 
 You do not know anything about the reader except what the input gives you. Their identity,
 interests, projects and topic priorities arrive in the payload (long_term_context,
-standing_rules, notes_intel, notes_personal). Use those. Never invent biographical details,
+notes_intel, notes_personal). Use those. Never invent biographical details,
 and never assume a default profile for "a developer".`;

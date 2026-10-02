@@ -1,5 +1,6 @@
-import { db, contacts, entities, entityMentions, standingContext } from "../../src/db";
+import { db, contacts, entities, entityMentions } from "../../src/db";
 import { sql as drizzleSql } from "drizzle-orm";
+import { seedHarvestedNotes } from "../../src/notes/store";
 import { stripControlChars } from "../../src/util/text";
 import { normalizeEntityKey } from "../../src/util/entities";
 import type { ContactProfile } from "../pipeline/batch-contacts";
@@ -8,7 +9,7 @@ import type { EmailExtraction } from "../pipeline/extract-email";
 
 // A full build seeds a couple of thousand entities. One round-trip per row took long enough that
 // a single transient blip aborted the whole phase mid-way (and, before the phase steps were
-// isolated, silently skipped standing_context) - so writes go out in batches instead.
+// isolated, silently skipped the rule notes) - so writes go out in batches instead.
 const BATCH_SIZE = 500;
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -175,25 +176,15 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
   }
 }
 
-export async function seedStandingContext(noteExtractions: NoteExtraction[]): Promise<void> {
+/** Keep rules become `personal` notes, keyed by Keep note id; `seedHarvestedNotes` owns the re-run rules. */
+export async function seedRuleNotes(noteExtractions: NoteExtraction[]): Promise<void> {
   const rules = noteExtractions.filter((n) => n.type === "rule" && n.importance !== "low");
   if (rules.length === 0) return;
 
-  // Keyed by note id so a re-run updates the same row instead of accumulating duplicates.
-  for (const batch of chunk(rules, BATCH_SIZE)) {
-    await db
-      .insert(standingContext)
-      .values(batch.map((rule) => ({
-        key: `keep_rule_${rule.id}`,
-        value: stripControlChars(`${rule.title || rule.summary}: ${rule.rawText}`),
-        source: "context_builder",
-      })))
-      .onConflictDoUpdate({
-        target: standingContext.key,
-        set: {
-          value: drizzleSql`excluded.value`,
-          updatedAt: drizzleSql`now()`,
-        },
-      });
-  }
+  const items = rules.map((rule) => ({
+    key: `keep_rule_${rule.id}`,
+    content: stripControlChars(`${rule.title || rule.summary}: ${rule.rawText}`),
+  }));
+  const { added, refreshed } = await seedHarvestedNotes(items);
+  console.log(`[context-builder] Rule notes: ${added} added, ${refreshed} refreshed, ${items.length - added - refreshed} left as they are`);
 }

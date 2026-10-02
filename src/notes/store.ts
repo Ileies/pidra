@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, isNotNull, isNull, sql as drizzleSql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, sql as drizzleSql } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
 
 /**
@@ -11,7 +11,9 @@ import { db, notes, noteRevisions } from "../db";
  * write endpoints and the note skills both come through this module, so a UI edit and a chat edit
  * cannot behave differently or skip the history.
  *
- * The harvested-context counterpart is `src/context/corrections.ts`.
+ * Rules the Context Builder seeds from Keep are notes too (`seedHarvestedNotes`), so a rule is
+ * edited, deleted and undone exactly like anything else here. The correction layer for the
+ * harvested document, entities and contacts is `src/context/corrections.ts`.
  */
 
 export const NOTE_SCOPES = ["global", "intel", "personal", "contact", "search"] as const;
@@ -24,7 +26,7 @@ export class NoteError extends Error {}
 
 /** Who is making the change, and what to point the revision back at. */
 export interface Actor {
-  by: "user" | "chat" | "system";
+  by: "user" | "chat" | "system" | "harvest";
   skillExecutionId?: string | null;
   conversationId?: string | null;
 }
@@ -136,6 +138,49 @@ export async function createNote(input: NoteWrite & { content: string; id?: stri
   throw new NoteError("failed to create note");
 }
 
+/**
+ * Seeds the standing rules the Context Builder found in Keep, each under its stable `sourceKey`.
+ *
+ * A key with no row is inserted as a `personal` note. A key whose row exists is left as it is,
+ * trashed or edited included: that is what stops a re-run from resurrecting a rule you deleted or
+ * overwriting one you rewrote. The one exception is a live row nobody has touched, which follows
+ * the Keep note's new text (and records the old text as a revision).
+ */
+export async function seedHarvestedNotes(items: { key: string; content: string }[]): Promise<{ added: number; refreshed: number }> {
+  const wanted = new Map(items.filter((i) => i.key && i.content.trim()).map((i) => [i.key, i.content.trim()]));
+  if (wanted.size === 0) return { added: 0, refreshed: 0 };
+
+  const existing = await db.select().from(notes).where(inArray(notes.sourceKey, [...wanted.keys()]));
+  const byKey = new Map(existing.map((row) => [row.sourceKey as string, row]));
+
+  const fresh = [...wanted].filter(([key]) => !byKey.has(key));
+  if (fresh.length > 0) {
+    await db
+      .insert(notes)
+      .values(fresh.map(([key, content]) => ({ content, scope: "personal", createdBy: "harvest", sourceKey: key })))
+      .onConflictDoNothing();
+  }
+
+  let refreshed = 0;
+  for (const [key, content] of wanted) {
+    const row = byKey.get(key);
+    if (!row || row.deletedAt || (row.updatedBy !== null && row.updatedBy !== "harvest") || row.content === content) continue;
+    await db.transaction(async (tx) => {
+      await tx.insert(noteRevisions).values({
+        noteId: row.id,
+        operation: "update",
+        previousContent: row.content,
+        previousScope: row.scope,
+        previousExpiresAt: row.expiresAt,
+        changedBy: "harvest",
+      });
+      await tx.update(notes).set({ content, updatedAt: drizzleSql`now()`, updatedBy: "harvest" }).where(eq(notes.id, row.id));
+    });
+    refreshed++;
+  }
+  return { added: fresh.length, refreshed };
+}
+
 /** Whether `id`'s row has moved since `baseUpdatedAt` - what an offline edit was based on. Read
  *  and the later write are not atomic with each other, which is fine for a single-user system;
  *  see `updateNote`'s own not-found handling for the case where the row is gone entirely. */
@@ -233,11 +278,15 @@ export async function softDeleteNote(id: string, actor: Actor): Promise<Note> {
   });
 }
 
-/** Purge each note once it has spent 30 days in trash. Revisions cascade with the note. */
+/**
+ * Purge each note once it has spent 30 days in trash. Revisions cascade with the note. A note the
+ * Context Builder seeded stays in the trash for good: its row is what tells the next seed that
+ * the rule was deleted on purpose.
+ */
 export async function pruneDeletedNotes(): Promise<void> {
   const purged = await db
     .delete(notes)
-    .where(drizzleSql`${notes.deletedAt} <= now() - interval '30 days'`)
+    .where(drizzleSql`${notes.deletedAt} <= now() - interval '30 days' AND ${notes.sourceKey} IS NULL`)
     .returning({ id: notes.id });
 
   console.log(`[notes] Purged ${purged.length} notes from trash`);

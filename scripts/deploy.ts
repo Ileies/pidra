@@ -257,7 +257,7 @@ for (const { path, code } of verifyResults) {
 const context = await remote(
   `cd ${REMOTE_ROOT} && bun -e 'const {loadLongTermContext}=await import("./src/pipeline/long-term-context");` +
     `const c=await loadLongTermContext();` +
-    `console.log((c.intelSections.length+c.personalSections.length)+" chars, "+c.standingRules.length+" rules, "+(c.problem??"ok"));` +
+    `console.log((c.intelSections.length+c.personalSections.length)+" chars, "+(c.problem??"ok"));` +
     `process.exit(0)'`,
 );
 if (!DRY) {

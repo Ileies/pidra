@@ -110,12 +110,8 @@ function buildSection2Payload(
       priority: c.priority,
     })),
     notes_personal: ctx.notesPersonal.map((n) => n.content),
-    // Context Builder output. standing_rules are the user's own persistent rules; identity,
-    // commitments and standing context give the triage the background it needs to know who a
-    // sender is and whether an item matters.
-    standing_rules: ctx.longTermContext.standingRules.length > 0
-      ? ctx.longTermContext.standingRules.map((r) => r.value)
-      : null,
+    // Context Builder output: identity, commitments and standing context give the triage the
+    // background it needs to know who a sender is and whether an item matters.
     long_term_context: ctx.longTermContext.personalSections || null,
     context_corrections: corrections(ctx),
     web_search_mentions: slot3 ? { target: slot3.target, query: slot3.query, results: slot3.results } : null,

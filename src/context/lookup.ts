@@ -1,4 +1,4 @@
-import { db, standingContext, entities, contacts, contextCorrections, dailyReports } from "../db";
+import { db, entities, contacts, contextCorrections, dailyReports } from "../db";
 import { desc, eq, sql as drizzleSql, type SQL } from "drizzle-orm";
 import { loadLongTermContext } from "../pipeline/long-term-context";
 
@@ -9,7 +9,7 @@ import { loadLongTermContext } from "../pipeline/long-term-context";
  */
 
 export interface ContextHit {
-  kind: "document" | "standing_context" | "entity" | "contact" | "correction";
+  kind: "document" | "entity" | "contact" | "correction";
   key: string;
   text: string;
 }
@@ -68,8 +68,8 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
   const raw = query.trim().toLowerCase();
   if (!raw) return [];
 
-  // "list everything of this kind" - the review case, e.g. reading the standing rules through
-  // before correcting them. Without it the caller has to guess a word that happens to match.
+  // "list everything of this kind" - the review case, e.g. reading every contact through before
+  // correcting them. Without it the caller has to guess a word that happens to match.
   const listAll = raw === "*" || raw === "all";
   const tokens = listAll ? [] : tokenize(raw);
 
@@ -82,20 +82,6 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
     const ctx = await loadLongTermContext();
     // Both halves, joined: the split is a daily-prompt concern, not a lookup concern.
     hits.push(...searchDocument([ctx.personalSections, ctx.intelSections].filter(Boolean).join("\n\n"), tokens));
-  }
-
-  if (want("standing_context")) {
-    const rows = await db
-      .select({ key: standingContext.key, value: standingContext.value, source: standingContext.source })
-      .from(standingContext)
-      .where(matchAllTokens([drizzleSql`${standingContext.value}`, drizzleSql`${standingContext.key}`], tokens))
-      // Standing rules are the one kind a user reviews in full, and there are tens of them.
-      .limit(listAll ? 100 : MAX_PER_KIND);
-    hits.push(...rows.map((r) => ({
-      kind: "standing_context" as const,
-      key: r.key,
-      text: `[${r.source}] ${r.value.slice(0, EXCERPT_CHARS)}`,
-    })));
   }
 
   if (want("entity")) {

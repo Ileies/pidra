@@ -518,7 +518,6 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
     // not instructions about the reader's mail.
     instructions: [
       ...ctx.notesPersonal.filter((note) => note.scope === "personal").map((note) => note.content),
-      ...ctx.longTermContext.standingRules.map((rule) => rule.value),
     ],
   };
 

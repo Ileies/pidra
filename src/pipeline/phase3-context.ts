@@ -285,7 +285,6 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     `(${gatedOut} of ${items.length} dropped at the gate - see /${runDate}/triage), ` +
     `${calendarItems.length} calendar events, ${todoItems.length} todos, volume: ${volumeSignal}, ` +
     `${webSearchResults.length} web search slot(s), ` +
-    `${longTermContext.standingRules.length} standing rule(s), ` +
     `context doc ${longTermContext.personalSections.length + longTermContext.intelSections.length} chars`
   );
 

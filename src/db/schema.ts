@@ -283,9 +283,9 @@ export const notes = pgTable("notes", {
   scope: text("scope").notNull(), // global | intel | personal | contact | search
   createdAt: timestamptz("created_at").default(sql`now()`),
   expiresAt: dateStr("expires_at"),
-  createdBy: text("created_by").default("system"), // system | user
+  createdBy: text("created_by").default("system"), // system | user | chat | harvest
   updatedAt: timestamptz("updated_at"),
-  updatedBy: text("updated_by"), // user | chat | system - never rewrites createdBy
+  updatedBy: text("updated_by"), // user | chat | system | harvest - never rewrites createdBy
   /** Soft delete. Every consumer must filter `deleted_at IS NULL`. */
   deletedAt: timestamptz("deleted_at"),
   /**
@@ -294,6 +294,12 @@ export const notes = pgTable("notes", {
    * note from any other source.
    */
   sourceQuestionIds: uuid("source_question_ids").array().notNull().default(sql`'{}'::uuid[]`),
+  /**
+   * Identity of a note the Context Builder seeded from Keep (`keep_rule_<note id>`), unique where
+   * set. A re-run finds its row by this key instead of writing a duplicate, and a row that carries
+   * one is never purged from the trash, so a rule you deleted is not seeded back.
+   */
+  sourceKey: text("source_key"),
 });
 
 /**
@@ -308,7 +314,7 @@ export const noteRevisions = pgTable("note_revisions", {
   previousContent: text("previous_content"),
   previousScope: text("previous_scope"),
   previousExpiresAt: dateStr("previous_expires_at"),
-  changedBy: text("changed_by").notNull(), // user | chat | system
+  changedBy: text("changed_by").notNull(), // user | chat | system | harvest
   // Declared lazily: both tables are defined further down this module.
   skillExecutionId: uuid("skill_execution_id").references(() => skillExecutions.id, { onDelete: "set null" }),
   conversationId: uuid("conversation_id").references(() => chatConversations.id, { onDelete: "set null" }),

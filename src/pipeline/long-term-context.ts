@@ -1,17 +1,10 @@
-import { db, standingContext, contextBuilderRuns } from "../db";
+import { db, contextBuilderRuns } from "../db";
 import { eq, desc } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { listActiveCorrections, type ActiveCorrection } from "../context/corrections";
 
-export interface StandingRule {
-  key: string;
-  value: string;
-}
-
 export interface LongTermContext {
-  /** Every persistent rule from `standing_context`, seeded by the Context Builder from Keep. */
-  standingRules: StandingRule[];
   /**
    * The user's corrections to the harvest. Injected alongside it rather than merged into it:
    * the harvested text is never rewritten, so the prompts are told the correction wins.
@@ -89,7 +82,6 @@ export function pickSections(doc: string, spec: string): string {
 }
 
 const EMPTY: LongTermContext = {
-  standingRules: [],
   corrections: [],
   intelSections: "",
   personalSections: "",
@@ -101,17 +93,11 @@ const EMPTY: LongTermContext = {
 /**
  * Loads the Context Builder's output for injection into the daily synthesis prompts.
  *
- * The synthesised document and the standing rules both live in Postgres now. Neither is required:
- * a missing document degrades the briefing's personalisation but must never fail the run, so
- * problems are reported via `problem` for the caller to log.
+ * The synthesised document lives in Postgres. It is not required: a missing one degrades the
+ * briefing's personalisation but must never fail the run, so problems are reported via `problem`
+ * for the caller to log. The standing rules are notes and reach the prompts with the other notes.
  */
 export async function loadLongTermContext(): Promise<LongTermContext> {
-  const standingRules: StandingRule[] = (
-    await db
-      .select({ key: standingContext.key, value: standingContext.value })
-      .from(standingContext)
-  ).map((r) => ({ key: r.key, value: r.value }));
-
   const corrections = await listActiveCorrections();
 
   // Newest first, but not *only* the newest. An update run writes a patch document - one
@@ -132,7 +118,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
     .limit(CANDIDATE_RUNS);
 
   if (runs.length === 0) {
-    return { ...EMPTY, standingRules, corrections, problem: "no completed Context Builder run" };
+    return { ...EMPTY, corrections, problem: "no completed Context Builder run" };
   }
 
   const problems: string[] = [];
@@ -159,7 +145,6 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
       }
 
       return {
-        standingRules,
         corrections,
         intelSections,
         personalSections,
@@ -175,7 +160,6 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
 
   return {
     ...EMPTY,
-    standingRules,
     corrections,
     problem: `no usable context document in the last ${runs.length} run(s): ${problems.join("; ")}`,
   };

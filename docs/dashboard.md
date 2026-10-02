@@ -21,7 +21,8 @@
 - `/prompts` - prompt version management: diff against whatever is running for that section, activate, delete
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log; each row links to its breakdown
 - `/runs/[id]` - one run's step timing from `pipeline_run_steps`: a Gantt-style time graph (the old question-gate wait, present only on historic runs, can be shrunk to see the run without it), a callout when that wait dominates, and cost per phase and per step from `$lib/pricing.ts`. Online-only; empty for runs before 2026-10-01
-- `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen. Briefings never wait for answers; each is used from the next run on, and item questions sort first, then newest asked
+- `/questions` - the question queue: each open question answered or dismissed on its own, plus the recently closed ones with the reason and a reopen. Briefings never wait for answers; each is used from the next run on, and item questions sort first, then newest asked. Questions the assistant raised itself are badged "Asked by the assistant". Answering also makes the assistant act on it right away (the `questions` surface)
+- `/questions/closed` - recently closed questions. An answered one shows what the assistant did with it (`running`, applied or failed), its own account of the change, a "See every step" link to the chat transcript (`/chat?c=<id>`), and a "Run again" button unless it already succeeded
 - `/notifications` - unread reports, open questions and run errors, including individual RSS feed failures
 - `/settings` - account and source configuration links
 - `/settings/language` - content language (what the briefing, questions and chat are written in; applies from the next briefing) and UI language (stored, inert until Paraglide lands). Both are picked from the allowlist in `src/config/languages.ts`. Online-only

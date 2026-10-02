@@ -35,6 +35,7 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/todo/soon.md` - queued work, mostly Phase 7 sources plus the 30-day web-search check-in
 - `docs/todo/later.md` - Phase 8, the critical-skills design, semantic search, and other deliberately-deferred work
 - `docs/todo/security.md` - remaining security work ordered by impact
+- `docs/todo/user.md` - open work blocked on the owner specifically (a device, an external account, a judgment formed over time)
 
 ## Stack
 

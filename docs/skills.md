@@ -8,7 +8,7 @@ Risk levels:
 - `high` - inserted as `pending` in `skill_executions`, requires manual confirmation
 - `critical` - always rejected; never auto-execute (blocked on the design work in `docs/todo/later.md`)
 
-Current skills: `write_note`, `update_note`, `delete_note`, `restore_note`, `list_notes`, `read_report`, `run_web_search`, `add_todo_item`, `complete_todo_item`, `add_calendar_event`, `read_context` (all low), `create_file`, `send_email`, `send_mail`, `revise_context`, `revert_context_revision`, `set_source_active`, `propose_prompt_version`, `open_project_in_editor`, `update_calendar_event` (all medium). `update_calendar_event` is on no surface: it exists for the quick actions, which know the event id, and the assistant cannot look one up.
+Current skills: `write_note`, `update_note`, `delete_note`, `restore_note`, `list_notes`, `read_report`, `run_web_search`, `add_todo_item`, `complete_todo_item`, `add_calendar_event`, `read_context`, `list_questions`, `create_question` (all low), `create_file`, `send_email`, `send_mail`, `revise_context`, `revert_context_revision`, `remove_context_item`, `add_contact`, `set_source_active`, `propose_prompt_version`, `open_project_in_editor`, `update_calendar_event` (all medium). `update_calendar_event` is on no surface: it exists for the quick actions, which know the event id, and the assistant cannot look one up.
 
 All skill calls - from the REST bridge, the pipeline and the chat alike - go through `executeSkill()` in `src/skills/execute.ts`, which owns the risk gating, the surface policy (see `docs/architecture-rules.md`, "The assistant's capabilities are per page") and the `skill_executions` audit log. Never call `skill.execute()` directly from a new caller.
 

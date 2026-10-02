@@ -22,6 +22,8 @@ Two things it deliberately does not carry:
 
 `drizzle-kit migrate` hangs in this environment. **Always apply schema changes manually** via a temporary Bun script using `new SQL(DATABASE_URL)`. After applying, delete the temp script. The `migrations/` folder and DrizzleORM schema stay in sync for reference, but the actual migration is applied raw.
 
+`migrations/0037_question_actions.sql` adds `contacts.removed_at` and the three `questions.answer_*` columns. Apply it before deploying code that reads them: contact readers filter on `removed_at` and the answer processing writes the question columns. It has not been applied to the live database yet.
+
 `migrations/0036_user_settings.sql` creates the `user_settings` table. Apply it before deploying code that reads it: the settings loader and every prompt render query it.
 
 `migrations/0027_newsletter_sources.sql` creates and seeds the live sender rules and RSS feeds. Apply it before deploying code that reads those tables. Each RSS feed fetch records its latest error or success on the feed row; failures also enter the run error log and Notifications. RSS uses a 14-day lookback by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages do not get missed; message IDs deduplicate them.
@@ -48,7 +50,7 @@ News desks: every enabled desk in parallel, started before Phase 1 and awaited b
 
 Quick actions: one call, run alongside Section 1 once Phase 3 is done. A failure costs the buttons and nothing else; its attempts go to `step_errors` under `phase5-actions`.
 
-Nothing waits on the question gate (Phase 4). It reconciles this run's candidates into the queue in one call that runs alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on. `questions.blocks_until` is unused and `daily_reports.question_gate_fired` now means "this run's candidates landed on at least one open question".
+Nothing waits on the question gate (Phase 4). It reconciles this run's candidates into the queue in one call that runs alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on, and are also acted on immediately: `POST /api/questions/:id/answer` starts `processAnswer` without awaiting it, since the tool-calling turn can take a minute. A bridge that dies mid-turn leaves `answer_status = 'running'`, and `/questions/closed` offers "Run again" (the `reprocess` op, refused once the answer is `done`). `questions.blocks_until` is unused and `daily_reports.question_gate_fired` now means "this run's candidates landed on at least one open question".
 
 ## Step timing
 

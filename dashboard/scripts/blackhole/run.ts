@@ -419,13 +419,6 @@ const CONTROLS: Record<string, Control[]> = {
         await page.getByText("Edited rule offline", { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
       },
     },
-    {
-      name: "show the prompt block",
-      async run(page, deadline) {
-        await page.getByRole("button", { name: /the prompt block/ }).click({ timeout: remaining(deadline) });
-        await visible(page.getByText(/standing_rules/), deadline);
-      },
-    },
   ],
   "/context-builder": [
     {

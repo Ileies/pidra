@@ -28,7 +28,6 @@
 
   let adding = $state(false);
   let editing = $state<string | null>(null);
-  let showPreview = $state(false);
 
   const SOURCE_LABEL: Record<string, string> = {
     context_builder: "Harvested",
@@ -52,13 +51,6 @@
   const orphanedFailures = $derived(
     offline.failed.filter((i) => i.kind.startsWith("rule.") && !data.rules.some((rule) => intentIsFor(i, "rule", rule.id))),
   );
-
-  /** Exactly what the block looks like where it lands in the Section 2 prompt. */
-  const preview = $derived(
-    data.rules.length === 0
-      ? "standing_rules: null"
-      : `standing_rules: [\n${data.rules.map((rule) => `  ${JSON.stringify(rule.value)}`).join(",\n")}\n]`,
-  );
 </script>
 
 <Page title="Rules" size="app" class="flex flex-col gap-5">
@@ -76,16 +68,7 @@
       onclick={() => (adding = !adding)}
       class="tap px-3 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
     >{adding ? "Cancel" : "+ New rule"}</button>
-    <button
-      onclick={() => (showPreview = !showPreview)}
-      aria-expanded={showPreview}
-      class="tap px-3 py-1.5 rounded text-sm border border-surface-700 bg-surface-900 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors"
-    >{showPreview ? "Hide" : "Show"} the prompt block</button>
   </div>
-
-  {#if showPreview}
-    <pre class="max-w-2xl text-xs text-surface-200 bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">{preview}</pre>
-  {/if}
 
   {#if adding}
     <form

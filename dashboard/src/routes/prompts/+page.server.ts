@@ -56,7 +56,13 @@ export const load: PageServerLoad = async () => {
     if (!known.has(section)) sections.push({ section, effective: null, versions });
   }
 
-  return { sections };
+  // Exactly what the standing_rules key looks like where it lands in the Section 2 payload.
+  const rules = await sql()`SELECT value FROM standing_context ORDER BY key` as unknown as { value: string }[];
+  const standingRulesBlock = rules.length === 0
+    ? "standing_rules: null"
+    : `standing_rules: [\n${rules.map((rule) => `  ${JSON.stringify(rule.value)}`).join(",\n")}\n]`;
+
+  return { sections, standingRulesBlock };
 };
 
 export const actions: Actions = {

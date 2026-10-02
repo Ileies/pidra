@@ -16,6 +16,7 @@
 		"test:components": "bun test --conditions=browser tests/"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^1.50.0",
 		"@simplewebauthn/browser": "^14.0.0",
 		"@simplewebauthn/server": "^14.0.3",
 		"@skeletonlabs/skeleton": "^5.0.1",

@@ -10,6 +10,7 @@
    * that is the bug the notes bulk bar had (X6, M8).
    */
   import { onMount } from "svelte";
+  import List from "@lucide/svelte/icons/list";
   import type { NavTarget } from "#lib/report/types.js";
 
   interface Props {
@@ -97,7 +98,7 @@
           onclick={() => (jumpOpen = !jumpOpen)}
           class="tap flex items-center justify-center rounded border border-surface-700 bg-surface-900 px-2.5 py-1.5 text-xs text-surface-300 hover:text-surface-100 cursor-pointer sm:px-3"
         >
-          <svg viewBox="0 0 24 24" class="h-4 w-4 sm:hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></svg>
+          <List class="h-4 w-4 sm:hidden" aria-hidden="true" />
           <span class="hidden sm:inline" aria-hidden="true">Jump to…</span>
         </button>
 

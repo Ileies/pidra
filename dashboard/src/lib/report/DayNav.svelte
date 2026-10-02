@@ -12,6 +12,8 @@
   import { goto } from "$app/navigation";
   import { archive, type ArchiveDay } from "#lib/offline/repo.js";
   import { fmtDate } from "#lib/format.js";
+  import ChevronLeft from "@lucide/svelte/icons/chevron-left";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
 
   interface Props {
     date: string;
@@ -51,12 +53,14 @@
       href="/{prevDate}"
       class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
     >
-      <span aria-hidden="true">⬅️</span>
+      <ChevronLeft class="h-5 w-5 shrink-0" aria-hidden="true" />
       <span class="hidden xs:inline tabular-nums">{prevDate}</span>
       <span class="sr-only">Previous day, {prevDate}</span>
     </a>
   {:else}
-    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">⬅️</span>
+    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
+      <ChevronLeft class="h-5 w-5" />
+    </span>
   {/if}
 
   <div class="relative min-w-0 text-center">
@@ -124,10 +128,12 @@
       class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
     >
       <span class="hidden xs:inline tabular-nums">{nextDate}</span>
-      <span aria-hidden="true">➡️</span>
+      <ChevronRight class="h-5 w-5 shrink-0" aria-hidden="true" />
       <span class="sr-only">Next day, {nextDate}</span>
     </a>
   {:else}
-    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-sm text-surface-400 opacity-40 select-none" aria-hidden="true">➡️</span>
+    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
+      <ChevronRight class="h-5 w-5" />
+    </span>
   {/if}
 </nav>

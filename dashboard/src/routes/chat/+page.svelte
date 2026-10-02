@@ -89,12 +89,12 @@
   <title>PIDRA - Assistant</title>
 </svelte:head>
 
-<div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-0 sm:px-6 lg:px-8 py-3 lg:py-6 gap-3
-            pb-[calc(3.5rem+1px+var(--safe-b))] xl:pb-3 2xl:pb-6">
-  <!-- Below lg: one pane at a time, with New chat always in reach. Below `sm` the page has no side
+<div class="flex flex-1 flex-col min-h-0 w-full max-w-app mx-auto px-0 lg:px-8 pt-3 lg:pt-6 gap-3
+            pb-[calc(3.5rem+1px+var(--safe-b))] lg:pb-[calc(4.5rem+1px+var(--safe-b))] xl:pb-6">
+  <!-- Below lg: one pane at a time, with New chat always in reach. Below `lg` the page has no side
        padding so the transcript can use the full width; the rows that are not the transcript
        carry their own gutter instead. -->
-  <div class="lg:hidden flex gap-1.5 shrink-0 px-4 sm:px-0">
+  <div class="lg:hidden flex gap-1.5 shrink-0 px-4">
     <div class="grid flex-1 grid-cols-3 gap-1.5">
       {#each VIEWS as [key, viewLabel] (key)}
         <button
@@ -120,10 +120,10 @@
   <!-- A flex column below lg so the visible pane is bounded by the viewport and scrolls inside
        itself. As a plain block its height was its content, and a long transcript pushed the
        composer past the bottom of the screen, under the tab bar. -->
-  <div class="flex flex-1 flex-col min-h-0 lg:grid lg:gap-6 lg:grid-cols-[16rem_minmax(0,1fr)_18rem]">
+  <div class="flex flex-1 flex-col min-h-0 lg:grid lg:gap-6 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:grid-rows-[minmax(0,1fr)]">
     <!-- Conversations -->
     <aside
-      class="min-h-0 flex-1 px-4 sm:px-0 {view === 'conversations' ? 'flex' : 'hidden'} lg:flex flex-col"
+      class="min-h-0 flex-1 px-4 lg:px-0 {view === 'conversations' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Conversations"
     >
       <ConversationList
@@ -137,14 +137,14 @@
 
     <!-- Transcript, the same component the floating widget uses -->
     <section
-      class="min-w-0 min-h-0 flex-1 flex-col rounded-none border-x-0 sm:rounded-lg sm:border-x border-y border-surface-800 bg-surface-950 {view === 'chat' ? 'flex' : 'hidden'} lg:flex"
+      class="min-w-0 min-h-0 flex-1 flex-col rounded-none border-x-0 lg:rounded-lg lg:border-x border-y border-surface-800 bg-surface-950 {view === 'chat' ? 'flex' : 'hidden'} lg:flex"
     >
       <Panel variant="page" />
     </section>
 
     <!-- Active corrections -->
     <aside
-      class="min-w-0 min-h-0 flex-1 px-4 sm:px-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
+      class="min-w-0 min-h-0 flex-1 px-4 lg:px-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Active corrections"
     >
       <div class="rounded-lg border border-surface-800 bg-surface-900 p-4 flex flex-col gap-3 min-h-0">

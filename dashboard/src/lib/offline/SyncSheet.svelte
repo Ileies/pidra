@@ -13,6 +13,7 @@
   import { INTENT_LABEL, intentSummary } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import { swipeToClose } from "#lib/ui/swipeToClose.js";
 
   let dialog = $state<HTMLElement | null>(null);
 
@@ -64,6 +65,7 @@
 {#if offline.sheetOpen}
   <div
     bind:this={dialog}
+    use:swipeToClose={() => offline.closeSheet()}
     role="dialog"
     aria-label="Sync status"
     aria-modal="false"

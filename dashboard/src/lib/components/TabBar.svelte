@@ -15,6 +15,7 @@
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import CountBadge from "#lib/components/CountBadge.svelte";
+  import { swipeToClose } from "#lib/ui/swipeToClose.js";
 
   interface Props {
     open: boolean;
@@ -56,6 +57,7 @@
 
   <div
     role="dialog"
+    use:swipeToClose={() => onOpenChange(false)}
     aria-label="More"
     aria-modal="true"
     class="fixed inset-x-0 bottom-0 z-50 lg:hidden max-h-[80dvh] overflow-y-auto

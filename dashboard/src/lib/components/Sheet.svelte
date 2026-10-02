@@ -5,6 +5,7 @@
    */
   import type { Snippet } from "svelte";
   import X from "@lucide/svelte/icons/x";
+  import { swipeToClose } from "#lib/ui/swipeToClose.js";
 
   interface Props {
     open: boolean;
@@ -27,6 +28,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 <dialog
   bind:this={dialog}
+  use:swipeToClose={onclose}
   aria-label={title}
   {onclose}
   onclick={(event) => {

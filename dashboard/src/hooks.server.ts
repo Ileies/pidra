@@ -117,6 +117,8 @@ const RESOURCE_CSP = [
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data:",
+  // The report player plays each spoken chapter from a blob URL it downloaded through net().
+  "media-src 'self' blob:",
   "connect-src 'self'",
 ].join("; ");
 

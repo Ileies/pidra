@@ -14,6 +14,9 @@
 	import NewsSection from '#lib/report/NewsSection.svelte';
 	import QuickActions from '#lib/report/QuickActions.svelte';
 	import ReportEntry from '#lib/report/ReportEntry.svelte';
+	import ReportPlayer from '#lib/report/ReportPlayer.svelte';
+	import { reportPlayer } from '#lib/report/player.svelte.js';
+	import Play from '@lucide/svelte/icons/play';
 	import SectionNav from '#lib/report/SectionNav.svelte';
 	import {
 		ACTION_META,
@@ -253,6 +256,12 @@
 
 	onDestroy(stopPolling);
 
+	// The player belongs to one day's briefing: stepping to another day or leaving the page ends it.
+	$effect(() => {
+		if (reportPlayer.open && reportPlayer.date !== data.date) reportPlayer.close();
+	});
+	onDestroy(() => reportPlayer.close());
+
 	// Duplicates the scroll-and-focus behaviour `SectionNav` uses for its own jump list, for the
 	// rail's copy of it: two callers, not worth lifting into a shared helper for two lines.
 	function jumpTo(id: string) {
@@ -350,6 +359,25 @@
 		{/if}
 
 		{#if data.structured}
+			{#if !reportPlayer.open}
+				<!-- Speaking a chapter the first time costs money and needs the server, so the button says
+         so up front when offline instead of failing after the tap. -->
+				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+					<button
+						type="button"
+						disabled={isOffline}
+						onclick={() => reportPlayer.start(data.date)}
+						class="tap inline-flex items-center gap-2 rounded-lg border border-primary-600 bg-primary-900 px-4 py-2 text-sm text-primary-200 cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+					>
+						<Play class="h-4 w-4 shrink-0" aria-hidden="true" fill="currentColor" />
+						Play this briefing
+					</button>
+					{#if isOffline}
+						<span class="text-xs text-surface-400">Listening needs the connection.</span>
+					{/if}
+				</div>
+			{/if}
+
 			{#if sectionTargets.length > 1}
 				<SectionNav sections={sectionTargets} domains={domainTargets} />
 			{/if}
@@ -450,6 +478,11 @@
 						<ReportEntry {entry} date={data.date} {ratings} {onRate} />
 					{/each}
 				</section>
+			{/if}
+
+			{#if reportPlayer.open}
+				<!-- Room for the docked player, so the last entry is not read from under it. -->
+				<div class="h-52" aria-hidden="true"></div>
 			{/if}
 		{:else if data.reportHtml}
 			<!-- The parser found no section headings, or this row predates report_json. The markdown
@@ -613,4 +646,6 @@
 			{/if}
 		</aside>
 	{/if}
+
+	<ReportPlayer />
 </Page>

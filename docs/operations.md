@@ -59,6 +59,14 @@ Each is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.
 - **Quick actions:** one call, run alongside Section 1 once Phase 3 is done. A failure costs the buttons and nothing else; its attempts go to `step_errors` under `phase5-actions`.
 - **Question gate (Phase 4):** nothing waits on it. It reconciles this run's candidates into the queue in one call alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on, and are also acted on at once: `POST /api/questions/:id/answer` starts `processAnswer` without awaiting it, since the tool-calling turn can take a minute. A bridge that dies mid-turn leaves `answer_status = 'running'`, and `/questions/closed` offers "Run again" (the `reprocess` op, refused once the answer is `done`). `questions.blocks_until` is unused, and `daily_reports.question_gate_fired` means "this run's candidates landed on at least one open question".
 
+## Spoken report
+
+The report page's Play button speaks a chapter on its first request and caches it in `report_audio` (migration `0040_report_audio.sql`, applied raw like every migration; apply it before deploying the code that reads it). Optional env: `OPENAI_MODEL_TTS` (default `gpt-4o-mini-tts`) and `OPENAI_TTS_VOICE` (default `cedar`); the generated speech uses 1.2x speed. Changing the model, voice or speed speaks the day again, since the cache key includes `model:voice:speed`.
+
+- **Cost**, measured for 2026-10-02 at normal speed (1.2x is shorter, so these are upper bounds): the spoken text is 1,611 tokens, 7,777 characters and about 9 minutes of audio (the raw markdown is 4,405 tokens, mostly refs UUIDs). A fully played report costs about $0.001 in input and $0.13 in audio output (`gpt-4o-mini-tts`, about $0.015 per minute), and each chapter is paid once.
+- **Size:** the output is MPEG-2 Layer 3, 128 kbit/s CBR, 24 kHz, about 14 characters of text per second of speech, so about 9.6 MB per fully cached report in Postgres. Rows older than 30 days are deleted whenever a chapter is generated, except the day just spoken. There is no job for it.
+- **Failure:** a speech failure after the 429/5xx retry is a 502 to the player; nothing is cached, so the next tap tries again.
+
 ## Step timing
 
 Step timing shows where a run spends its time: a news desk, a flex backoff, a synthesis retry. It is read at `/runs/[id]` (see `docs/dashboard.md`).

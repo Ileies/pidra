@@ -25,6 +25,7 @@
 - `active_topics`: running story summaries, giving continuity across days.
 - `brave_daily_usage`: atomic shared count of actual Brave API attempts per Europe/Berlin day, capped at 30.
 - `report_actions`: the quick actions a report offers, with state `proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code that threw a proposal out.
+- `report_audio`: the spoken report, one MP3 (`audio`, bytea) per chapter, primary key (`report_date`, `chapter_key`, `variant`). `chapter_key` hashes the chapter's spoken text; `variant` is `model:voice:speed`, so changing any of them speaks again instead of serving stale audio. Also `duration_ms` (exact, from the MP3 frames) and `chars`. Written only by `src/audio/store.ts`, never touches `daily_reports`; migration `0040_report_audio.sql`. About 9.6 MB per fully cached report; rows older than 30 days are dropped when a chapter is generated, the day just spoken excepted.
 
 ## Questions
 

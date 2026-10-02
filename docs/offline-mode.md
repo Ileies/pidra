@@ -43,7 +43,7 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 - Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rating that replaces the previous one.
 - A transport failure retries; a 4xx moves the intent to `failed`, shown on the row it belongs to (`FailedWrite`).
 - A queued note edit whose row moved on the server still lands and is flagged, since `note_revisions` keeps both versions.
-- **Never queued:** corrections and contact edits, topic curation, quick actions, pipeline and Context Builder runs, deep dives, revision reverts, skill approvals and the chat. Once the app knows it is offline they are disabled with the reason; a tap before that is answered "Not sent" with what was typed kept.
+- **Never queued:** corrections and contact edits, topic curation, quick actions, pipeline and Context Builder runs, deep dives, revision reverts, skill approvals, the chat and listening to a briefing (the report page's Play button is disabled offline; audio is fetched on demand, never mirrored, and the player downloads each chapter through `net()` with its own 120 s budget). Once the app knows it is offline they are disabled with the reason; a tap before that is answered "Not sent" with what was typed kept.
 
 ## Network layer
 

@@ -19,7 +19,7 @@ World-facing intelligence from the newsletters, organised by topic domain (AI, C
 |---|---|
 | Runtime | Bun |
 | Frontend | SvelteKit (dashboard, installable PWA that works offline) |
-| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna` |
+| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna`. The report page's Play button also uses the speech endpoint (`OPENAI_MODEL_TTS`, `OPENAI_TTS_VOICE`, both optional) |
 | Database | Postgres + DrizzleORM |
 | Email | IMAP |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |
@@ -90,6 +90,6 @@ A **partial** ingest failure is not a failed run. Phase 1 settles all sources in
 
 ## Cost
 
-Token use and web-search counts are tracked per run and per step and shown on `/runs`; cost renders only when `PUBLIC_MODEL_PRICE_IN_PER_MTOK` and `PUBLIC_MODEL_PRICE_OUT_PER_MTOK` are set. Prices are list prices, and every call runs on the `flex` service tier, so real spend is lower than the figure shown.
+Token use and web-search counts are tracked per run and per step and shown on `/runs`; cost renders only when `PUBLIC_MODEL_PRICE_IN_PER_MTOK` and `PUBLIC_MODEL_PRICE_OUT_PER_MTOK` are set. Prices are list prices, and every call except speech runs on the `flex` service tier, so real spend is lower than the figure shown.
 
 The news desks are the largest daily cost: most of their input tokens are search results. Brave calls are billed per call on top of tokens, are capped at 30 per day across all callers, and appear in the report's "web searches" figure rather than its cost.

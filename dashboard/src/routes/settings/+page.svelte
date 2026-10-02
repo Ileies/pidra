@@ -100,7 +100,6 @@
             <option value={code}>{lang.native}{lang.native === lang.name ? "" : ` (${lang.name})`}</option>
           {/each}
         </select>
-        <p class="text-xs text-surface-400">What the briefing, questions and chat are written in. Applies from the next briefing.</p>
         {#if isOffline}<p class="text-xs text-surface-400">Needs the connection to change.</p>{/if}
       </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { assistant, type UiMessage } from "#lib/assistant/state.svelte.js";
   import ToolChip from "#lib/assistant/ToolChip.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -47,6 +48,14 @@
     composer.style.height = `${Math.min(composer.scrollHeight, MAX_COMPOSER_HEIGHT)}px`;
   });
 
+  async function useHint(hint: string) {
+    assistant.setDraft(hint);
+    await tick();
+    if (!composer) return;
+    composer.focus();
+    composer.setSelectionRange(hint.length, hint.length);
+  }
+
   function submit(event: SubmitEvent) {
     event.preventDefault();
     assistant.send(assistant.draft);
@@ -93,12 +102,12 @@
         {/if}
         {#if hints.length > 0}
           <div class="flex flex-col gap-1.5 w-full max-w-sm text-left">
-            <p class="text-xs text-surface-400">On this page, for example:</p>
+            <p class="text-xs text-surface-400">Start with:</p>
             {#each hints as hint (hint)}
               <button
-                onclick={() => assistant.setDraft(hint)}
+                onclick={() => useHint(hint)}
                 class="tap text-left text-xs rounded-lg border border-surface-800 bg-surface-950 px-3 py-2 text-surface-300 hover:bg-surface-900 hover:text-surface-100 cursor-pointer transition-colors"
-              >{hint}</button>
+              >{hint.trimEnd()}…</button>
             {/each}
           </div>
         {:else}

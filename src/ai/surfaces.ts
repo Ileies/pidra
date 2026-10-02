@@ -35,10 +35,11 @@ export interface SurfaceDef {
   /** Appended to the base system prompt: what this page is and how to change it. */
   prompt: string;
   /**
-   * Example sentences for the empty state, in the dashboard's language - English throughout
-   * (CLAUDE.md, dashboard conventions). These are chrome as much as model input: the widget shows them
-   * before the first message, and the language the user is prompted in is the language they
-   * answer in.
+   * Sentence starters for the empty state, in the dashboard's language - English throughout
+   * (CLAUDE.md, dashboard conventions). Tapping one pastes it into the composer for the user to
+   * finish, so each is an opening that works on any page content ("Remind me to "), not
+   * a complete request about a specific item. Keep the trailing space. They are chrome as much as
+   * model input: the language the user is prompted in is the language they answer in.
    */
   hints: string[];
   /** A standing caveat worth showing in the header, e.g. that reports cannot be edited. */
@@ -67,9 +68,10 @@ Always \`list_notes\` first - never guess an id. Deleting is reversible (\`resto
 every edit keeps its previous version, so you can act without asking for confirmation on small
 changes. One note per call. If the user's wording could mean two different notes, ask which.`,
     hints: [
-      "Merge the three notes about newsletters into one.",
-      "Change the note about calendar events to scope personal.",
-      "Delete the note that only applied to last week.",
+      "Which notes mention ",
+      "Do I already have a note about ",
+      "Add a note: ",
+      "From now on, ",
     ],
   },
 
@@ -100,9 +102,11 @@ Users usually bring something they read in a briefing. The long-term context doe
 briefings, so when a name or fact is missing from it, search the briefings with \`read_report\`
 (pass \`query\`) before concluding it is unknown.`,
     hints: [
-      "The context says X about my job - that is out of date.",
-      "Add that I no longer live in that city.",
-      "What does the context say about my family?",
+      "What does the context say about ",
+      "When did a briefing last mention ",
+      "Actually, ",
+      "Add to the context that ",
+      "Forget that ",
     ],
   },
 
@@ -117,9 +121,10 @@ status. Find the exact entity name with \`read_context\` before correcting it. T
 entity (noise, a duplicate, something that is not real), use \`remove_context_item\`: the row is
 archived and kept, and \`revert_context_revision\` brings it back.`,
     hints: [
-      "This entity is an organisation, not a person.",
-      "Set the importance of X to high.",
-      "What does the system know about this entity?",
+      "What do you know about ",
+      "Who is ",
+      "Where did you see ",
+      "Remove the entity ",
     ],
   },
 
@@ -150,9 +155,14 @@ You can write a *new* note from here, but editing or deleting an existing one is
 this page - point the user at /notes for that instead of offering to do it. \`list_notes\` is
 available so you can check whether a standing instruction already exists before writing another.`,
     hints: [
-      "Put the appointment from the briefing on my to-do list.",
-      "Newsletter items like this one do not interest me - remember that.",
-      "The paragraph about me is wrong: I do not work there any more.",
+      "What did the briefing say about ",
+      "What's the latest on ",
+      "Why did the briefing include ",
+      "Remind me to ",
+      "Add to my calendar: ",
+      "This is wrong: ",
+      "Add a note: ",
+      "From now on, ",
     ],
     notice: "Reports are final - changes take effect on future briefings.",
   },
@@ -167,9 +177,9 @@ Trust scores themselves are computed by the weekly scoring job and are not edita
 source name as shown. A disable is a real change to what the system sees, so name the source back
 to the user when you make one.`,
     hints: [
-      "Disable this source, it only delivers advertising.",
-      "Enable the source again.",
-      "Remember why I switched this source off.",
+      "What did this source say about ",
+      "Add a note: ",
+      "From now on, ",
     ],
   },
 
@@ -181,8 +191,9 @@ approval: \`propose_prompt_version\` always inserts an **inactive** version, and
 activate it on this page. Never claim a prompt is live. When proposing, pass the full prompt text,
 not a diff, and summarise what you changed in change_summary.`,
     hints: [
-      "Propose a version of the Section 1 prompt that summarises more tightly.",
-      "Rewrite the extraction prompt so it filters advertising harder.",
+      "Propose a version of the Section 1 prompt that ",
+      "Change the extraction prompt so that it ",
+      "Change the Section 2 prompt so that it ",
     ],
   },
 
@@ -218,9 +229,10 @@ Acting on an answer:
 Finish with one or two plain sentences saying exactly what you changed, or that you changed nothing
 and why. That sentence is shown to the user next to the answer.`,
     hints: [
-      "Answer: it is my landlord, add the contact.",
-      "Delete the contact with no name.",
-      "Remove that entity, it is noise.",
+      "Why are you asking about ",
+      "It's my ",
+      "Add the contact ",
+      "Do I already have a note about ",
     ],
   },
 
@@ -232,9 +244,12 @@ and write a note or a todo. If they ask for something that belongs to another pa
 long-term context, editing notes in bulk, disabling a source - say which page that is and offer to
 do it there.`,
     hints: [
-      "Remember that as a note.",
-      "Put that on my to-do list.",
-      "What does the system know about this?",
+      "What's the latest on ",
+      "What did the briefing say about ",
+      "What do you know about ",
+      "Remind me to ",
+      "Add a note: ",
+      "From now on, ",
     ],
   },
 };

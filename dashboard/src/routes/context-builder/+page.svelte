@@ -346,8 +346,6 @@
           >
             {stopping ? "Stopping…" : "Stop"}
           </button>
-          <a href="/rules" class="tap nav-btn nav-btn-idle no-underline">Standing rules ({data.standing.length})</a>
-          <a href="/context-builder/corrections" class="tap nav-btn nav-btn-idle no-underline">Corrections ({data.corrections.length})</a>
         </div>
       </div>
       {#if isOffline}
@@ -497,7 +495,6 @@
     {/if}
     </div>
 
-    {#if docHeadings.length > 0 || summarySections.length > 0}
       <nav
         aria-label="Quick links"
         class="hidden xl:flex xl:flex-col gap-3 sticky top-[calc(var(--header-h)+1rem)] max-h-[calc(100dvh-var(--header-h)-2rem)] overflow-y-auto text-sm"
@@ -529,8 +526,15 @@
             {/each}
           </div>
         {/if}
+        <a
+          href="/rules"
+          class="tap px-2 py-1 text-xs text-primary-400 underline"
+        >Standing rules</a>
+        <a
+          href="/context-builder/corrections"
+          class="tap px-2 py-1 text-xs text-primary-400 underline"
+        >Corrections</a>
       </nav>
-    {/if}
   </div>
 </Page>
 

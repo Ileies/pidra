@@ -142,6 +142,30 @@ export async function synthesize(
   return { text: response.output_text, tokensIn, tokensOut };
 }
 
+export const TTS_MODEL = process.env.OPENAI_MODEL_TTS ?? "gpt-4o-mini-tts";
+export const TTS_VOICE = process.env.OPENAI_TTS_VOICE ?? "marin";
+
+const TTS_STYLE = "Read this morning briefing aloud like a calm, clear news presenter. Steady pace, neutral tone, short pauses between items.";
+
+/**
+ * Text to speech, MP3. The one model call here that is not a Responses call: the speech endpoint
+ * has no `store` and no `service_tier` parameter, so the flex tier cannot be requested. It still
+ * gets the 429 and 5xx retry, and callers cache the result, so a text is spoken once.
+ */
+export async function speak(text: string): Promise<Buffer> {
+  const response = await withFlexRetry(() =>
+    openai.audio.speech.create({
+      model: TTS_MODEL,
+      voice: TTS_VOICE,
+      input: text,
+      instructions: TTS_STYLE,
+      response_format: "mp3",
+    })
+  );
+  recordAiCall();
+  return Buffer.from(await response.arrayBuffer());
+}
+
 export type { FunctionTool, ResponseInput, ResponseInputItem };
 
 export interface ConverseOptions extends SynthesizeOptions {

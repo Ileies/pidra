@@ -15,6 +15,7 @@ import { executeSkill, resolvePendingSkill } from "../skills/execute";
 import { listEffectiveSkills, setSkillEnabled, SkillToggleError } from "../skills/overrides";
 import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
 import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
+import { audioManifest, chapterAudio, AudioError } from "../audio/store";
 import { ActionError, dismissAction, restoreAction, runAction } from "../actions/store";
 import { listActiveCorrections, recordCorrection, revertCorrection, CorrectionError, type Operation, type TargetKind } from "../context/corrections";
 import {
@@ -102,6 +103,43 @@ app.post("/api/skills/executions/:id/:decision", async (c) => {
 });
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
+
+// Listening to a report. The chapters and their text come from the stored report; a request names
+// only a date and a chapter key, so it can never make the server speak text of its own choosing.
+const DATE_PARAM = /^\d{4}-\d{2}-\d{2}$/;
+const KEY_PARAM = /^[0-9a-f]{16}$/;
+
+app.get("/api/report-audio/:date", async (c) => {
+  const date = c.req.param("date");
+  if (!DATE_PARAM.test(date)) return c.json({ error: "Invalid date" }, 400);
+  try {
+    return c.json(await audioManifest(date));
+  } catch (err) {
+    if (err instanceof AudioError) return c.json({ error: err.message }, err.status);
+    throw err;
+  }
+});
+
+// POST because it can cost money (a chapter not yet spoken); a cached chapter is a plain read.
+app.post("/api/report-audio/:date/:key", async (c) => {
+  const { date, key } = c.req.param();
+  if (!DATE_PARAM.test(date) || !KEY_PARAM.test(key)) return c.json({ error: "Invalid chapter" }, 400);
+  try {
+    const { audio, durationMs } = await chapterAudio(date, key);
+    return new Response(new Uint8Array(audio), {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Content-Length": String(audio.length),
+        "X-Audio-Duration-Ms": String(durationMs),
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } catch (err) {
+    if (err instanceof AudioError) return c.json({ error: err.message }, err.status);
+    console.error("report audio failed:", err);
+    return c.json({ error: "The voice could not be generated. Try again." }, 502);
+  }
+});
 
 // SMS forwarding webhook - receives messages from Android SMS forwarder app.
 // Expected payload: { from: string, body: string, timestamp?: number }

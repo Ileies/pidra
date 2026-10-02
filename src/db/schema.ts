@@ -9,6 +9,8 @@ import {
   real,
   unique,
   check,
+  primaryKey,
+  customType,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 // Not `jsonb` from pg-core: that one double-encodes on the Bun SQL driver. Same signature, so
@@ -121,6 +123,23 @@ export const dailyReports = pgTable("daily_reports", {
   questionGateFired: boolean("question_gate_fired").default(false),
   createdAt: timestamptz("created_at").default(sql`now()`),
 });
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+
+/**
+ * The spoken form of a report, one MP3 per chapter, so a replay never pays for text-to-speech
+ * twice. `chapterKey` hashes the exact text that was spoken; `variant` is `<model>:<voice>`.
+ * `src/audio/store.ts` is the only writer. It never touches `daily_reports`.
+ */
+export const reportAudio = pgTable("report_audio", {
+  reportDate: dateStr("report_date").notNull(),
+  chapterKey: text("chapter_key").notNull(),
+  variant: text("variant").notNull(),
+  audio: bytea("audio").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  chars: integer("chars").notNull(),
+  createdAt: timestamptz("created_at").default(sql`now()`),
+}, (t) => [primaryKey({ columns: [t.reportDate, t.chapterKey, t.variant] })]);
 
 /** Atomic, shared limit for every Brave API request, including retries and assistant searches. */
 export const braveDailyUsage = pgTable("brave_daily_usage", {

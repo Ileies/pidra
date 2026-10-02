@@ -6,7 +6,7 @@ See `docs/todo/README.md` for the conventions this list follows.
 
 ## Phase 7: passive context sources
 
-Blocked until Phase 6 has run stably for 2+ weeks. Three optional sources that enrich the system's understanding of the reader without being news inputs. Order: Keep, then diary, then AI chat history last (Keep and diary are denser signal for less privacy surface). The Context Builder already does the initial bulk import of Keep and diary content into `entities` and `standing_context`; Phase 7 adds a fast daily-lookup path on top.
+Blocked until Phase 6 has run stably for 2+ weeks. Three optional sources that enrich the system's understanding of the reader without being news inputs. Order: Keep, then diary, then AI chat history last (Keep and diary are denser signal for less privacy surface). The Context Builder already does the initial bulk import of Keep and diary content into `entities` and the `notes` rules; Phase 7 adds a fast daily-lookup path on top.
 
 **Cross-source rule:** extraction may read raw content, but synthesis never receives more than matched summaries or abstract signals - never raw notes, chat transcripts or diary text. Every new source needs its own credential/PII filter and drop log (`docs/architecture-rules.md`).
 

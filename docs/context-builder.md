@@ -1,6 +1,6 @@
 # Context Builder architecture
 
-The Context Builder (`context-builder/`) builds a long-term context document from personal email, Google Tasks, Google Keep and GitHub, and seeds `contacts`, `entities` and `standing_context` in the shared Postgres database. It runs monthly on pronix as the `context-builder` job (`pidra-context-builder` timer) or by hand through the root Bun scripts. Setup, commands and recovery are in [`context-builder/README.md`](../context-builder/README.md).
+The Context Builder (`context-builder/`) builds a long-term context document from personal email, Google Tasks, Google Keep and GitHub, and seeds `contacts` and `entities`, and the standing rules in Keep as `personal` notes, in the shared Postgres database. It runs monthly on pronix as the `context-builder` job (`pidra-context-builder` timer) or by hand through the root Bun scripts. Setup, commands and recovery are in [`context-builder/README.md`](../context-builder/README.md).
 
 ## Data flow
 
@@ -43,10 +43,10 @@ Both Context Builder synthesis prompts share one `DOCUMENT_STRUCTURE` constant. 
 
 `context_builder_runs.document` makes the harvest independent of which machine ran it. `output_path` (the JSON file) is a legacy breadcrumb: `readDocument()` uses it only for rows written before `document` existed, resolving a foreign absolute path by filename in the local output directory. `scripts/backfill-context-documents.ts` migrates such rows into `document`, from a machine that can still open their file.
 
-The harvest and standing rules are read-only inputs to the daily pipeline; corrections go through `src/context/corrections.ts` and notes are a separate mutable layer (`docs/architecture-rules.md`). Seeding rules:
+The harvested document, entities and contacts are read-only inputs to the daily pipeline; corrections go through `src/context/corrections.ts`. Standing rules are the exception: they are ordinary notes, a separate mutable layer (`docs/architecture-rules.md`). Seeding rules:
 
 - Contact seeds key on email address and preserve locked corrections. Corpus categories, action-required counts and email counts are set only on insert; migration `0025_contacts_corpus_metrics.sql` backfilled the first two for existing contacts.
 - Entity seeds preserve the daily pipeline's running mention counts.
-- Standing rules from Keep use stable `keep_rule_<note_id>` keys.
+- Standing rules from Keep seed `personal` notes through `seedRuleNotes` and `seedHarvestedNotes` (`src/notes/store.ts`), keyed by `notes.source_key = keep_rule_<note_id>`. An existing key is never overwritten or resurrected (a trashed or edited rule stays as it is); only an untouched live note follows a changed Keep note.
 
 The daily pipeline also runs with no harvest at all, with less personal context. The monthly job refreshes that context and is not on the critical path.

@@ -53,7 +53,7 @@ Three tools share one Postgres database:
 |---|---|---|
 | **Daily pipeline** | `bun run job pipeline` | The morning briefing, 06:30 |
 | **Dashboard** | `bun run dashboard` (dev) | SvelteKit UI for reading reports, rating, notes, entities, runs and approvals |
-| **Context Builder** | `bun run context-builder` | Scans all personal data and seeds entities, contacts and standing rules. Runs monthly in update mode; `--full` rebuilds, `--dry-run` reports the inventory and exits. See [`context-builder/README.md`](./context-builder/README.md) |
+| **Context Builder** | `bun run context-builder` | Scans all personal data and seeds entities, contacts and standing rules (as notes). Runs monthly in update mode; `--full` rebuilds, `--dry-run` reports the inventory and exits. See [`context-builder/README.md`](./context-builder/README.md) |
 
 ## Scheduled jobs
 

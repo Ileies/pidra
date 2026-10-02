@@ -39,7 +39,7 @@ The invariants of the system. Read this before any change that touches extractio
 - **`contacts` is an email sender directory, not a social graph** (owner's decision, 2026-09-10).
   - It answers "mail arrived from this address, who is that and how much should triage care", nothing more.
   - No messaging platform is ingested, live or via export (Discord, WhatsApp, Instagram, WeChat, Line, KakaoTalk, VK, Zalo, Facebook, X, Telegram, LinkedIn).
-  - A small table is the steady state, not a seeding bug: the first Context Builder run produced 6 rows from 1432 emails. Relationship context comes from `standing_context` (`profile_family_and_partner`).
+  - A small table is the steady state, not a seeding bug: the first Context Builder run produced 6 rows from 1432 emails. Relationship context comes from the context document and the `personal` notes.
 - **Credentials never reach any cloud API.**
   - Enforced at the fetch choke point, not in a consumer, so no later call path can bypass it. Today: `context-builder/sources/keep.ts` drops every Keep note labelled `Credentials` (passwords, card and bank details, identity-document numbers) before any consumer sees it; the list is `CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS`.
   - Any new personal source needs its own equivalent filter.
@@ -48,15 +48,16 @@ The invariants of the system. Read this before any change that touches extractio
 ## Context and memory layers
 
 - **Harvested context is never overwritten, only adjusted and complemented** (owner's decision, 2026-09-10).
-  - The Context Builder's document and the `standing_context` rows it wrote are read-only to everything downstream. `src/context/corrections.ts` is the single writer and carries the detailed reasoning.
+  - The Context Builder's document is read-only to everything downstream. `src/context/corrections.ts` is the single writer and carries the detailed reasoning. `TARGET_KINDS` is `document | entity | contact`: standing rules are not a correction target (see the notes layer below).
   - Corrections live in `context_corrections`, an append-only layer injected alongside the harvest that outranks it in the daily prompts. The wrong text is kept as `supersedes_text`. Rows are never deleted or edited, except `status` flipping to `reverted`.
   - `entities` and `contacts` are the one exception: a correction merges the named fields into the row, because `phase3-context` and Section 2 read them directly. The pre-merge row is snapshotted into `previous_state` and the row is marked `locked` so a re-seed cannot clobber it.
   - Removal follows the same rule. `remove_context_item` archives an entity (`status = 'archived'`) or sets a contact's `removed_at`, locks the row and keeps the pre-removal row on the correction, so `revert_context_revision` restores it. Every reader of `contacts` skips `removed_at` rows (classification, Phase 3 context, question reconcile, `read_context`, the offline snapshot), and `revise_context` refuses a removed row until the removal is reverted. `add_contact` adds a sender the directory lacks (or a removed one) and reverts as a removal.
-  - Never add a code path that rewrites the context document or an existing standing rule in place.
+  - Never add a code path that rewrites the context document in place.
 - **Notes are the mutable working layer, and the only one.**
   - `notes` rows are edited in place, but only through `src/notes/store.ts`, the single writer. Every mutation appends the pre-change state to `note_revisions`, and a delete only sets `deleted_at`, so dashboard and chat can both undo.
   - Every reader must filter `deleted_at IS NULL` and skip expired notes, `expires_at IS NULL OR expires_at >= runDate` (a note is live through its expiry day). Currently `phase3-context.ts`, `search/slots.ts` and, for intel notes, `news/run.ts`.
-  - Never write `notes` directly from a new caller; never give the harvest this treatment.
+  - Never write `notes` directly from a new caller; never give the context document, entities or contacts this treatment.
+  - **Standing rules are notes** (owner's decision, 2026-10-02, dropping harvest immutability for rules: a chat misedit is undone through `note_revisions` and the chat history). The Context Builder seeds the Keep rules as `personal` notes through `seedHarvestedNotes` (`notes.source_key = keep_rule_<note id>`, `created_by = 'harvest'`). A key that already has a row is left alone, trashed or edited included, so a re-run never resurrects a deleted rule or overwrites a changed one; only a live row nobody has touched follows the Keep note's new text (the old text becomes a revision). `pruneDeletedNotes` never purges a row with a `source_key`, because the trashed row is the tombstone. The pipeline no longer loads `standing_context`: the rules reach Section 2, question reconcile and quick actions as `notes_personal`.
 
 ## Report content
 

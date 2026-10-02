@@ -21,7 +21,7 @@ What each of the owner's Google Tasks lists and Keep categories is *for*. Nothin
 
 ## Google Keep
 
-Keep has about 1,000 notes. The Context Builder (`context-builder/sources/keep.ts`) fetches them and withholds `Credentials`-labelled notes (see `docs/architecture-rules.md`). Standing rules written in Keep seed `standing_context` under stable `keep_rule_<note_id>` keys. The categories below are the owner's own and say how much weight a note deserves:
+Keep has about 1,000 notes. The Context Builder (`context-builder/sources/keep.ts`) fetches them and withholds `Credentials`-labelled notes (see `docs/architecture-rules.md`). Standing rules written in Keep seed `personal` notes under stable `keep_rule_<note_id>` source keys. The categories below are the owner's own and say how much weight a note deserves:
 
 | Category | Value |
 |---|---|

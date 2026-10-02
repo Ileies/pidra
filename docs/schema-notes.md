@@ -43,10 +43,10 @@
 
 ## Context and corrections
 
-- `standing_context`: persistent rules and preferences injected into the Section 2 prompt; seeded by the Context Builder from Google Keep "Daily Life Rules" and other standing rules.
+- `standing_context`: legacy. Its rows were copied into `notes` by migration `0038_notes_absorb_standing_context.sql`; nothing in the pipeline or the skills reads or writes it any more. Kept for one release as a rollback net.
 - `context_builder_runs` / `context_builder_indexed_items`: Context Builder run history (including the harvested document itself, on `document`) and per-item index state used for delta detection on re-runs.
 - `context_corrections`: append-only correction layer over the harvested context; injected into both synthesis prompts and authoritative over them.
-- `notes`: user and system notes, scoped `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`, optional `expires_at` (live through that day; readers skip expired notes).
+- `notes`: user and system notes, scoped `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`, optional `expires_at` (live through that day; readers skip expired notes). `created_by`/`updated_by` can be `harvest`. `source_key` (unique where set) is the identity of a note the Context Builder seeded from Keep (`keep_rule_<note id>`); such a row is never purged from the trash, so a deleted rule is not seeded back.
 - `note_revisions`: append-only pre-change state per note mutation, with the skill execution and conversation that caused it; drives undo and the history sheet on `/notes`.
 
 ## Assistant, skills and settings

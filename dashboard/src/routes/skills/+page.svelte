@@ -9,6 +9,7 @@
   import { enhance } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Switch from "#lib/components/Switch.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
@@ -128,7 +129,7 @@
             <form method="POST" action="?/update" use:enhance class="shrink-0">
               <input type="hidden" name="skillName" value={skill.name} />
               <label
-                class="tap relative inline-flex items-center cursor-pointer"
+                class="tap inline-flex items-center justify-center cursor-pointer"
                 title={skill.enabled ? "Enabled - click to disable" : "Disabled - click to enable"}
               >
                 <input
@@ -140,8 +141,7 @@
                   class="sr-only peer"
                   aria-label="{skill.enabled ? 'Disable' : 'Enable'} {skill.name}"
                 />
-                <span class="block w-10 h-5 rounded-full bg-surface-700 peer-checked:bg-success-700 transition-colors"></span>
-                <span class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-surface-200 transition-transform peer-checked:translate-x-5"></span>
+                <Switch checked={skill.enabled} />
               </label>
             </form>
           </li>

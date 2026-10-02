@@ -78,10 +78,12 @@
        and a notification toggle has no content to grow into, and stretching the rows edge to edge
        on a wide monitor just put empty space between each label and its description. -->
   <div class="flex flex-1 flex-col gap-6 max-w-3xl mx-auto w-full">
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
-      <h2 class="text-sm font-semibold text-surface-100">Notifications</h2>
-      <p class="text-xs text-surface-400">Push a notification to this device when the morning briefing is ready.</p>
-      <NotifyButton variant="row" />
+    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex items-center justify-between gap-4">
+      <div class="flex min-w-0 flex-col gap-1">
+        <h2 id="notifications-heading" class="text-sm font-semibold text-surface-100">Notifications</h2>
+        <p class="text-xs text-surface-400">Push a notification to this device when the morning briefing is ready.</p>
+      </div>
+      <NotifyButton variant="row" labelledby="notifications-heading" />
     </section>
 
     <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-4">

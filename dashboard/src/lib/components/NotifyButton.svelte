@@ -10,13 +10,16 @@
   import { PUBLIC_VAPID_KEY } from '$app/env/public';
   import { toasts } from "#lib/toast.svelte.js";
   import { net } from "#lib/offline/net.js";
+  import Switch from "#lib/components/Switch.svelte";
 
   interface Props {
-    /** `bar` is the desktop nav pill; `row` is a full-width row in the overflow sheet. */
+    /** `bar` is the desktop nav pill; `row` is a bare switch whose label the caller renders. */
     variant?: "bar" | "row";
+    /** Id of the element naming the `row` switch. */
+    labelledby?: string;
   }
 
-  let { variant = "bar" }: Props = $props();
+  let { variant = "bar", labelledby }: Props = $props();
 
   type NotifState = "checking" | "unsupported" | "denied" | "unsubscribed" | "subscribed" | "busy";
   let state = $state<NotifState>("checking");
@@ -93,14 +96,15 @@
 {#if !hidden}
   {#if variant === "row"}
     <button
+      type="button"
+      role="switch"
+      aria-checked={state === "subscribed"}
+      aria-labelledby={labelledby}
       onclick={toggle}
       disabled={state === "checking" || state === "busy"}
-      class="tap flex w-full items-center justify-between gap-3 rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 text-left text-sm text-surface-200 hover:bg-surface-800 cursor-pointer disabled:opacity-50"
+      class="tap inline-flex shrink-0 items-center justify-center cursor-pointer disabled:opacity-50"
     >
-      <span>Notifications</span>
-      <span class="text-xs {state === 'subscribed' ? 'text-success-400' : 'text-surface-400'}">
-        {state === "subscribed" ? "On" : state === "busy" ? "…" : "Off"}
-      </span>
+      <Switch checked={state === "subscribed"} />
     </button>
   {:else if state === "subscribed"}
     <button onclick={toggle} class="nav-btn border-success-700 text-success-400 hover:bg-surface-800 cursor-pointer">

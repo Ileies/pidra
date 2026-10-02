@@ -143,7 +143,8 @@ export async function synthesize(
 }
 
 export const TTS_MODEL = process.env.OPENAI_MODEL_TTS ?? "gpt-4o-mini-tts";
-export const TTS_VOICE = process.env.OPENAI_TTS_VOICE ?? "marin";
+export const TTS_VOICE = process.env.OPENAI_TTS_VOICE ?? "cedar";
+export const TTS_SPEED = 1.2;
 
 const TTS_STYLE = "Read this morning briefing aloud like a calm, clear news presenter. Steady pace, neutral tone, short pauses between items.";
 
@@ -157,6 +158,7 @@ export async function speak(text: string): Promise<Buffer> {
     openai.audio.speech.create({
       model: TTS_MODEL,
       voice: TTS_VOICE,
+      speed: TTS_SPEED,
       input: text,
       instructions: TTS_STYLE,
       response_format: "mp3",

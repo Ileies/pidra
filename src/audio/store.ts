@@ -3,20 +3,20 @@
  *
  * The caller names a date and a chapter key; the text always comes from the stored report, never
  * from the request, so the endpoint can only ever pay to speak text the pipeline produced. A
- * chapter is spoken once per (text, model, voice): a replay, a second device and a seek back all
+ * chapter is spoken once per (text, model, voice, speed): a replay, a second device and a seek back all
  * read the cached row.
  */
 
 import { and, eq, lt, ne, sql } from "drizzle-orm";
 import { db, dailyReports, reportAudio } from "../db";
-import { speak, TTS_MODEL, TTS_VOICE } from "../ai/openai";
+import { speak, TTS_MODEL, TTS_VOICE, TTS_SPEED } from "../ai/openai";
 import { buildChapters, chunkText, estimateDurationMs, mp3DurationMs, type Chapter } from "./chapters";
 
 /** One speech request takes at most 2000 tokens; German runs near 3 characters a token. */
 const MAX_REQUEST_CHARS = 3500;
 const KEEP_DAYS = 30;
 
-const variant = () => `${TTS_MODEL}:${TTS_VOICE}`;
+const variant = () => `${TTS_MODEL}:${TTS_VOICE}:${TTS_SPEED}`;
 
 export class AudioError extends Error {
   constructor(message: string, readonly status: 404 | 409) {

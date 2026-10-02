@@ -1,64 +1,63 @@
 # PIDRA - Personal Ingestive Daily Report Agent
 
-AI-powered morning briefing system. Phase 1 pulls from 13 mailboxes over IMAP, configured newsletter feeds over RSS, Google Calendar and Google Tasks every morning, and SMS arrives separately by webhook. Newsletters without an RSS feed arrive by mail. Alongside them, six news desks research the day's news on the web. Produces a structured three-section report and pushes it to the phone. Gets smarter over time through feedback loops, an entity knowledge graph, and weekly self-improvement runs.
+AI-powered morning briefing. Every morning it pulls from the configured IMAP mailboxes, newsletter RSS feeds, Google Calendar and Google Tasks (SMS arrives separately by webhook), and six web-search news desks research the day's news. The result is a structured three-section report, pushed to the phone. It improves over time through feedback loops, an entity knowledge graph and weekly self-improvement runs.
 
 ## Output
 
 **Section 2 - Personal Action Center** (shown first)
-Life logistics: emails requiring response, payment deadlines, upcoming calendar events, tasks approaching due dates, SMS follow-ups. Prioritized by urgency. Cross-linked with calendar and to-do list.
+Life logistics: emails needing a reply, payment deadlines, calendar events, tasks approaching their due date, SMS follow-ups. Prioritised by urgency and cross-linked with the calendar and to-do list.
 
 **News**
-What happened since the last briefing, researched every morning by six web-search desks: the world's front page, the home city and country, the reader's first priority as a beat, their other fields, what people are talking about, and one or two things they would never have looked for. Every story is checked in code against what the search actually returned before it is written up, and every link on it is a checked source.
+What happened since the last briefing, researched by six web-search desks: the world's front page, the home city and country, the reader's first priority as a beat, their other fields, what people are talking about, and one thing they would never have looked for. Every story is checked in code against what the search returned, and every link is a checked source.
 
 **Section 1 - Intelligence Briefing**
-World-facing intelligence from the newsletters, organized by topic domain (AI, China, Finance, Science, etc.). Cross-referenced with previous reports - never re-explains background, only surfaces updates and novel developments.
+World-facing intelligence from the newsletters, organised by topic domain (AI, China, Finance, Science, ...). Cross-referenced with previous reports: it never re-explains background, only surfaces updates and new developments.
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Runtime | Bun |
-| Frontend | SvelteKit (dashboard + installable PWA that works offline) |
-| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna`. |
+| Frontend | SvelteKit (dashboard, installable PWA that works offline) |
+| AI | OpenAI Responses API. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models; both default to `gpt-6-luna` |
 | Database | Postgres + DrizzleORM |
-| Email | IMAP (Netcup) |
+| Email | IMAP |
 | Calendar / Tasks | Google Calendar API + Google Tasks API |
-| Web search | Brave Search API only, for both the news desks and the Section 1 slots |
-| Push notifications | Web Push API (PWA), VAPID |
-| Scheduling | systemd timers on the host, one one-shot unit per job |
-| OS | NixOS (self-hosted on `pronix`) |
+| Web search | Brave Search API only, for the news desks and the Section 1 slots |
+| Push | Web Push (VAPID) |
+| Scheduling | systemd timers, one one-shot unit per job |
+| OS | NixOS, self-hosted on `pronix` |
 
 ## Architecture
 
-Three paradigms combined:
+- **Map-reduce spine:** every item is extracted independently into structured JSON, then merged into a synthesis payload.
+- **Structured memory:** continuity lives in explicit Postgres tables (active topics, entity graph, source quality, prompt versions), not in a vector store.
+- **Topic-graph output:** Section 1 is organised by domain, not by source, and the entity graph adds relationship context to synthesis.
+- **Compounding loop:** feedback, source trust scoring, entity graph growth and a weekly self-improvement run. Every prompt change needs human approval.
 
-- **Map-Reduce spine (B):** Every item independently extracted → structured JSON → merged into a synthesis payload
-- **Structured memory layer (C):** All continuity through explicit Postgres tables (active topics, entity graph, source quality, prompt versions) - no vector stores
-- **Topic-graph output (D):** Section 1 organized by domain, not source. Entity knowledge graph enriches synthesis with relationship context.
+## Key design decisions
 
-Plus a **compounding intelligence layer**: feedback loops, source trust scoring, entity graph growth, and a weekly self-improvement run (human approval required for all prompt changes).
+The full invariants are in [`docs/architecture-rules.md`](./docs/architecture-rules.md). The ones that shape everything else:
 
-## Key Design Decisions
-
-- **Extraction is a compressor, not an analyst.** Converts text → structured JSON. Synthesis only sees compressed output (~12K tokens), not raw email HTML (~50K tokens). Both stages currently run on `gpt-6-luna`; which model fills each stage is not the rule, the two-stage split is.
-- **No vector stores yet.** Cosine similarity thresholds silently drop items. For a daily briefing where completeness matters, explicit structured extraction wins. A vector store is planned, but as its own far-future project, not an incremental pipeline addition.
-- **Credentials never reach any cloud API.** Diary and other intimate personal content is deliberately in scope for the Context Builder - it's some of the richest signal available. Only credentials (passwords, card/bank details, ID numbers) are filtered before any consumer sees them.
-- **No prompt changes without human approval.** System proposes weekly, user approves each change individually.
-- **The briefing works without the VPN.** The dashboard is reachable only over WireGuard, and the briefing is read on a train. The phone keeps a local copy (IndexedDB) of the last 60 briefings, the notes, the rules, the context document and the reference tables, and every mirrored page opens from it without waiting on the network, online or not, then refreshes in the background. Notes, rule edits and ratings made offline are queued and delivered in order when the connection is back; anything that acts on live state (corrections, runs, approvals, the chat) says it needs the connection instead. A copy, never a second source of truth: raw mail bodies never leave the server. No request can hang: every one has a hard budget and an unreachable server is detected within about 3.5 s even when packets vanish without an error, which `bun run check` proves in headless Chrome against four failure modes. Details in `CLAUDE.md`, Offline mode.
+- **Extraction compresses, synthesis writes.** Extraction turns text into structured JSON; synthesis sees only that compressed output (~12K tokens), never raw email HTML (~50K tokens). The two-stage split is the rule, not which model fills each stage.
+- **No vector store in the pipeline.** A similarity threshold silently drops items, and a daily briefing has to be complete. A vector store is planned for archive search only, as its own project.
+- **Credentials never reach a cloud API.** Other personal content, diary included, is deliberately in scope for the Context Builder.
+- **No prompt change without human approval.** The system proposes weekly; the owner approves each change.
+- **The briefing works without the network.** The dashboard is read on a train. The phone keeps a local IndexedDB copy of the last 60 briefings, the notes, the rules, the context document and the reference tables, so every mirrored page opens without waiting on the network. Notes, rule edits and ratings made offline are queued and delivered in order on reconnect; anything acting on live state says it needs the connection. Every request has a hard time budget, and an unreachable server is detected within about 3.5 s even when packets vanish silently. Details in [`docs/offline-mode.md`](./docs/offline-mode.md).
 
 ## Tools
 
-PIDRA is three tools sharing one Postgres database:
+Three tools share one Postgres database:
 
 | Tool | Entry point | Purpose |
 |---|---|---|
-| **Daily pipeline** | `bun run job pipeline` | Morning briefing. Runs at 06:30 |
-| **Dashboard** | `bun run dashboard` (dev) | SvelteKit UI for reading reports, rating, managing notes |
-| **Context Builder** | `bun run context-builder` | Comprehensive scan of all personal data - seeds entities, contacts and standing rules. Runs monthly in update mode; `--full` rebuilds from scratch, `--dry-run` reports the inventory and exits |
+| **Daily pipeline** | `bun run job pipeline` | The morning briefing, 06:30 |
+| **Dashboard** | `bun run dashboard` (dev) | SvelteKit UI for reading reports, rating, notes, entities, runs and approvals |
+| **Context Builder** | `bun run context-builder` | Scans all personal data and seeds entities, contacts and standing rules. Runs monthly in update mode; `--full` rebuilds, `--dry-run` reports the inventory and exits. See [`context-builder/README.md`](./context-builder/README.md) |
 
 ## Scheduled jobs
 
-`src/job.ts` runs exactly one job and exits, so a failure lands in `systemctl --failed` and `systemctl list-timers` shows the real next run - neither of which a single long-lived scheduler process gives you. The units are generated from one attribute set in `hosts/pronix/pidra.nix` in the NixOS flake; adding a job means one entry in `JOBS` and one there. All times `Europe/Berlin`.
+`src/job.ts` runs exactly one job and exits, so a failure shows up in `systemctl --failed` and `systemctl list-timers` shows the real next run. The units are generated from one attribute set in `hosts/pronix/pidra.nix` in the NixOS flake. Adding a job means one entry in `JOBS` and one there. All times `Europe/Berlin`.
 
 | Job | Schedule |
 |---|---|
@@ -72,43 +71,25 @@ PIDRA is three tools sharing one Postgres database:
 
 ## Deploying
 
-`bun run deploy` sends the committed tree to pronix: pull, sync the gitignored config and harvest files, install, build the dashboard, restart the two long-lived units, then verify that the pages actually render rather than that systemd calls them active. `--dry-run` shows the whole plan without touching anything; `--quick-check` runs `bun run check --quick` (skips the offline blackhole suite) instead of the full check, for a small change you're confident can't affect routing, offline behavior or rendering; `--force` deploys past an uncommitted working tree (it still only deploys the last commit, never the uncommitted edits).
+`bun run deploy` sends the committed tree to pronix: pull, sync the gitignored config and harvest files, install, build the dashboard, restart the two long-lived units, then verify that the pages actually render. It refuses an uncommitted tree, unpushed commits, a branch behind origin, a dirty checkout on the server, or a failing `bun run check`. It does not carry `.env` or the systemd units. Flags, refusals and the units' `nixos-rebuild` caveat are in [`docs/operations.md`](./docs/operations.md).
 
-It refuses an uncommitted tree (unless `--force`), commits not on origin, a branch behind origin, a dirty checkout on the server, or a failing `bun run check`. It does not carry `.env` (same keys, different values per machine) and it does not carry the systemd units, which live in the NixOS flake and need a `nixos-rebuild` on pronix.
+## Documentation
 
-## Reference Docs
+- [`CLAUDE.md`](./CLAUDE.md) - project instructions and the index of everything under [`docs/`](./docs/), one file per concern: architecture rules, dashboard, offline mode, operations, security, scoring, prompt tuning, sources.
+- [`docs/todo/`](./docs/todo/README.md) - all open work, split by horizon.
 
-`CLAUDE.md` carries the current, authoritative architecture rules. Deeper reference material that would otherwise bloat every session's context lives in `docs/`, one file per concern:
+## Status
 
-- [`docs/prompt-tuning-context.md`](./docs/prompt-tuning-context.md) - intelligence priorities, report format requirements, newsletter processing tiers
-- [`docs/newsletter-sources.md`](./docs/newsletter-sources.md) - all 32 newsletters with tier and selection rationale
-- [`docs/google-integration-notes.md`](./docs/google-integration-notes.md) - Google Tasks list and Keep category meanings
-- [`docs/context-builder.md`](./docs/context-builder.md) - Context Builder architecture, run modes, output contract, and daily integration
-- [`docs/scoring-formulas.md`](./docs/scoring-formulas.md) - the gate, trust-score and entity-pruning formulas as currently implemented
+Phases 0-6 are complete and the pipeline runs unattended end to end. The dashboard, Context Builder (monthly re-harvest on the server) and offline mode are built; offline mode is proven in headless Chrome, and the check on a real phone is open work in [`docs/todo/user.md`](./docs/todo/user.md).
 
-## Build Status
+## Error handling
 
-Phases 0-6 of the daily pipeline are complete and the whole chain runs unattended: as of 2026-09-12 a run ingests all 16 sources, synthesises both sections and delivers the push notification without intervention.
+Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`): up to 3 attempts (2 s, then 5 s backoff), every failed attempt recorded with step, error, stack and timestamp. After the third failure the run is marked failed in `pipeline_runs`, a push names the failed step and links to `/runs`, and the dashboard shows an error card with every attempt.
 
-The dashboard redesign is finished, device pass on iOS and Android included; its plan document was deleted once it shipped, and the conventions that outlived it are in `CLAUDE.md`. The Context Builder is complete, has had one full harvest plus update runs, and now re-harvests monthly on the server, which is also what keeps its output readable by the pipeline. Offline mode is built and proven in headless Chrome; the pass on the phone itself is in `docs/todo/now.md`.
-
-See [`docs/todo/`](./docs/todo/README.md) for open items.
-
-## Error Handling
-
-Every pipeline step is wrapped in a retry layer (`src/pipeline/withRetry.ts`):
-
-- Each step is retried up to **3 times** on failure (2 s → 5 s backoff).
-- Each failed attempt is recorded with step name, attempt number, error message, stack trace, and timestamp.
-- After 3 failures the pipeline is marked as failed in the `pipeline_runs` DB table, and a push notification names the failed step and links to `/runs`. Silence used to be indistinguishable from "still running".
-- The dashboard shows a detailed error card: which step failed, all attempt errors with timestamps, and expandable stack traces - so failures are debuggable without reading server logs.
-
-A **partial** ingest failure is not a failed run. Phase 1 settles all 16 sources independently and throws only if every one of them failed, so a single dead mailbox or a revoked credential degrades the briefing instead of cancelling it. Those per-source errors ride along in `step_errors` on a run whose status stays `completed`, and `/runs` shows them - the status reflects "a report was written", the errors say what it was written without.
+A **partial** ingest failure is not a failed run. Phase 1 settles all sources independently and throws only if every one failed, so a dead mailbox or revoked credential degrades the briefing instead of cancelling it. Those errors ride along in `step_errors` on a run that stays `completed`, and the report shows an ingest warning (`docs/architecture-rules.md`).
 
 ## Cost
 
-Measured, and only for what the system actually tracks. `daily_reports` records synthesis tokens: the 2026-09-12 run was 25.6k in / 3.9k out, about a cent at `gpt-6-luna` list prices ($0.20 / $1.20 per Mtok). Every call runs on `service_tier: "flex"`, so the real spend is below the dashboard's figure, which prices at list.
+Token use and web-search counts are tracked per run and per step and shown on `/runs`; cost renders only when `PUBLIC_MODEL_PRICE_IN_PER_MTOK` and `PUBLIC_MODEL_PRICE_OUT_PER_MTOK` are set. Prices are list prices, and every call runs on the `flex` service tier, so real spend is lower than the figure shown.
 
-Extraction is not tracked per run and sits on top of that. The Context Builder prints its own running total: the 2026-09-12 monthly update was $0.05 for 177 items. A full harvest processes the entire eligible corpus and costs more; its actual cost depends on the configured models and token rates.
-
-The news desks are the largest daily cost, and their tokens are in the report's figures. On the 2026-09-25 probes they took 250k to 670k input tokens a morning depending on reasoning effort, most of it search results. Their web search calls, 26 to 77 a morning on the same probes, are billed per call on top of tokens and appear in the report's "web searches" figure, not in its cost.
+The news desks are the largest daily cost: most of their input tokens are search results. Brave calls are billed per call on top of tokens, are capped at 30 per day across all callers, and appear in the report's "web searches" figure rather than its cost.

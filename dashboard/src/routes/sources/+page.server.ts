@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
-import { deleteSource, setSourceActive } from "#lib/server/sources.js";
+import { setSourceActive } from "#lib/server/sources.js";
 
 export interface DailyScore {
   sourceName: string;
@@ -79,19 +79,5 @@ export const actions: Actions = {
       return fail(500, { error: "Could not update the source." });
     }
     return { ok: true };
-  },
-
-  delete: async ({ request }) => {
-    const data = await request.formData();
-    const sourceName = data.get("sourceName") as string;
-    if (!sourceName) return fail(400, { error: "sourceName required" });
-
-    try {
-      await deleteSource(sourceName);
-    } catch (err) {
-      console.error("source delete failed", err);
-      return fail(500, { error: "Could not delete the source." });
-    }
-    return { ok: true, message: `Deleted ${sourceName}.`, deleted: sourceName };
   },
 };

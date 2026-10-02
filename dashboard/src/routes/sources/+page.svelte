@@ -4,7 +4,6 @@
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
-  import DeleteSourceModal from "#lib/components/DeleteSourceModal.svelte";
   import DataTable from "#lib/components/DataTable.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
   import type { Column } from "#lib/components/table.js";
@@ -54,10 +53,7 @@
 
 {#snippet nameCell(source: SourceRow)}
   <span class="inline-flex items-center gap-2 flex-wrap">
-    <a
-      href="/sources/{encodeURIComponent(source.sourceName)}"
-      class="text-surface-100 no-underline hover:text-primary-400 hover:underline transition-colors"
-    >{source.sourceName}</a>
+    <span class="text-surface-100">{source.sourceName}</span>
     {#if !source.isActive}
       <Badge tone="muted">Disabled</Badge>
     {/if}
@@ -97,7 +93,12 @@
         immediate
       />
     {/if}
-    <DeleteSourceModal sourceName={source.sourceName} unsubscribeUrl={source.unsubscribeUrl} action="?/delete" />
+    <a
+      href="/sources/{encodeURIComponent(source.sourceName)}"
+      class="tap inline-flex items-center px-3 py-1.5 rounded text-xs border no-underline cursor-pointer transition-colors border-surface-500 text-surface-300 hover:border-primary-500 hover:text-primary-400"
+    >
+      Details
+    </a>
   </span>
 {/snippet}
 

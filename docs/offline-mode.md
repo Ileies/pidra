@@ -1,11 +1,96 @@
 # Offline mode
 
-The installed app reads the briefing archive, the notes, the rules, the context document and the reference tables without a network, and accepts notes, rule edits and ratings while it is off; they land in Postgres through the existing single writers when it is back. The failure it is built for is not a fast error. A weak signal, a captive portal, or `pidra.de` resolving but pronix not answering behind it is a **blackhole**: it neither succeeds nor fails, and a bare `fetch` waits for the OS connect timeout. DevTools' offline mode is fail-fast and cannot reproduce that, which is how the Questions tap of 2026-09-25 spun for minutes and ended in "500 Internal Error". `pidra.de` was VPN-only (wg0) until 2026-09-28, when a login (`hooks.server.ts`) replaced the ACL as the security boundary specifically so the installed PWA could be a real WebAPK rather than a bookmark shortcut; the mirror predates that and was already designed for a network that cannot be trusted to answer, which is why the boundary change needed no change here. Moving a copy of personal content outside the old wg0 boundary is the owner's decision of 2026-09-17.
+The installed app reads the briefing archive, notes, rules, context document and reference tables without a network, and accepts notes, rule edits and ratings while offline; they land in Postgres through the existing single writers when the connection is back.
 
-- **The mirror is a cache and the outbox is a queue, never a source of truth.** The mirror is IndexedDB (`$lib/offline/db.ts`): the newest `MIRROR_DAYS = 60` report dates with their open and done quick actions (never an action's error text), the extractions they cite, every note including the trash, the standing rules, the active corrections, the newest harvest document, the entities, relations, contacts (removed ones left out) and topics, and the entity appearances inside the window. It is filled from `GET /api/offline/snapshot` alone, and that endpoint is where the exclusions are enforced, not a consumer: no `raw_items.raw_content`, nothing from `chat_messages`, `skill_executions` or `push_subscriptions`, and `step_errors` only as the `ingestFailures` digest (source plus one fixed word). The snapshot ships rendered, sanitised HTML, so `renderMarkdown()` stays server-side and out of the client bundle. It answers with a `304`, a delta against the client's ETag, or everything (`#lib/server/snapshotCache.ts`); a build the client has not seen replaces the mirror instead of merging into it.
-- **Every page is in exactly one tier**, declared in `dashboard/src/lib/routes.ts`: `MIRRORED_ROUTES` (client-rendered with `ssr = false`, reading through `$lib/offline/repo.ts`), `STATIC_OFFLINE_ROUTES` (prerendered and precached), or `ONLINE_ONLY`, which offline renders `OfflineNotice` with its one-line reason and comes back by itself when the server answers. Online-only is for live state where a copy would be a lie: approvals, the question queue, prompt versions, runs, sources, triage, the chat. `dashboard/scripts/check-offline.ts` fails the build on a page in no tier or two, and on a mirrored page that has a server load, is not `ssr = false`, or awaits the network.
-- **No load waits on the network.** A mirrored load answers from IndexedDB and starts a throttled, single-flight background `sync()`. When the sync changes a store, `invalidate("mirror:<store>")` re-runs exactly the loads that declared it (`deps.ts`); an empty mirror renders `FirstSync` in the page's place. Filters live in components over the loaded rows, never in a load, so typing re-renders instead of re-loading. The header logo (`SyncLogo`) is the sync control: its two halves recolour by state (green synced, brighter green with a breathing animation while syncing, grey pulse while checking, amber queued, red failed or offline) with a glow that strengthens on hover and focus. It opens the sync sheet (`SyncSheet`), which is non-modal (no scrim; closes on Escape, the X, the logo or a press outside) and shows a status header, a details grid with the last sync time, tinted queued and failed cards, a primary "Sync now" button and "Clear offline data" behind an inline confirm; pages do not repeat the sync age.
-- **One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`, `rule.*`), never into the mirror directly. An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*`, `/api/feedback` and `/api/rules/*`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`, `#lib/server/rules.ts`). Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rule create that upserts on its key, a rating that replaces the previous one. A transport failure retries; a 4xx moves the intent to `failed`, shown on the row it belongs to (`FailedWrite`). A queued note edit whose row moved on the server still lands and is flagged, since `note_revisions` keeps both versions. Corrections and contact edits, topic curation, quick actions, pipeline and Context Builder runs, deep dives, revision reverts, skill approvals and the chat are never queued: once the app knows it is offline they are disabled with the reason, and a tap before that is answered "Not sent" with what was typed kept.
-- **Client code never calls `fetch` directly.** `$lib/offline/net.ts` is the one caller and owns the budgets: 3 s for the probe, 15 s for a tap, 30 s for page data, 60 s for a sync, body included. A request still waiting after 500 ms starts one shared probe of `/api/health`; if the probe fails the app is offline and every request in flight is aborted at once, if it answers the request keeps its budget. A response without the `x-pidra` stamp that `hooks.server.ts` puts on every response (nginx's 403, a captive portal) counts as not reaching pronix. `guardKitFetch()` in `hooks.client.ts` routes SvelteKit's own `__data.json` and form-action requests through it and bounds its `version.json` check. `navigator.onLine` is only ever used as a certain negative. Polling goes through `poll.ts`, which never overlaps and pauses while hidden or offline. `check-offline.ts` fails on a bare `fetch(` in client code.
-- **The service worker** (`dashboard/src/service-worker.ts`) precaches every build file per version and keeps the previous build's cache one generation longer; a new version waits and the navbar offers "Reload" rather than taking over mid-read. Mirrored paths get the shell (the route-agnostic HTML of any mirrored route, marked `x-pidra-shell`) cache-first, online or not; other navigations race the network against 3 s and then boot the shell, whose load fails into `OfflineNotice`. Every request the worker makes is aborted at its budget, and it never touches `/api/**` or `__data.json`. It syncs as well: on the push, so the 06:30 briefing is in the mirror before it is opened; on Background Sync (`pidra-outbox`) when a write is still queued; on periodic sync (`pidra-mirror`) where the browser grants one. It runs the pages' own `intents.ts` and `snapshot.ts` under two Web Locks, so a page and the worker never send one intent twice. iOS has neither Background Sync nor periodic sync, so there the push and the app's own start are what sync.
-- **The proof is `dashboard/scripts/blackhole/`** (`bun run test:offline`, and the last step of the dashboard's `bun run check`: about 66 s, needs Chrome on `PATH` or in `PIDRA_CHROME`). It builds, runs the production server with no database behind it, and drives Chrome at 390×844 through a proxy per failure mode - blackhole, gated (nginx's 403), refused, and DevTools offline - with a synthetic snapshot, so nothing of the suite reads or writes real data. For every page in `routes.ts` it asserts a designed state within 4 s after a tap made while the app still believes it is online, after a cold start, and after each primary control; then that no request outlived its budget, that the queue survives a reopen, and that each queued write lands exactly once and in order after reconnecting. A new page needs its path and expected text there, a new control an entry in `CONTROLS`. The phone itself stays the final check: the suite cannot reproduce an iOS PWA's lifecycle or a real VPN. A separate **layout lane** (`layout.ts`, `--only layout`) runs online at 1024, 1280, 1366 and 1920 px against `LAYOUT_SNAPSHOT`, a fixture with several rows per table, a report carrying every urgency, section and domain, and a five-section context document (the offline lanes keep the small `SNAPSHOT`). For every mirrored page it asserts from the DOM: no error boundary, no horizontal scroll from the page or `<main>`, the header on one row with an untruncated title, `<main>` exactly as wide as its `--container-<size>` cap and centred, content spanning at least 90% of the frame, and on `/[date]` the article beside the rail from `xl` up. Running with no database behind it also means blackhole can only exercise `MIRRORED_ROUTES` (`/topics` among them) with real fixtures - `ONLINE_ONLY` pages render `OfflineNotice` regardless of fixture size, so `dashboard/tests/` (`bun test --conditions=browser`, jsdom via happy-dom, always part of `bun run check`/`check:quick`) covers page logic like the lazy-reveal cap by rendering a `+page.svelte` directly against a large fixture, for pages blackhole structurally cannot reach.
+The failure it is built for is not a fast error. A weak signal, a captive portal, or `pidra.de` resolving with pronix not answering behind it is a **blackhole**: the request neither succeeds nor fails, and a bare `fetch` waits for the OS connect timeout. DevTools' offline mode is fail-fast and cannot reproduce that, which is how a Questions tap once spun for minutes and ended in "500 Internal Error".
+
+`pidra.de` is publicly reachable behind a login (`hooks.server.ts`) as the security boundary; it was VPN-only before 2026-09-28. The mirror was already designed for a network that cannot be trusted to answer, so that change needed nothing here. Keeping a copy of personal content on the device is the owner's decision of 2026-09-17.
+
+## Mirror and outbox
+
+**The mirror is a cache and the outbox is a queue, never a source of truth.**
+
+- **Store:** IndexedDB (`$lib/offline/db.ts`), filled only from `GET /api/offline/snapshot`. It holds the newest `MIRROR_DAYS = 60` (`#lib/server/snapshotCache.ts`) report dates with their open and done quick actions (never an action's error text), the extractions they cite, every note including the trash, standing rules, active corrections, the newest harvest document, entities, contacts (removed ones left out), topics, and the entity appearances inside the window.
+- **Exclusions are enforced in the endpoint, not in a consumer:** no `raw_items.raw_content`, nothing from `chat_messages`, `skill_executions` or `push_subscriptions`, and `step_errors` only as the `ingestFailures` digest (source plus one fixed word).
+- **Rendered on the server:** the snapshot ships sanitised HTML, so `renderMarkdown()` stays out of the client bundle.
+- **Transfer:** a `304`, a delta against the client's ETag, or everything (`snapshotCache.ts`). A build the client has not seen replaces the mirror instead of merging into it.
+
+## Tiers
+
+**Every page is in exactly one tier**, declared in `dashboard/src/lib/routes.ts`:
+
+- `MIRRORED_ROUTES`: client-rendered with `ssr = false`, reading through `$lib/offline/repo.ts`.
+- `STATIC_OFFLINE_ROUTES`: prerendered and precached (`/privacy`, `/terms`).
+- `ONLINE_ONLY`: offline, renders `OfflineNotice` with its one-line reason and comes back by itself when the server answers. For live state where a copy would be a lie: approvals, the question queue, prompt versions, runs, sources, triage, the chat.
+
+`dashboard/scripts/check-offline.ts` fails the build on a page in no tier or two, and on a mirrored page that has a server load for its read, is not `ssr = false`, or awaits the network.
+
+## Reads
+
+**No load waits on the network.**
+
+- A mirrored load answers from IndexedDB and starts a throttled, single-flight background `sync()`.
+- When a sync changes a store, `invalidate("mirror:<store>")` re-runs exactly the loads that declared it (`deps.ts`). An empty mirror renders `FirstSync` in the page's place.
+- Filters live in components over the loaded rows, never in a load, so typing re-renders instead of re-loading.
+- The header logo (`SyncLogo`) is the sync control and opens the non-modal sync sheet (`SyncSheet`): status, last sync time, queued and failed cards, "Sync now", and "Clear offline data" behind an inline confirm. Logo colors: green synced, breathing green syncing, grey pulse checking, amber queued, red failed or offline. Pages do not repeat the sync age.
+
+## Writes
+
+**One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`, `rule.*`; `intents.ts`), never into the mirror directly.
+
+- An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*`, `/api/feedback` and `/api/rules/*`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`, `#lib/server/rules.ts`).
+- Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rule create that upserts on its key, a rating that replaces the previous one.
+- A transport failure retries; a 4xx moves the intent to `failed`, shown on the row it belongs to (`FailedWrite`).
+- A queued note edit whose row moved on the server still lands and is flagged, since `note_revisions` keeps both versions.
+- **Never queued:** corrections and contact edits, topic curation, quick actions, pipeline and Context Builder runs, deep dives, revision reverts, skill approvals and the chat. Once the app knows it is offline they are disabled with the reason; a tap before that is answered "Not sent" with what was typed kept.
+
+## Network layer
+
+**Client code never calls `fetch` directly.** `$lib/offline/net.ts` is the one caller (`check-offline.ts` fails on a bare `fetch(` in client code) and owns the budgets, in its `BUDGET` constant:
+
+| Budget | Value |
+|---|---|
+| Probe (`/api/health`) | 3 s |
+| Interactive tap | 15 s |
+| Page data (`__data.json`) | 30 s |
+| Sync | 60 s |
+
+Budgets include reading the body.
+
+- A request still waiting after 500 ms starts one shared probe. If the probe fails the app is offline and every request in flight is aborted at once; if it answers, the request keeps its budget. Known offline fails in the same frame.
+- A response without the `x-pidra` stamp that `hooks.server.ts` puts on every response (nginx's 403, a captive portal) counts as not reaching pronix.
+- `guardKitFetch()` in `hooks.client.ts` routes SvelteKit's own `__data.json` and form-action requests through `net.ts` and bounds its `version.json` check.
+- `navigator.onLine` is only ever used as a certain negative. Polling goes through `poll.ts`, which never overlaps and pauses while hidden or offline.
+
+## Service worker
+
+`dashboard/src/service-worker.ts`:
+
+- Precaches every build file per version and keeps the previous build's cache one generation longer (`GENERATIONS_KEPT`). A new version waits, and the navbar offers "Reload" rather than taking over mid-read.
+- Mirrored paths get the shell (the route-agnostic HTML of any mirrored route, marked `x-pidra-shell`) cache-first, online or not. Other navigations race the network against 3 s (`NAV_BUDGET_MS`), then boot the shell, whose load fails into `OfflineNotice`.
+- Every request the worker makes is aborted at its budget. It never touches `/api/**` or `__data.json`.
+- It syncs as well: on the push (so the 06:30 briefing is in the mirror before it is opened), on Background Sync (`pidra-outbox`) when a write is still queued, and on periodic sync (`pidra-mirror`) where the browser grants one. It runs the pages' own `intents.ts` and `snapshot.ts` under two Web Locks, so a page and the worker never send one intent twice. iOS has neither Background Sync nor periodic sync: there the push and the app's own start do the syncing.
+- `/service-worker.js` must be served `Cache-Control: no-cache` (nginx; see `docs/operations.md`).
+
+## The proof: `dashboard/scripts/blackhole/`
+
+`bun run test:offline` in `dashboard/`, also the last (slowest) step of `bun run check` (about 65-70 s; skipped by `--quick`). Needs Chrome on `PATH` or in `PIDRA_CHROME`. It builds, runs the production server with no database behind it, and drives Chrome at 390x844 through a proxy (`proxy.ts`) per failure mode: blackhole, gated (nginx's 403), refused, and DevTools offline. A synthetic snapshot (`fixture.ts`) means nothing in the suite touches real data. `--only <mode|layout>` runs one lane.
+
+**Offline lanes**, for every page in `routes.ts`:
+- a designed state within 4 s after a tap made while the app still believes it is online, after a cold start, and after each primary control;
+- no request outlives its budget;
+- the queue survives a reopen;
+- each queued write lands exactly once and in order after reconnecting.
+
+A new page needs its path and expected text in `run.ts`; a new control needs an entry in `CONTROLS`.
+
+**Layout lane** (`layout.ts`), online at 1024, 1280, 1366 and 1920 px against `LAYOUT_SNAPSHOT` (several rows per table, a report with every urgency, section and domain, a five-section context document). For every mirrored page it asserts from the DOM:
+- no error boundary and no horizontal scroll from the page or `<main>`;
+- header on one row with an untruncated title;
+- `<main>` exactly as wide as its `--container-<size>` cap, and centred;
+- content spanning at least 90% of the frame;
+- on `/[date]`, the article beside the rail from `xl` up.
+
+**What it cannot cover:**
+- An iOS PWA's lifecycle or a real VPN: the phone stays the final check.
+- Page logic that needs a large fixture: `ONLINE_ONLY` pages render `OfflineNotice` with no database behind them, and the offline lanes use a small snapshot, so something like `/topics`' lazy-reveal cap is out of reach. `dashboard/tests/` (`bun test --conditions=browser`, jsdom via happy-dom, part of `check` and `check:quick`) covers it by rendering a `+page.svelte` directly against a large fixture.

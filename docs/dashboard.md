@@ -30,7 +30,7 @@ Memory:
 
 - `/notes` - click-to-edit content, inline scope and expiry, search, sort, trash with restore, per-revision history with revert, bulk actions, undo on delete. System notes are editable too; provenance stays visible via `created_by` / `updated_by`.
 - `/rules` - `standing_context` CRUD, with a preview of the block as the Section 2 prompt receives it.
-- `/context-builder` - the harvested document and source summaries, run controls, and a details sheet (`DetailsSheet`) for run progress and errors. At `xl`+ a Quick Links rail (document headings and source summaries, scrollspy highlighting) sits beside the document; below `xl` the same links live in the sheet.
+- `/context-builder` - the harvested document and source summaries, and run controls. The status bar carries link buttons to `/rules` ("Standing rules (N)") and `/context-builder/corrections` ("Corrections (N)"). At `xl`+ a Quick Links rail (document headings and source summaries, scrollspy highlighting) sits beside the document; below `xl` there are no quick links.
 - `/context-builder/corrections` - the active `context_corrections` over the harvest; a revert is written on the server, never queued.
 
 Questions and assistant:

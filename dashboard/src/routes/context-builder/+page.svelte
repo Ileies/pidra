@@ -4,7 +4,6 @@
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import StatBar from "#lib/components/StatBar.svelte";
-  import DetailsSheet from "#lib/components/context-builder/DetailsSheet.svelte";
   import { fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
   import { toasts } from "#lib/toast.svelte.js";
@@ -97,34 +96,16 @@
 
   onDestroy(() => stopPoll?.());
 
-  // The current run's window starts at the checkpoint's start, falling back to the DB run row.
-  // Always with the date: errors.json spans every run ever made, and a time-only label made
-  // failures from days-old abandoned runs read as the current run's.
-  const runStartedAt = $derived(status?.checkpoint?.startedAt ?? status?.dbRun?.started_at ?? null);
-  const currentErrors = $derived(
-    runStartedAt
-      ? (status?.errors ?? []).filter((error) => new Date(error.ts) >= new Date(runStartedAt))
-      : (status?.errors ?? []),
-  );
-  const olderErrors = $derived(
-    runStartedAt
-      ? (status?.errors ?? []).filter((error) => new Date(error.ts) < new Date(runStartedAt))
-      : [],
-  );
-
   const STATUS_TONE = {
     running: "primary",
     completed: "success",
     failed: "error",
   } as const;
 
-  // --- Document + source summaries as tabs, a details sheet for everything else -----------------
+  // --- Document + source summaries as tabs ------------------------------------------------------
   //
-  // The old page stacked the document, then source summaries, then a sidebar with everything
-  // else - reaching source summaries meant scrolling past the whole (often huge) document first.
-  // Tabs make summaries one click away. Quick Links, run progress, the numeric breakdown and
-  // errors are all meta-information about the harvest rather than the harvest itself, so they
-  // live in one details sheet instead of a stack of cards with the same weight as the document.
+  // The old page stacked the document, then source summaries, so reaching the summaries meant
+  // scrolling past the whole (often huge) document first. Tabs make them one click away.
 
   type Tab = "document" | "summaries";
   let activeTab = $state<Tab>("document");
@@ -246,7 +227,7 @@
   }
 
   // --- Scrollspy: highlights whichever document heading or source summary is currently in view,
-  // so the details sheet's Quick Links double as a live "you are here". -------------------------
+  // so the Quick Links rail doubles as a live "you are here". -----------------------------------
 
   let activeSectionId = $state<string | null>(null);
 
@@ -313,11 +294,6 @@
     }
   }
 
-  // --- Details sheet: everything that is meta-information about the harvest rather than the
-  // harvest itself. One overlay instead of a stack of cards with the document's own weight. ------
-
-  let detailsOpen = $state(false);
-
   // --- Back to top: only once there is somewhere to go back from. --------------------------------
 
   let showBackToTop = $state(false);
@@ -370,18 +346,8 @@
           >
             {stopping ? "Stopping…" : "Stop"}
           </button>
-          <button
-            type="button"
-            class="tap nav-btn nav-btn-idle cursor-pointer relative"
-            onclick={() => (detailsOpen = true)}
-          >
-            Details
-            {#if currentErrors.length > 0}
-              <span class="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning-500 px-1 text-[10px] font-semibold text-surface-950">
-                {currentErrors.length}
-              </span>
-            {/if}
-          </button>
+          <a href="/rules" class="tap nav-btn nav-btn-idle no-underline">Standing rules ({data.standing.length})</a>
+          <a href="/context-builder/corrections" class="tap nav-btn nav-btn-idle no-underline">Corrections ({data.corrections.length})</a>
         </div>
       </div>
       {#if isOffline}
@@ -567,20 +533,6 @@
     {/if}
   </div>
 </Page>
-
-<DetailsSheet
-  open={detailsOpen}
-  onClose={() => (detailsOpen = false)}
-  {docHeadings}
-  sections={summarySections}
-  {activeSectionId}
-  onJump={jumpTo}
-  {status}
-  {currentErrors}
-  {olderErrors}
-  standingCount={data.standing.length}
-  correctionsCount={data.corrections.length}
-/>
 
 {#if showBackToTop}
   <button

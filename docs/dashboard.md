@@ -41,7 +41,7 @@ Questions and assistant:
 
 System:
 
-- `/skills` - the pending high-risk approval queue and the read-only registry with an enable/disable toggle. `/skills/executions` is the last 100 non-pending executions.
+- `/skills` - the pending high-risk approval queue and the read-only registry with an enable/disable toggle. The registry header shows the total skill count ("N skills", plus "(M shown)" while searching) with a search box and a sort dropdown: alphabetical (default), most used, or risk level (critical first). Each row shows its 30-day usage, the count of non-pending `skill_executions` rows from the last 30 days (`uses` on `SkillInfo`, loaded in `+page.server.ts`). `/skills/executions` is the last 100 non-pending executions.
 - `/prompts` - prompt versions: diff against whatever is running for that section, activate, delete.
 - `/runs` - `pipeline_runs` history with duration and cost trends and the per-attempt error log. Each row is a two-line block whose "N sources failed" / failed-step text toggles its error card, with a Breakdown link pinned right. A failed or degraded run not yet reviewed carries "Mark reviewed" (the `reviewRun` form action) and is what the Runs badge counts; RSS feed failures count as run issues here.
 - `/runs/[id]` - one run's step timing from `pipeline_run_steps`: a Gantt-style graph, a callout when the old question-gate wait dominates (present only on historic runs, and can be shrunk), and cost per phase and step from `$lib/pricing.ts`. Online-only; empty for runs before 2026-10-01.

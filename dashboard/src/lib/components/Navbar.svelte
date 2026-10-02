@@ -105,8 +105,11 @@
 
     {#if appUpdate.ready}
       <!-- Never automatic: taking over mid-read would reload the page under the reader. -->
-      <div role="status" class="flex shrink-0 items-center gap-2 text-xs text-surface-300 max-md:ml-auto md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
-        <span class="hidden md:inline">A new version of PIDRA is ready.</span>
+      <!-- From `md` up it hangs from the top edge of the screen as a tab: a translucent backdrop whose
+           shoulders flare out to the edge at a shallow angle (see `.update-tab` below). -->
+      <div role="status" class="update-tab flex shrink-0 items-center gap-2 text-xs text-surface-200 max-md:ml-auto md:fixed md:left-1/2 md:top-0 md:z-10 md:-translate-x-1/2 md:px-[4.5rem] md:py-2">
+        <span class="update-tab-bg hidden md:block" aria-hidden="true"></span>
+        <span class="relative hidden md:inline">A new version of PIDRA is ready.</span>
         <!-- Below `md` there is no room for a sentence: the button shrinks to a refresh icon with a
              dot, the same 40px square as Settings, and the title row truncates a little more. -->
         <button
@@ -227,3 +230,22 @@
 
   </div>
 </header>
+
+<style>
+  /* Outline, left to right: from the top edge 50px at about 20deg down, then about 75deg down to the
+     bottom of the box. The right side mirrors it. */
+  .update-tab-bg {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--color-surface-900) 80%, transparent);
+    backdrop-filter: blur(6px);
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      calc(100% - 50px) 18px,
+      calc(100% - 57px) 100%,
+      57px 100%,
+      50px 18px
+    );
+  }
+</style>

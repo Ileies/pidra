@@ -5,6 +5,7 @@
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtTime } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
@@ -130,48 +131,55 @@
              dead for a week. -->
         {@const degraded = !failed && run.stepErrors.length > 0}
         <li class="rounded-lg border border-surface-700 bg-surface-900">
-          <div class="flex flex-wrap items-center gap-3 px-4 py-3">
-            <a href="/{run.runDate}" class="text-sm font-medium text-surface-100 no-underline hover:text-primary-400 tabular-nums">
-              {fmtDate(run.runDate)}
-            </a>
-            <Badge tone={STATUS_TONE[run.status as keyof typeof STATUS_TONE] ?? "muted"}>
-              {displayLabel(run.status)}
-            </Badge>
-            {#if failed && run.failedStep}
-              <span class="text-xs text-error-400 font-mono">{run.failedStep}</span>
-            {:else if degraded}
-              <span class="text-xs text-warning-400">{run.stepErrors.length} source{run.stepErrors.length === 1 ? "" : "s"} failed</span>
-            {/if}
-            <span class="text-xs text-surface-400 tabular-nums">{fmtDuration(run.durationMs)}</span>
-            {#if run.startedAt}
-              <span class="text-xs text-surface-400 tabular-nums hidden sm:inline">started {fmtTime(run.startedAt, false)}</span>
-            {/if}
-            {#if run.itemsIncluded != null}
-              <span class="text-xs text-surface-400 tabular-nums hidden md:inline">{run.itemsIncluded} items</span>
-            {/if}
-            {#if PRICING_CONFIGURED && run.tokensIn != null}
-              <span class="text-xs text-surface-400 tabular-nums">{runCost(run)}</span>
-            {/if}
+          <div class="flex items-center gap-3 px-4 py-3">
+            <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <a href="/{run.runDate}" class="text-sm font-medium text-surface-100 no-underline hover:text-primary-400 tabular-nums">
+                  {fmtDate(run.runDate)}
+                </a>
+                <Badge tone={STATUS_TONE[run.status as keyof typeof STATUS_TONE] ?? "muted"}>
+                  {displayLabel(run.status)}
+                </Badge>
+                {#if run.stepErrors.length > 0 && (failed || degraded)}
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onclick={() => (expanded[run.id] = !open)}
+                    class="py-1 -my-1 text-xs underline underline-offset-2 cursor-pointer {degraded ? 'text-warning-400' : 'text-error-400 font-mono'}"
+                  >
+                    {#if degraded}
+                      {run.stepErrors.length} source{run.stepErrors.length === 1 ? "" : "s"} failed
+                    {:else}
+                      {run.failedStep ?? `${run.stepErrors.length} attempt${run.stepErrors.length === 1 ? "" : "s"}`}
+                    {/if}
+                  </button>
+                {:else if failed && run.failedStep}
+                  <span class="text-xs text-error-400 font-mono">{run.failedStep}</span>
+                {/if}
+              </div>
+
+              <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-surface-400 tabular-nums">
+                <span>{fmtDuration(run.durationMs)}</span>
+                {#if run.startedAt}
+                  <span><span class="hidden sm:inline">started </span>{fmtTime(run.startedAt, false)}</span>
+                {/if}
+                {#if run.itemsIncluded != null}
+                  <span>{run.itemsIncluded} items</span>
+                {/if}
+                {#if PRICING_CONFIGURED && run.tokensIn != null}
+                  <span>{runCost(run)}</span>
+                {/if}
+              </div>
+            </div>
 
             <a
               href="/runs/{run.id}"
-              class="tap {run.stepErrors.length > 0 && (failed || degraded) ? '' : 'ml-auto'} px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 no-underline hover:bg-surface-800"
+              aria-label="Breakdown for {fmtDate(run.runDate)}"
+              class="tap shrink-0 inline-flex items-center justify-center gap-1 whitespace-nowrap px-2 sm:pl-3 py-1 rounded text-xs border border-surface-500 text-surface-300 no-underline hover:bg-surface-800"
             >
-              Breakdown
+              <span class="hidden sm:inline">Breakdown</span>
+              <ChevronRight class="size-4" aria-hidden="true" />
             </a>
-
-            {#if run.stepErrors.length > 0 && (failed || degraded)}
-              <button
-                type="button"
-                aria-expanded={open}
-                onclick={() => (expanded[run.id] = !open)}
-                class="tap ml-auto px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer"
-              >
-                {open ? "Hide" : "Show"}
-                {run.stepErrors.length}
-                {#if degraded}failure{run.stepErrors.length === 1 ? "" : "s"}{:else}attempt{run.stepErrors.length === 1 ? "" : "s"}{/if}
-              </button>
-            {/if}
           </div>
 
           {#if open}

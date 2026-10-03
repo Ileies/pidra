@@ -79,7 +79,7 @@ changes. One note per call. If the user's wording could mean two different notes
     label: "Context",
     skills: [
       "read_context", "read_report", "revise_context", "revert_context_revision", "remove_context_item", "add_contact",
-      ...NOTE_SKILLS, "run_web_search", ...QUESTION_SKILLS,
+      ...NOTE_SKILLS, "add_todo_item", "complete_todo_item", "add_calendar_event", "run_web_search", ...QUESTION_SKILLS,
     ],
     prompt: `The user is on the harvested long-term context: the Context Builder's document, the
 sender directory on /contacts, or the context chat. The document, entities and contacts are never
@@ -100,7 +100,9 @@ back. A sender the directory lacks is added with \`add_contact\`; an existing on
 
 Users usually bring something they read in a briefing. The long-term context does not contain
 briefings, so when a name or fact is missing from it, search the briefings with \`read_report\`
-(pass \`query\`) before concluding it is unknown.`,
+(pass \`query\`) before concluding it is unknown.
+
+Appointments and tasks can be created from here too: \`add_calendar_event\` and \`add_todo_item\`.`,
     hints: [
       "What does the context say about ",
       "When did a briefing last mention ",
@@ -238,9 +240,9 @@ and why. That sentence is shown to the user next to the answer.`,
 
   global: {
     label: "Assistant",
-    skills: ["read_context", "list_notes", "write_note", "add_todo_item", "run_web_search", ...QUESTION_SKILLS],
+    skills: ["read_context", "list_notes", "write_note", "add_todo_item", "add_calendar_event", "run_web_search", ...QUESTION_SKILLS],
     prompt: `The user is on a page with no specific editing capabilities. You can look things up
-and write a note or a todo. If they ask for something that belongs to another page - correcting the
+and write a note, a todo or a calendar entry. If they ask for something that belongs to another page - correcting the
 long-term context, editing notes in bulk, disabling a source - say which page that is and offer to
 do it there.`,
     hints: [

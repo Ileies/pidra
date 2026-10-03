@@ -18,6 +18,12 @@ const skill: Skill = {
     section: { type: "string", required: true, description: `One of: ${PROMPT_SECTIONS.join(" | ")}` },
     prompt_text: { type: "string", required: true, description: "The complete new prompt text" },
     change_summary: { type: "string", required: false, description: "One or two sentences on what changed and why" },
+    expected_latest_version: {
+      type: "number",
+      required: false,
+      description: "Refuse unless the newest stored version of this section is this number (guards against overwriting a newer proposal). Default: no check; 0 means none exists yet",
+    },
+    dry_run: { type: "boolean", required: false, description: "Validate and report the version number it would get, without storing anything. Default: false" },
   },
   execute: async (params) => {
     const section = String(params.section ?? "").trim();
@@ -36,6 +42,19 @@ const skill: Skill = {
       .where(eq(promptVersions.section, section))
       .orderBy(desc(promptVersions.version))
       .limit(1);
+
+    const expected = params.expected_latest_version;
+    if (expected !== undefined && expected !== null && expected !== "") {
+      const wanted = Number(expected);
+      if (!Number.isInteger(wanted) || wanted < 0) throw new Error("expected_latest_version must be a whole number, 0 or more");
+      if (wanted !== (latest?.version ?? 0)) {
+        throw new Error(`${section} is at v${latest?.version ?? 0}, not v${wanted}. Read the newer version before proposing over it.`);
+      }
+    }
+
+    if (params.dry_run === true || String(params.dry_run).toLowerCase() === "true") {
+      return `Dry run: ${section} would become v${(latest?.version ?? 0) + 1} (${promptText.length} characters), stored as inactive. Nothing was stored.`;
+    }
 
     const [row] = await db
       .insert(promptVersions)

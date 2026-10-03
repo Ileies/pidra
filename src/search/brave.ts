@@ -94,7 +94,8 @@ export async function braveSearch(query: string, count = 5, options: BraveSearch
   const url = new URL(`${BASE_URL}/${kind}/search`);
   url.searchParams.set("q", query);
   url.searchParams.set("count", String(count));
-  url.searchParams.set("freshness", options.freshness ?? "pd");
+  // "any" drops the filter; every other caller keeps the past-day default.
+  if (options.freshness !== "any") url.searchParams.set("freshness", options.freshness ?? "pd");
   if (options.country) url.searchParams.set("country", options.country);
   if (options.extraSnippets) url.searchParams.set("extra_snippets", "true");
 

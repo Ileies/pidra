@@ -57,6 +57,47 @@ export async function listOpen(): Promise<Question[]> {
   return db.select().from(questions).where(eq(questions.status, "open")).orderBy(questions.createdAt);
 }
 
+export const QUESTION_STATUSES = ["open", "answered", "dismissed", "resolved", "merged"] as const;
+export const QUESTION_KINDS = ["item", "review", "chat"] as const;
+
+export interface ListQuestionsOptions {
+  /** One status, or `all`. Default `open`. */
+  status?: string;
+  kind?: string;
+  /** Substring match on the question or its answer. */
+  query?: string;
+  /** Default 100, max 200. */
+  limit?: number;
+}
+
+/** `listOpen` with filters, for a caller that also wants closed or answered questions. Oldest first. */
+export async function listQuestions(opts: ListQuestionsOptions = {}): Promise<Question[]> {
+  const status = (opts.status ?? "open").trim().toLowerCase();
+  if (status !== "all" && !(QUESTION_STATUSES as readonly string[]).includes(status)) {
+    throw new QuestionError("invalid", `status must be one of ${[...QUESTION_STATUSES, "all"].join(", ")}`);
+  }
+  const kind = opts.kind?.trim().toLowerCase();
+  if (kind && !(QUESTION_KINDS as readonly string[]).includes(kind)) {
+    throw new QuestionError("invalid", `kind must be one of ${QUESTION_KINDS.join(", ")}`);
+  }
+
+  const filters = [];
+  if (status !== "all") filters.push(eq(questions.status, status));
+  if (kind) filters.push(eq(questions.kind, kind));
+  const text = opts.query?.trim();
+  if (text) {
+    const like = `%${text.replace(/[\\%_]/g, "\\$&")}%`;
+    filters.push(sql`(${questions.question} ILIKE ${like} OR coalesce(${questions.answer}, '') ILIKE ${like})`);
+  }
+
+  return db
+    .select()
+    .from(questions)
+    .where(filters.length > 0 ? and(...filters) : undefined)
+    .orderBy(questions.createdAt)
+    .limit(Math.min(Math.max(opts.limit ?? 100, 1), 200));
+}
+
 function normaliseText(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }

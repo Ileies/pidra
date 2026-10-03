@@ -1,5 +1,5 @@
 import type { Skill } from "../src/skills/loader";
-import { writeFile, mkdir } from "node:fs/promises";
+import { appendFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 
@@ -23,6 +23,9 @@ const skill: Skill = {
     path: { type: "string", required: true, description: "Absolute file path to create" },
     content: { type: "string", required: true, description: "File content" },
     overwrite: { type: "boolean", required: false, description: "Whether to overwrite if file exists (default: false)" },
+    append: { type: "boolean", required: false, description: "Add content to the end of the file, creating it if missing; overwrite is not needed. Default: false" },
+    create_dirs: { type: "boolean", required: false, description: "Create missing parent directories. Default: true" },
+    final_newline: { type: "boolean", required: false, description: "Make sure the written content ends with a newline. Default: false" },
   },
   execute: async (params) => {
     const rawPath = String(params.path ?? "").trim();
@@ -34,15 +37,28 @@ const skill: Skill = {
       throw new Error(`Path not allowed. Must be under one of: ${ALLOWED_ROOTS.join(", ")}`);
     }
 
-    const content = String(params.content ?? "");
-    const overwrite = params.overwrite === true || params.overwrite === "true";
+    const flag = (value: unknown, fallback: boolean) =>
+      value === undefined || value === null || value === "" ? fallback : value === true || String(value).toLowerCase() === "true";
 
-    if (!overwrite) {
-      const { existsSync } = await import("node:fs");
-      if (existsSync(absPath)) throw new Error(`File already exists: ${absPath}. Set overwrite=true to replace.`);
+    let content = String(params.content ?? "");
+    if (flag(params.final_newline, false) && !content.endsWith("\n")) content += "\n";
+    const overwrite = flag(params.overwrite, false);
+    const append = flag(params.append, false);
+
+    const { existsSync } = await import("node:fs");
+    const existed = existsSync(absPath);
+    if (!overwrite && !append && existed) throw new Error(`File already exists: ${absPath}. Set overwrite=true to replace or append=true to add to it.`);
+
+    if (flag(params.create_dirs, true)) {
+      await mkdir(dirname(absPath), { recursive: true });
+    } else if (!existsSync(dirname(absPath))) {
+      throw new Error(`Directory does not exist: ${dirname(absPath)}. Set create_dirs=true to create it.`);
     }
 
-    await mkdir(dirname(absPath), { recursive: true });
+    if (append) {
+      await appendFile(absPath, content, "utf-8");
+      return `${existed ? "Appended to" : "File created"}: ${absPath} (${content.length} chars)`;
+    }
     await writeFile(absPath, content, "utf-8");
     return `File created: ${absPath} (${content.length} chars)`;
   },

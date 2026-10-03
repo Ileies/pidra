@@ -1,5 +1,5 @@
 import { db, entities, contacts, contextCorrections, dailyReports } from "../db";
-import { desc, eq, sql as drizzleSql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql as drizzleSql, type SQL } from "drizzle-orm";
 import { loadLongTermContext } from "../pipeline/long-term-context";
 
 /**
@@ -48,7 +48,7 @@ export function matchAllTokens(columns: SQL[], tokens: string[]): SQL {
  * needs its `target_key` to be a heading that exists, and a bare matching line does not tell the
  * caller which heading it came from.
  */
-function searchDocument(doc: string, tokens: string[]): ContextHit[] {
+function searchDocument(doc: string, tokens: string[], perKind: number, excerptChars: number): ContextHit[] {
   if (!doc) return [];
   const hits: ContextHit[] = [];
   let heading = "(document preamble)";
@@ -58,15 +58,27 @@ function searchDocument(doc: string, tokens: string[]): ContextHit[] {
     if (/^#{1,3} /.test(first)) heading = first.replace(/^#+\s*/, "").trim();
     const lowered = block.toLowerCase();
     if (!tokens.every((t) => lowered.includes(t))) continue;
-    hits.push({ kind: "document", key: heading, text: block.trim().slice(0, EXCERPT_CHARS) });
-    if (hits.length >= MAX_PER_KIND) break;
+    hits.push({ kind: "document", key: heading, text: block.trim().slice(0, excerptChars) });
+    if (hits.length >= perKind) break;
   }
   return hits;
 }
 
-export async function searchContext(query: string, kind?: string): Promise<ContextHit[]> {
+export interface SearchOptions {
+  /** Most hits per kind, 1 to 50. Default 8. */
+  limit?: number;
+  /** Characters of each document section returned, 100 to 5000. Default 700. */
+  excerptChars?: number;
+  /** Also return removed contacts. Default false (removed entities are always shown, marked REMOVED). */
+  includeRemoved?: boolean;
+}
+
+export async function searchContext(query: string, kind?: string, opts: SearchOptions = {}): Promise<ContextHit[]> {
   const raw = query.trim().toLowerCase();
   if (!raw) return [];
+
+  const perKind = Math.min(Math.max(Math.trunc(opts.limit ?? MAX_PER_KIND), 1), 50);
+  const excerptChars = Math.min(Math.max(Math.trunc(opts.excerptChars ?? EXCERPT_CHARS), 100), 5000);
 
   // "list everything of this kind" - the review case, e.g. reading every contact through before
   // correcting them. Without it the caller has to guess a word that happens to match.
@@ -81,7 +93,7 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
   if (want("document") && !listAll) {
     const ctx = await loadLongTermContext();
     // Both halves, joined: the split is a daily-prompt concern, not a lookup concern.
-    hits.push(...searchDocument([ctx.personalSections, ctx.intelSections].filter(Boolean).join("\n\n"), tokens));
+    hits.push(...searchDocument([ctx.personalSections, ctx.intelSections].filter(Boolean).join("\n\n"), tokens, perKind, excerptChars));
   }
 
   if (want("entity")) {
@@ -90,7 +102,7 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
       .from(entities)
       .where(matchAllTokens([drizzleSql`${entities.name}`, drizzleSql`${entities.summary}`], tokens))
       .orderBy(desc(entities.mentionCount))
-      .limit(MAX_PER_KIND);
+      .limit(perKind);
     hits.push(...rows.map((r) => ({
       kind: "entity" as const,
       key: r.name,
@@ -100,14 +112,14 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
 
   if (want("contact")) {
     const rows = await db
-      .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, priority: contacts.priority, locked: contacts.locked })
+      .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, priority: contacts.priority, locked: contacts.locked, removedAt: contacts.removedAt })
       .from(contacts)
-      .where(drizzleSql`${contacts.removedAt} IS NULL AND ${matchAllTokens([drizzleSql`${contacts.identifier}`, drizzleSql`${contacts.name}`, drizzleSql`${contacts.relationship}`], tokens)}`)
-      .limit(MAX_PER_KIND);
+      .where(drizzleSql`${opts.includeRemoved ? drizzleSql`true` : drizzleSql`${contacts.removedAt} IS NULL`} AND ${matchAllTokens([drizzleSql`${contacts.identifier}`, drizzleSql`${contacts.name}`, drizzleSql`${contacts.relationship}`], tokens)}`)
+      .limit(perKind);
     hits.push(...rows.map((r) => ({
       kind: "contact" as const,
       key: r.identifier,
-      text: `${r.name ?? "unnamed"} - relationship=${r.relationship ?? "-"} priority=${r.priority ?? "-"}${r.locked ? " locked" : ""}`,
+      text: `${r.name ?? "unnamed"} - relationship=${r.relationship ?? "-"} priority=${r.priority ?? "-"}${r.removedAt ? " REMOVED" : ""}${r.locked ? " locked" : ""}`,
     })));
   }
 
@@ -117,7 +129,7 @@ export async function searchContext(query: string, kind?: string): Promise<Conte
       .from(contextCorrections)
       .where(drizzleSql`${contextCorrections.status} = 'active' AND ${matchAllTokens([drizzleSql`${contextCorrections.statement}`, drizzleSql`${contextCorrections.targetKey}`], tokens)}`)
       .orderBy(desc(contextCorrections.createdAt))
-      .limit(MAX_PER_KIND);
+      .limit(perKind);
     hits.push(...rows.map((r) => ({
       kind: "correction" as const,
       key: `${r.id} (${r.targetKind}:${r.targetKey})`,
@@ -137,16 +149,23 @@ const REPORT_EXCERPT_CHARS = 500;
 const MAX_REPORT_HITS = 5;
 
 /** Past briefings containing every word of the query, newest first, each with a window around the first hit. */
-export async function searchReports(query: string): Promise<ReportHit[]> {
+export async function searchReports(
+  query: string,
+  options: { from?: string; to?: string; limit?: number } = {},
+): Promise<ReportHit[]> {
   const tokens = tokenize(query);
   if (tokens.length === 0) return [];
+
+  const conditions = [matchAllTokens([drizzleSql`${dailyReports.fullReport}`], tokens)];
+  if (options.from) conditions.push(gte(dailyReports.reportDate, options.from));
+  if (options.to) conditions.push(lte(dailyReports.reportDate, options.to));
 
   const rows = await db
     .select({ date: dailyReports.reportDate, text: dailyReports.fullReport })
     .from(dailyReports)
-    .where(matchAllTokens([drizzleSql`${dailyReports.fullReport}`], tokens))
+    .where(and(...conditions))
     .orderBy(desc(dailyReports.reportDate))
-    .limit(MAX_REPORT_HITS);
+    .limit(options.limit ?? MAX_REPORT_HITS);
 
   return rows.map((r) => {
     const text = r.text ?? "";

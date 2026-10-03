@@ -1,5 +1,6 @@
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, sql as drizzleSql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql as drizzleSql } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
+import { addDays, localDay } from "../util/time";
 
 /**
  * The only writer of `notes` and `note_revisions`.
@@ -48,7 +49,16 @@ export interface ListOptions {
   include?: "active" | "deleted" | "all";
   sort?: "newest" | "oldest" | "edited";
   limit?: number;
+  /** Who created the note: user | chat | system | harvest. */
+  createdBy?: string;
+  /** Created on or after this day (`YYYY-MM-DD`, Europe/Berlin). */
+  createdSince?: string;
+  /** Has an expiry on or before this day (`YYYY-MM-DD`). Notes without an expiry never match. */
+  expiresBefore?: string;
 }
+
+export const NOTE_SORTS = ["newest", "oldest", "edited"] as const;
+export const NOTE_AUTHORS = ["user", "chat", "system", "harvest"] as const;
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -75,6 +85,13 @@ function normaliseExpiry(value: string | null): string | null {
   return trimmed;
 }
 
+/** `days` from today (Europe/Berlin) as `YYYY-MM-DD`, for a caller that thinks in "a week" rather than dates. */
+export function expiryInDays(days: unknown): string {
+  const n = Number(days);
+  if (!Number.isInteger(n) || n < 1 || n > 3650) throw new NoteError("expires_in_days must be a whole number from 1 to 3650");
+  return addDays(localDay(new Date().toISOString()), n);
+}
+
 export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
   const filters = [];
 
@@ -85,6 +102,21 @@ export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
 
   const query = opts.query?.trim();
   if (query) filters.push(ilike(notes.content, `%${query}%`));
+
+  if (opts.createdBy) {
+    if (!NOTE_AUTHORS.includes(opts.createdBy as (typeof NOTE_AUTHORS)[number])) {
+      throw new NoteError(`created_by must be one of ${NOTE_AUTHORS.join(", ")}`);
+    }
+    filters.push(eq(notes.createdBy, opts.createdBy));
+  }
+  if (opts.createdSince) {
+    if (!DATE_ONLY.test(opts.createdSince)) throw new NoteError("created_since must be a date as YYYY-MM-DD");
+    filters.push(drizzleSql`(${notes.createdAt} AT TIME ZONE 'Europe/Berlin')::date >= ${opts.createdSince}::date`);
+  }
+  if (opts.expiresBefore) {
+    if (!DATE_ONLY.test(opts.expiresBefore)) throw new NoteError("expires_before must be a date as YYYY-MM-DD");
+    filters.push(lte(notes.expiresAt, opts.expiresBefore));
+  }
 
   const order = opts.sort === "oldest"
     ? asc(notes.createdAt)

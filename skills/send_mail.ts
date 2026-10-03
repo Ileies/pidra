@@ -1,6 +1,7 @@
 import type { Skill } from "../src/skills/loader";
 import { loadEmailAccounts, smtpHost } from "../src/config/email-accounts";
 import nodemailer from "nodemailer";
+import { MAIL_OPTION_PARAMS, describeOptions, mailFields, parseMailOptions } from "../src/skills/mail-options";
 
 const skill: Skill = {
   name: "send_mail",
@@ -10,7 +11,8 @@ const skill: Skill = {
     account: { type: "string", required: true, description: "Sender address - must match a user or alias among the configured email accounts" },
     to: { type: "string", required: true, description: "Recipient email address" },
     subject: { type: "string", required: true, description: "Email subject" },
-    body: { type: "string", required: true, description: "Email body (plain text)" },
+    body: { type: "string", required: true, description: "Email body (plain text, or HTML when html is true)" },
+    ...MAIL_OPTION_PARAMS,
   },
   execute: async (params) => {
     const accounts = await loadEmailAccounts();
@@ -33,6 +35,9 @@ const skill: Skill = {
     const body = String(params.body ?? "").trim();
     if (!to || !subject || !body) throw new Error("to, subject, and body are required");
 
+    const options = parseMailOptions(params);
+    if (options.dryRun) return `Dry run: would send from ${fromAddress} to ${to}${describeOptions(options)}: "${subject}". Nothing was sent.`;
+
     const transport = nodemailer.createTransport({
       host: smtpHost(account),
       port: account.smtp_port ?? 587,
@@ -44,10 +49,10 @@ const skill: Skill = {
       from: fromAddress,
       to,
       subject,
-      text: body,
+      ...mailFields(options, body),
     });
 
-    return `Email sent from ${fromAddress} to ${to} (messageId=${info.messageId})`;
+    return `Email sent from ${fromAddress} to ${to}${describeOptions(options)} (messageId=${info.messageId})`;
   },
 };
 

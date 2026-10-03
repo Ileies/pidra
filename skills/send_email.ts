@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
 import nodemailer from "nodemailer";
+import { MAIL_OPTION_PARAMS, describeOptions, mailFields, parseMailOptions } from "../src/skills/mail-options";
 
 // Only used for outbound mail - never for pipeline failure alerts.
 // Sender is always the system IMAP account; recipient must be explicitly allowed.
@@ -15,7 +16,8 @@ const skill: Skill = {
   parameters: {
     to: { type: "string", required: true, description: "Recipient email address" },
     subject: { type: "string", required: true, description: "Email subject" },
-    body: { type: "string", required: true, description: "Email body (plain text)" },
+    body: { type: "string", required: true, description: "Email body (plain text, or HTML when html is true)" },
+    ...MAIL_OPTION_PARAMS,
   },
   execute: async (params) => {
     const to = String(params.to ?? "").trim();
@@ -24,9 +26,15 @@ const skill: Skill = {
 
     if (!to || !subject || !body) throw new Error("to, subject, and body are required");
 
-    if (!ALLOWED_RECIPIENTS.includes(to)) {
-      throw new Error(`Recipient not allowed: ${to}. Allowed: ${ALLOWED_RECIPIENTS.join(", ")}`);
+    // Every address the mail reaches or redirects replies to has to be on the allowlist, not just `to`.
+    const options = parseMailOptions(params);
+    for (const address of [to, ...options.cc, ...options.bcc, ...(options.replyTo ? [options.replyTo] : [])]) {
+      if (!ALLOWED_RECIPIENTS.includes(address)) {
+        throw new Error(`Recipient not allowed: ${address}. Allowed: ${ALLOWED_RECIPIENTS.join(", ")}`);
+      }
     }
+
+    if (options.dryRun) return `Dry run: would send to ${to}${describeOptions(options)}: "${subject}". Nothing was sent.`;
 
     const transporter = nodemailer.createTransport({
       host: process.env.IMAP_HOST,
@@ -42,10 +50,10 @@ const skill: Skill = {
       from: process.env.IMAP_USER,
       to,
       subject,
-      text: body,
+      ...mailFields(options, body),
     });
 
-    return `Email sent to ${to}: "${subject}"`;
+    return `Email sent to ${to}${describeOptions(options)}: "${subject}"`;
   },
 };
 

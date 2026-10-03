@@ -1,6 +1,7 @@
 import type { PageContextSnapshot } from "../../db";
 import { SURFACES, resolveSurface, type Surface } from "../surfaces";
 import { renderPrompt, type PromptVars } from "../prompt-vars";
+import { HOME_TIME_ZONE } from "../../util/time";
 
 const BASE_PROMPT = `You are PIDRA's assistant, embedded in the user's own dashboard. You help them
 change the system's content: notes, the harvested long-term context, entities, todos and calendar
@@ -16,6 +17,9 @@ How to work:
   retry with fewer or shorter words, one distinctive word, or another spelling, and try the other
   places (context, then briefings) before telling the user something does not exist.
 - If the instruction is ambiguous about which item or which person, ask before writing.
+- Dates and times: the current date and time are given below. Resolve "today", "tomorrow" and
+  weekdays against them, and when a calendar entry names a time but no day, use today. Ask about a
+  date only when it genuinely cannot be inferred.
 - If something you need is not available on this page, say which page it belongs to instead of
   pretending or working around it.
 - When you find something only the user can settle - a contact or entity with no name or an unclear
@@ -73,8 +77,17 @@ export function normaliseContext(input: TurnContextInput = {}): TurnContext {
  * The page, rendered for the model. The `focus` list is what makes "delete the second note about
  * the newsletter" work: real ids for what is actually on screen.
  */
-function renderContext(ctx: TurnContext): string {
-  const lines = [`The user is on ${ctx.route} (${SURFACES[ctx.surface].label}).`];
+function renderContext(ctx: TurnContext, now: Date): string {
+  const clock = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: HOME_TIME_ZONE,
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(now);
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: HOME_TIME_ZONE, weekday: "long" }).format(now);
+  const lines = [
+    `Now: ${weekday} ${clock} (${HOME_TIME_ZONE}).`,
+    `The user is on ${ctx.route} (${SURFACES[ctx.surface].label}).`,
+  ];
   if (ctx.digest) lines.push(ctx.digest);
   if (ctx.focus?.length) {
     lines.push("", "Visible on the page right now:");
@@ -89,7 +102,7 @@ function renderContext(ctx: TurnContext): string {
  * Only the fixed parts are rendered: `renderContext` carries text the client sent, which is
  * appended afterwards so it is never scanned for `{{tags}}`.
  */
-export function systemPrompt(ctx: TurnContext, vars: PromptVars): string {
+export function systemPrompt(ctx: TurnContext, vars: PromptVars, now = new Date()): string {
   const fixed = renderPrompt([BASE_PROMPT, SURFACES[ctx.surface].prompt].join("\n\n"), vars);
-  return [fixed, renderContext(ctx)].join("\n\n");
+  return [fixed, renderContext(ctx, now)].join("\n\n");
 }

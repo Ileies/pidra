@@ -22,7 +22,6 @@ import revertContextRevision from "../../skills/revert_context_revision";
 import reviseContext from "../../skills/revise_context";
 import runWebSearch from "../../skills/run_web_search";
 import sendEmail from "../../skills/send_email";
-import sendMail from "../../skills/send_mail";
 import setSourceActive from "../../skills/set_source_active";
 import updateCalendarEvent from "../../skills/update_calendar_event";
 import updateNote from "../../skills/update_note";
@@ -94,7 +93,6 @@ const registry = new Map<string, Skill>([
   reviseContext,
   runWebSearch,
   sendEmail,
-  sendMail,
   setSourceActive,
   updateCalendarEvent,
   updateNote,

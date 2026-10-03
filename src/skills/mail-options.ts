@@ -1,6 +1,6 @@
 import type { SkillParam } from "./loader";
 
-/** The optional parameters `send_email` and `send_mail` share, so both describe them the same way. */
+/** Optional parameters for outbound mail. */
 export const MAIL_OPTION_PARAMS: Record<string, SkillParam> = {
   cc: { type: "string", required: false, description: "Copy recipients: email addresses separated by commas. Default: none" },
   bcc: { type: "string", required: false, description: "Blind copy recipients: email addresses separated by commas. Default: none" },

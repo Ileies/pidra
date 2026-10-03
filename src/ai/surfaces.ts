@@ -14,7 +14,7 @@
  * - **Unknown routes fail closed** to `global`, which touches nothing structural. A page added
  *   later is safe by default and gets capabilities on purpose.
  *
- * `send_email`, `send_mail`, `create_file` and `open_project_in_editor` are deliberately on no
+ * `send_email`, `create_file` and `open_project_in_editor` are deliberately on no
  * surface: the widget is a content editor, not a way to mail someone or pop open an editor on the
  * host by accident. They stay bridge-only and manual (`BRIDGE_ONLY_SKILLS`).
  *
@@ -69,7 +69,7 @@ export const EVERYWHERE_SKILLS = [
 ];
 
 /** Never offered to the assistant: they mail someone, write a file or open an editor on the host. */
-export const BRIDGE_ONLY_SKILLS = ["send_email", "send_mail", "create_file", "open_project_in_editor"];
+export const BRIDGE_ONLY_SKILLS = ["send_email", "create_file", "open_project_in_editor"];
 
 function surfaceSkills(...extra: string[]): string[] {
   return [...new Set([...EVERYWHERE_SKILLS, ...extra])];

@@ -1,20 +1,19 @@
 import type { Skill } from "../src/skills/loader";
+import { loadEmailAccounts, smtpHost } from "../src/config/email-accounts";
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { MAIL_OPTION_PARAMS, describeOptions, mailFields, parseMailOptions } from "../src/skills/mail-options";
+import { assertAllowedRecipients, findSenderAccount } from "../src/skills/mail-policy";
 
 // Only used for outbound mail - never for pipeline failure alerts.
-// Sender is always the system IMAP account; recipient must be explicitly allowed.
-const ALLOWED_RECIPIENTS = (process.env.ALLOWED_EMAIL_RECIPIENTS ?? "ileies200@gmail.com")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
 
 const skill: Skill = {
   name: "send_email",
-  description: "Send an email from the system account. Recipient must be in the ALLOWED_EMAIL_RECIPIENTS allowlist.",
-  risk_level: "medium",
+  description: "Send an email from the system account or a configured account. System-account recipients must be allowed.",
+  risk_level: "high",
   default_enabled: false,
   parameters: {
+    account: { type: "string", required: false, description: "Sender address or alias from configured accounts. Omit for the system account" },
     to: { type: "string", required: true, description: "Recipient email address" },
     subject: { type: "string", required: true, description: "Email subject" },
     body: { type: "string", required: true, description: "Email body (plain text, or HTML when html is true)" },
@@ -27,34 +26,53 @@ const skill: Skill = {
 
     if (!to || !subject || !body) throw new Error("to, subject, and body are required");
 
-    // Every address the mail reaches or redirects replies to has to be on the allowlist, not just `to`.
     const options = parseMailOptions(params);
-    for (const address of [to, ...options.cc, ...options.bcc, ...(options.replyTo ? [options.replyTo] : [])]) {
-      if (!ALLOWED_RECIPIENTS.includes(address)) {
-        throw new Error(`Recipient not allowed: ${address}. Allowed: ${ALLOWED_RECIPIENTS.join(", ")}`);
+    const key = String(params.account ?? "").trim().toLowerCase();
+    let fromAddress: string;
+    let transportOptions: SMTPTransport.Options;
+
+    if (key) {
+      const accounts = await loadEmailAccounts();
+      const account = findSenderAccount(accounts, key);
+      if (!account) {
+        const available = accounts.flatMap((a) => [a.user, ...(a.aliases ?? [])]).join(", ");
+        throw new Error(`No account matching "${params.account}". Available: ${available}`);
       }
+      fromAddress = key === account.user.toLowerCase() ? account.user : key;
+      transportOptions = {
+        host: smtpHost(account),
+        port: account.smtp_port ?? 587,
+        secure: account.smtp_secure ?? false,
+        auth: { user: account.user, pass: account.password },
+      };
+    } else {
+      const allowedRecipients = (process.env.ALLOWED_EMAIL_RECIPIENTS ?? "")
+        .split(",")
+        .map((address) => address.trim())
+        .filter(Boolean);
+      assertAllowedRecipients(
+        [to, ...options.cc, ...options.bcc, ...(options.replyTo ? [options.replyTo] : [])],
+        allowedRecipients,
+      );
+      fromAddress = process.env.IMAP_USER ?? "";
+      transportOptions = {
+        host: process.env.IMAP_HOST,
+        port: 587,
+        secure: false,
+        auth: { user: fromAddress, pass: process.env.IMAP_PASSWORD },
+      };
     }
 
-    if (options.dryRun) return `Dry run: would send to ${to}${describeOptions(options)}: "${subject}". Nothing was sent.`;
+    if (options.dryRun) return `Dry run: would send from ${fromAddress} to ${to}${describeOptions(options)}: "${subject}". Nothing was sent.`;
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.IMAP_HOST,
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.IMAP_USER,
-        pass: process.env.IMAP_PASSWORD,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.IMAP_USER,
+    const info = await nodemailer.createTransport(transportOptions).sendMail({
+      from: fromAddress,
       to,
       subject,
       ...mailFields(options, body),
     });
 
-    return `Email sent to ${to}${describeOptions(options)}: "${subject}"`;
+    return `Email sent from ${fromAddress} to ${to}${describeOptions(options)} (messageId=${info.messageId})`;
   },
 };
 

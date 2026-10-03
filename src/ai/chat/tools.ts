@@ -48,5 +48,9 @@ export const SKILL_TOUCHES: Record<string, string[]> = {
   propose_prompt_version: ["prompts"],
   add_todo_item: ["todos"],
   complete_todo_item: ["todos"],
+  update_todo_item: ["todos"],
+  delete_todo_item: ["todos"],
   add_calendar_event: ["calendar"],
+  update_calendar_event: ["calendar"],
+  delete_calendar_event: ["calendar"],
 };

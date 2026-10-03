@@ -9,9 +9,8 @@
  *
  * A tap goes through `executeSkill()` like every other skill call, so the audit log, the enabled
  * switch on /skills and the risk tiers all apply. No surface is passed: surfaces bound what the
- * chat may reach for, while a row's skill is always one of `SKILL_FOR`, fixed in code, and
- * `update_calendar_event` deliberately stays off the chat's list (it has no way to look up an
- * event id). It is attributed to the user: the model proposed it, but the reader pressed it.
+ * chat may reach for, while a row's skill is always one of `SKILL_FOR`, fixed in code. It is
+ * attributed to the user: the model proposed it, but the reader pressed it.
  */
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db, reportActions } from "../db";

@@ -6,8 +6,13 @@ import removeContextItem from "../../skills/remove_context_item";
 import addTodoItem from "../../skills/add_todo_item";
 import completeTodoItem from "../../skills/complete_todo_item";
 import createFile from "../../skills/create_file";
+import deleteCalendarEvent from "../../skills/delete_calendar_event";
 import deleteNote from "../../skills/delete_note";
+import deleteTodoItem from "../../skills/delete_todo_item";
+import getCalendarEvent from "../../skills/get_calendar_event";
+import listCalendarEvents from "../../skills/list_calendar_events";
 import listNotes from "../../skills/list_notes";
+import listTodoItems from "../../skills/list_todo_items";
 import openProjectInEditor from "../../skills/open_project_in_editor";
 import proposePromptVersion from "../../skills/propose_prompt_version";
 import readContext from "../../skills/read_context";
@@ -21,6 +26,7 @@ import sendMail from "../../skills/send_mail";
 import setSourceActive from "../../skills/set_source_active";
 import updateCalendarEvent from "../../skills/update_calendar_event";
 import updateNote from "../../skills/update_note";
+import updateTodoItem from "../../skills/update_todo_item";
 import writeNote from "../../skills/write_note";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -67,8 +73,13 @@ const registry = new Map<string, Skill>([
   addTodoItem,
   completeTodoItem,
   createFile,
+  deleteCalendarEvent,
   deleteNote,
+  deleteTodoItem,
+  getCalendarEvent,
+  listCalendarEvents,
   listNotes,
+  listTodoItems,
   openProjectInEditor,
   proposePromptVersion,
   readContext,
@@ -82,6 +93,7 @@ const registry = new Map<string, Skill>([
   setSourceActive,
   updateCalendarEvent,
   updateNote,
+  updateTodoItem,
   writeNote,
 ].map((skill): [string, Skill] => [skill.name, skill]));
 

@@ -55,7 +55,7 @@
 - `chat_conversations` / `chat_messages`: the assistant's transcripts, with the page context each turn was taken on and the provenance trail for every change it made.
 - `skill_executions`: audit log for every skill call (bridge, pipeline, chat, quick actions), including rejections.
 - `disabled_skills`: skills switched off from `/skills`.
-- `enabled_skills`: skills the owner switched on from `/skills` that are off by default (`default_enabled: false`, currently `send_email` and `send_mail`); a missing row means off.
+- `enabled_skills`: skills the owner switched on from `/skills` that are off by default (`default_enabled: false`, currently `send_email`); a missing row means off.
 - `prompt_versions`: versioned prompts, one active per section at a time.
 - `user_settings`: one row (`id = 1`) of owner preferences: `ui_language` and `content_language` as two-letter codes, `CHECK`-constrained so free text is impossible. Read through `src/settings/store.ts`, which resolves each code against `src/config/languages.ts` and falls back to the default for a missing row or a retired code.
 - `feedback_events`: explicit +/- ratings and implicit behavioral signals per extraction.

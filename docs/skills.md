@@ -11,26 +11,27 @@ Skills are TypeScript modules in `skills/`. Each is imported and registered expl
 | `high` | Inserted as `pending` in `skill_executions`; runs only after manual confirmation on `/skills`. |
 | `critical` | Always rejected. Blocked on the design work in `docs/todo/later.md`. |
 
-No `high` or `critical` skill exists yet.
+No `critical` skill exists yet.
 
 ## Registry
 
 | Risk | Skills |
 |---|---|
 | low | `write_note`, `update_note`, `delete_note`, `restore_note`, `list_notes`, `read_report`, `run_web_search`, `list_todo_items`, `add_todo_item`, `complete_todo_item`, `list_calendar_events`, `get_calendar_event`, `add_calendar_event`, `read_context`, `list_questions`, `create_question` |
-| medium | `revise_context`, `revert_context_revision`, `remove_context_item`, `add_contact`, `set_source_active`, `propose_prompt_version`, `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item`, `create_file`, `send_email`, `send_mail`, `open_project_in_editor` |
+| medium | `revise_context`, `revert_context_revision`, `remove_context_item`, `add_contact`, `set_source_active`, `propose_prompt_version`, `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item`, `create_file`, `open_project_in_editor` |
+| high | `send_email` |
 
-30 skills. Only four are kept off the assistant, as `BRIDGE_ONLY_SKILLS` in `src/ai/surfaces.ts`, reachable through the bridge alone: `create_file`, `send_email`, `send_mail`, `open_project_in_editor`. Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
+29 skills. Only three are kept off the assistant, as `BRIDGE_ONLY_SKILLS` in `src/ai/surfaces.ts`, reachable through the bridge alone: `create_file`, `send_email`, `open_project_in_editor`. Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
 
 ## Default state
 
-A skill is on until the owner switches it off on `/skills`. A skill that sends something outside the system sets `default_enabled: false` on the `Skill` interface and ships off: `send_email` and `send_mail` are the two. The owner turns them on from `/skills` if they accept the risk.
+A skill is on until the owner switches it off on `/skills`. The outbound `send_email` skill sets `default_enabled: false` and ships off. The owner turns it on from `/skills`; each call then waits for manual confirmation because its risk level is high.
 
-The state lives in two tables, resolved in `src/skills/overrides.ts`: a skill that is on by default is enabled unless it has a `disabled_skills` row; a skill that is off by default is enabled only if it has an `enabled_skills` row. `EffectiveSkill` reports `default_enabled` next to `enabled`. The dashboard's offline fallback catalog (`dashboard/src/routes/skills/catalog.ts`) marks the two mail skills `enabled: false` to match.
+The state lives in two tables, resolved in `src/skills/overrides.ts`: a skill that is on by default is enabled unless it has a `disabled_skills` row; a skill that is off by default is enabled only if it has an `enabled_skills` row. `EffectiveSkill` reports `default_enabled` next to `enabled`. The dashboard's offline fallback catalog (`dashboard/src/routes/skills/catalog.ts`) marks `send_email` `enabled: false` to match.
 
 ## Parameters
 
-A skill takes optional parameters with defaults that keep the old call working, so the model can steer a call (a time window, a result limit, attendees, reminders, a search freshness) without the plain call changing. The shared parsers for Google calls (`intParam`, `boolParam`, `emailList`, `sendUpdatesParam`, `assertExpectedTitle`, `reminderOverrides`) live in `src/ingest/google.ts`; the mail skills share `src/skills/mail-options.ts`.
+A skill takes optional parameters with defaults that keep the old call working, so the model can steer a call (a time window, a result limit, attendees, reminders, a search freshness) without the plain call changing. The shared parsers for Google calls (`intParam`, `boolParam`, `emailList`, `sendUpdatesParam`, `assertExpectedTitle`, `reminderOverrides`) live in `src/ingest/google.ts`; `send_email` uses `src/skills/mail-options.ts` for mail options. Its optional `account` selects a configured sender or alias; without it, the skill uses the system account and checks every destination against `ALLOWED_EMAIL_RECIPIENTS`, which is empty by default.
 
 - `list_calendar_events` defaults to today plus 14 days; `add_calendar_event` defaults to a 60-minute event when `end` is omitted; `update_calendar_event` given a new start alone keeps the event's length.
 - `send_updates` defaults to none, so adding or changing `attendees` does not mail guests unless asked.

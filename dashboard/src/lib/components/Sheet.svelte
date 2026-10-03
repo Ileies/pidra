@@ -12,9 +12,11 @@
     title: string;
     onclose: () => void;
     children: Snippet;
+    /** Pinned below the scrolling body, for the actions of a long form. */
+    footer?: Snippet;
   }
 
-  let { open, title, onclose, children }: Props = $props();
+  let { open, title, onclose, children, footer }: Props = $props();
 
   let dialog = $state<HTMLDialogElement>();
 
@@ -46,8 +48,13 @@
         class="tap inline-flex items-center justify-center rounded bg-transparent px-2 text-surface-400 hover:text-surface-100 cursor-pointer border-none"
       ><X class="h-4 w-4" aria-hidden="true" /></button>
     </div>
-    <div class="overflow-y-auto px-4 py-4 pb-[calc(1rem+var(--safe-b))] sm:px-5">
+    <div class="min-h-0 overflow-y-auto px-4 py-4 sm:px-5 {footer ? '' : 'pb-[calc(1rem+var(--safe-b))]'}">
       {@render children()}
     </div>
+    {#if footer}
+      <div class="border-t border-surface-700 px-4 pt-3 pb-[calc(0.75rem+var(--safe-b))] sm:px-5">
+        {@render footer()}
+      </div>
+    {/if}
   </div>
 </dialog>

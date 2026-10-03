@@ -94,8 +94,10 @@ The invariants of the system. Read this before any change that touches extractio
 - **The assistant's capabilities are per page, enforced at the choke point.**
   - `src/ai/surfaces.ts` maps each dashboard route to a surface with a declared skill list, a prompt fragment and the widget's sentence starters (empty-state hints the owner finishes, so each opens with a trailing space and fits any page content). `executeSkill` checks the surface before the risk level and logs a rejection to `skill_executions`; the chat loop additionally offers only that surface's tools.
   - An unknown route falls back to `global`, which touches nothing structural. A client-claimed surface can never widen what its route allows.
-  - `list_questions` and `create_question` are on every surface. `/questions` has its own `questions` surface with the broad edit skills, because that is where answers are acted on.
-  - `send_email`, `send_mail`, `create_file`, `open_project_in_editor` and `update_calendar_event` are on no surface.
+  - `EVERYWHERE_SKILLS` are on every surface (`surfaceSkills()` adds a page's own skills on top): `read_context`, `read_report`, `run_web_search`, `list_notes`, `write_note`, all calendar skills, all to-do skills and the question skills (`list_questions`, `create_question`). `/questions` has its own `questions` surface with the broad edit skills, because that is where answers are acted on.
+  - Only `send_email`, `send_mail`, `create_file` and `open_project_in_editor` are kept off every surface, as `BRIDGE_ONLY_SKILLS`.
+  - `scripts/check-route-surfaces.ts` (part of `bun run check`) fails the build when a registered skill is on no surface and not bridge-only, when `surfaces.ts` names an unregistered skill, or when a surface lacks an everywhere skill. A skill the chat cannot see makes it claim the system cannot do something it can.
+  - Skills that change or delete a calendar event or task take an `expected_title` guard, so a wrong id fails instead of hitting the wrong item (`docs/skills.md`).
 - **Prompt changes require human approval.**
   - The weekly meta-run proposes diffs; nothing auto-applies. `/prompts` handles review and activation.
   - `prompt_versions` is an override layer, not the source of truth: the constants in `src/ai/prompts/` are the baseline, an active row replaces the baseline for its section, and an empty table means the code baseline runs.

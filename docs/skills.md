@@ -17,10 +17,19 @@ No `high` or `critical` skill exists yet.
 
 | Risk | Skills |
 |---|---|
-| low | `write_note`, `update_note`, `delete_note`, `restore_note`, `list_notes`, `read_report`, `run_web_search`, `add_todo_item`, `complete_todo_item`, `add_calendar_event`, `read_context`, `list_questions`, `create_question` |
-| medium | `revise_context`, `revert_context_revision`, `remove_context_item`, `add_contact`, `set_source_active`, `propose_prompt_version`, `update_calendar_event`, `create_file`, `send_email`, `send_mail`, `open_project_in_editor` |
+| low | `write_note`, `update_note`, `delete_note`, `restore_note`, `list_notes`, `read_report`, `run_web_search`, `list_todo_items`, `add_todo_item`, `complete_todo_item`, `list_calendar_events`, `get_calendar_event`, `add_calendar_event`, `read_context`, `list_questions`, `create_question` |
+| medium | `revise_context`, `revert_context_revision`, `remove_context_item`, `add_contact`, `set_source_active`, `propose_prompt_version`, `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item`, `create_file`, `send_email`, `send_mail`, `open_project_in_editor` |
 
-Four skills are on no assistant surface and are reachable only through the bridge: `create_file`, `send_email`, `send_mail`, `open_project_in_editor`. `update_calendar_event` is also on no surface: it exists for the report's quick actions, which know the event id, and the assistant cannot look one up.
+30 skills. Only four are kept off the assistant, as `BRIDGE_ONLY_SKILLS` in `src/ai/surfaces.ts`, reachable through the bridge alone: `create_file`, `send_email`, `send_mail`, `open_project_in_editor`. Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
+
+## Parameters
+
+A skill takes optional parameters with defaults that keep the old call working, so the model can steer a call (a time window, a result limit, attendees, reminders, a search freshness) without the plain call changing. The shared parsers for Google calls (`intParam`, `boolParam`, `emailList`, `sendUpdatesParam`, `assertExpectedTitle`, `reminderOverrides`) live in `src/ingest/google.ts`; the mail skills share `src/skills/mail-options.ts`.
+
+- `list_calendar_events` defaults to today plus 14 days; `add_calendar_event` defaults to a 60-minute event when `end` is omitted; `update_calendar_event` given a new start alone keeps the event's length.
+- `send_updates` defaults to none, so adding or changing `attendees` does not mail guests unless asked.
+- `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item` and `complete_todo_item` take an `expected_title` guard: the call fails if the item at that id has a different title, so a wrong id cannot hit the wrong item.
+- Adding a skill also means a place in `EVERYWHERE_SKILLS`, a page's list in `SURFACES`, or `BRIDGE_ONLY_SKILLS`; `scripts/check-route-surfaces.ts` fails the build otherwise.
 
 ## Execution
 

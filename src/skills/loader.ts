@@ -55,6 +55,11 @@ export interface Skill {
   name: string;
   description: string;
   risk_level: RiskLevel;
+  /**
+   * Whether the skill runs before anyone has touched its switch on /skills. Default true. A skill
+   * that sends something outside the system sets false: the owner turns it on by choice.
+   */
+  default_enabled?: boolean;
   parameters: Record<string, SkillParam>;
   execute: (params: Record<string, unknown>, ctx: SkillContext) => Promise<string>;
 }

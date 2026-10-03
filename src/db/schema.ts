@@ -370,6 +370,15 @@ export const disabledSkills = pgTable("disabled_skills", {
 });
 
 /**
+ * The counterpart for skills that are off by default (`default_enabled: false` in code, e.g. the
+ * mail skills): a row means the owner turned it on from `/skills`. A missing row means off.
+ */
+export const enabledSkills = pgTable("enabled_skills", {
+  skillName: text("skill_name").primaryKey(),
+  enabledAt: timestamptz("enabled_at").default(sql`now()`),
+});
+
+/**
  * The owner's preferences: one row, `id = 1`. A missing row means the defaults, so the system
  * runs before anyone opens the settings page.
  *

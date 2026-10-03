@@ -13,6 +13,7 @@ const skill: Skill = {
   name: "send_email",
   description: "Send an email from the system account. Recipient must be in the ALLOWED_EMAIL_RECIPIENTS allowlist.",
   risk_level: "medium",
+  default_enabled: false,
   parameters: {
     to: { type: "string", required: true, description: "Recipient email address" },
     subject: { type: "string", required: true, description: "Email subject" },

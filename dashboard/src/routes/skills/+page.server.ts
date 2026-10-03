@@ -50,7 +50,7 @@ export const load: PageServerLoad = async () => {
     name: skill.name,
     description: skill.description,
     risk_level: skill.risk_level,
-    enabled: true,
+    enabled: skill.enabled ?? true,
     uses: 0,
   }));
   const baseSkills: Omit<SkillInfo, "uses">[] = skillsRes?.ok ? await skillsRes.json() : localSkills;

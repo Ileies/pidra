@@ -1,7 +1,7 @@
 import type { SkillInfo } from "./+page.server";
 
 /** Built-in catalog fallback for when the skills bridge is stopped. */
-export const LOCAL_SKILLS: Pick<SkillInfo, "name" | "description" | "risk_level">[] = [
+export const LOCAL_SKILLS: (Pick<SkillInfo, "name" | "description" | "risk_level"> & { enabled?: boolean })[] = [
   { name: "add_calendar_event", description: "Create an event in Google Calendar", risk_level: "low" },
   { name: "add_contact", description: "Add a sender to the contacts directory", risk_level: "medium" },
   { name: "create_question", description: "Queue a question for the owner on /questions", risk_level: "low" },
@@ -25,8 +25,8 @@ export const LOCAL_SKILLS: Pick<SkillInfo, "name" | "description" | "risk_level"
   { name: "revert_context_revision", description: "Undo a correction made to the harvested context", risk_level: "medium" },
   { name: "revise_context", description: "Correct one fact in the harvested long-term context", risk_level: "medium" },
   { name: "run_web_search", description: "Execute a web search query via Brave Search", risk_level: "low" },
-  { name: "send_email", description: "Send an email from the system account", risk_level: "medium" },
-  { name: "send_mail", description: "Send an email from one of the configured accounts", risk_level: "medium" },
+  { name: "send_email", description: "Send an email from the system account", risk_level: "medium", enabled: false },
+  { name: "send_mail", description: "Send an email from one of the configured accounts", risk_level: "medium", enabled: false },
   { name: "set_source_active", description: "Enable or disable an ingestion source", risk_level: "medium" },
   { name: "update_calendar_event", description: "Move, rename, relocate or re-describe an existing Google Calendar event", risk_level: "medium" },
   { name: "update_note", description: "Edit an existing note", risk_level: "low" },

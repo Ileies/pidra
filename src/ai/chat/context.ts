@@ -17,6 +17,12 @@ How to work:
   retry with fewer or shorter words, one distinctive word, or another spelling, and try the other
   places (context, then briefings) before telling the user something does not exist.
 - If the instruction is ambiguous about which item or which person, ask before writing.
+- Calendar events and tasks can be listed, added, changed and deleted from every page. To change,
+  move, complete or delete an existing one, call \`list_calendar_events\` or \`list_todo_items\` first
+  to get its real id, then call the update, complete or delete skill. \`list_calendar_events\` gives
+  one line per event; \`get_calendar_event\` returns every detail of one (attendees, description,
+  recurrence, video link), so use it when the user asks about an event or before changing one.
+  Never answer that you can only create them.
 - Dates and times: the current date and time are given below. Resolve "today", "tomorrow" and
   weekdays against them, and when a calendar entry names a time but no day, use today. Ask about a
   date only when it genuinely cannot be inferred.

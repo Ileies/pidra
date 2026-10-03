@@ -16,9 +16,13 @@
  *
  * `send_email`, `send_mail`, `create_file` and `open_project_in_editor` are deliberately on no
  * surface: the widget is a content editor, not a way to mail someone or pop open an editor on the
- * host by accident. They stay bridge-only and manual. `update_calendar_event` is on no surface
- * either: it exists for the report's quick actions (`src/actions/`), which know the event id, and
- * the assistant has no way to look one up.
+ * host by accident. They stay bridge-only and manual (`BRIDGE_ONLY_SKILLS`).
+ *
+ * Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` is on all of them: the
+ * calendar, the task list, notes writing, reading and searching are not tied to a page, so "I
+ * can't do that here" must never be the answer to them. `scripts/check-route-surfaces.ts` fails the
+ * build when a registered skill is on no surface and not listed as bridge-only, or when an
+ * everywhere skill is missing from a surface.
  */
 
 export const SURFACES_LIST = [
@@ -54,10 +58,27 @@ const NOTE_SKILLS = ["list_notes", "write_note", "update_note", "delete_note", "
  */
 const QUESTION_SKILLS = ["list_questions", "create_question"];
 
+/** Calendar and tasks live in Google, not on a dashboard page, so every page gets all of it. */
+const CALENDAR_SKILLS = ["list_calendar_events", "get_calendar_event", "add_calendar_event", "update_calendar_event", "delete_calendar_event"];
+const TODO_SKILLS = ["list_todo_items", "add_todo_item", "update_todo_item", "complete_todo_item", "delete_todo_item"];
+
+/** Skills every surface carries. Page-specific skills are added on top by `surfaceSkills`. */
+export const EVERYWHERE_SKILLS = [
+  "read_context", "read_report", "run_web_search", "list_notes", "write_note",
+  ...CALENDAR_SKILLS, ...TODO_SKILLS, ...QUESTION_SKILLS,
+];
+
+/** Never offered to the assistant: they mail someone, write a file or open an editor on the host. */
+export const BRIDGE_ONLY_SKILLS = ["send_email", "send_mail", "create_file", "open_project_in_editor"];
+
+function surfaceSkills(...extra: string[]): string[] {
+  return [...new Set([...EVERYWHERE_SKILLS, ...extra])];
+}
+
 export const SURFACES: Record<Surface, SurfaceDef> = {
   notes: {
     label: "Notes",
-    skills: [...NOTE_SKILLS, "read_context", ...QUESTION_SKILLS],
+    skills: surfaceSkills(...NOTE_SKILLS),
     prompt: `The user is on /notes, the notes store. Notes are standing instructions for the daily
 briefing: 'intel' and 'global' notes steer Section 1, 'personal' and 'global' steer Section 2,
 'search' notes are the reputation-monitoring targets of the web search module. Rules the Context
@@ -77,10 +98,9 @@ changes. One note per call. If the user's wording could mean two different notes
 
   context: {
     label: "Context",
-    skills: [
-      "read_context", "read_report", "revise_context", "revert_context_revision", "remove_context_item", "add_contact",
-      ...NOTE_SKILLS, "add_todo_item", "complete_todo_item", "add_calendar_event", "run_web_search", ...QUESTION_SKILLS,
-    ],
+    skills: surfaceSkills(
+      "revise_context", "revert_context_revision", "remove_context_item", "add_contact", ...NOTE_SKILLS,
+    ),
     prompt: `The user is on the harvested long-term context: the Context Builder's document, the
 sender directory on /contacts, or the context chat. The document, entities and contacts are never
 overwritten. \`revise_context\` records a correction that outranks the harvest in every future
@@ -102,7 +122,8 @@ Users usually bring something they read in a briefing. The long-term context doe
 briefings, so when a name or fact is missing from it, search the briefings with \`read_report\`
 (pass \`query\`) before concluding it is unknown.
 
-Appointments and tasks can be created from here too: \`add_calendar_event\` and \`add_todo_item\`.`,
+Appointments and tasks work from here too: \`list_calendar_events\`, \`get_calendar_event\`,
+\`add_calendar_event\`, \`update_calendar_event\`, \`delete_calendar_event\` and the matching todo skills.`,
     hints: [
       "What does the context say about ",
       "When did a briefing last mention ",
@@ -114,7 +135,7 @@ Appointments and tasks can be created from here too: \`add_calendar_event\` and 
 
   entities: {
     label: "Entities",
-    skills: ["read_context", "read_report", "revise_context", "revert_context_revision", "remove_context_item", "list_notes", ...QUESTION_SKILLS],
+    skills: surfaceSkills("revise_context", "revert_context_revision", "remove_context_item"),
     prompt: `The user is on /entities, the knowledge graph. Entity rows come from the pipeline and
 from the Context Builder harvest, so they are not edited directly: a \`revise_context\` call with
 target_kind 'entity' records the correction and merges only the named fields into the row, keeping
@@ -132,11 +153,7 @@ archived and kept, and \`revert_context_revision\` brings it back.`,
 
   report: {
     label: "Briefing",
-    skills: [
-      "read_report", "read_context", "list_notes", "write_note",
-      "add_todo_item", "complete_todo_item", "add_calendar_event", "revise_context", "run_web_search",
-      ...QUESTION_SKILLS,
-    ],
+    skills: surfaceSkills("revise_context"),
     prompt: `The user is reading a daily briefing. **Reports are final: you cannot edit one, and
 there is no skill that could.** A report is what the pipeline produced on that day, and rewriting
 it afterwards would fix nothing.
@@ -171,7 +188,7 @@ available so you can check whether a standing instruction already exists before 
 
   sources: {
     label: "Sources",
-    skills: ["set_source_active", "read_context", "list_notes", "write_note", ...QUESTION_SKILLS],
+    skills: surfaceSkills("set_source_active"),
     prompt: `The user is on /sources, the source trust dashboard, or on /sources/<name>, the
 directory of everything one source has delivered and what extraction made of it. You can enable or
 disable a source with \`set_source_active\`; a disabled source stops being ingested from the next run.
@@ -187,7 +204,7 @@ to the user when you make one.`,
 
   prompts: {
     label: "Prompts",
-    skills: ["propose_prompt_version", "read_context", ...QUESTION_SKILLS],
+    skills: surfaceSkills("propose_prompt_version"),
     prompt: `The user is on /prompts, the prompt version manager. Prompt changes require human
 approval: \`propose_prompt_version\` always inserts an **inactive** version, and only the user can
 activate it on this page. Never claim a prompt is live. When proposing, pass the full prompt text,
@@ -201,11 +218,9 @@ not a diff, and summarise what you changed in change_summary.`,
 
   questions: {
     label: "Questions",
-    skills: [
-      "read_context", "read_report", "revise_context", "revert_context_revision", "remove_context_item", "add_contact",
-      ...NOTE_SKILLS, "add_todo_item", "complete_todo_item", "add_calendar_event", "set_source_active", "run_web_search",
-      ...QUESTION_SKILLS,
-    ],
+    skills: surfaceSkills(
+      "revise_context", "revert_context_revision", "remove_context_item", "add_contact", ...NOTE_SKILLS, "set_source_active",
+    ),
     prompt: `The user is on /questions, the queue of things the system could not work out on its own.
 This surface is also where an answer is acted on: when a message starts with "ANSWERED QUESTION", the
 user has just answered a queued question and you are the one who turns the answer into changes.
@@ -240,9 +255,9 @@ and why. That sentence is shown to the user next to the answer.`,
 
   global: {
     label: "Assistant",
-    skills: ["read_context", "list_notes", "write_note", "add_todo_item", "add_calendar_event", "run_web_search", ...QUESTION_SKILLS],
-    prompt: `The user is on a page with no specific editing capabilities. You can look things up
-and write a note, a todo or a calendar entry. If they ask for something that belongs to another page - correcting the
+    skills: surfaceSkills(),
+    prompt: `The user is on a page with no specific editing capabilities. You can look things up, write
+a note, and read, add, change and delete todos and calendar entries. If they ask for something that belongs to another page - correcting the
 long-term context, editing notes in bulk, disabling a source - say which page that is and offer to
 do it there.`,
     hints: [

@@ -39,7 +39,7 @@ A failed source does not abort the run; synthesis uses what arrived. Check `erro
 
 `pickSections` (`src/pipeline/long-term-context.ts`) splits on those headings. The daily personal synthesis gets sections 1, 2 and 4 (`PIPELINE_CONTEXT_SECTIONS_PERSONAL`), the intelligence synthesis 3 and 5 (`..._INTEL`), and the fields news desk only 3 (`..._NEWS`).
 
-Both Context Builder synthesis prompts share one `DOCUMENT_STRUCTURE` constant. `run.ts` checks the result: a patch missing a section is rebuilt in full, and a document that still fails is not recorded, so the last good harvest stays the newest one. Update mode patches the newest run whose document parses, and the daily pipeline likewise scans the last five completed runs for a usable document.
+Both Context Builder synthesis prompts share one `DOCUMENT_STRUCTURE` constant. `phases/synthesize.ts` checks the result: a patch missing a section is rebuilt in full, and a document that still fails is not recorded, so the last good harvest stays the newest one. Update mode patches the newest run whose document parses, and the daily pipeline likewise scans the last five completed runs for a usable document.
 
 `context_builder_runs.document` makes the harvest independent of which machine ran it. `output_path` (the JSON file) is a legacy breadcrumb: `readDocument()` uses it only for rows written before `document` existed, resolving a foreign absolute path by filename in the local output directory. Legacy rows have since been migrated into `document`, so `output_path` is now only a breadcrumb.
 

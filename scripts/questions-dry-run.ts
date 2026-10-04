@@ -15,7 +15,8 @@
 
 import { utcDay } from "../src/util/time";
 import { reconcileQueue } from "../src/questions/reconcile";
-import { applyPlan, listOpen } from "../src/questions/store";
+import { applyPlan } from "../src/questions/apply-plan";
+import { listOpen } from "../src/questions/store";
 
 const apply = process.argv.includes("--apply");
 const today = utcDay();

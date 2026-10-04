@@ -22,7 +22,7 @@ export interface QuestionRevision {
 /**
  * The standing question queue. A question stays open until answered, dismissed, or closed by the
  * reconcile call (`src/questions/reconcile.ts`); nothing is deleted and every earlier wording is on
- * `history`. Only `src/questions/store.ts` writes it.
+ * `history`. Only `src/questions/store.ts` and `apply-plan.ts` write it.
  */
 export const questions = pgTable("questions", {
   id: pk(),
@@ -56,7 +56,7 @@ export const questions = pgTable("questions", {
 /**
  * Append-only outcome log for `questions`: one row per thing that happened to one, with its reason,
  * so reconcile's merge/resolve/drop calls can be judged later. Written in the same transaction as
- * the `questions` change it explains, by `src/questions/store.ts`.
+ * the `questions` change it explains, by `src/questions/store.ts` and `apply-plan.ts` (via `events.ts`).
  */
 export const questionEvents = pgTable("question_events", {
   id: pk(),

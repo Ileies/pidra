@@ -5,7 +5,8 @@ import { synthesize } from "../ai/openai";
 import { renderPromptText } from "../ai/active-prompts";
 import { createNote } from "../notes/store";
 import { mechanicalPlan, reconcileQueue, type CandidateInput } from "../questions/reconcile";
-import { applyPlan, listOpen, markAbsorbed, unabsorbedReviewAnswers } from "../questions/store";
+import { applyPlan } from "../questions/apply-plan";
+import { listOpen, markAbsorbed, unabsorbedReviewAnswers } from "../questions/store";
 
 // The cap covers reasoning tokens too, so it sits well above the default 4096 that high effort would exhaust.
 const REVIEW_OPTS = { reasoningEffort: "high", maxOutputTokens: 12000 } as const;

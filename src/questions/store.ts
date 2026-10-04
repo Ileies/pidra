@@ -1,5 +1,5 @@
 /**
- * The only writer of `questions`.
+ * The reader-facing writer of `questions` (`apply-plan.ts` is the pipeline's).
  *
  * Two parties write the queue and neither may undo the other. The pipeline adds, rephrases,
  * merges and closes open questions through `applyPlan`, which the reconcile call decides
@@ -9,19 +9,15 @@
  *
  * Nothing is deleted. A closed question keeps its status and the reason, and a rephrased one keeps
  * each earlier wording on `history`, so the page can say what changed and a wrong close can be
- * reopened.
- *
- * Every write here also appends to `question_events`, an append-only outcome log: `questions`
- * itself only ever holds the current status and its reason, so a question asked three times then
- * merged loses every earlier reason the moment the next thing happens to it. The log is what lets
- * the reconcile step's merge/resolve/drop calls be judged against real history instead of guessed.
+ * reopened. Every write also appends to `question_events` (`events.ts`), the append-only outcome
+ * log that lets the reconcile step's merge/resolve/drop calls be judged against real history.
  */
 import { HttpError } from "../util/errors";
 import { utcDay } from "../util/time";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { contacts, db, questionEvents, questions, type QuestionRevision, type QuestionSource } from "../db";
-import { activePrompt } from "../ai/active-prompts";
-import { extractJson } from "../ai/openai";
+import { db, questionEvents, questions, type QuestionSource } from "../db";
+import { logEvent } from "./events";
+import { teachContact } from "./teach-contact";
 
 export type Question = typeof questions.$inferSelect;
 export type QuestionKind = "item" | "review" | "chat";
@@ -43,16 +39,6 @@ export interface Candidate {
   kind: QuestionKind;
   question: string;
   source: QuestionSource | null;
-}
-
-/** What the reconcile call decided, already checked against the queue (`reconcile.ts`). */
-export interface QueuePlan {
-  rewrites: { id: string; question: string; reason: string }[];
-  resolves: { id: string; reason: string }[];
-  merges: { id: string; into: string; reason: string }[];
-  attaches: { candidate: Candidate; to: string }[];
-  created: { kind: QuestionKind; question: string; candidates: Candidate[] }[];
-  dropped: { candidate: Candidate; reason: string }[];
 }
 
 export async function listOpen(): Promise<Question[]> {
@@ -182,161 +168,6 @@ export async function askedExtractionIds(): Promise<Set<string>> {
   return new Set(rows.flatMap((r) => r.sources.flatMap((s) => (s.extraction_id ? [s.extraction_id] : []))));
 }
 
-interface AnswerClassification {
-  /** "" when the answer gives no standing relationship to record. */
-  relationship: string;
-  spam_or_irrelevant: boolean;
-}
-
-const ANSWER_CLASSIFICATION_SCHEMA = {
-  name: "answer_classification",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["relationship", "spam_or_irrelevant"],
-    properties: {
-      relationship: { type: "string" },
-      spam_or_irrelevant: { type: "boolean" },
-    },
-  },
-};
-
-function revision(question: string, reason: string | null): QuestionRevision {
-  return { question, at: new Date().toISOString(), by: "model", reason };
-}
-
-function sourcesOf(candidates: Candidate[]): QuestionSource[] {
-  return candidates.flatMap((c) => (c.source ? [c.source] : []));
-}
-
-/** Only the method the outcome log needs, so it takes either `db` or a transaction inside it. */
-type DbLike = Pick<typeof db, "transaction">;
-
-/**
- * Appends one row to the outcome log. Never throws: a logging failure must not lose the answer,
- * merge or resolve it is explaining, only be missing from the log of it. The insert runs in its
- * own (nested) transaction, a savepoint when `exec` is already a transaction: a failed statement
- * otherwise aborts the whole outer transaction, so swallowing the error would not save the
- * plan, only turn the next statement's error into a confusing one. Always awaited, though -
- * a fire-and-forget insert would run concurrently with the next statement on the same connection.
- */
-async function logEvent(
-  exec: DbLike,
-  questionId: string,
-  event: string,
-  reason: string | null = null,
-  detail?: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await exec.transaction((t) => t.insert(questionEvents).values({ questionId, event, reason, detail: detail ?? null }));
-  } catch (err) {
-    console.error(`[questions] Failed to log ${event} for ${questionId}:`, err);
-  }
-}
-
-/**
- * Applies a plan in one transaction. Returns the ids of the open questions that took one of this
- * run's candidates: those are what the run's Section 2 waits for.
- */
-export async function applyPlan(plan: QueuePlan, today: string): Promise<string[]> {
-  return db.transaction(async (tx) => {
-    const open = new Map(
-      (await tx.select().from(questions).where(eq(questions.status, "open"))).map((q) => [q.id, q]),
-    );
-    const now = new Date().toISOString();
-    const touched = new Set<string>();
-
-    for (const r of plan.rewrites) {
-      const row = open.get(r.id);
-      if (!row || row.question === r.question) continue;
-      row.history = [...row.history, revision(row.question, r.reason)];
-      row.question = r.question;
-      await tx
-        .update(questions)
-        .set({ question: row.question, history: row.history, updatedAt: now })
-        .where(and(eq(questions.id, r.id), eq(questions.status, "open")));
-      await logEvent(tx, r.id, "rewritten", r.reason);
-    }
-
-    for (const r of plan.resolves) {
-      if (!open.has(r.id)) continue;
-      await tx
-        .update(questions)
-        .set({ status: "resolved", statusDetail: r.reason, updatedAt: now })
-        .where(and(eq(questions.id, r.id), eq(questions.status, "open")));
-      await logEvent(tx, r.id, "resolved", r.reason);
-      open.delete(r.id);
-    }
-
-    for (const m of plan.merges) {
-      const row = open.get(m.id);
-      const target = open.get(m.into);
-      if (!row || !target) continue;
-      // The target inherits the mails and the count, so "asked 4 times" stays true after a merge.
-      target.sources = [...target.sources, ...row.sources];
-      target.timesAsked += row.timesAsked;
-      target.firstAsked = row.firstAsked < target.firstAsked ? row.firstAsked : target.firstAsked;
-      await tx
-        .update(questions)
-        .set({ sources: target.sources, timesAsked: target.timesAsked, firstAsked: target.firstAsked, updatedAt: now })
-        .where(and(eq(questions.id, target.id), eq(questions.status, "open")));
-      await tx
-        .update(questions)
-        .set({ status: "merged", mergedInto: target.id, statusDetail: m.reason, updatedAt: now })
-        .where(and(eq(questions.id, m.id), eq(questions.status, "open")));
-      await logEvent(tx, m.id, "merged", m.reason, { merged_into: target.id });
-      open.delete(m.id);
-    }
-
-    // Grouped, so a question two candidates attach to is asked "once more", not twice more.
-    const attachments = new Map<string, Candidate[]>();
-    for (const a of plan.attaches) attachments.set(a.to, [...(attachments.get(a.to) ?? []), a.candidate]);
-    for (const [id, candidates] of attachments) {
-      const row = open.get(id);
-      if (!row) continue;
-      await tx
-        .update(questions)
-        .set({
-          sources: [...row.sources, ...sourcesOf(candidates)],
-          timesAsked: row.lastAsked === today ? row.timesAsked : row.timesAsked + 1,
-          lastAsked: today,
-          updatedAt: now,
-        })
-        .where(and(eq(questions.id, id), eq(questions.status, "open")));
-      await logEvent(tx, id, "reasked", null, { candidates: candidates.length });
-      touched.add(id);
-    }
-
-    for (const c of plan.created) {
-      const [row] = await tx
-        .insert(questions)
-        .values({ kind: c.kind, question: c.question, sources: sourcesOf(c.candidates), firstAsked: today, lastAsked: today })
-        .returning({ id: questions.id });
-      await logEvent(tx, row!.id, "asked");
-      touched.add(row!.id);
-    }
-
-    // Kept, not skipped: "the assistant decided not to ask this" is itself worth being able to see.
-    for (const d of plan.dropped) {
-      const [row] = await tx
-        .insert(questions)
-        .values({
-          kind: d.candidate.kind,
-          question: d.candidate.question,
-          status: "resolved",
-          statusDetail: d.reason,
-          sources: sourcesOf([d.candidate]),
-          firstAsked: today,
-          lastAsked: today,
-        })
-        .returning({ id: questions.id });
-      await logEvent(tx, row!.id, "dropped", d.reason);
-    }
-
-    return [...touched];
-  });
-}
-
 async function getQuestion(id: string): Promise<Question> {
   const [row] = await db.select().from(questions).where(eq(questions.id, id)).limit(1);
   if (!row) throw new QuestionError("not_found", "Question not found");
@@ -344,12 +175,28 @@ async function getQuestion(id: string): Promise<Question> {
 }
 
 /**
- * Records an answer. An item question about one sender also teaches the sender directory - but
- * only the standing relationship the answer actually gives, never the answer text verbatim, so
- * "no idea, looks like spam" cannot become that sender's permanent description. A row a
- * correction has locked is left alone: the reader's correction outranks a quick answer. A
- * classification failure never loses the answer itself: it is already recorded by the time that
- * call runs.
+ * Moves a question out of one of the statuses in `from`, logging `event` if it did. Returns null
+ * when the row was not in one of them, so the caller can say why.
+ */
+async function transitionQuestion(
+  id: string,
+  from: string[],
+  patch: Partial<typeof questions.$inferInsert>,
+  event: string,
+  reason: string | null = null,
+): Promise<Question | null> {
+  const [updated] = await db
+    .update(questions)
+    .set({ ...patch, updatedAt: sql`now()` })
+    .where(and(eq(questions.id, id), inArray(questions.status, from)))
+    .returning();
+  if (updated) await logEvent(db, id, event, reason);
+  return updated ?? null;
+}
+
+/**
+ * Records an answer. An item question about one sender also teaches the sender directory
+ * (`teach-contact.ts`).
  */
 export async function answerQuestion(id: string, answer: string): Promise<Question> {
   const text = answer.trim();
@@ -357,13 +204,8 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
   const row = await getQuestion(id);
   if (row.status !== "open") throw new QuestionError("conflict", `This question is already ${row.status}`);
 
-  const [updated] = await db
-    .update(questions)
-    .set({ status: "answered", answer: text, answeredAt: new Date().toISOString(), updatedAt: sql`now()` })
-    .where(and(eq(questions.id, id), eq(questions.status, "open")))
-    .returning();
+  const updated = await transitionQuestion(id, ["open"], { status: "answered", answer: text, answeredAt: new Date().toISOString() }, "answered");
   if (!updated) throw new QuestionError("conflict", "This question was closed in the meantime");
-  await logEvent(db, id, "answered");
 
   const senders = [...new Set(updated.sources.map((s) => s.from.toLowerCase()))];
   if (updated.kind === "item" && senders.length === 1 && senders[0]!.includes("@")) {
@@ -372,44 +214,11 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
   return updated;
 }
 
-async function teachContact(identifier: string, answer: string, firstSeen: string): Promise<void> {
-  let classification: AnswerClassification;
-  try {
-    const prompt = await activePrompt("answer_classification");
-    classification = await extractJson<AnswerClassification>(prompt.text, answer, {
-      schema: ANSWER_CLASSIFICATION_SCHEMA,
-      reasoningEffort: "low",
-    });
-  } catch (err) {
-    console.error(`[questions] Answer classification failed for ${identifier}, leaving contacts untouched:`, err);
-    return;
-  }
-
-  const relationship = classification.relationship.trim();
-  if (classification.spam_or_irrelevant || !relationship) return;
-
-  await db
-    .insert(contacts)
-    .values({ identifier, relationship, firstSeen })
-    .onConflictDoUpdate({
-      target: contacts.identifier,
-      set: { relationship, updatedAt: sql`now()` },
-      setWhere: sql`${contacts.locked} IS NOT TRUE`,
-    });
-}
-
 export async function dismissQuestion(id: string): Promise<Question> {
-  const [updated] = await db
-    .update(questions)
-    .set({ status: "dismissed", statusDetail: "Dismissed by the reader.", updatedAt: sql`now()` })
-    .where(and(eq(questions.id, id), eq(questions.status, "open")))
-    .returning();
-  if (updated) {
-    await logEvent(db, id, "dismissed", "Dismissed by the reader.");
-    return updated;
-  }
-  const row = await getQuestion(id);
-  throw new QuestionError("conflict", `This question is already ${row.status}`);
+  const reason = "Dismissed by the reader.";
+  const updated = await transitionQuestion(id, ["open"], { status: "dismissed", statusDetail: reason }, "dismissed", reason);
+  if (updated) return updated;
+  throw new QuestionError("conflict", `This question is already ${(await getQuestion(id)).status}`);
 }
 
 /**
@@ -424,13 +233,8 @@ export async function reopenQuestion(id: string): Promise<Question> {
     const target = await getQuestion(row.mergedInto).catch(() => null);
     if (target?.status === "open") throw new QuestionError("conflict", "It was merged into a question that is still open");
   }
-  const [updated] = await db
-    .update(questions)
-    .set({ status: "open", statusDetail: null, mergedInto: null, updatedAt: sql`now()` })
-    .where(and(eq(questions.id, id), inArray(questions.status, REOPENABLE)))
-    .returning();
+  const updated = await transitionQuestion(id, REOPENABLE, { status: "open", statusDetail: null, mergedInto: null }, "reopened");
   if (!updated) throw new QuestionError("conflict", "This question changed in the meantime");
-  await logEvent(db, id, "reopened");
   return updated;
 }
 

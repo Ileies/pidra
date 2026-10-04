@@ -27,7 +27,8 @@ import { activePrompt } from "../ai/active-prompts";
 import { extractJson, usageTally } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
 import { loadLongTermContext, type LongTermContext } from "../pipeline/long-term-context";
-import { listOpen, listRecentlyAnswered, type Candidate, type Question, type QueuePlan } from "./store";
+import type { QueuePlan } from "./apply-plan";
+import { listOpen, listRecentlyAnswered, type Candidate, type Question } from "./store";
 
 const MAX_QUESTION_CHARS = 400;
 const MAX_REASON_CHARS = 300;

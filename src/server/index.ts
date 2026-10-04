@@ -1,10 +1,10 @@
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
-import { inArray, eq, desc, gte, and } from "drizzle-orm";
+import { inArray, eq, desc } from "drizzle-orm";
 import { runPipeline } from "../pipeline/run";
 import { smsSecretAuthorized } from "./sms-auth";
-import { db, extractions, rawItems, sourceQuality, sourceDailyScores, skillExecutions, rawItemExists, promptVersions } from "../db";
+import { db, extractions, rawItems, rawItemExists, promptVersions } from "../db";
 import { answerQuestion, dismissQuestion, getAnsweredQuestion, reopenQuestion, QuestionError } from "../questions/store";
 import { processAnswer } from "../questions/process-answer";
 import { PROMPT_SECTIONS, renderPromptText, resolveActivePrompts } from "../ai/active-prompts";
@@ -13,11 +13,11 @@ import { braveSearch } from "../search/brave";
 import { DEEPEN_PROMPT } from "../ai/prompts";
 import { executeSkill, resolvePendingSkill } from "../skills/execute";
 import { listEffectiveSkills, setSkillEnabled, SkillToggleError } from "../skills/overrides";
-import { sendMessage, streamMessage, listConversations, getConversation, type TurnContextInput } from "../ai/chat";
+import { sendMessage, streamMessage, type TurnContextInput } from "../ai/chat";
 import { SURFACES, SURFACES_LIST } from "../ai/surfaces";
 import { audioManifest, chapterAudio, AudioError } from "../audio/store";
 import { ActionError, dismissAction, restoreAction, runAction } from "../actions/store";
-import { listActiveCorrections, recordCorrection, revertCorrection, CorrectionError, type Operation, type TargetKind } from "../context/corrections";
+import { recordCorrection, revertCorrection, CorrectionError, type Operation, type TargetKind } from "../context/corrections";
 import {
   listNotes, createNote, updateNote, softDeleteNote, restoreNote, noteHistory, revertToRevision,
   wasUpdatedSince, NoteError, type Actor, type NoteWrite,
@@ -71,12 +71,6 @@ app.post("/skills/execute", async (c) => {
     default:
       return c.json({ status: "executed", result: outcome.message });
   }
-});
-
-app.get("/api/skills/executions", async (c) => {
-  const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
-  const rows = await db.select().from(skillExecutions).orderBy(desc(skillExecutions.createdAt)).limit(limit);
-  return c.json(rows);
 });
 
 // The other half of the high-risk queue. `executeSkill` parks a high-risk call as `pending` and
@@ -217,38 +211,6 @@ app.post("/api/deepen", async (c) => {
 
   const { text } = await synthesize(await renderPromptText(DEEPEN_PROMPT), userContent);
   return c.json({ text });
-});
-
-app.get("/api/sources", async (c) => {
-  const quality = await db.select().from(sourceQuality).orderBy(desc(sourceQuality.compositeScore30d));
-
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
-  const dailyRows = await db
-    .select()
-    .from(sourceDailyScores)
-    .where(gte(sourceDailyScores.runDate, thirtyDaysAgo))
-    .orderBy(desc(sourceDailyScores.runDate));
-
-  const dailyBySource = new Map<string, typeof dailyRows>();
-  for (const row of dailyRows) {
-    const arr = dailyBySource.get(row.sourceName) ?? [];
-    arr.push(row);
-    dailyBySource.set(row.sourceName, arr);
-  }
-
-  const sources = quality.map((q) => ({
-    sourceName: q.sourceName,
-    isActive: q.isActive,
-    disabledAt: q.disabledAt,
-    disabledReason: q.disabledReason,
-    trustScore: q.trustScore,
-    qualityTrend: q.qualityTrend,
-    compositeScore30d: q.compositeScore30d,
-    unsubscribeUrl: q.unsubscribeUrl,
-    dailyScores: (dailyBySource.get(q.sourceName) ?? []).slice(0, 30),
-  }));
-
-  return c.json(sources);
 });
 
 // POST /api/questions/:id/:op - one question at a time from /questions: answer, dismiss, reopen.
@@ -483,16 +445,6 @@ app.post("/api/actions/:id/:op", async (c) => {
 
 // --- Context revision chat ---
 
-app.get("/api/chat/conversations", async (c) => c.json(await listConversations()));
-
-app.get("/api/chat/conversations/:id", async (c) => {
-  const id = c.req.param("id");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
-  const found = await getConversation(id);
-  if (!found) return c.json({ error: "Not found" }, 404);
-  return c.json(found);
-});
-
 interface ChatRequest {
   message?: string;
   conversation_id?: string;
@@ -565,8 +517,6 @@ app.post("/api/assistant/chat", async (c) => {
 });
 
 // --- Context corrections ---
-
-app.get("/api/context/corrections", async (c) => c.json(await listActiveCorrections()));
 
 /**
  * Record a correction directly, for the dashboard's own editing surfaces (D7).

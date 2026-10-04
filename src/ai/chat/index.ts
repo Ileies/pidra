@@ -12,5 +12,5 @@
 export { normaliseContext, systemPrompt, type TurnContextInput, type TurnContext } from "./context";
 export { skillTools, SKILL_TOUCHES } from "./tools";
 export { buildHistory, MAX_HISTORY_MESSAGES, MAX_TOOL_LOG_CHARS } from "./history";
-export { listConversations, getConversation, persistAssistantTurn, correctionsSummary } from "./persist";
+export { persistAssistantTurn } from "./persist";
 export { streamMessage, sendMessage, type ChatTurn, type TurnEvent } from "./stream";

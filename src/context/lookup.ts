@@ -185,12 +185,3 @@ export async function documentOutline(): Promise<string[]> {
     .filter((l) => /^#{1,3} /.test(l))
     .map((l) => l.replace(/^#+\s*/, "").trim());
 }
-
-export async function recentCorrections(limit = 20) {
-  return db
-    .select()
-    .from(contextCorrections)
-    .where(eq(contextCorrections.status, "active"))
-    .orderBy(desc(contextCorrections.createdAt))
-    .limit(limit);
-}

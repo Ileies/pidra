@@ -85,7 +85,7 @@ export const handle: Handle = async ({ event, resolve }) => {
  * session, run a skill) - none of which has a confirmation step beyond the click itself.
  *
  * `RESOURCE_CSP` stays Report-Only for now: every asset in this app is self-hosted (fonts, icons,
- * `_app/immutable`, `sw-migration.js`), so it should already be clean, but it is the one set of
+ * `_app/immutable`), so it should already be clean, but it is the one set of
  * directives that can silently break a feature rather than fail loudly - flip `CSP_REPORT_ONLY` to
  * `false` once a day of real browser use shows no console violations.
  *
@@ -96,14 +96,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 const CSP_REPORT_ONLY = true;
 
 /**
- * `app.html`'s one inline script (the service-worker migration, kept inline rather than a
- * `<script src>` so it costs no separate network round trip - see the comment beside it). A
+ * `app.html`'s service-worker registration, kept inline rather than a
+ * `<script src>` so it costs no separate network round trip - see the comment beside it. A
  * strict `script-src` has to allowlist it by content hash; if that script's text ever changes,
  * this hash needs regenerating (`sha256sum` the exact text between the tags, base64-encode the
  * digest) or `CSP_REPORT_ONLY` will start logging a violation for it - which is the point: it
  * surfaces a stale hash before anyone flips this to enforcing.
  */
-const INLINE_SW_MIGRATION_HASH = "'sha256-Voat3aUhvKNrqeBzYGoQdZqdKoW30wLAQWlsesfoaMc='";
+const INLINE_SW_REGISTER_HASH = "'sha256-irp4nRjMQ4b/OArOsq5FzDBOYQAKoTeWljraTc8xqrA='";
 
 /** `app.html`'s other inline script: stashes `beforeinstallprompt` before hydration. Same rule as above. */
 const INLINE_INSTALL_PROMPT_HASH = "'sha256-hquMtZi0IFK1YGzqBD29Px5iqPtAd2h7x8lFP6X67PU='";
@@ -113,7 +113,7 @@ const INLINE_THEME_HASH = "'sha256-C72l7v7bAGyNBfas58GpcwxS2axkSdhtuoECMO9yYlo='
 
 const RESOURCE_CSP = [
   "default-src 'self'",
-  `script-src 'self' ${INLINE_SW_MIGRATION_HASH} ${INLINE_INSTALL_PROMPT_HASH} ${INLINE_THEME_HASH}`,
+  `script-src 'self' ${INLINE_SW_REGISTER_HASH} ${INLINE_INSTALL_PROMPT_HASH} ${INLINE_THEME_HASH}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data:",

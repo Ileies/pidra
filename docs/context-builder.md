@@ -41,7 +41,7 @@ A failed source does not abort the run; synthesis uses what arrived. Check `erro
 
 Both Context Builder synthesis prompts share one `DOCUMENT_STRUCTURE` constant. `run.ts` checks the result: a patch missing a section is rebuilt in full, and a document that still fails is not recorded, so the last good harvest stays the newest one. Update mode patches the newest run whose document parses, and the daily pipeline likewise scans the last five completed runs for a usable document.
 
-`context_builder_runs.document` makes the harvest independent of which machine ran it. `output_path` (the JSON file) is a legacy breadcrumb: `readDocument()` uses it only for rows written before `document` existed, resolving a foreign absolute path by filename in the local output directory. `scripts/backfill-context-documents.ts` migrates such rows into `document`, from a machine that can still open their file.
+`context_builder_runs.document` makes the harvest independent of which machine ran it. `output_path` (the JSON file) is a legacy breadcrumb: `readDocument()` uses it only for rows written before `document` existed, resolving a foreign absolute path by filename in the local output directory. Legacy rows have since been migrated into `document`, so `output_path` is now only a breadcrumb.
 
 The harvested document, entities and contacts are read-only inputs to the daily pipeline; corrections go through `src/context/corrections.ts`. Standing rules are the exception: they are ordinary notes, a separate mutable layer (`docs/architecture-rules.md`). Seeding rules:
 

@@ -1,5 +1,5 @@
 /**
- * The quick-actions agent (`src/actions/propose.ts`): a separate call after Phase 3 that proposes
+ * The quick-actions agent (`src/actions/propose/`): a separate call after Phase 3 that proposes
  * the one-tap buttons shown beside a personal item. Kept out of the Section 2 prompt on purpose:
  * judging "is this worth a button" is a different question from "how do I write this up", and a
  * writer asked to also fill a SYSTEM field drifts away from the narrower question. Like the rest

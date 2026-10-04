@@ -2,28 +2,25 @@
   import { errMessage } from "$pipeline/util/text";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { SvelteSet } from "svelte/reactivity";
   import NoteCard from "#lib/notes/NoteCard.svelte";
   import NoteEditor from "#lib/notes/NoteEditor.svelte";
   import NoteHistory from "#lib/notes/NoteHistory.svelte";
   import NotesToolbar from "#lib/notes/NotesToolbar.svelte";
+  import BulkBar from "#lib/notes/BulkBar.svelte";
+  import { useNoteDrafts } from "#lib/notes/useNoteDrafts.svelte.js";
+  import { useNoteSelection } from "#lib/notes/useNoteSelection.svelte.js";
   import Masonry from "#lib/components/Masonry.svelte";
   import Page from "#lib/components/Page.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import { toasts } from "#lib/toast.svelte.js";
-  import {
-    createNote, deleteNote, restoreNote, updateNote,
-    NOTE_SCOPES,
-    type Draft, type NotePatch, type NoteRow,
-  } from "#lib/notes/api.js";
+  import { deleteNote, restoreNote, type NoteRow } from "#lib/notes/api.js";
   import { filterNotes, NOTES_SHOWN, type NotesFilter } from "#lib/offline/repo.js";
   import { sync } from "#lib/offline/sync.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { intentIsFor } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
-  import { label } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -94,17 +91,18 @@
   const orphanedFailures = $derived(
     offline.failed.filter((i) => i.kind.startsWith("note.") && !data.notes.some((note) => intentIsFor(i, "note", note.id))),
   );
-  const counts = $derived({
-    active: data.notes.filter((note) => !note.deleted_at).length,
-    deleted: data.notes.filter((note) => !!note.deleted_at).length,
-  });
-  const scopeCounts = $derived.by(() => {
-    const out: Record<string, number> = {};
+  // One pass: the trash and active totals, and per-scope counts for the view being looked at.
+  const counts = $derived.by(() => {
+    const scopes: Record<string, number> = {};
+    let active = 0;
+    let deleted = 0;
     for (const note of data.notes) {
+      if (note.deleted_at) deleted++;
+      else active++;
       if (filter.view === "deleted" ? !note.deleted_at : !!note.deleted_at) continue;
-      out[note.scope] = (out[note.scope] ?? 0) + 1;
+      scopes[note.scope] = (scopes[note.scope] ?? 0) + 1;
     }
-    return out;
+    return { active, deleted, scopes };
   });
 
   // What the assistant sees of this page. The focus list gives it real ids for the rows on
@@ -123,175 +121,21 @@
     });
   });
 
-  // --- editing and adding ---
-  //
-  // Drafts live here, not in the cards: a card is rebuilt when a note arrives (the stack is dealt
-  // round-robin, so one more note shifts every column), and an open edit must survive that.
-
-  function blankDraft(scope = "global"): Draft {
-    return { content: "", scope, expires: "", saving: false, error: null };
-  }
-
-  let drafts = $state<Record<string, Draft>>({});
-  let composer = $state<Draft>(blankDraft());
-  let composing = $state(false);
-
-  function startEdit(note: NoteRow) {
-    if (note.deleted_at || note.id in drafts) return;
-    drafts[note.id] = { content: note.content, scope: note.scope, expires: note.expires_at ?? "", saving: false, error: null };
-  }
-
-  function cancelEdit(note: NoteRow) {
-    delete drafts[note.id];
-  }
-
-  async function saveEdit(note: NoteRow) {
-    const draft = drafts[note.id];
-    if (!draft || draft.saving) return;
-
-    const content = draft.content.trim();
-    if (!content) {
-      draft.error = "A note cannot be empty.";
-      return;
-    }
-
-    const patch: NotePatch = {};
-    if (content !== note.content) patch.content = content;
-    if (draft.scope !== note.scope) patch.scope = draft.scope;
-    if ((draft.expires || null) !== (note.expires_at ?? null)) patch.expires_at = draft.expires || null;
-    if (Object.keys(patch).length === 0) {
-      delete drafts[note.id];
-      return;
-    }
-
-    draft.saving = true;
-    draft.error = null;
-    try {
-      await updateNote(note.id, patch);
-      delete drafts[note.id];
-    } catch (err) {
-      // The editor stays open with the text intact: a failed save must not lose the edit.
-      draft.error = errMessage(err);
-      draft.saving = false;
-    }
-  }
+  const editing = useNoteDrafts();
+  const selection = useNoteSelection(() => shown.map((note) => note.id));
 
   function startNew() {
     if (filter.view === "deleted") applyFilters({ view: "active" });
-    if (composing) return;
-    composer = blankDraft(filter.scope || "global");
-    composing = true;
+    editing.startNew(filter.scope || "global");
   }
-
-  async function saveNew() {
-    const content = composer.content.trim();
-    if (!content || composer.saving) return;
-
-    composer.saving = true;
-    composer.error = null;
-    try {
-      await createNote({ content, scope: composer.scope, expires_at: composer.expires || null });
-      composing = false;
-      toasts.success("Note added.");
-    } catch (err) {
-      composer.error = errMessage(err);
-      composer.saving = false;
-    }
-  }
-
-  // --- history ---
 
   let historyId = $state<string | null>(null);
   const historyNote = $derived(historyId ? (data.notes.find((note) => note.id === historyId) ?? null) : null);
 
-  // --- selection and bulk actions ---
-  //
-  // Selection is a mode, not a checkbox on every card. `selecting` is the explicit mode (the
-  // toolbar's Select); a hover checkbox on desktop starts one implicitly, and while anything is
-  // selected a tap on a card toggles it rather than opening the editor.
-
-  let selecting = $state(false);
-  const selected = new SvelteSet<string>();
-  let busy = $state(false);
-
-  const visibleIds = $derived(shown.map((note) => note.id));
-  const selectedCount = $derived(selected.size);
-  const selectionActive = $derived(selecting || selectedCount > 0);
-  const allSelected = $derived(visibleIds.length > 0 && visibleIds.every((id) => selected.has(id)));
-
-  // A filter change can hide selected rows; acting on invisible selection is a nasty surprise.
-  $effect(() => {
-    const visible = new Set(visibleIds);
-    for (const id of [...selected]) if (!visible.has(id)) selected.delete(id);
-  });
-
-  function toggleSelect(id: string, on: boolean) {
-    if (on) selected.add(id);
-    else selected.delete(id);
-  }
-
-  function toggleSelectAll() {
-    const selectAll = !allSelected;
-    selected.clear();
-    if (selectAll) for (const id of visibleIds) selected.add(id);
-  }
-
-  function endSelection() {
-    selecting = false;
-    selected.clear();
-  }
-
-  async function bulkScope(scope: string) {
-    if (!scope || busy) return;
-    busy = true;
-    const ids = [...selected];
-    try {
-      for (const id of ids) await updateNote(id, { scope });
-      selected.clear();
-      toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} set to "${scope}".`);
-    } catch (err) {
-      toasts.error(errMessage(err));
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function bulkDelete() {
-    if (busy) return;
-    busy = true;
-    const ids = [...selected];
-    try {
-      for (const id of ids) await deleteNote(id);
-      selected.clear();
-      toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} deleted.`, async () => {
-        for (const id of ids) await restoreNote(id);
-      });
-    } catch (err) {
-      toasts.error(errMessage(err));
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function bulkRestore() {
-    if (busy) return;
-    busy = true;
-    const ids = [...selected];
-    try {
-      for (const id of ids) await restoreNote(id);
-      selected.clear();
-      toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} restored.`);
-    } catch (err) {
-      toasts.error(errMessage(err));
-    } finally {
-      busy = false;
-    }
-  }
-
   // --- single delete and restore, with undo ---
 
   async function handleDelete(note: NoteRow) {
-    delete drafts[note.id];
+    delete editing.drafts[note.id];
     try {
       await deleteNote(note.id);
       toasts.success("Note deleted.", async () => {
@@ -312,13 +156,13 @@
 </script>
 
 {#snippet composerCard()}
-  {#if composing && filter.view !== "deleted"}
+  {#if editing.composing && filter.view !== "deleted"}
     <div class="rounded-lg border border-primary-700 bg-surface-900">
       <NoteEditor
-        bind:draft={composer}
-        dirty={composer.content.trim() !== ""}
-        onSave={saveNew}
-        onCancel={() => (composing = false)}
+        bind:draft={editing.composer}
+        dirty={editing.composer.content.trim() !== ""}
+        onSave={editing.saveNew}
+        onCancel={() => (editing.composing = false)}
       />
     </div>
   {/if}
@@ -327,19 +171,19 @@
 <Page title="Notes" size="app" class="flex flex-col gap-4">
   <NotesToolbar
     {filter}
-    {scopeCounts}
+    scopeCounts={counts.scopes}
     trashCount={counts.deleted}
-    {selecting}
+    selecting={selection.selecting}
     onchange={applyFilters}
     onNew={startNew}
-    onToggleSelecting={() => (selecting ? endSelection() : (selecting = true))}
+    onToggleSelecting={() => (selection.selecting ? selection.end() : (selection.selecting = true))}
   />
 
   {#each orphanedFailures as intent (intent.id)}
     <FailedWrite {intent} showTarget />
   {/each}
 
-  {#if shown.length === 0 && !(composing && filter.view !== "deleted")}
+  {#if shown.length === 0 && !(editing.composing && filter.view !== "deleted")}
     {#if filter.view === "deleted"}
       <EmptyState title="The trash is empty." />
     {:else if counts.active === 0}
@@ -359,13 +203,13 @@
         <NoteCard
           {note}
           highlighted={assistant.touchedIds.has(note.id)}
-          selected={selected.has(note.id)}
-          selecting={selectionActive}
-          bind:draft={drafts[note.id]}
-          onEdit={startEdit}
-          onToggleSelect={toggleSelect}
-          onSave={saveEdit}
-          onCancel={cancelEdit}
+          selected={selection.has(note.id)}
+          selecting={selection.active}
+          bind:draft={editing.drafts[note.id]}
+          onEdit={editing.startEdit}
+          onToggleSelect={selection.toggle}
+          onSave={editing.saveEdit}
+          onCancel={editing.cancelEdit}
           onDelete={handleDelete}
           onRestore={handleRestore}
           onHistory={(target) => (historyId = target.id)}
@@ -385,56 +229,6 @@
   onreverted={() => void sync({ force: true })}
 />
 
-{#if selectedCount > 0}
-  <!-- Fixed above the mobile tab bar (3.5rem plus the safe area), centred on desktop. -->
-  <div
-    role="toolbar"
-    aria-label="Selected notes"
-    class="fixed inset-x-3 bottom-[calc(4.25rem+var(--safe-b))] z-30 mx-auto flex max-w-xl flex-wrap items-center gap-2 rounded-lg border border-surface-500 bg-surface-800 px-3 py-2 text-sm shadow-2xl lg:bottom-6"
-  >
-    <span class="px-1 text-surface-100">{selectedCount} selected</span>
-    <button
-      type="button"
-      onclick={toggleSelectAll}
-      class="btn btn-sm border-surface-500 bg-surface-900 text-surface-200 hover:bg-surface-950"
-    >{allSelected ? "Select none" : "Select all"}</button>
-
-    {#if filter.view === "deleted"}
-      <button
-        type="button"
-        onclick={bulkRestore}
-        disabled={busy}
-        class="btn btn-sm border-surface-500 bg-surface-900 text-surface-100 hover:bg-surface-950"
-      >Restore</button>
-    {:else}
-      <select
-        value=""
-        onchange={(event) => {
-          const scope = event.currentTarget.value;
-          event.currentTarget.value = "";
-          bulkScope(scope);
-        }}
-        disabled={busy}
-        aria-label="Set scope for the selection"
-        class="input-base bg-surface-950"
-      >
-        <option value="">Set scope…</option>
-        {#each NOTE_SCOPES as scope (scope)}
-          <option value={scope}>{label(scope)}</option>
-        {/each}
-      </select>
-      <button
-        type="button"
-        onclick={bulkDelete}
-        disabled={busy}
-        class="btn btn-sm btn-danger"
-      >Delete</button>
-    {/if}
-
-    <button
-      type="button"
-      onclick={endSelection}
-      class="btn btn-sm ml-auto border-surface-500 bg-surface-900 text-surface-200 hover:bg-surface-950"
-    >Done</button>
-  </div>
+{#if selection.count > 0}
+  <BulkBar {selection} view={filter.view} />
 {/if}

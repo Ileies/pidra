@@ -9,6 +9,9 @@ import { SveltePlugin } from "bun-plugin-svelte";
  */
 GlobalRegistrator.register();
 
+/** The offline mirror and outbox run against `indexedDB`, which happy-dom does not implement. */
+await import("fake-indexeddb/auto");
+
 /**
  * Without this, Bun's default `.svelte` loader (used for `bun run dev`'s SSR path) generates
  * server components that render to a string, not to the DOM `@testing-library/svelte` mounts
@@ -33,6 +36,8 @@ Bun.plugin(SveltePlugin({ forceSide: "client" }));
 const MODULE_STUBS: Record<string, string> = {
   "$app/forms": resolve(import.meta.dir, "mocks/app-forms.ts"),
   "$app/state": resolve(import.meta.dir, "mocks/app-state.ts"),
+  "$app/env": resolve(import.meta.dir, "mocks/app-env.ts"),
+  "$app/navigation": resolve(import.meta.dir, "mocks/app-navigation.ts"),
   "#lib/offline/state.svelte.js": resolve(import.meta.dir, "mocks/offline-state.ts"),
   "#lib/offline/sync.js": resolve(import.meta.dir, "mocks/offline-sync.ts"),
   "#lib/assistant/state.svelte.js": resolve(import.meta.dir, "mocks/assistant-state.ts"),

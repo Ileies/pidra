@@ -37,7 +37,7 @@ Output is kept short to save tokens: each step is buffered and a passing one pri
 
 **Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap. Migration `0041_enabled_skills.sql` (the `enabled_skills` table) is the current case: `listEffectiveSkills` reads it on every chat turn, so apply it first.
 
-Migration `0042_drop_questions_blocks_until.sql` (drops the unused `questions.blocks_until` column) is pending a manual apply by the owner. It only drops a column no code reads or writes, so unlike the additive case above it is safe to apply before or after deploying.
+Migration `0042_drop_questions_blocks_until.sql` (drops the unused `questions.blocks_until` column) is pending a manual apply by the owner. **Deploy the code first, then apply 0042**, the reverse of the additive rule above. No code reads or writes the column any more, but Drizzle's `db.select().from(questions)` and `.returning()` list every schema column by name, so the code already running on pronix still selects `blocks_until` and its question queries fail as soon as the column is gone.
 
 ## Cron schedule (all `Europe/Berlin`)
 

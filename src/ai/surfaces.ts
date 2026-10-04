@@ -11,8 +11,9 @@
  * - **Reports are final.** No surface can edit a report. On `report` the assistant reads the
  *   briefing and acts elsewhere - a note for tomorrow, a todo, a context correction - because
  *   editing yesterday's text would fix nothing anyway.
- * - **Unknown routes fail closed** to `global`, which touches nothing structural. A page added
- *   later is safe by default and gets capabilities on purpose.
+ * - **Unknown routes fail closed** to `global`, which touches nothing structural (a proposed
+ *   prompt version is inactive until the owner approves it). A page added later is safe by default
+ *   and gets capabilities on purpose.
  *
  * `send_email`, `create_file` and `open_project_in_editor` are deliberately on no
  * surface: the widget is a content editor, not a way to mail someone or pop open an editor on the
@@ -26,7 +27,7 @@
  */
 
 export const SURFACES_LIST = [
-  "notes", "context", "entities", "report", "sources", "prompts", "questions", "global",
+  "notes", "context", "entities", "report", "sources", "questions", "global",
 ] as const;
 
 export type Surface = (typeof SURFACES_LIST)[number];
@@ -202,20 +203,6 @@ to the user when you make one.`,
     ],
   },
 
-  prompts: {
-    label: "Prompts",
-    skills: surfaceSkills("propose_prompt_version"),
-    prompt: `The user is on /prompts, the prompt version manager. Prompt changes require human
-approval: \`propose_prompt_version\` always inserts an **inactive** version, and only the user can
-activate it on this page. Never claim a prompt is live. When proposing, pass the full prompt text,
-not a diff, and summarise what you changed in change_summary.`,
-    hints: [
-      "Propose a version of the Section 1 prompt that ",
-      "Change the extraction prompt so that it ",
-      "Change the Section 2 prompt so that it ",
-    ],
-  },
-
   questions: {
     label: "Questions",
     skills: surfaceSkills(
@@ -255,11 +242,15 @@ and why. That sentence is shown to the user next to the answer.`,
 
   global: {
     label: "Assistant",
-    skills: surfaceSkills(),
+    skills: surfaceSkills("propose_prompt_version"),
     prompt: `The user is on a page with no specific editing capabilities. You can look things up, write
 a note, and read, add, change and delete todos and calendar entries. If they ask for something that belongs to another page - correcting the
 long-term context, editing notes in bulk, disabling a source - say which page that is and offer to
-do it there.`,
+do it there.
+
+Prompt changes require human approval: \`propose_prompt_version\` always inserts an **inactive**
+version, and only the user can activate it, outside this chat. Never claim a prompt is live. When
+proposing, pass the full prompt text, not a diff, and summarise what you changed in change_summary.`,
     hints: [
       "What's the latest on ",
       "What did the briefing say about ",
@@ -282,7 +273,6 @@ const ROUTE_SURFACES: [RegExp, Surface][] = [
   [/^\/(context-builder|chat|rules|contacts)/, "context"],
   [/^\/entities/, "entities"],
   [/^\/sources/, "sources"],
-  [/^\/prompts/, "prompts"],
   // The report routes, including the bare date and the item detail view.
   [/^\/(\d{4}-\d{2}-\d{2})(\/|$)/, "report"],
   [/^\/$/, "report"],

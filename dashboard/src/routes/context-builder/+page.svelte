@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readStored, writeStored } from "#lib/storage.js";
   import { errMessage } from "$pipeline/util/text";
   import { onMount, onDestroy, tick } from "svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
@@ -269,7 +270,7 @@
 
   function loadExpanded(): Set<string> {
     try {
-      const raw = localStorage.getItem(EXPANDED_KEY);
+      const raw = readStored(EXPANDED_KEY);
       return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
     } catch {
       return new Set();
@@ -283,11 +284,7 @@
     if (open) next.add(key);
     else next.delete(key);
     expandedSummaries = next;
-    try {
-      localStorage.setItem(EXPANDED_KEY, JSON.stringify([...next]));
-    } catch {
-      // private browsing / storage disabled - the toggle still works, it just will not persist
-    }
+    writeStored(EXPANDED_KEY, JSON.stringify([...next]));
   }
 
   // --- Back to top: only once there is somewhere to go back from. --------------------------------

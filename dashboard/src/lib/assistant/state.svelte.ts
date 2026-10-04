@@ -1,3 +1,4 @@
+import { readStored, writeStored } from "#lib/storage.js";
 import { errMessage } from "$pipeline/util/text";
 import { browser } from "$app/env";
 import { refreshAll } from "$app/navigation";
@@ -46,23 +47,6 @@ const UUID_IN_TEXT = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 const STORAGE_OPEN = "pidra.assistant.open";
 const STORAGE_DRAFT = "pidra.assistant.draft";
-
-function readStored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStored(key: string, value: string | null) {
-  try {
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
-  } catch {
-    // Private windows and blocked site data: the widget works without persistence.
-  }
-}
 
 class Assistant {
   open = $state(false);

@@ -1,3 +1,5 @@
+import { readStored, writeStored } from "#lib/storage.js";
+
 /**
  * The dashboard's colour theme, chosen per device. Storage can be empty or blocked, in which case
  * the app stays dark, which is also the default.
@@ -40,12 +42,8 @@ function apply(): void {
 }
 
 export function loadTheme(): void {
-  try {
-    const stored = localStorage.getItem(KEY);
-    theme.mode = isMode(stored) ? stored : "dark";
-  } catch {
-    theme.mode = "dark";
-  }
+  const stored = readStored(KEY);
+  theme.mode = isMode(stored) ? stored : "dark";
   apply();
   if (!watching) {
     watching = true;
@@ -55,10 +53,6 @@ export function loadTheme(): void {
 
 export function setTheme(mode: ThemeMode): void {
   theme.mode = mode;
-  try {
-    localStorage.setItem(KEY, mode);
-  } catch {
-    // Applies for this visit only.
-  }
+  writeStored(KEY, mode);
   apply();
 }

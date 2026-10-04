@@ -127,7 +127,7 @@
     <ul class="flex flex-col gap-1 text-xs">
       {#each item.extracted.sources.filter((s) => safeHref(s.url)) as source (source.url)}
         <li class="min-w-0">
-          <a href={source.url} class="text-primary-400 hover:text-primary-300 break-words">
+          <a href={source.url} target="_blank" rel="noopener noreferrer" class="text-primary-400 hover:text-primary-300 break-words">
             <span class="font-medium">{source.publisher}</span>{source.title ? ` - ${source.title}` : ""}
           </a>
         </li>

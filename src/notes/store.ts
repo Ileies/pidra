@@ -1,3 +1,4 @@
+import { HttpError } from "../util/errors";
 import { isUuid, isDateKey } from "../util/ids";
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql as drizzleSql } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
@@ -24,7 +25,12 @@ export type NoteScope = (typeof NOTE_SCOPES)[number];
 export type Note = typeof notes.$inferSelect;
 export type NoteRevision = typeof noteRevisions.$inferSelect;
 
-export class NoteError extends Error {}
+/** "not found" messages surface as 404, every other validation failure as 400. */
+export class NoteError extends HttpError {
+  constructor(message: string) {
+    super(message, message.includes("not found") ? 404 : 400);
+  }
+}
 
 /** Who is making the change, and what to point the revision back at. */
 export interface Actor {

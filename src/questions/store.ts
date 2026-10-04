@@ -16,6 +16,7 @@
  * merged loses every earlier reason the moment the next thing happens to it. The log is what lets
  * the reconcile step's merge/resolve/drop calls be judged against real history instead of guessed.
  */
+import { HttpError } from "../util/errors";
 import { utcDay } from "../util/time";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { contacts, db, questionEvents, questions, type QuestionRevision, type QuestionSource } from "../db";
@@ -31,9 +32,9 @@ const MAX_OPEN_CHAT_QUESTIONS = 10;
 /** Closed by the reader or the pipeline, and so reopenable. `answered` is not: edit by answering again. */
 const REOPENABLE = ["dismissed", "resolved", "merged"];
 
-export class QuestionError extends Error {
+export class QuestionError extends HttpError {
   constructor(readonly kind: "not_found" | "conflict" | "invalid", message: string) {
-    super(message);
+    super(message, kind === "not_found" ? 404 : kind === "invalid" ? 400 : 409);
   }
 }
 

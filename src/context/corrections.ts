@@ -1,3 +1,4 @@
+import { HttpError } from "../util/errors";
 import { db, contextCorrections, contacts, entities } from "../db";
 import { and, desc, eq, sql as drizzleSql } from "drizzle-orm";
 
@@ -56,7 +57,7 @@ const MERGEABLE: Record<"entity" | "contact", string[]> = {
   contact: ["name", "relationship", "priority", "contextNotes"],
 };
 
-export class CorrectionError extends Error {}
+export class CorrectionError extends HttpError {}
 
 export async function listActiveCorrections(): Promise<ActiveCorrection[]> {
   return db

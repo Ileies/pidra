@@ -1,8 +1,9 @@
+import { HttpError } from "../util/errors";
 import { eq } from "drizzle-orm";
 import { db, disabledSkills, enabledSkills } from "../db";
 import { getSkill, listSkills, type RiskLevel, type Skill } from "./loader";
 
-export class SkillToggleError extends Error {}
+export class SkillToggleError extends HttpError {}
 
 /** The code-defined skill plus whether it is switched on, per its default and the owner's toggle on /skills. */
 export interface EffectiveSkill {

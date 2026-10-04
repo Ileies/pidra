@@ -12,6 +12,7 @@
  * chat may reach for, while a row's skill is always one of `SKILL_FOR`, fixed in code. It is
  * attributed to the user: the model proposed it, but the reader pressed it.
  */
+import { HttpError } from "../util/errors";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db, reportActions } from "../db";
 import { calendarTimeZone } from "../ingest/google";
@@ -27,9 +28,9 @@ const RUNNABLE = ["proposed", "failed"];
 /** A claim older than this was lost to a crash or a restart and may be taken again. */
 const STALE_RUNNING = sql`now() - interval '2 minutes'`;
 
-export class ActionError extends Error {
+export class ActionError extends HttpError {
   constructor(readonly kind: "not_found" | "conflict", message: string) {
-    super(message);
+    super(message, kind === "not_found" ? 404 : 409);
   }
 }
 

@@ -7,6 +7,7 @@
  * read the cached row.
  */
 
+import { HttpError } from "../util/errors";
 import { and, eq, lt, ne, sql } from "drizzle-orm";
 import { db, dailyReports, reportAudio } from "../db";
 import { speak, TTS_MODEL, TTS_VOICE, TTS_SPEED } from "../ai/openai";
@@ -18,11 +19,7 @@ const KEEP_DAYS = 30;
 
 const variant = () => `${TTS_MODEL}:${TTS_VOICE}:${TTS_SPEED}`;
 
-export class AudioError extends Error {
-  constructor(message: string, readonly status: 404 | 409) {
-    super(message);
-  }
-}
+export class AudioError extends HttpError {}
 
 export interface ManifestChapter {
   key: string;

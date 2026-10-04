@@ -247,9 +247,7 @@ app.post("/api/questions/:id/:op", async (c) => {
     }
     return c.json({ error: "op must be answer, dismiss, reopen or reprocess" }, 400);
   } catch (err) {
-    if (err instanceof QuestionError) {
-      return c.json({ error: err.message }, err.kind === "not_found" ? 404 : err.kind === "invalid" ? 400 : 409);
-    }
+    if (err instanceof QuestionError) return c.json({ error: err.message }, err.status);
     throw err;
   }
 });
@@ -327,8 +325,7 @@ app.delete("/api/prompts/:id", async (c) => {
 // when this bridge is down; only editing needs it.
 
 function noteError(c: Context, err: unknown) {
-  const message = errMessage(err);
-  if (err instanceof NoteError) return c.json({ error: message }, message.includes("not found") ? 404 : 400);
+  if (err instanceof NoteError) return c.json({ error: err.message }, err.status);
   throw err;
 }
 
@@ -440,7 +437,7 @@ app.post("/api/actions/:id/:op", async (c) => {
     const { action, message } = await ACTION_OPS[op as keyof typeof ACTION_OPS](id);
     return c.json({ id: action.id, status: action.status, message });
   } catch (err) {
-    if (err instanceof ActionError) return c.json({ error: err.message }, err.kind === "not_found" ? 404 : 409);
+    if (err instanceof ActionError) return c.json({ error: err.message }, err.status);
     throw err;
   }
 });

@@ -37,6 +37,8 @@ Output is kept short to save tokens: each step is buffered and a passing one pri
 
 **Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap. Migration `0041_enabled_skills.sql` (the `enabled_skills` table) is the current case: `listEffectiveSkills` reads it on every chat turn, so apply it first.
 
+Migration `0042_drop_questions_blocks_until.sql` (drops the unused `questions.blocks_until` column) is pending a manual apply by the owner. It only drops a column no code reads or writes, so unlike the additive case above it is safe to apply before or after deploying.
+
 ## Cron schedule (all `Europe/Berlin`)
 
 | Job | Schedule |
@@ -57,7 +59,7 @@ Each is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.
 - **Phase 3 (context assembly and web search):** runs in parallel with Phase 2.
 - **News desks:** every enabled desk in parallel, started before Phase 1 and awaited before Phase 3, so their half a minute to five minutes on the flex tier overlaps the ingest. The editor runs alongside Section 1 in Phase 5; if it fails, `renderNewsFallback` writes the section from the stories directly. Tune without a pipeline run: `bun run scripts/news-dry-run.ts [--editor]` (real calls, nothing stored).
 - **Quick actions:** one call, run alongside Section 1 once Phase 3 is done. A failure costs the buttons and nothing else; its attempts go to `step_errors` under `phase5-actions`.
-- **Question gate (Phase 4):** nothing waits on it. It reconciles this run's candidates into the queue in one call alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on, and are also acted on at once: `POST /api/questions/:id/answer` starts `processAnswer` without awaiting it, since the tool-calling turn can take a minute. A bridge that dies mid-turn leaves `answer_status = 'running'`, and `/questions/closed` offers "Run again" (the `reprocess` op, refused once the answer is `done`). `questions.blocks_until` is unused, and `daily_reports.question_gate_fired` means "this run's candidates landed on at least one open question".
+- **Question gate (Phase 4):** nothing waits on it. It reconciles this run's candidates into the queue in one call alongside Section 1, leaves them open on `/questions`, and hands Section 2 `recentAnswers()` (item answers of the last `ANSWER_DAYS = 7` days). Answers given later are used from the next run on, and are also acted on at once: `POST /api/questions/:id/answer` starts `processAnswer` without awaiting it, since the tool-calling turn can take a minute. A bridge that dies mid-turn leaves `answer_status = 'running'`, and `/questions/closed` offers "Run again" (the `reprocess` op, refused once the answer is `done`). `daily_reports.question_gate_fired` means "this run's candidates landed on at least one open question".
 
 ## Spoken report
 

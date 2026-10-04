@@ -33,7 +33,6 @@
   - `status`: `open | answered | dismissed | resolved | merged`. `kind`: `item | review | chat` (the last asked by the assistant).
   - Also holds the mails behind each question, earlier wordings in `history`, and the reason a question was closed.
   - `answer_status` (`running | done | failed`), `answer_outcome` and `answer_conversation_id` record what the assistant did with the answer; they are null for open, closed-without-answer and review questions.
-  - `blocks_until` is unused (Section 2 no longer waits), kept to avoid a migration.
 - `question_events`: append-only outcome log, one row per asked / reasked / rewritten / answered / dismissed / reopened / merged / resolved / dropped event with its reason, so history survives a later event overwriting `questions.status_detail`.
 
 ## Entities, contacts and sources

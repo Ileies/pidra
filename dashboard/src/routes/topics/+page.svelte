@@ -6,7 +6,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { page } from "$app/state";
   import { offline } from "#lib/offline/state.svelte.js";
   import { sync } from "#lib/offline/sync.js";
@@ -57,13 +57,6 @@
       focus: focusFrom(shown, "topic", (topic) => ({ id: topic.id, label: topic.headline })),
     });
   });
-
-  const STATUS_TONE = {
-    active: "success",
-    dormant: "muted",
-    archived: "neutral",
-    resolved: "neutral",
-  } as const;
 
   const FILTERS: [string, string][] = [
     ["active", "Active"],
@@ -140,7 +133,7 @@
               <h2 class="text-sm font-semibold text-surface-50 break-words">{topic.headline}</h2>
               <div class="flex flex-wrap items-center gap-2">
                 <Badge tone="primary">{topic.domain}</Badge>
-                <Badge tone={STATUS_TONE[topic.status as keyof typeof STATUS_TONE] ?? "muted"}>
+                <Badge tone={toneFor(topic.status)}>
                   {displayLabel(topic.status)}
                 </Badge>
                 <span class="text-xs text-surface-400 tabular-nums">

@@ -5,7 +5,7 @@
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtMs, fmtTime } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import {
     buildTree,
@@ -21,8 +21,6 @@
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
-
-  const STATUS_TONE = { completed: "success", failed: "error", running: "primary" } as const;
 
   const tree = $derived(buildTree(data.steps, data.run.durationMs ?? undefined));
   const hasSteps = $derived(tree.root != null);
@@ -115,7 +113,7 @@
     <a href="/runs" class="text-xs text-surface-400 no-underline hover:text-primary-400 w-fit">&larr; All runs</a>
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-xl font-bold text-surface-50">{fmtDate(data.run.runDate)}</h1>
-      <Badge tone={STATUS_TONE[data.run.status as keyof typeof STATUS_TONE] ?? "muted"}>
+      <Badge tone={toneFor(data.run.status)}>
         {displayLabel(data.run.status)}
       </Badge>
       {#if data.run.startedAt}

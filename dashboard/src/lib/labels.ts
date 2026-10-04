@@ -9,6 +9,8 @@
  * of them and keeps a new enum value from rendering as a blank.
  */
 
+import type { Tone } from "#lib/components/Badge.svelte";
+
 const LABELS: Record<string, string> = {
   // extraction novelty
   new: "New",
@@ -104,6 +106,24 @@ const LABELS: Record<string, string> = {
   full: "Full",
   update: "Update",
 };
+
+/** One badge tone per status word, whichever page shows it. An unknown status reads as muted. */
+const STATUS_TONES: Record<string, Tone> = {
+  active: "success",
+  completed: "success",
+  executed: "success",
+  running: "primary",
+  pending: "warning",
+  failed: "error",
+  dormant: "muted",
+  rejected: "muted",
+  archived: "neutral",
+  resolved: "neutral",
+};
+
+export function toneFor(status: string | null | undefined): Tone {
+  return STATUS_TONES[status ?? ""] ?? "muted";
+}
 
 /** Trend glyphs. Always rendered beside the word, never instead of it (A4). */
 export const TREND_GLYPH: Record<string, string> = {

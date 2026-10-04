@@ -6,7 +6,7 @@
   import StatCard from "#lib/components/StatCard.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate, fmtNum } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { sync } from "#lib/offline/sync.js";
@@ -40,7 +40,6 @@
     });
   });
 
-  const STATUS_TONE = { active: "success", dormant: "muted", archived: "neutral" } as const;
   const IMPORTANCE_TONE = { high: "warning", medium: "neutral", normal: "neutral", low: "muted" } as const;
 </script>
 
@@ -52,7 +51,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <h1 class="text-xl font-bold text-surface-50 break-words">{data.entity.name}</h1>
       {#if data.entity.type}<Badge tone="primary">{data.entity.type}</Badge>{/if}
-      <Badge tone={STATUS_TONE[data.entity.status as keyof typeof STATUS_TONE] ?? "muted"}>
+      <Badge tone={toneFor(data.entity.status)}>
         {displayLabel(data.entity.status)}
       </Badge>
       <Badge tone={IMPORTANCE_TONE[data.entity.importance as keyof typeof IMPORTANCE_TONE] ?? "neutral"}>

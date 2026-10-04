@@ -10,6 +10,7 @@
    * the list of reports this device can actually open, online or not, and it costs no request.
    */
   import { goto } from "$app/navigation";
+  import { isTyping } from "#lib/ui/keys.js";
   import { archive, type ArchiveDay } from "#lib/offline/repo.js";
   import { fmtDate } from "#lib/format.js";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
@@ -36,8 +37,7 @@
   /** The left and right arrow keys step days, which is the one keyboard shortcut this page really wants (E1). */
   function onKeydown(event: KeyboardEvent) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    const target = event.target as HTMLElement | null;
-    if (target && (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))) return;
+    if (isTyping(event.target)) return;
 
     if (event.key === "ArrowLeft" && prevDate) goto(`/${prevDate}`);
     else if (event.key === "ArrowRight" && nextDate) goto(`/${nextDate}`);

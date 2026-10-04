@@ -9,6 +9,7 @@
    * Desktop by nature, which is fine: the phone gets the bottom tab bar instead.
    */
   import { goto } from "$app/navigation";
+  import { isTyping } from "#lib/ui/keys.js";
   import { ROUTES } from "#lib/routes.js";
 
   interface Props {
@@ -31,12 +32,6 @@
     }
     return map;
   });
-
-  function isTyping(target: EventTarget | null): boolean {
-    const element = target as HTMLElement | null;
-    if (!element) return false;
-    return element.isContentEditable || /^(input|textarea|select)$/i.test(element.tagName);
-  }
 
   function armGo() {
     goPending = true;

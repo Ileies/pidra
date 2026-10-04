@@ -180,3 +180,11 @@ export function fmtCost(usd: number | null | undefined): string {
   if (usd > 0 && usd < 0.001) return "<$0.001";
   return `$${usd.toFixed(usd < 10 ? 3 : 2)}`;
 }
+
+/** Text colour for a 0-10 composite score: green from 7.5, amber from 5, red below, muted when there is none. */
+export function scoreTone(score: number | null | undefined): string {
+  if (score == null) return "text-surface-400";
+  if (score >= 7.5) return "text-success-500";
+  if (score >= 5) return "text-warning-500";
+  return "text-error-500";
+}

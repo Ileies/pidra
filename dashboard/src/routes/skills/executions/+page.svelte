@@ -3,7 +3,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -11,12 +11,6 @@
   const EXECS_PAGE = 20;
   let visibleExecs = $state(EXECS_PAGE);
 
-  const STATUS_TONE = {
-    pending: "warning",
-    executed: "success",
-    failed: "error",
-    rejected: "muted",
-  } as const;
 </script>
 
 <Page title="Recent executions" size="app" class="flex flex-col gap-4">
@@ -38,7 +32,7 @@
           >
             <svg viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 shrink-0 text-surface-400 transition-transform {open ? 'rotate-90' : ''}" aria-hidden="true"><path d="M7 5l6 5-6 5V5z" /></svg>
             <span class="font-mono text-surface-100 text-sm break-all">{exec.skill_name}</span>
-            <Badge tone={STATUS_TONE[exec.status as keyof typeof STATUS_TONE] ?? "muted"}>{displayLabel(exec.status)}</Badge>
+            <Badge tone={toneFor(exec.status)}>{displayLabel(exec.status)}</Badge>
             <span class="text-xs text-surface-400">{exec.triggered_by ?? "-"}</span>
             <span class="text-xs text-surface-400 ml-auto whitespace-nowrap">{fmtDateTimeShort(exec.created_at)}</span>
           </button>

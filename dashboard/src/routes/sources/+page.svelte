@@ -7,7 +7,7 @@
   import DataTable from "#lib/components/DataTable.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
   import type { Column } from "#lib/components/table.js";
-  import { fmtDate, fmtPct, fmtScore } from "#lib/format.js";
+  import { fmtDate, fmtPct, fmtScore, scoreTone } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { SourceRow } from "./+page.server";
   import type { ActionData, PageData } from "./$types";
@@ -28,13 +28,6 @@
       })),
     });
   });
-
-  function scoreTone(score: number | null): string {
-    if (score == null) return "text-surface-400";
-    if (score >= 7.5) return "text-success-500";
-    if (score >= 5) return "text-warning-500";
-    return "text-error-500";
-  }
 
   function includeRate(source: SourceRow): number | null {
     if (source.dailyScores.length === 0) return null;

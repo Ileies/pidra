@@ -8,7 +8,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import StatBar from "#lib/components/StatBar.svelte";
   import { fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { toasts } from "#lib/toast.svelte.js";
   import type { ContextBuilderStatus } from "#lib/server/contextBuilder.js";
   import { netJson } from "#lib/offline/net.js";
@@ -89,12 +89,6 @@
   });
 
   onDestroy(() => stopPoll?.());
-
-  const STATUS_TONE = {
-    running: "primary",
-    completed: "success",
-    failed: "error",
-  } as const;
 
   // --- Document + source summaries as tabs ------------------------------------------------------
   //
@@ -303,7 +297,7 @@
     <div class="mx-auto w-full max-w-app px-4 sm:px-6 lg:px-8 py-2 flex flex-col gap-2">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3 flex-wrap">
-          <Badge tone={STATUS_TONE[(status?.dbRun?.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
+          <Badge tone={toneFor(status?.dbRun?.status)}>
             {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
           </Badge>
           {#if status?.dbRun}

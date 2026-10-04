@@ -9,7 +9,7 @@
   import StatCard from "#lib/components/StatCard.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import type { Column } from "#lib/components/table.js";
-  import { fmtDate, fmtDateTime, fmtPct, fmtScore } from "#lib/format.js";
+  import { fmtDate, fmtDateTime, fmtPct, fmtScore, scoreTone } from "#lib/format.js";
   import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
   import { sourceItemDetailHref } from "#lib/sourceLinks.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
@@ -60,13 +60,6 @@
       return haystack.includes(q);
     }),
   );
-
-  function scoreTone(score: number | null | undefined): string {
-    if (score == null) return "text-surface-400";
-    if (score >= 7.5) return "text-success-500";
-    if (score >= 5) return "text-warning-500";
-    return "text-error-500";
-  }
 
   function relevanceTone(score: number | null): string {
     if (score == null) return "text-surface-400";

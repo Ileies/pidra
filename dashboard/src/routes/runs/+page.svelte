@@ -11,7 +11,7 @@
   import { toasts } from "#lib/toast.svelte.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtTime } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
   import type { RunRow } from "./+page.server";
   import type { PageData } from "./$types";
@@ -33,12 +33,6 @@
         `${data.summary.running} still running, ${degradedCount} completed with a source missing.`,
     });
   });
-
-  const STATUS_TONE = {
-    completed: "success",
-    failed: "error",
-    running: "primary",
-  } as const;
 
   let expanded = $state<Record<string, boolean>>({});
   let reviewing = $state<string | null>(null);
@@ -141,7 +135,7 @@
                 <a href="/{run.runDate}" class="text-sm font-medium text-surface-100 no-underline hover:text-primary-400 tabular-nums">
                   {fmtDate(run.runDate)}
                 </a>
-                <Badge tone={STATUS_TONE[run.status as keyof typeof STATUS_TONE] ?? "muted"}>
+                <Badge tone={toneFor(run.status)}>
                   {displayLabel(run.status)}
                 </Badge>
                 {#if run.stepErrors.length > 0 && (failed || degraded)}

@@ -8,7 +8,7 @@
   import DataTable from "#lib/components/DataTable.svelte";
   import type { Column } from "#lib/components/table.js";
   import { fmtDate } from "#lib/format.js";
-  import { label as displayLabel } from "#lib/labels.js";
+  import { label as displayLabel, toneFor } from "#lib/labels.js";
   import type { MirroredEntity } from "#lib/offline/repo.js";
   import type { PageData } from "./$types";
 
@@ -114,12 +114,6 @@
     });
   });
 
-  const STATUS_TONE = {
-    active: "success",
-    dormant: "muted",
-    archived: "neutral",
-  } as const;
-
   const IMPORTANCE_CLASS: Record<string, string> = {
     high: "text-warning-400",
     medium: "text-surface-200",
@@ -155,7 +149,7 @@
 {/snippet}
 
 {#snippet statusCell(entity: Entity)}
-  <Badge tone={STATUS_TONE[(entity.status ?? "") as keyof typeof STATUS_TONE] ?? "muted"}>
+  <Badge tone={toneFor(entity.status)}>
     {displayLabel(entity.status)}
   </Badge>
 {/snippet}

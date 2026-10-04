@@ -13,6 +13,7 @@
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtMs, fmtTime } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from "#lib/pricing.js";
+  import { busySteps, sumUsage, withWeights } from "#lib/runUsage.js";
   import {
     buildTree,
     groupInfo,
@@ -46,32 +47,10 @@
   const present = $derived(new Set(groups.map((entry) => entry.group)));
   const legend = $derived(GROUPS.filter((group) => present.has(group.id)));
 
-  const steps = $derived(
-    stepTotals(tree)
-      .filter((entry) => entry.aiCalls + entry.searchCalls + entry.tokensIn + entry.tokensOut > 0)
-      .sort((a, b) => weight(b.tokensIn, b.tokensOut) - weight(a.tokensIn, a.tokensOut)),
-  );
-
-  /** What a share is a share *of*: dollars when priced, tokens otherwise. */
-  function weight(tokensIn: number, tokensOut: number): number {
-    return PRICING_CONFIGURED ? (costUsd(tokensIn, tokensOut) ?? 0) : tokensIn + tokensOut;
-  }
-
-  const groupWeights = $derived(groups.map((entry) => ({ ...entry, weight: weight(entry.tokensIn, entry.tokensOut) })));
+  const steps = $derived(busySteps(stepTotals(tree)));
+  const groupWeights = $derived(withWeights(groups));
   const weightSum = $derived(groupWeights.reduce((sum, entry) => sum + entry.weight, 0));
-
-  const stepSum = $derived(
-    steps.reduce(
-      (sum, entry) => ({
-        tokensIn: sum.tokensIn + entry.tokensIn,
-        tokensOut: sum.tokensOut + entry.tokensOut,
-        aiCalls: sum.aiCalls + entry.aiCalls,
-        searchCalls: sum.searchCalls + entry.searchCalls,
-        flexRetries: sum.flexRetries + entry.flexRetries,
-      }),
-      { tokensIn: 0, tokensOut: 0, aiCalls: 0, searchCalls: 0, flexRetries: 0 },
-    ),
-  );
+  const stepSum = $derived(sumUsage(steps));
 
   /** The report's token counts cover the whole run; the steps cover what the tracer saw. Usually equal. */
   const tokensIn = $derived(hasSteps ? stepSum.tokensIn : data.run.tokensIn);

@@ -1,6 +1,18 @@
 # Schema notes
 
-`src/db/schema.ts` is the single source of truth for columns; nothing here duplicates it. This file records what each table is for and the cross-cutting rules that are not obvious from the column list.
+`src/db/schema/` is the single source of truth for columns; nothing here duplicates it. This file records what each table is for and the cross-cutting rules that are not obvious from the column list.
+
+The schema is split by concern and re-exported from `src/db/schema/index.ts`, so every `../db/schema` import and `drizzle.config.ts` (`schema: "./src/db/schema"`) resolve to the directory. `columns.ts` holds the shared `pk()` / `createdAt()` / `updatedAt()` helpers; schema comments are one line per table, so the rationale lives here.
+
+- `pipeline.ts`: `raw_items`, `extractions`, `ingest_drops`, `active_topics`, `daily_reports`, `report_audio`, `brave_daily_usage`, `report_actions`, `feedback_events`, `push_subscriptions`, `pipeline_runs`, `pipeline_run_steps`, `notification_reads`
+- `context.ts`: `entities`, `entity_mentions`, `entity_appearances`, `source_quality`, `source_daily_scores`, `contacts`, `context_builder_runs`, `context_builder_indexed_items`, `context_corrections`
+- `notes.ts`: `notes`, `note_revisions`
+- `questions.ts`: `questions`, `question_events`
+- `chat.ts`: `chat_conversations`, `chat_messages`
+- `auth.ts`: `auth_credentials`, `auth_pin`, `auth_sessions`
+- `config.ts`: `prompt_versions`, `disabled_skills`, `enabled_skills`, `skill_executions`, `user_settings`, `email_accounts`, `newsletter_sender_rules`, `rss_feeds`
+
+Each table has one writer module; don't add a second writer. Tables described below as append-only (`question_events`, `note_revisions`, `context_corrections`) are never updated or deleted by regular code.
 
 ## Shared configs - don't duplicate
 
@@ -37,8 +49,8 @@
 
 ## Entities, contacts and sources
 
-- `entities` / `entity_mentions` / `entity_appearances`: entities seen across newsletters and harvested sources. `entity_mentions` is the one-row-per-source provenance behind `mention_count` (one per newsletter, one per harvested item); `entity_appearances` is the timeline of report days an entity was actually cited in.
-- `contacts`: the email sender directory. `removed_at` marks a contact the owner had removed (row kept and locked, every reader skips it, reverting the correction clears it).
+- `entities` / `entity_mentions` / `entity_appearances`: entities seen across newsletters and harvested sources. `entities.name` is unique. `entity_mentions` is the one-row-per-source provenance behind `mention_count` (one per newsletter, one per harvested item); `entity_appearances` is the timeline of report days an entity was actually cited in.
+- `contacts`: the email sender directory (not a general address book); a check constraint requires the address to look like an email. `removed_at` marks a contact the owner had removed (row kept and locked, every reader skips it, reverting the correction clears it).
 - `source_quality` / `source_daily_scores`: per-source trust scores and 30-day rolling history.
 
 ## Context and corrections

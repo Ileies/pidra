@@ -23,7 +23,7 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/offline-mode.md` - the mirror/outbox/service-worker architecture and the blackhole test suite
 - `docs/skills.md` - risk levels, the current skill registry, and how `executeSkill()` gates calls
 - `docs/operations.md` - deployment, DB access and manual migrations, the cron schedule, concurrency model, synthesis output parsing, and the retry/error-handling model
-- `docs/schema-notes.md` - shared configs (email accounts, RSS feeds, DB connection) and the key schema tables, with `src/db/schema.ts` as the source of truth
+- `docs/schema-notes.md` - shared configs (email accounts, RSS feeds, DB connection) and the key schema tables, with the `src/db/schema/` directory as the source of truth
 - `docs/prompt-tuning-context.md` - intelligence priorities, report format rules, newsletter processing tiers. Read before touching extraction/synthesis prompts
 - `docs/newsletter-sources.md` - all 32 newsletters with tier and selection rationale
 - `docs/google-integration-notes.md` - Google Tasks list / Keep category meanings

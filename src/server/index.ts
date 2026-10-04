@@ -10,7 +10,7 @@ import { smsSecretAuthorized } from "./sms-auth";
 import { db, extractions, rawItems, rawItemExists, promptVersions } from "../db";
 import { answerQuestion, dismissQuestion, getAnsweredQuestion, reopenQuestion, QuestionError } from "../questions/store";
 import { processAnswer } from "../questions/process-answer";
-import { PROMPT_SECTIONS, renderPromptText, resolveActivePrompts } from "../ai/active-prompts";
+import { renderPromptText } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 import { braveSearch } from "../search/brave";
 import { DEEPEN_PROMPT } from "../ai/prompts";
@@ -253,18 +253,6 @@ app.post("/api/questions/:id/:op", async (c) => {
 });
 
 // --- Prompt Versions ---
-
-app.get("/api/prompts", async (c) => {
-  const rows = await db.select().from(promptVersions).orderBy(desc(promptVersions.createdAt));
-  return c.json(rows);
-});
-
-// What the next run will actually use per section, DB override or code baseline. Without this
-// the page shows an empty table for a system that is very much running prompts.
-app.get("/api/prompts/effective", async (c) => {
-  const resolved = await resolveActivePrompts();
-  return c.json(PROMPT_SECTIONS.map((section) => resolved[section]));
-});
 
 app.post("/api/prompts", async (c) => {
   const body = await c.req.json() as { section: string; promptText: string; changeSummary?: string };

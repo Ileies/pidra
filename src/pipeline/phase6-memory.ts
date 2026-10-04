@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
 import { parseReport } from "./report-json";
 import { resolveReportRefs } from "./phase6/refs";
-import { parseSystemBlock, applySection1SystemBlock, applySection2SystemBlock } from "./phase6/system-block";
+import { parseSystemBlock, applySection1SystemBlock, applySection2SystemBlock, type Section1System, type Section2System } from "./phase6/system-block";
 import { writeSourceDailyScores } from "./phase6/source-scoring";
 import { upsertEntitiesFromExtractions } from "./phase6/entities";
 import { markDormantEntities } from "./phase6/dormant";
@@ -78,12 +78,12 @@ export async function runPhase6(
   });
 
   // Parse and apply Section 1 SYSTEM block
-  const s1System = parseSystemBlock(synthesis.section1);
+  const s1System = parseSystemBlock<Section1System>(synthesis.section1);
   if (s1System) await applySection1SystemBlock(s1System, runDate);
   await ageTopics(runDate);
 
   // Parse and apply Section 2 SYSTEM block
-  const s2System = parseSystemBlock(synthesis.section2);
+  const s2System = parseSystemBlock<Section2System>(synthesis.section2);
   if (s2System) await applySection2SystemBlock(s2System);
 
   await writeSourceDailyScores(runDate, refsUsable);

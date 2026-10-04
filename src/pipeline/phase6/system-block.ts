@@ -7,17 +7,51 @@ import { validateNewContacts } from "../contact-suggestions";
 import { processSkillSuggestions } from "./skill-suggestions";
 import { TOPIC_ACTIVE_CAP, isMoreValuable, normalizeTopicImportance, rankTopicImportance, weakestActiveTopic } from "../topic-lifecycle";
 
-export function parseSystemBlock(text: string): Record<string, any> | null {
+/** What synthesis may put in a section's `<!--SYSTEM-->` block. Model output: every field is checked before use. */
+export interface TopicUpdate {
+  id: string;
+  status: "active" | "resolved";
+  new_summary: string;
+  resolution_evidence?: string;
+  importance?: string;
+}
+
+interface NewTopic {
+  headline: string;
+  domain: string;
+  summary: string;
+  importance?: string;
+}
+
+interface NewEntity {
+  name: string;
+  type?: string;
+  domain?: string;
+}
+
+export interface Section1System {
+  updated_topics?: Partial<TopicUpdate>[];
+  new_topics?: NewTopic[];
+  new_entities?: NewEntity[];
+  skill_suggestions?: Parameters<typeof processSkillSuggestions>[0];
+}
+
+export interface Section2System {
+  new_contacts?: unknown;
+  notes_to_write?: { content: string; scope?: string }[];
+}
+
+export function parseSystemBlock<T extends Section1System | Section2System>(text: string): T | null {
   const match = text.match(/<!--SYSTEM\s*([\s\S]*?)\s*-->/);
   if (!match) return null;
   try {
-    return JSON.parse(match[1]);
+    return JSON.parse(match[1]) as T;
   } catch {
     return null;
   }
 }
 
-function isValidTopicUpdate(update: any): boolean {
+function isValidTopicUpdate(update: Partial<TopicUpdate>): update is TopicUpdate {
   if (!isUuid(update.id)) return false;
   if (update.status !== "active" && update.status !== "resolved") return false;
   if (typeof update.new_summary !== "string" || !update.new_summary.trim()) return false;
@@ -25,7 +59,7 @@ function isValidTopicUpdate(update: any): boolean {
   return true;
 }
 
-async function applyTopicUpdate(update: any, runDate: string): Promise<void> {
+async function applyTopicUpdate(update: TopicUpdate, runDate: string): Promise<void> {
   const patch: Record<string, unknown> = {
     runningSummary: update.new_summary.trim(),
     status: update.status,
@@ -39,9 +73,9 @@ async function applyTopicUpdate(update: any, runDate: string): Promise<void> {
     .where(and(eq(activeTopics.id, update.id), inArray(activeTopics.status, ["active", "dormant", "archived"])));
 }
 
-export async function applySection1SystemBlock(s1System: Record<string, any>, runDate: string): Promise<void> {
+export async function applySection1SystemBlock(s1System: Section1System, runDate: string): Promise<void> {
   const updates = (s1System.updated_topics ?? []).filter(isValidTopicUpdate);
-  const targetIds = updates.filter((u: any) => u.status === "active").map((u: any) => u.id);
+  const targetIds = updates.filter((u) => u.status === "active").map((u) => u.id);
   const statusById = new Map(
     targetIds.length
       ? (await db.select({ id: activeTopics.id, status: activeTopics.status })
@@ -52,16 +86,16 @@ export async function applySection1SystemBlock(s1System: Record<string, any>, ru
   // Resolving or refreshing an already-active topic never changes the active count, so those
   // apply directly. A dormant/archived topic asking to go active is the same capacity question
   // as a brand-new topic, and is handled by the admission loop below alongside new_topics.
-  const directUpdates = updates.filter((u: any) => u.status === "resolved" || statusById.get(u.id) === "active");
+  const directUpdates = updates.filter((u) => u.status === "resolved" || statusById.get(u.id) === "active");
   for (const update of directUpdates) {
     await applyTopicUpdate(update, runDate);
   }
-  const revivals = updates.filter((u: any) =>
+  const revivals = updates.filter((u) =>
     u.status === "active" && (statusById.get(u.id) === "dormant" || statusById.get(u.id) === "archived"));
 
   type Candidate = { importance: string; admit: () => Promise<void> };
   const candidates: Candidate[] = [
-    ...(s1System.new_topics ?? []).map((topic: any): Candidate => ({
+    ...(s1System.new_topics ?? []).map((topic): Candidate => ({
       importance: normalizeTopicImportance(topic.importance),
       admit: async () => {
         await db.insert(activeTopics).values({
@@ -76,7 +110,7 @@ export async function applySection1SystemBlock(s1System: Record<string, any>, ru
         }).onConflictDoNothing();
       },
     })),
-    ...revivals.map((update: any): Candidate => ({
+    ...revivals.map((update): Candidate => ({
       importance: normalizeTopicImportance(update.importance),
       admit: () => applyTopicUpdate(update, runDate),
     })),
@@ -122,7 +156,7 @@ export async function applySection1SystemBlock(s1System: Record<string, any>, ru
   await processSkillSuggestions(s1System.skill_suggestions ?? [], runDate, "report_section");
 }
 
-export async function applySection2SystemBlock(s2System: Record<string, any>): Promise<void> {
+export async function applySection2SystemBlock(s2System: Section2System): Promise<void> {
   const { contacts: newContacts, skipped } = validateNewContacts(s2System.new_contacts);
   if (skipped > 0) {
     console.warn(`[Phase 6] Skipped ${skipped} invalid new_contacts suggestion(s); identifier is required`);

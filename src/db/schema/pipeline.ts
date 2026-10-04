@@ -18,11 +18,28 @@ export const rawItems = pgTable("raw_items", {
   createdAt: createdAt(),
 });
 
+/** The fields the pipeline reads off an extraction's JSON; the rest is whatever the extraction prompt (or a news desk) produced, read through a cast. */
+export interface ExtractedJson {
+  entities?: string[];
+  headline?: string;
+  key_claim?: string;
+  topic_tags?: string[];
+  /** Set instead of the claim fields when a newsletter was judged not worth extracting. */
+  skip_reason?: string | null;
+  /** Personal mail and SMS classification (`PersonalEmailClassification` in phase2-extract.ts). */
+  type?: string;
+  urgency?: string;
+  deadline?: string | null;
+  context_conflict?: boolean;
+  calendar_event_suggested?: boolean;
+  todo_suggested?: boolean;
+}
+
 export const extractions = pgTable("extractions", {
   id: pk(),
   rawItemId: uuid("raw_item_id").references(() => rawItems.id),
   runDate: dateStr("run_date").notNull(),
-  extractedJson: jsonb("extracted_json"),
+  extractedJson: jsonb("extracted_json").$type<ExtractedJson | null>(),
   relevanceScore: integer("relevance_score"), // 1-5
   effectiveRelevance: real("effective_relevance"),
   novelty: text("novelty"), // new | continuation | repeat

@@ -1,7 +1,8 @@
 import { activePrompt, type PromptSection } from "../ai/active-prompts";
 import { synthesize, type CallOptions } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
-import type { ContextPayload, ExtractionWithSource } from "./phase3-context";
+import type { ContextPayload } from "./phase3-context";
+import type { ExtractionWithSource } from "./gate-items";
 import type { QuestionAnswer } from "./phase4-questiongate";
 import { editorPayload, finishNewsSection, type NewsItem } from "../news/format";
 import type { NewsExtraction } from "../news/validate";

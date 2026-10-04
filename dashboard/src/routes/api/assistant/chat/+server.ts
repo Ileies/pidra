@@ -1,12 +1,11 @@
 import { errMessage } from "$pipeline/util/text";
 import type { RequestHandler } from "./$types";
-import { SKILLS_BRIDGE_URL } from "$app/env/private";
+import { bridgeFetch, unreachableMessage } from "#lib/server/bridge.js";
 import { isShuttingDown, registerStream } from "#lib/server/shutdown.js";
 
 // The turn loop runs on the skills bridge, because that is where the skill registry lives. This
 // only forwards, and passes the event stream straight through so tool calls reach the widget as
 // they execute.
-const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 const encoder = new TextEncoder();
 
@@ -32,7 +31,7 @@ export const POST: RequestHandler = async ({ request }) => {
   const upstream = new AbortController();
 
   try {
-    const res = await fetch(`${API}/api/assistant/chat`, {
+    const res = await bridgeFetch("/api/assistant/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
@@ -57,7 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (err) {
     upstream.abort();
     return Response.json(
-      { error: `Skills bridge unreachable at ${API}: ${errMessage(err)}` },
+      { error: unreachableMessage(err) },
       { status: 502 },
     );
   }

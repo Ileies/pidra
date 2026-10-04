@@ -3,9 +3,7 @@ import { fail } from "@sveltejs/kit";
 import { renderMarkdown } from "#lib/markdown.js";
 import { parseIds, UUID_RE } from "#lib/ids.js";
 import { rateExtraction } from "#lib/server/extractions.js";
-import { SKILLS_BRIDGE_URL } from "$app/env/private";
-
-const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
 /** Actions only. The read side moved to `+page.ts`; see `[date]/+page.server.ts`
  *  for why a co-located `load` here would never run for a client-side navigation now. */
@@ -26,17 +24,8 @@ export const actions: Actions = {
     const idList = parseIds(ids);
     if (idList.length === 0) return fail(400, { error: "No valid item IDs" });
 
-    try {
-      const res = await fetch(`${API}/api/deepen`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: idList, date }),
-      });
-      if (!res.ok) return fail(502, { error: "The deep-dive call failed." });
-      const { text } = (await res.json()) as { text: string };
-      return { deepDiveHtml: renderMarkdown(text) };
-    } catch {
-      return fail(503, { error: `The skills bridge is not reachable (${API}).` });
-    }
+    return bridgeAction("/api/deepen", jsonPost({ ids: idList, date }), (body: { text: string }) => ({
+      deepDiveHtml: renderMarkdown(body.text),
+    }));
   },
 };

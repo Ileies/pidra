@@ -1,9 +1,9 @@
 import { isUuid } from "$pipeline/util/ids";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
+import { bridgeAction } from "#lib/server/bridge.js";
 import { sql } from "#lib/server/postgres.js";
 
-const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 const CLOSED_LIMIT = 100;
 
 interface Row {
@@ -56,14 +56,7 @@ async function bridge(request: Request, op: "reopen" | "reprocess") {
   const id = String((await request.formData()).get("id") ?? "");
   if (!isUuid(id)) return fail(400, { id, error: "Invalid question id" });
 
-  try {
-    const res = await fetch(`${API}/api/questions/${id}/${op}`, { method: "POST" });
-    const json = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) return fail(res.status, { id, error: json.error ?? "The skills bridge returned an error." });
-    return { id, op };
-  } catch {
-    return fail(503, { id, error: `The skills bridge is not reachable (${API}).` });
-  }
+  return bridgeAction(`/api/questions/${id}/${op}`, { method: "POST" }, () => ({ id, op }), { id });
 }
 
 export const actions: Actions = {

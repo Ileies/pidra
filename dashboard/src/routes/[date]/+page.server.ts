@@ -1,9 +1,7 @@
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
-import { SKILLS_BRIDGE_URL } from "$app/env/private";
-
-const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
+import { bridgeAction } from "#lib/server/bridge.js";
 
 /**
  * Actions only. The read side moved to `+page.ts`: with the page on
@@ -12,15 +10,7 @@ const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
  * unaffected by `ssr`; they always execute on the server when a form submits.
  */
 export const actions: Actions = {
-  runPipeline: async () => {
-    try {
-      const res = await fetch(`${API}/api/pipeline/run`, { method: "POST" });
-      if (!res.ok) return fail(502, { error: "The skills bridge returned an error." });
-      return { triggered: true };
-    } catch {
-      return fail(503, { error: "The skills bridge is not running." });
-    }
-  },
+  runPipeline: () => bridgeAction("/api/pipeline/run", { method: "POST" }, () => ({ triggered: true })),
 
   /**
    * Rating from inside the report (C4). `feedback_events` only filled up if the reader took a

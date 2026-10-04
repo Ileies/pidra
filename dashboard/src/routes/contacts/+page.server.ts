@@ -1,5 +1,6 @@
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
+import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
 /**
  * The sender directory's one write (D7). The read side moved to `+page.ts`.
@@ -11,8 +12,6 @@ import { fail } from "@sveltejs/kit";
  * against a row that may have moved, a locking merge is the one write where a stale base does
  * lasting damage.
  */
-
-const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 const EDITABLE = ["name", "relationship", "priority", "contextNotes"] as const;
 const PRIORITIES = ["critical", "high", "normal", "low"];
@@ -39,24 +38,10 @@ export const actions: Actions = {
       (data.get("statement") as string | null)?.trim() ||
       `${identifier} is ${fields.name ?? "unnamed"}${fields.relationship ? `, ${fields.relationship}` : ""}.`;
 
-    try {
-      const res = await fetch(`${API}/api/context/corrections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          target_kind: "contact",
-          target_key: identifier,
-          operation: "amend",
-          statement,
-          fields,
-          source: "dashboard",
-        }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; applied?: string };
-      if (!res.ok) return fail(res.status, { error: body.error ?? "The skills bridge returned an error." });
-      return { ok: true, message: body.applied ?? "Contact updated." };
-    } catch {
-      return fail(503, { error: "The skills bridge is not reachable (localhost:4000)." });
-    }
+    return bridgeAction(
+      "/api/context/corrections",
+      jsonPost({ target_kind: "contact", target_key: identifier, operation: "amend", statement, fields, source: "dashboard" }),
+      (body: { applied?: string }) => ({ ok: true, message: body.applied ?? "Contact updated." }),
+    );
   },
 };

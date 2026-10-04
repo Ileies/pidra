@@ -1,10 +1,9 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
+import { bridgeAction, bridgeFetch, jsonPost } from "#lib/server/bridge.js";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 import { LOCAL_SKILLS } from "./catalog.js";
-
-const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 export interface SkillInfo {
   name: string;
@@ -30,7 +29,7 @@ export const load: PageServerLoad = async () => {
   // The bridge owns edits and execution, but the registered catalog is part of this checkout.
   // Load it here too so the page can still explain what skills exist while the bridge is down.
   const [skillsRes, usageRows, pendingRows] = await Promise.all([
-    fetch(`${API}/skills`).catch(() => null),
+    bridgeFetch("/skills").catch(() => null),
     sql()`
       SELECT skill_name, count(*)::int AS uses
       FROM skill_executions
@@ -76,14 +75,11 @@ export const actions: Actions = {
     const skillName = data.get("skillName") as string;
     if (!skillName) return fail(400, { error: "skillName required" });
 
-    const res = await fetch(`${API}/skills/${encodeURIComponent(skillName)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: data.get("enabled") === "true" }),
-    });
-
-    if (!res.ok) return fail(res.status, { error: (await res.json().catch(() => ({}))).error ?? "API error" });
-    return { ok: true };
+    return bridgeAction(
+      `/skills/${encodeURIComponent(skillName)}`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: data.get("enabled") === "true" }) },
+      () => ({ ok: true }),
+    );
   },
 
   /**
@@ -104,24 +100,16 @@ export const actions: Actions = {
     if (!id) return fail(400, { error: "Missing execution id" });
     if (decision !== "confirm" && decision !== "reject") return fail(400, { error: "Invalid decision" });
 
-    try {
-      const res = await fetch(`${API}/api/skills/executions/${encodeURIComponent(id)}/${decision}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; status?: string; result?: string; reason?: string };
-      if (!res.ok) return fail(res.status, { error: body.error ?? "The skills bridge returned an error." });
-
-      return {
+    return bridgeAction(
+      `/api/skills/executions/${encodeURIComponent(id)}/${decision}`,
+      jsonPost({ reason }),
+      (body: { status?: string; result?: string; reason?: string }) => ({
         ok: true,
         message:
           body.status === "executed"
             ? `Ran it: ${body.result ?? "done"}`
             : `Rejected: ${body.reason ?? "no reason given"}`,
-      };
-    } catch {
-      return fail(503, { error: "The skills bridge is not reachable (localhost:4000)." });
-    }
+      }),
+    );
   },
 };

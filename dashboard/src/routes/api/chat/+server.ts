@@ -1,34 +1,18 @@
-import { errMessage } from "$pipeline/util/text";
 import type { RequestHandler } from "./$types";
-import { SKILLS_BRIDGE_URL } from "$app/env/private";
+import { bridgeProxy, jsonPost } from "#lib/server/bridge.js";
 
 // The chat loop runs on the skills bridge, because that is where the skill registry lives. The
 // dashboard only proxies, so the bridge stays on localhost and is never internet-exposed.
-const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json().catch(() => ({}));
   const message = typeof body?.message === "string" ? body.message.trim() : "";
   if (!message) return Response.json({ error: "message is required" }, { status: 400 });
 
-  try {
-    const res = await fetch(`${API}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        conversation_id: body.conversation_id ?? undefined,
-        context: body.context ?? undefined,
-        origin: body.origin ?? "page",
-      }),
-    });
-    return Response.json(await res.json(), { status: res.status });
-  } catch (err) {
-    // A dead bridge is the common failure here, and it is worth naming rather than showing a
-    // generic fetch error in the chat window.
-    return Response.json(
-      { error: `Skills bridge unreachable at ${API}: ${errMessage(err)}` },
-      { status: 502 },
-    );
-  }
+  return bridgeProxy("/api/chat", jsonPost({
+    message,
+    conversation_id: body.conversation_id ?? undefined,
+    context: body.context ?? undefined,
+    origin: body.origin ?? "page",
+  }));
 };

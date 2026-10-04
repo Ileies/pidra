@@ -1,6 +1,7 @@
 import { isUuid } from "$pipeline/util/ids";
 import type { PageServerLoad, Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
+import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 
@@ -11,8 +12,6 @@ import { parseJsonb } from "#lib/jsonb.js";
  * is the only writer, so an answer here and the pipeline's reconcile cannot overwrite each other.
  * Online-only: a question the pipeline has since merged or closed is not there to take a queued answer.
  */
-
-const API = process.env.SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 interface Source {
   extraction_id: string | null;
@@ -84,20 +83,9 @@ export const load: PageServerLoad = async () => {
   return { open: openViews };
 };
 
-async function bridge(id: string, op: string, body?: unknown) {
+function bridge(id: string, op: string, body?: unknown) {
   if (!isUuid(id)) return fail(400, { id, error: "Invalid question id" });
-  try {
-    const res = await fetch(`${API}/api/questions/${id}/${op}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body ?? {}),
-    });
-    const json = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) return fail(res.status, { id, error: json.error ?? "The skills bridge returned an error." });
-    return { id, op };
-  } catch {
-    return fail(503, { id, error: `The skills bridge is not reachable (${API}).` });
-  }
+  return bridgeAction(`/api/questions/${id}/${op}`, jsonPost(body), () => ({ id, op }), { id });
 }
 
 export const actions: Actions = {

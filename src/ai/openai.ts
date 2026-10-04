@@ -1,13 +1,18 @@
 import OpenAI from "openai";
 import type { ReasoningEffort } from "openai/resources/shared";
-import type { FunctionTool, ResponseInput, ResponseInputItem } from "openai/resources/responses/responses";
+import type {
+  FunctionTool,
+  ResponseCreateParamsNonStreaming,
+  ResponseInput,
+  ResponseInputItem,
+} from "openai/resources/responses/responses";
 import { retry } from "../util/retry";
 import { stripControlChars } from "../util/text";
 import { recordAiCall, recordFlexRetry, recordUsage } from "../util/trace";
 
 if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
 
-export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export const EXTRACTION_MODEL = process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-6-luna";
 export const SYNTHESIS_MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-6-luna";
@@ -38,16 +43,52 @@ export function withFlexRetry<T>(fn: () => Promise<T>): Promise<T> {
   });
 }
 
-export interface ExtractOptions {
+/** What every Responses call lets its caller tune, and the usage callback they all share. */
+export interface CallOptions {
+  maxOutputTokens?: number;
+  reasoningEffort?: ReasoningEffort;
+  onUsage?: (tokensIn: number, tokensOut: number) => void;
+}
+
+/** Token counts for a run of calls: pass `tally.onUsage` as `onUsage` and read the totals after. */
+export function usageTally() {
+  const tally = {
+    tokensIn: 0,
+    tokensOut: 0,
+    onUsage(tokensIn: number, tokensOut: number) {
+      tally.tokensIn += tokensIn;
+      tally.tokensOut += tokensOut;
+    },
+  };
+  return tally;
+}
+
+/**
+ * Every Responses call goes through here, so `store: false`, the flex tier, the retry and the
+ * usage accounting cannot be forgotten by a new caller.
+ */
+async function callModel(
+  params: Omit<ResponseCreateParamsNonStreaming, "store" | "service_tier">,
+  onUsage?: CallOptions["onUsage"],
+) {
+  const response = await withFlexRetry(() =>
+    openai.responses.create({ ...params, store: false, service_tier: "flex" }),
+  );
+  const tokensIn = response.usage?.input_tokens ?? 0;
+  const tokensOut = response.usage?.output_tokens ?? 0;
+  recordAiCall();
+  recordUsage(tokensIn, tokensOut);
+  onUsage?.(tokensIn, tokensOut);
+  return { response, tokensIn, tokensOut };
+}
+
+export interface ExtractOptions extends CallOptions {
   /**
    * Strict JSON schema for the response. Strongly preferred over free-form JSON: the model is
    * constrained to exactly these fields, which removes both field drift and the truncated-JSON
    * parse failures that plagued the local-model extraction path.
    */
   schema?: { name: string; schema: Record<string, unknown> };
-  maxOutputTokens?: number;
-  reasoningEffort?: ReasoningEffort;
-  onUsage?: (tokensIn: number, tokensOut: number) => void;
 }
 
 export async function extractJson<T>(
@@ -71,23 +112,15 @@ export async function extractJson<T>(
   let lastReason = "unknown";
 
   for (const cap of caps) {
-    const response = await withFlexRetry(() =>
-      openai.responses.create({
-        model: EXTRACTION_MODEL,
-        store: false,
-        service_tier: "flex",
-        reasoning: { effort: opts.reasoningEffort ?? "low" },
-        instructions: systemPrompt,
-        // json_object and json_schema both require the literal word "json" in the input.
-        input,
-        max_output_tokens: cap,
-        text: { format },
-      })
-    );
-
-    recordAiCall();
-    recordUsage(response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0);
-    opts.onUsage?.(response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0);
+    const { response } = await callModel({
+      model: EXTRACTION_MODEL,
+      reasoning: { effort: opts.reasoningEffort ?? "low" },
+      instructions: systemPrompt,
+      // json_object and json_schema both require the literal word "json" in the input.
+      input,
+      max_output_tokens: cap,
+      text: { format },
+    }, opts.onUsage);
 
     // A truncated response can still be JSON-shaped, so check status explicitly rather than
     // letting JSON.parse fail with a confusing message.
@@ -104,34 +137,18 @@ export async function extractJson<T>(
   throw new Error(`OpenAI extraction incomplete after ${caps.length} attempts: ${lastReason}`);
 }
 
-export interface SynthesizeOptions {
-  maxOutputTokens?: number;
-  reasoningEffort?: ReasoningEffort;
-  onUsage?: (tokensIn: number, tokensOut: number) => void;
-}
-
 export async function synthesize(
   systemPrompt: string,
   userContent: string,
-  opts: SynthesizeOptions = {},
+  opts: CallOptions = {},
 ): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  const response = await withFlexRetry(() =>
-    openai.responses.create({
-      model: SYNTHESIS_MODEL,
-      store: false,
-      service_tier: "flex",
-      reasoning: { effort: opts.reasoningEffort ?? "medium" },
-      instructions: systemPrompt,
-      input: stripControlChars(userContent),
-      max_output_tokens: opts.maxOutputTokens ?? 4096,
-    })
-  );
-
-  const tokensIn = response.usage?.input_tokens ?? 0;
-  const tokensOut = response.usage?.output_tokens ?? 0;
-  recordAiCall();
-  recordUsage(tokensIn, tokensOut);
-  opts.onUsage?.(tokensIn, tokensOut);
+  const { response, tokensIn, tokensOut } = await callModel({
+    model: SYNTHESIS_MODEL,
+    reasoning: { effort: opts.reasoningEffort ?? "medium" },
+    instructions: systemPrompt,
+    input: stripControlChars(userContent),
+    max_output_tokens: opts.maxOutputTokens ?? 4096,
+  }, opts.onUsage);
 
   return { text: response.output_text, tokensIn, tokensOut };
 }
@@ -164,7 +181,7 @@ export async function speak(text: string): Promise<Buffer> {
 
 export type { FunctionTool, ResponseInput, ResponseInputItem };
 
-export interface ConverseOptions extends SynthesizeOptions {
+export interface ConverseOptions extends CallOptions {
   tools?: FunctionTool[];
 }
 
@@ -190,24 +207,14 @@ export async function converse(
   input: ResponseInput,
   opts: ConverseOptions = {},
 ): Promise<ConverseResult> {
-  const response = await withFlexRetry(() =>
-    openai.responses.create({
-      model: SYNTHESIS_MODEL,
-      store: false,
-      service_tier: "flex",
-      reasoning: { effort: opts.reasoningEffort ?? "low" },
-      instructions: systemPrompt,
-      input,
-      max_output_tokens: opts.maxOutputTokens ?? 4096,
-      ...(opts.tools?.length ? { tools: opts.tools, tool_choice: "auto" as const } : {}),
-    })
-  );
-
-  const tokensIn = response.usage?.input_tokens ?? 0;
-  const tokensOut = response.usage?.output_tokens ?? 0;
-  recordAiCall();
-  recordUsage(tokensIn, tokensOut);
-  opts.onUsage?.(tokensIn, tokensOut);
+  const { response, tokensIn, tokensOut } = await callModel({
+    model: SYNTHESIS_MODEL,
+    reasoning: { effort: opts.reasoningEffort ?? "low" },
+    instructions: systemPrompt,
+    input,
+    max_output_tokens: opts.maxOutputTokens ?? 4096,
+    ...(opts.tools?.length ? { tools: opts.tools, tool_choice: "auto" as const } : {}),
+  }, opts.onUsage);
 
   const functionCalls = response.output
     .filter((item): item is Extract<typeof item, { type: "function_call" }> => item.type === "function_call")

@@ -24,7 +24,7 @@ import { squash } from "../util/text";
 import { and, inArray, isNull } from "drizzle-orm";
 import { contacts, db, notes } from "../db";
 import { activePrompt } from "../ai/active-prompts";
-import { extractJson } from "../ai/openai";
+import { extractJson, usageTally } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
 import { loadLongTermContext, type LongTermContext } from "../pipeline/long-term-context";
 import { listOpen, listRecentlyAnswered, type Candidate, type Question, type QueuePlan } from "./store";
@@ -303,17 +303,13 @@ export async function reconcileQueue(
   };
 
   const prompt = await activePrompt("questions");
-  let tokensIn = 0;
-  let tokensOut = 0;
+  const usage = usageTally();
   const answer = await extractJson<ModelAnswer>(prompt.text, JSON.stringify(payload), {
     schema: SCHEMA,
     // Deciding that two questions are "the same" or that a note settles one is the whole job.
     reasoningEffort: "high",
     maxOutputTokens: 10000,
-    onUsage: (inTokens, outTokens) => {
-      tokensIn += inTokens;
-      tokensOut += outTokens;
-    },
+    onUsage: usage.onUsage,
   });
 
   const plan = capCreated(buildPlan(answer, openIds, candidateIds));
@@ -322,5 +318,5 @@ export async function reconcileQueue(
       `${plan.created.length} new, ${plan.attaches.length} attached, ${plan.dropped.length} dropped, ` +
       `${plan.rewrites.length} rephrased, ${plan.merges.length} merged, ${plan.resolves.length} resolved`,
   );
-  return { plan, openCount: open.length, tokensIn, tokensOut, aiCalls: 1 };
+  return { plan, openCount: open.length, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, aiCalls: 1 };
 }

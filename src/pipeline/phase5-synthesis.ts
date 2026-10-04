@@ -1,5 +1,5 @@
 import { activePrompt, type PromptSection } from "../ai/active-prompts";
-import { synthesize, type SynthesizeOptions } from "../ai/openai";
+import { synthesize, type CallOptions } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
 import type { ContextPayload, ExtractionWithSource } from "./phase3-context";
 import type { QuestionAnswer } from "./phase4-questiongate";
@@ -119,7 +119,7 @@ function buildSection2Payload(
 }
 
 // The cap covers reasoning tokens too, so it sits well above the default 4096 that high effort would exhaust.
-const BRIEFING_SECTION_OPTS: SynthesizeOptions = { reasoningEffort: "high", maxOutputTokens: 12000 };
+const BRIEFING_SECTION_OPTS: CallOptions = { reasoningEffort: "high", maxOutputTokens: 12000 };
 
 // The prompt is resolved here rather than imported, so activating a version on /prompts takes
 // effect on the next run without a deploy. `activePrompt` falls back to the code constant.
@@ -127,7 +127,7 @@ async function synthesizeSection(
   name: string,
   section: PromptSection,
   payload: string,
-  opts: SynthesizeOptions = {},
+  opts: CallOptions = {},
 ) {
   const prompt = await activePrompt(section);
   const label = prompt.source === "db" ? `prompt v${prompt.version}` : "code prompt";

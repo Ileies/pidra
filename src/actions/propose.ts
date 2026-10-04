@@ -28,7 +28,7 @@ import { errMessage, squash } from "../util/text";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
-import { extractJson } from "../ai/openai";
+import { extractJson, usageTally } from "../ai/openai";
 import { calendarTimeZone, listCalendarEvents, type CalendarEvent, type TodoItem } from "../ingest/google";
 import type { ContextPayload } from "../pipeline/phase3-context";
 import { addDays, isLocalDate, localDay, zonedToIso } from "../util/time";
@@ -525,17 +525,13 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
   };
 
   const prompt = await activePrompt("quick_actions");
-  let tokensIn = 0;
-  let tokensOut = 0;
+  const usage = usageTally();
   const answer = await extractJson<{ actions: ModelAction[] }>(prompt.text, JSON.stringify(payload), {
     schema: ACTIONS_SCHEMA,
     // Judgement is the whole job here, and a wrong "yes" is the failure that matters.
     reasoningEffort: "high",
     maxOutputTokens: 12000,
-    onUsage: (inTokens, outTokens) => {
-      tokensIn += inTokens;
-      tokensOut += outTokens;
-    },
+    onUsage: usage.onUsage,
   });
 
   const refs: Refs = {
@@ -587,5 +583,5 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
       (dropped.length > 0 ? `, ${dropped.length} discarded (${dropped.map((p) => p.discarded).join(", ")})` : ""),
   );
 
-  return { proposals, tokensIn, tokensOut, aiCalls: 1 };
+  return { proposals, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, aiCalls: 1 };
 }

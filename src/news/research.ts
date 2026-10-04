@@ -1,7 +1,7 @@
 /** Brave-backed research for one news desk. Search calls are budgeted here, not by the model. */
 
 import { errMessage, squash } from "../util/text";
-import { extractJson, EXTRACTION_MODEL } from "../ai/openai";
+import { extractJson, usageTally, EXTRACTION_MODEL } from "../ai/openai";
 import { braveContext, braveSearch, type BraveResult } from "../search/brave";
 import { resolveStorySources, type CitedStory, type DeskStory } from "./validate";
 import { SEARCH_BUDGET, type Desk, type HomeConfig, type NewsWindow } from "./config";
@@ -131,11 +131,10 @@ export async function researchDesk(
   desk: Desk, prompt: string, payload: Record<string, unknown>, window: NewsWindow, home: HomeConfig | null,
 ): Promise<ResearchAnswer> {
   if (!process.env.BRAVE_SEARCH_API_KEY) throw new DeskResearchError("BRAVE_SEARCH_API_KEY is not set", 0, 0, 0, 0);
-  let tokensIn = 0;
-  let tokensOut = 0;
+  const usage = usageTally();
+  const { onUsage } = usage;
   let searchCalls = 0;
   let aiCalls = 0;
-  const onUsage = (input: number, output: number) => { tokensIn += input; tokensOut += output; };
   const onAiCall = () => { aiCalls++; };
   try {
     const [firstCount, followupCount] = SEARCH_BUDGET[desk.id];
@@ -177,9 +176,9 @@ export async function researchDesk(
     return {
       stories: (answer.stories ?? []).map((story) => resolveStorySources(story, sourceById)),
       queries: [...first, ...followup], sources, evidence, searchCalls, aiCalls,
-      tokensIn, tokensOut, model: EXTRACTION_MODEL,
+      tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, model: EXTRACTION_MODEL,
     };
   } catch (error) {
-    throw new DeskResearchError(error, searchCalls, aiCalls, tokensIn, tokensOut);
+    throw new DeskResearchError(error, searchCalls, aiCalls, usage.tokensIn, usage.tokensOut);
   }
 }

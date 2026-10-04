@@ -129,7 +129,7 @@ export async function* streamMessage(
     // Whatever already ran has to stay visible: the transcript records the partial turn rather
     // than losing the fact that a write happened.
     const message = err instanceof Error ? err.message : String(err);
-    reply = reply || `Der Durchlauf ist abgebrochen: ${message}`;
+    reply = reply || `The run was interrupted: ${message}`;
     await persistAssistantTurn(id, reply, toolCalls, ctx);
     yield { type: "error", message };
     return;

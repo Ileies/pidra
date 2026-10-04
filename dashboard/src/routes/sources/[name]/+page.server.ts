@@ -175,7 +175,7 @@ export const load: PageServerLoad = async ({ params }) => {
   } | null;
 
   // A source with neither a quality row nor a single ingested item is a bad URL, not an empty page.
-  if (!quality && rows.length === 0) error(404, `Unbekannte Quelle: ${sourceName}`);
+  if (!quality && rows.length === 0) error(404, `Unknown source: ${sourceName}`);
 
   const deliveries: Delivery[] = [];
   const byRawItem = new Map<string, Delivery>();

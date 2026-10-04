@@ -27,7 +27,12 @@ export interface Column<Row> {
    * Defaults to `row`.
    */
   card?: "title" | "meta" | "row" | "actions" | "hidden";
-  cell: Snippet<[Row]>;
+  /** Markup for the cell. Use `value` instead when the cell is just one string. */
+  cell?: Snippet<[Row]>;
+  /** A plain-text cell: rendered in a `<span class={class}>`. */
+  value?: (row: Row) => string;
+  /** Classes for the span a `value` cell renders in. */
+  class?: string;
 }
 
 export const ALIGN = {

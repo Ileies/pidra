@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Search from "@lucide/svelte/icons/search";
   import { jsonInit } from "#lib/http.js";
   import { readStored, writeStored } from "#lib/storage.js";
   import { errMessage } from "$pipeline/util/text";
@@ -7,6 +8,7 @@
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import StatBar from "#lib/components/StatBar.svelte";
+  import Tabs from "#lib/components/Tabs.svelte";
   import { fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
   import { toasts } from "#lib/toast.svelte.js";
@@ -370,9 +372,7 @@
            fine while that tab is hidden, so a match in the tab you are not looking at is found
            immediately instead of only after you happen to switch there. -->
       <div class="bg-surface-900 border border-surface-700 rounded-lg p-2 flex items-center gap-2">
-        <svg viewBox="0 0 24 24" class="size-4 text-surface-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
-        </svg>
+        <Search class="size-4 text-surface-500 shrink-0" />
         <input
           type="search"
           placeholder="Search the document and source summaries…"
@@ -390,26 +390,11 @@
         {/if}
       </div>
 
-      <div role="tablist" aria-label="Context Builder content" class="flex gap-4 border-b border-surface-800">
-        <button
-          type="button"
-          role="tab"
-          id="tab-document"
-          aria-selected={activeTab === "document"}
-          aria-controls="panel-document"
-          class="tap pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'document' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
-          onclick={() => (activeTab = "document")}
-        >Document</button>
-        <button
-          type="button"
-          role="tab"
-          id="tab-summaries"
-          aria-selected={activeTab === "summaries"}
-          aria-controls="panel-summaries"
-          class="tap pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'summaries' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
-          onclick={() => (activeTab = "summaries")}
-        >Source summaries</button>
-      </div>
+      <Tabs
+        tabs={[{ key: "document", label: "Document" }, { key: "summaries", label: "Source summaries" }]}
+        bind:value={activeTab}
+        label="Context Builder content"
+      />
 
       <div
         id="panel-document"

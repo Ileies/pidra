@@ -88,13 +88,6 @@
   ] as [string, string, string][]);
 </script>
 
-{#snippet dayCell(day: DailyScore)}
-  <span class="text-surface-200 whitespace-nowrap">{fmtDate(day.runDate)}</span>
-{/snippet}
-{#snippet receivedCell(day: DailyScore)}<span class="tabular-nums">{day.itemsReceived}</span>{/snippet}
-{#snippet includedCell(day: DailyScore)}<span class="tabular-nums">{day.itemsIncluded}</span>{/snippet}
-{#snippet rateCell(day: DailyScore)}<span class="tabular-nums">{fmtPct(day.includeRate)}</span>{/snippet}
-{#snippet relevanceCell(day: DailyScore)}<span class="tabular-nums">{fmtScore(day.avgRelevance, 2)}</span>{/snippet}
 {#snippet dayScoreCell(day: DailyScore)}
   <span class="tabular-nums {scoreTone(day.compositeScore)}">{fmtScore(day.compositeScore)}</span>
 {/snippet}
@@ -159,11 +152,11 @@
           mode="scroll"
           caption="Daily source scores"
           columns={[
-            { key: "day", header: "Day", cell: dayCell },
-            { key: "received", header: "Received", align: "right", cell: receivedCell },
-            { key: "included", header: "Included", align: "right", showAt: "sm", cell: includedCell },
-            { key: "rate", header: "Rate", align: "right", cell: rateCell },
-            { key: "relevance", header: "Avg relevance", align: "right", showAt: "md", cell: relevanceCell },
+            { key: "day", header: "Day", value: (d) => fmtDate(d.runDate), class: "text-surface-200 whitespace-nowrap" },
+            { key: "received", header: "Received", align: "right", value: (d) => String(d.itemsReceived), class: "tabular-nums" },
+            { key: "included", header: "Included", align: "right", showAt: "sm", value: (d) => String(d.itemsIncluded), class: "tabular-nums" },
+            { key: "rate", header: "Rate", align: "right", value: (d) => fmtPct(d.includeRate), class: "tabular-nums" },
+            { key: "relevance", header: "Avg relevance", align: "right", showAt: "md", value: (d) => fmtScore(d.avgRelevance, 2), class: "tabular-nums" },
             { key: "score", header: "Score", align: "right", cell: dayScoreCell },
           ] as Column<DailyScore>[]}
         />

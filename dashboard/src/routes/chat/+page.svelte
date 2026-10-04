@@ -5,6 +5,7 @@
   import ConversationList from "#lib/assistant/ConversationList.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
   import Badge from "#lib/components/Badge.svelte";
+  import Segmented from "#lib/components/Segmented.svelte";
   import { label } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
@@ -86,11 +87,11 @@
     goto("/chat", { invalidateAll: true });
   }
 
-  const VIEWS: [MobileView, string][] = [
-    ["conversations", "Chats"],
-    ["chat", "Transcript"],
-    ["corrections", "Corrections"],
-  ];
+  const views = $derived<{ key: MobileView; label: string }[]>([
+    { key: "conversations", label: "Chats" },
+    { key: "chat", label: "Transcript" },
+    { key: "corrections", label: `Corrections${data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}` },
+  ]);
 </script>
 
 <svelte:head>
@@ -103,18 +104,7 @@
        padding so the transcript can use the full width; the rows that are not the transcript
        carry their own gutter instead. -->
   <div class="lg:hidden flex gap-1.5 shrink-0 px-4">
-    <div class="grid flex-1 grid-cols-3 gap-1.5">
-      {#each VIEWS as [key, viewLabel] (key)}
-        <button
-          type="button"
-          aria-pressed={view === key}
-          onclick={() => (view = key)}
-          class="tap nav-btn text-center {view === key ? 'nav-btn-active' : 'nav-btn-muted'}"
-        >
-          {viewLabel}{key === "corrections" && data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}
-        </button>
-      {/each}
-    </div>
+    <Segmented options={views} bind:value={view} class="flex-1" />
     <button
       type="button"
       onclick={newConversation}

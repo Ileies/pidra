@@ -62,14 +62,6 @@
   <Sparkline points={series(source)} label="Composite score, last 30 days" />
 {/snippet}
 
-{#snippet rateCell(source: SourceRow)}
-  <span class="tabular-nums">{fmtPct(includeRate(source))}</span>
-{/snippet}
-
-{#snippet lastDeliveryCell(source: SourceRow)}
-  <span class="whitespace-nowrap text-surface-300">{fmtDate(source.lastDelivery)}</span>
-{/snippet}
-
 {#snippet actionCell(source: SourceRow)}
   <span class="inline-flex items-center gap-2">
     {#if !source.isActive}
@@ -103,8 +95,8 @@
       { key: "name", header: "Newsletter", card: "title", cell: nameCell },
       { key: "score", header: "Score 30d", align: "right", card: "row", cell: scoreCell },
       { key: "history", header: "History", width: "w-40", showAt: "md", card: "row", cell: historyCell },
-      { key: "rate", header: "Include rate", align: "right", card: "row", cell: rateCell },
-      { key: "lastDelivery", header: "Last delivery", showAt: "sm", card: "row", cell: lastDeliveryCell },
+      { key: "rate", header: "Include rate", align: "right", card: "row", value: (s) => fmtPct(includeRate(s)), class: "tabular-nums" },
+      { key: "lastDelivery", header: "Last delivery", showAt: "sm", card: "row", value: (s) => fmtDate(s.lastDelivery), class: "whitespace-nowrap text-surface-300" },
       { key: "action", header: "", width: "w-56", align: "right", card: "actions", cell: actionCell },
     ] as Column<SourceRow>[]}
   />

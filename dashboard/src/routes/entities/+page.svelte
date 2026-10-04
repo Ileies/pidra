@@ -136,18 +136,6 @@
   {/if}
 {/snippet}
 
-{#snippet typeCell(entity: Entity)}
-  <span class="text-surface-300 whitespace-nowrap">{entity.type ?? "-"}</span>
-{/snippet}
-
-{#snippet domainCell(entity: Entity)}
-  <span class="text-surface-400">{entity.domain ?? "-"}</span>
-{/snippet}
-
-{#snippet mentionsCell(entity: Entity)}
-  <span class="tabular-nums text-surface-200">{entity.mentionCount}</span>
-{/snippet}
-
 {#snippet statusCell(entity: Entity)}
   <Badge tone={toneFor(entity.status)}>
     {displayLabel(entity.status)}
@@ -158,10 +146,6 @@
   <span class="{IMPORTANCE_CLASS[entity.importance ?? ''] ?? 'text-surface-400'} text-xs">
     {displayLabel(entity.importance)}
   </span>
-{/snippet}
-
-{#snippet lastSeenCell(entity: Entity)}
-  <span class="text-surface-400 text-xs whitespace-nowrap">{fmtDate(entity.lastMentioned)}</span>
 {/snippet}
 
 <Page title="Entities" size="app" class="flex flex-col gap-4">
@@ -219,12 +203,12 @@
     emptyHint="Entities accumulate from the pipeline and from the Context Builder harvest."
     columns={[
       { key: "name", header: "Name", cell: nameCell },
-      { key: "type", header: "Type", cell: typeCell },
-      { key: "domain", header: "Domain", showAt: "sm", cell: domainCell },
-      { key: "mentions", header: "Mentions", align: "right", cell: mentionsCell },
+      { key: "type", header: "Type", value: (e) => e.type ?? "-", class: "text-surface-300 whitespace-nowrap" },
+      { key: "domain", header: "Domain", showAt: "sm", value: (e) => e.domain ?? "-", class: "text-surface-400" },
+      { key: "mentions", header: "Mentions", align: "right", value: (e) => String(e.mentionCount), class: "tabular-nums text-surface-200" },
       { key: "status", header: "Status", cell: statusCell },
       { key: "importance", header: "Importance", showAt: "md", cell: importanceCell },
-      { key: "last", header: "Last seen", align: "right", showAt: "lg", cell: lastSeenCell },
+      { key: "last", header: "Last seen", align: "right", showAt: "lg", value: (e) => fmtDate(e.lastMentioned), class: "text-surface-400 text-xs whitespace-nowrap" },
     ] as Column<Entity>[]}
   />
 </Page>

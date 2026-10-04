@@ -59,6 +59,14 @@
   const actionColumns = $derived(columns.filter((column) => column.card === "actions"));
 </script>
 
+{#snippet body(column: Column<Row>, row: Row)}
+  {#if column.cell}
+    {@render column.cell(row)}
+  {:else if column.value}
+    <span class={column.class}>{column.value(row)}</span>
+  {/if}
+{/snippet}
+
 {#if rows.length === 0}
   {#if empty}
     {@render empty()}
@@ -93,7 +101,7 @@
           >
             {#each columns as column (column.key)}
               <td class="px-3 py-2.5 align-top {ALIGN[column.align ?? 'left']} {column.showAt ? SHOW_AT[column.showAt] : ''}">
-                {@render column.cell(row)}
+                {@render body(column, row)}
               </td>
             {/each}
           </tr>
@@ -112,14 +120,14 @@
         >
           {#if titleColumn}
             <div class="text-sm font-medium text-surface-100 break-words">
-              {@render titleColumn.cell(row)}
+              {@render body(titleColumn, row)}
             </div>
           {/if}
 
           {#if metaColumns.length > 0}
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-surface-400">
               {#each metaColumns as column (column.key)}
-                {@render column.cell(row)}
+                {@render body(column, row)}
               {/each}
             </div>
           {/if}
@@ -129,14 +137,14 @@
               {#each rowColumns as column (column.key)}
                 <dt class="text-surface-400">{column.header}</dt>
                 <dd class="text-surface-200 text-right tabular-nums min-w-0 break-words">
-                  {@render column.cell(row)}
+                  {@render body(column, row)}
                 </dd>
               {/each}
             </dl>
           {/if}
 
           {#each actionColumns as column (column.key)}
-            <div class="pt-1">{@render column.cell(row)}</div>
+            <div class="pt-1">{@render body(column, row)}</div>
           {/each}
         </Card>
       {/each}

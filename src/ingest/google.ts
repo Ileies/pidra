@@ -1,6 +1,6 @@
 import { google, type calendar_v3 } from "googleapis";
 import { db, rawItems, rawItemExists } from "../db";
-import { HOME_TIME_ZONE, isLocalDate, zonedToIso } from "../util/time";
+import { isLocalDate, timeZoneOrUtc, zonedToIso } from "../util/time";
 
 export interface CalendarEvent {
   id: string;
@@ -33,6 +33,25 @@ function createAuthClient() {
 
 export async function getCalendarClient() {
   return google.calendar({ version: "v3", auth: createAuthClient() });
+}
+
+let primaryZone: Promise<string> | undefined;
+
+/**
+ * The primary calendar's own zone, which is what a time read out of a mail means when no browser
+ * is attached (the unattended pipeline). Cached for the process; UTC when Google does not say, and
+ * that fallback is not cached, so the next call asks again.
+ */
+export function calendarTimeZone(): Promise<string> {
+  primaryZone ??= getCalendarClient()
+    .then((calendar) => calendar.calendars.get({ calendarId: "primary" }))
+    .then((res) => timeZoneOrUtc(res.data.timeZone))
+    .catch((err) => {
+      primaryZone = undefined;
+      console.warn(`[Ingest/Google] calendar time zone unavailable, using UTC: ${err instanceof Error ? err.message : err}`);
+      return "UTC";
+    });
+  return primaryZone;
 }
 
 export async function getTasksClient() {
@@ -89,16 +108,16 @@ export async function resolveTaskList(requested?: string | null): Promise<string
 
 /**
  * A skill's start or end as the Calendar API takes it: `YYYY-MM-DD` is a whole-day `date`,
- * anything else a `dateTime`. A time without an offset is read in `HOME_TIME_ZONE` rather than
- * in the process's own zone, which on a server running in UTC was two hours off. The other field
- * is sent as null so a patch can turn a timed event into a whole-day one and back.
+ * anything else a `dateTime`. A time without an offset is read in `timeZone` (the caller's, not
+ * the process's). The other field is sent as null so a patch can turn a timed event into a
+ * whole-day one and back.
  */
-export function eventTime(value: string): calendar_v3.Schema$EventDateTime {
+export function eventTime(value: string, timeZone: string): calendar_v3.Schema$EventDateTime {
   const trimmed = value.trim();
-  if (isLocalDate(trimmed)) return { date: trimmed, dateTime: null, timeZone: HOME_TIME_ZONE };
-  const iso = zonedToIso(trimmed) ?? (Number.isNaN(Date.parse(trimmed)) ? null : new Date(trimmed).toISOString());
+  if (isLocalDate(trimmed)) return { date: trimmed, dateTime: null, timeZone };
+  const iso = zonedToIso(trimmed, timeZone) ?? (Number.isNaN(Date.parse(trimmed)) ? null : new Date(trimmed).toISOString());
   if (!iso) throw new Error(`Not a date or time: "${value}"`);
-  return { dateTime: iso, date: null, timeZone: HOME_TIME_ZONE };
+  return { dateTime: iso, date: null, timeZone };
 }
 
 /** An integer parameter from the model, clamped to `[min, max]`, or `fallback` when omitted. */

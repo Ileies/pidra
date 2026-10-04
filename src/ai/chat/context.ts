@@ -1,7 +1,7 @@
 import type { PageContextSnapshot } from "../../db";
 import { SURFACES, resolveSurface, type Surface } from "../surfaces";
 import { renderPrompt, type PromptVars } from "../prompt-vars";
-import { HOME_TIME_ZONE } from "../../util/time";
+import { timeZoneOrUtc } from "../../util/time";
 
 const BASE_PROMPT = `You are PIDRA's assistant, embedded in the user's own dashboard. You help them
 change the system's content: notes, the harvested long-term context, entities, todos and calendar
@@ -52,10 +52,14 @@ export interface TurnContextInput {
   route?: string;
   digest?: string;
   focus?: { kind?: string; id?: string; label?: string }[];
+  /** The browser's IANA zone. Anything that is not one reads as UTC. */
+  timeZone?: unknown;
 }
 
 export interface TurnContext extends PageContextSnapshot {
   surface: Surface;
+  /** The zone the user's own wording ("at 14:00", "tomorrow") is in. */
+  timeZone: string;
 }
 
 const MAX_DIGEST_CHARS = 2000;
@@ -70,6 +74,7 @@ export function normaliseContext(input: TurnContextInput = {}): TurnContext {
     // to widen its own capabilities.
     surface: resolveSurface(input.surface, route),
     route,
+    timeZone: timeZoneOrUtc(input.timeZone),
     digest: typeof input.digest === "string" ? input.digest.slice(0, MAX_DIGEST_CHARS) : undefined,
     focus: Array.isArray(input.focus)
       ? input.focus
@@ -89,14 +94,11 @@ export function normaliseContext(input: TurnContextInput = {}): TurnContext {
  * the newsletter" work: real ids for what is actually on screen.
  */
 function renderContext(ctx: TurnContext, now: Date): string {
-  const clock = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: HOME_TIME_ZONE,
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(now);
-  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: HOME_TIME_ZONE, weekday: "long" }).format(now);
+  const timeZone = ctx.timeZone;
+  const clock = new Intl.DateTimeFormat("sv-SE", { timeZone, dateStyle: "short", timeStyle: "short" }).format(now);
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(now);
   const lines = [
-    `Now: ${weekday} ${clock} (${HOME_TIME_ZONE}).`,
+    `Now: ${weekday} ${clock} (the user's time zone, ${timeZone}; times you give without an offset are read in it).`,
     `The user is on ${ctx.route} (${SURFACES[ctx.surface].label}).`,
   ];
   if (ctx.digest) lines.push(ctx.digest);

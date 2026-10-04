@@ -48,6 +48,8 @@ export interface SkillContext {
   conversationId?: string | null;
   /** Who the write is attributed to in a revision trail. */
   actor: "user" | "chat" | "system";
+  /** The zone a time without an offset means: the browser's for a chat turn, otherwise UTC. */
+  timeZone: string;
 }
 
 export interface Skill {

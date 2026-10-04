@@ -2,12 +2,12 @@ import type { Skill } from "../src/skills/loader";
 import { boolParam, getTasksClient, intParam, resolveTaskList } from "../src/ingest/google";
 import { addDays, isLocalDate, zonedToIso } from "../src/util/time";
 
-/** A `YYYY-MM-DD` as the RFC 3339 instant the Tasks API filters on. */
+/** A `YYYY-MM-DD` as the RFC 3339 instant the Tasks API filters on. A task's due date is a date at UTC midnight, whatever the zone. */
 function dueBound(value: unknown, name: string, endOfDay: boolean): string | undefined {
   const text = String(value ?? "").trim();
   if (!text) return undefined;
   if (!isLocalDate(text)) throw new Error(`${name} must be YYYY-MM-DD (got "${text}")`);
-  return zonedToIso(`${endOfDay ? addDays(text, 1) : text}T00:00`) ?? undefined;
+  return zonedToIso(`${endOfDay ? addDays(text, 1) : text}T00:00`, "UTC") ?? undefined;
 }
 
 const skill: Skill = {

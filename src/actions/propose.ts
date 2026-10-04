@@ -9,8 +9,9 @@
  * The model proposes, code decides, the same split as the news desks:
  * - It sees short ids ("m1", "c3", "t12"), never a UUID or a Google id, and code maps them back.
  *   An id that maps to nothing discards the action rather than guessing.
- * - Every date is parsed as a wall-clock time in `HOME_TIME_ZONE` and turned into an instant here,
- *   so a server running in UTC cannot move an appointment by two hours.
+ * - Every date is parsed as a wall-clock time in the primary calendar's zone (`calendarTimeZone`)
+ *   and turned into an instant here, so a server running in UTC cannot move an appointment by
+ *   hours. The unattended run has no browser to ask.
  * - An event is checked against the calendar on its own day, not only against the seven days
  *   Phase 1 ingests, and a task against the whole open list rather than the 40 Section 2 gets.
  * - Hard caps: two per mail, `MAX_ACTIONS` per day.
@@ -27,9 +28,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
-import { listCalendarEvents, type CalendarEvent, type TodoItem } from "../ingest/google";
+import { calendarTimeZone, listCalendarEvents, type CalendarEvent, type TodoItem } from "../ingest/google";
 import type { ContextPayload } from "../pipeline/phase3-context";
-import { HOME_TIME_ZONE, addDays, isLocalDate, localDay, zonedToIso } from "../util/time";
+import { addDays, isLocalDate, localDay, zonedToIso } from "../util/time";
 import { stripControlChars } from "../util/text";
 
 export const ACTION_KINDS = ["add_event", "update_event", "add_todo", "complete_todo"] as const;
@@ -219,9 +220,9 @@ async function openTodos(runDate: string): Promise<TodoItem[]> {
   });
 }
 
-/** An instant as the wall clock at home reads it: "2026-09-30T14:00". */
-function wallClock(iso: string): string {
-  return new Date(iso).toLocaleString("sv-SE", { timeZone: HOME_TIME_ZONE }).slice(0, 16).replace(" ", "T");
+/** An instant as the wall clock in `zone` reads it: "2026-09-30T14:00". */
+function wallClock(iso: string, zone: string): string {
+  return new Date(iso).toLocaleString("sv-SE", { timeZone: zone }).slice(0, 16).replace(" ", "T");
 }
 
 function weekday(date: string): string {
@@ -229,12 +230,12 @@ function weekday(date: string): string {
 }
 
 /** The first and last local day an event covers. A whole-day event's `end` is exclusive. */
-function eventDays(event: CalendarEvent): [string, string] {
+function eventDays(event: CalendarEvent, zone: string): [string, string] {
   if (event.is_all_day) {
     const last = event.end ? addDays(event.end, -1) : event.start;
     return [event.start, last >= event.start ? last : event.start];
   }
-  return [localDay(event.start), localDay(event.end || event.start)];
+  return [localDay(event.start, zone), localDay(event.end || event.start, zone)];
 }
 
 function words(text: string): Set<string> {
@@ -270,15 +271,15 @@ interface When {
 }
 
 /** The model's local start and end as a `When`, defaulting a missing end to an hour or a day. */
-function parseWhen(start: string, end: string): When | null {
+function parseWhen(start: string, end: string, zone: string): When | null {
   const s = start.trim();
   const e = end.trim();
   if (isLocalDate(s)) {
     return { allDay: true, start: s, end: isLocalDate(e) && e >= s ? e : s };
   }
-  const startIso = zonedToIso(s);
+  const startIso = zonedToIso(s, zone);
   if (!startIso) return null;
-  const endIso = e ? zonedToIso(e) : null;
+  const endIso = e ? zonedToIso(e, zone) : null;
   return {
     allDay: false,
     start: startIso,
@@ -286,9 +287,9 @@ function parseWhen(start: string, end: string): When | null {
   };
 }
 
-function whenOf(event: CalendarEvent): When {
+function whenOf(event: CalendarEvent, zone: string): When {
   if (event.is_all_day) {
-    const [first, last] = eventDays(event);
+    const [first, last] = eventDays(event, zone);
     return { allDay: true, start: first, end: last };
   }
   return { allDay: false, start: new Date(event.start).toISOString(), end: new Date(event.end || event.start).toISOString() };
@@ -299,22 +300,22 @@ function skillTimes(when: When): { start: string; end: string } {
   return when.allDay ? { start: when.start, end: addDays(when.end, 1) } : { start: when.start, end: when.end };
 }
 
-function isPast(when: When, now: Date): boolean {
-  return when.allDay ? when.end < localDay(now.toISOString()) : when.end <= now.toISOString();
+function isPast(when: When, now: Date, zone: string): boolean {
+  return when.allDay ? when.end < localDay(now.toISOString(), zone) : when.end <= now.toISOString();
 }
 
-function firstDay(when: When): string {
-  return when.allDay ? when.start : localDay(when.start);
+function firstDay(when: When, zone: string): string {
+  return when.allDay ? when.start : localDay(when.start, zone);
 }
 
 /** The calendar on one day, from the API; the ingested week if the API does not answer. */
-async function eventsOn(day: string, ingested: CalendarEvent[], cache: Map<string, Promise<CalendarEvent[]>>) {
+async function eventsOn(day: string, ingested: CalendarEvent[], cache: Map<string, Promise<CalendarEvent[]>>, zone: string) {
   let pending = cache.get(day);
   if (!pending) {
-    pending = listCalendarEvents(zonedToIso(`${day}T00:00`)!, zonedToIso(`${addDays(day, 1)}T00:00`)!).catch((err) => {
+    pending = listCalendarEvents(zonedToIso(`${day}T00:00`, zone)!, zonedToIso(`${addDays(day, 1)}T00:00`, zone)!).catch((err) => {
       console.warn(`[Actions] Calendar lookup for ${day} failed, checking the ingested week only: ${err instanceof Error ? err.message : err}`);
       return ingested.filter((event) => {
-        const [first, last] = eventDays(event);
+        const [first, last] = eventDays(event, zone);
         return first <= day && day <= last;
       });
     });
@@ -323,10 +324,10 @@ async function eventsOn(day: string, ingested: CalendarEvent[], cache: Map<strin
   return pending;
 }
 
-function inCalendar(title: string, when: When, events: CalendarEvent[]): boolean {
-  const day = firstDay(when);
+function inCalendar(title: string, when: When, events: CalendarEvent[], zone: string): boolean {
+  const day = firstDay(when, zone);
   return events.some((event) => {
-    const [first, last] = eventDays(event);
+    const [first, last] = eventDays(event, zone);
     if (day < first || day > last) return false;
     if (similar(title, event.title)) return true;
     // Two different things rarely start within half an hour of each other on the same day.
@@ -352,6 +353,8 @@ interface Refs {
   openTasks: TodoItem[];
   calendarByDay: Map<string, Promise<CalendarEvent[]>>;
   now: Date;
+  /** The zone the model's wall-clock times are in. */
+  zone: string;
 }
 
 type Checked =
@@ -379,11 +382,11 @@ async function check(action: ModelAction, refs: Refs): Promise<Checked> {
   switch (action.kind) {
     case "add_event": {
       if (!title) return discard("empty_title");
-      const when = parseWhen(action.start, action.end);
+      const when = parseWhen(action.start, action.end, refs.zone);
       if (!when) return discard("bad_time");
-      if (isPast(when, refs.now)) return discard("in_past");
-      const onDay = await eventsOn(firstDay(when), refs.ingestedCalendar, refs.calendarByDay);
-      if (inCalendar(title, when, onDay)) return discard("already_in_calendar");
+      if (isPast(when, refs.now, refs.zone)) return discard("in_past");
+      const onDay = await eventsOn(firstDay(when, refs.zone), refs.ingestedCalendar, refs.calendarByDay, refs.zone);
+      if (inCalendar(title, when, onDay, refs.zone)) return discard("already_in_calendar");
       return {
         ok: true,
         parameters: {
@@ -399,17 +402,17 @@ async function check(action: ModelAction, refs: Refs): Promise<Checked> {
     case "update_event": {
       const event = refs.events.get(action.event_id.trim());
       if (!event) return discard("unknown_event");
-      const was = whenOf(event);
+      const was = whenOf(event, refs.zone);
       let when = was;
       if (action.start.trim()) {
-        const parsed = parseWhen(action.start, action.end);
+        const parsed = parseWhen(action.start, action.end, refs.zone);
         if (!parsed) return discard("bad_time");
         // A new start without an end keeps the event's length rather than the one-hour default.
         when = action.end.trim() || parsed.allDay !== was.allDay || was.allDay
           ? parsed
           : { ...parsed, end: new Date(Date.parse(parsed.start) + Date.parse(was.end) - Date.parse(was.start)).toISOString() };
       }
-      if (isPast(when, refs.now)) return discard("in_past");
+      if (isPast(when, refs.now, refs.zone)) return discard("in_past");
 
       const moved = when.start !== was.start || when.end !== was.end || when.allDay !== was.allDay;
       const relocated = location !== null && location !== (event.location ?? null);
@@ -491,25 +494,25 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
     return { proposals: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 };
   }
 
-  const openTasks = await openTodos(runDate);
+  const [openTasks, zone] = await Promise.all([openTodos(runDate), calendarTimeZone()]);
   const events = new Map(ctx.calendarItems.map((event, i) => [`c${i + 1}`, event]));
   const tasks = new Map(openTasks.map((task, i) => [`t${i + 1}`, task]));
 
   const payload = {
     today: `${runDate} (${weekday(runDate)})`,
-    time_zone: HOME_TIME_ZONE,
+    time_zone: zone,
     mails: mails.map((mail) => ({
       id: mail.shortId,
       kind: mail.sourceType === "sms" ? "sms" : "email",
-      received: mail.receivedAt ? `${wallClock(mail.receivedAt).replace("T", " ")} (${weekday(localDay(mail.receivedAt))})` : null,
+      received: mail.receivedAt ? `${wallClock(mail.receivedAt, zone).replace("T", " ")} (${weekday(localDay(mail.receivedAt, zone))})` : null,
       classification: mail.classification,
       text: mail.text,
     })),
     calendar: [...events].map(([id, event]) => ({
       id,
       title: event.title,
-      start: event.is_all_day ? event.start : wallClock(event.start),
-      end: event.is_all_day ? eventDays(event)[1] : wallClock(event.end || event.start),
+      start: event.is_all_day ? event.start : wallClock(event.start, zone),
+      end: event.is_all_day ? eventDays(event, zone)[1] : wallClock(event.end || event.start, zone),
       all_day: event.is_all_day,
       location: event.location,
     })),
@@ -543,6 +546,7 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
     openTasks,
     calendarByDay: new Map(),
     now: new Date(),
+    zone,
   };
 
   const proposals: Proposal[] = [];

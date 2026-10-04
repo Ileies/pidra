@@ -14,16 +14,21 @@ function daysBetween(from: string, to: string): number {
  * Where a moved event ends when the caller gave a new start but no end: the same length as before,
  * so "move it to 15:00" keeps its duration instead of demanding the end be restated.
  */
-function endForNewStart(newStart: string, existing: calendar_v3.Schema$Event, minutes: number | null): calendar_v3.Schema$EventDateTime {
+function endForNewStart(
+  newStart: string,
+  existing: calendar_v3.Schema$Event,
+  minutes: number | null,
+  timeZone: string,
+): calendar_v3.Schema$EventDateTime {
   if (isLocalDate(newStart)) {
     const span = existing.start?.date && existing.end?.date ? Math.max(1, daysBetween(existing.start.date, existing.end.date)) : 1;
-    return eventTime(addDays(newStart, span));
+    return eventTime(addDays(newStart, span), timeZone);
   }
-  const startMs = Date.parse(eventTime(newStart).dateTime as string);
+  const startMs = Date.parse(eventTime(newStart, timeZone).dateTime as string);
   const oldStart = existing.start?.dateTime ? Date.parse(existing.start.dateTime) : NaN;
   const oldEnd = existing.end?.dateTime ? Date.parse(existing.end.dateTime) : NaN;
   const length = minutes ?? (Number.isNaN(oldStart) || Number.isNaN(oldEnd) ? 60 : Math.round((oldEnd - oldStart) / 60_000));
-  return eventTime(new Date(startMs + length * 60_000).toISOString());
+  return eventTime(new Date(startMs + length * 60_000).toISOString(), timeZone);
 }
 
 /**
@@ -41,7 +46,7 @@ const skill: Skill = {
     start: {
       type: "string",
       required: false,
-      description: "New start: ISO 8601 datetime (a time without an offset is read as Europe/Berlin), or YYYY-MM-DD for a whole-day event. Without end the event keeps its length",
+      description: "New start: ISO 8601 datetime (a time without an offset is read in the user's own time zone), or YYYY-MM-DD for a whole-day event. Without end the event keeps its length",
     },
     end: { type: "string", required: false, description: "New end, in the same form as start. Without start the event keeps its start" },
     duration_minutes: { type: "number", required: false, description: "With a new start and no end: the new length in minutes, 1 to 10080. Default: the current length" },
@@ -61,7 +66,7 @@ const skill: Skill = {
     color_id: { type: "number", required: false, description: "Calendar color 1 to 11" },
     calendar_id: { type: "string", required: false, description: "Calendar ID (default: primary)" },
   },
-  execute: async (params) => {
+  execute: async (params, ctx) => {
     const calendar = await getCalendarClient();
     const calendarId = String(params.calendar_id ?? "primary");
     const eventId = String(params.event_id ?? "").trim();
@@ -78,10 +83,10 @@ const skill: Skill = {
     if (existing && moves) {
       const minutes = params.duration_minutes === undefined || params.duration_minutes === "" ? null : intParam(params.duration_minutes, "duration_minutes", 60, 1, 10080);
       if (params.start) {
-        patch.start = eventTime(String(params.start));
-        patch.end = params.end ? eventTime(String(params.end)) : endForNewStart(String(params.start), existing, minutes);
+        patch.start = eventTime(String(params.start), ctx.timeZone);
+        patch.end = params.end ? eventTime(String(params.end), ctx.timeZone) : endForNewStart(String(params.start), existing, minutes, ctx.timeZone);
       } else {
-        patch.end = eventTime(String(params.end));
+        patch.end = eventTime(String(params.end), ctx.timeZone);
       }
     }
     if (params.title) patch.summary = String(params.title).trim();

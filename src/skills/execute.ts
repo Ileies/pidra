@@ -3,6 +3,7 @@ import { db, skillExecutions } from "../db";
 import { getSkill, type SkillContext } from "./loader";
 import { getEffectiveSkill } from "./overrides";
 import { isSkillAllowed, SURFACES, type Surface } from "../ai/surfaces";
+import { timeZoneOrUtc } from "../util/time";
 
 export type ExecutionStatus = "executed" | "failed" | "rejected" | "pending_confirmation" | "unknown_skill";
 
@@ -29,6 +30,8 @@ export interface ExecutionOptions {
    * the pipeline but run because the owner tapped it, so it is theirs.
    */
   actor?: SkillContext["actor"];
+  /** The caller's IANA zone, for a time without an offset. A chat turn passes the browser's; default UTC. */
+  timeZone?: string;
 }
 
 /**
@@ -99,6 +102,7 @@ export async function executeSkill(
     // A write from the chat is the assistant's, anything else is the system acting on its own,
     // unless the caller knows better.
     actor: options.actor ?? (triggeredBy === "chat" ? "chat" : "system"),
+    timeZone: timeZoneOrUtc(options.timeZone),
   };
 
   try {
@@ -167,6 +171,7 @@ export async function resolvePendingSkill(
     conversationId: null,
     // The owner pressed Confirm, so the write is theirs however the call was originally proposed.
     actor: "user",
+    timeZone: "UTC",
   };
 
   try {

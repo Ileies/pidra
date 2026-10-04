@@ -104,6 +104,7 @@ export async function* streamMessage(
         const executed = await executeSkill(call.name, args, "chat", {
           surface: ctx.surface,
           conversationId: id,
+          timeZone: ctx.timeZone,
         });
 
         if (executed.status === "executed") {

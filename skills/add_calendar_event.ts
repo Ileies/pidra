@@ -14,7 +14,7 @@ const skill: Skill = {
     start: {
       type: "string",
       required: true,
-      description: "Start: ISO 8601 datetime (a time without an offset is read as Europe/Berlin), or YYYY-MM-DD for a whole-day event",
+      description: "Start: ISO 8601 datetime (a time without an offset is read in the user's own time zone), or YYYY-MM-DD for a whole-day event",
     },
     end: {
       type: "string",
@@ -42,7 +42,7 @@ const skill: Skill = {
     color_id: { type: "number", required: false, description: "Calendar color 1 to 11. Default: the calendar's own colour" },
     calendar_id: { type: "string", required: false, description: "Calendar ID (default: primary)" },
   },
-  execute: async (params) => {
+  execute: async (params, ctx) => {
     const calendar = await getCalendarClient();
     const calendarId = String(params.calendar_id ?? "primary");
     const title = String(params.title ?? "").trim();
@@ -50,15 +50,15 @@ const skill: Skill = {
     if (!params.start) throw new Error("start is required");
 
     const startText = String(params.start).trim();
-    const start = eventTime(startText);
+    const start = eventTime(startText, ctx.timeZone);
     let end;
     if (params.end) {
-      end = eventTime(String(params.end));
+      end = eventTime(String(params.end), ctx.timeZone);
     } else if (isLocalDate(startText)) {
-      end = eventTime(addDays(startText, 1));
+      end = eventTime(addDays(startText, 1), ctx.timeZone);
     } else {
       const minutes = intParam(params.duration_minutes, "duration_minutes", 60, 1, 10080);
-      end = eventTime(new Date(Date.parse(start.dateTime as string) + minutes * 60_000).toISOString());
+      end = eventTime(new Date(Date.parse(start.dateTime as string) + minutes * 60_000).toISOString(), ctx.timeZone);
     }
 
     const visibility = String(params.visibility ?? "default").trim();

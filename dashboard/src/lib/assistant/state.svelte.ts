@@ -208,7 +208,7 @@ class Assistant {
           body: JSON.stringify({
             message,
             conversation_id: this.conversationId ?? undefined,
-            context: this.context,
+            context: { ...this.context, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
             origin: "widget",
           }),
           signal: controller.signal,

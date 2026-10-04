@@ -1,9 +1,10 @@
 /**
- * The owner's wall clock. Every cron in the system already runs on it (`CLAUDE.md`, Cron
- * schedule), and a time read out of a mail ("Tuesday at 14:00") means this zone, not the zone
- * the server happens to run in.
+ * The backend runs on UTC: every day key, quota, cron and query. A wall-clock time ("Tuesday at
+ * 14:00") only gets a zone where a person is on the other end, and then it is theirs: the
+ * browser's for a chat turn, the primary calendar's for the unattended pipeline. Nothing here
+ * defaults to a place; a caller that has no zone passes none and gets UTC.
  */
-export const HOME_TIME_ZONE = "Europe/Berlin";
+const UTC = "UTC";
 
 const LOCAL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,6 +30,27 @@ export function isLocalDate(value: string): boolean {
   return LOCAL_DATE.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
+/** Whether `value` is an IANA zone name this runtime knows ("Europe/Zurich", "UTC"). */
+export function isTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** `value` if it names a time zone, otherwise UTC. For a zone that arrives from a client. */
+export function timeZoneOrUtc(value: unknown): string {
+  return isTimeZone(value) ? value : UTC;
+}
+
+/** The UTC calendar day of an instant (now by default), as `YYYY-MM-DD`. */
+export function utcDay(at: Date | string = new Date()): string {
+  return new Date(at).toISOString().slice(0, 10);
+}
+
 /**
  * A wall-clock `YYYY-MM-DDTHH:MM` in `timeZone` as a UTC ISO instant, or null if it does not
  * parse. A value that already carries an offset or a `Z` is taken as it stands.
@@ -36,7 +58,7 @@ export function isLocalDate(value: string): boolean {
  * `new Date("2026-09-30T14:00")` would read the time in the process's own zone, which on a
  * server running in UTC puts every event two hours late.
  */
-export function zonedToIso(value: string, timeZone = HOME_TIME_ZONE): string | null {
+export function zonedToIso(value: string, timeZone: string): string | null {
   const trimmed = value.trim();
   const match = LOCAL_DATETIME.exec(trimmed);
   if (!match) {
@@ -60,7 +82,7 @@ export function addDays(date: string, days: number): string {
   return d.toISOString().split("T")[0];
 }
 
-/** The calendar day an instant falls on in `timeZone`, as `YYYY-MM-DD`. */
-export function localDay(iso: string, timeZone = HOME_TIME_ZONE): string {
+/** The calendar day an instant falls on in `timeZone` (UTC by default), as `YYYY-MM-DD`. */
+export function localDay(iso: string, timeZone = UTC): string {
   return new Date(iso).toLocaleDateString("sv-SE", { timeZone });
 }

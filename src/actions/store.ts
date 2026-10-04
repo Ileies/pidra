@@ -14,6 +14,7 @@
  */
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db, reportActions } from "../db";
+import { calendarTimeZone } from "../ingest/google";
 import { executeSkill } from "../skills/execute";
 import { sameThing, type ActionKind, type Proposal } from "./propose";
 
@@ -100,6 +101,8 @@ export async function runAction(id: string): Promise<{ action: ReportAction; mes
   const outcome = await executeSkill(claimed.skillName, claimed.parameters, "quick_action", {
     runDate: claimed.runDate,
     actor: "user",
+    // The proposal already holds instants; the zone only labels the event it creates.
+    timeZone: await calendarTimeZone(),
   });
 
   // A skill raised to `high` on /skills since the proposal was made lands in the approval queue.

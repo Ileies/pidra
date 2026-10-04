@@ -49,6 +49,6 @@ All skill calls (REST bridge, pipeline, chat, quick actions) go through `execute
 
 Never call `skill.execute()` directly from a new caller.
 
-`Skill.execute(params, ctx)` receives a `SkillContext`: the `skill_executions` row id, who triggered it, the conversation, and the actor (`user | chat | system`) a write is attributed to. That is what puts provenance on a `note_revisions` or `context_corrections` row without the chat injecting parameters.
+`Skill.execute(params, ctx)` receives a `SkillContext`: the `skill_executions` row id, who triggered it, the conversation, and the actor (`user | chat | system`) a write is attributed to, and `timeZone`. The actor is what puts provenance on a `note_revisions` or `context_corrections` row without the chat injecting parameters. `timeZone` is the zone the calendar skills read an offset-less time in: chat sends the browser's zone in the turn context (validated, UTC when missing or invalid) and `executeSkill()` passes it through `ExecutionOptions.timeZone`; every other caller gets UTC.
 
 The `/chat` loop (`src/ai/chat/`) builds its tools from the registry filtered by the page's surface, so the model is only offered skills that are enabled and allowed on that page.

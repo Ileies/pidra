@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/bun-sql";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import * as schema from "./schema";
 import * as relations from "./relations";
 
@@ -13,4 +13,11 @@ export * from "./schema";
 export async function rawItemExists(messageId: string): Promise<boolean> {
   const [row] = await db.select({ id: schema.rawItems.id }).from(schema.rawItems).where(eq(schema.rawItems.messageId, messageId)).limit(1);
   return !!row;
+}
+
+/** Which of `messageIds` already have a `raw_items` row: one query instead of one per id. */
+export async function existingMessageIds(messageIds: string[]): Promise<Set<string>> {
+  if (messageIds.length === 0) return new Set();
+  const rows = await db.select({ messageId: schema.rawItems.messageId }).from(schema.rawItems).where(inArray(schema.rawItems.messageId, messageIds));
+  return new Set(rows.map((r) => r.messageId!));
 }

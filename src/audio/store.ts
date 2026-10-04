@@ -17,7 +17,10 @@ import { buildChapters, chunkText, estimateDurationMs, mp3DurationMs, type Chapt
 const MAX_REQUEST_CHARS = 3500;
 const KEEP_DAYS = 30;
 
-const variant = () => `${TTS_MODEL}:${TTS_VOICE}:${TTS_SPEED}`;
+/** Speech requests in flight at once for one chapter: first-play latency without a burst on the flex tier. */
+const SPEAK_CONCURRENCY = 3;
+
+const VARIANT = `${TTS_MODEL}:${TTS_VOICE}:${TTS_SPEED}`;
 
 export class AudioError extends HttpError {}
 
@@ -42,7 +45,7 @@ export async function audioManifest(date: string): Promise<{ voice: string; chap
   const rows = await db
     .select({ key: reportAudio.chapterKey, durationMs: reportAudio.durationMs })
     .from(reportAudio)
-    .where(and(eq(reportAudio.reportDate, date), eq(reportAudio.variant, variant())));
+    .where(and(eq(reportAudio.reportDate, date), eq(reportAudio.variant, VARIANT)));
   const cached = new Map(rows.map((row) => [row.key, row.durationMs]));
 
   return {
@@ -61,15 +64,18 @@ export async function audioManifest(date: string): Promise<{ voice: string; chap
 const inFlight = new Map<string, Promise<{ audio: Buffer; durationMs: number }>>();
 
 async function generate(date: string, chapter: Chapter): Promise<{ audio: Buffer; durationMs: number }> {
+  const chunks = chunkText(chapter.text, MAX_REQUEST_CHARS);
   const parts: Buffer[] = [];
-  for (const chunk of chunkText(chapter.text, MAX_REQUEST_CHARS)) parts.push(await speak(chunk));
+  for (let start = 0; start < chunks.length; start += SPEAK_CONCURRENCY) {
+    parts.push(...await Promise.all(chunks.slice(start, start + SPEAK_CONCURRENCY).map((chunk) => speak(chunk))));
+  }
   // MP3 frames are self-contained, so the pieces of a long chapter simply follow one another.
   const audio = Buffer.concat(parts);
   const durationMs = mp3DurationMs(audio);
 
   await db
     .insert(reportAudio)
-    .values({ reportDate: date, chapterKey: chapter.key, variant: variant(), audio, durationMs, chars: chapter.text.length })
+    .values({ reportDate: date, chapterKey: chapter.key, variant: VARIANT, audio, durationMs, chars: chapter.text.length })
     .onConflictDoNothing();
   // Old days age out; the day just spoken stays, so replaying an archived report is still free.
   await db.delete(reportAudio).where(and(lt(reportAudio.reportDate, sql`(current_date - ${KEEP_DAYS}::int)`), ne(reportAudio.reportDate, date)));
@@ -80,7 +86,7 @@ export async function chapterAudio(date: string, key: string): Promise<{ audio: 
   const [hit] = await db
     .select({ audio: reportAudio.audio, durationMs: reportAudio.durationMs })
     .from(reportAudio)
-    .where(and(eq(reportAudio.reportDate, date), eq(reportAudio.chapterKey, key), eq(reportAudio.variant, variant())))
+    .where(and(eq(reportAudio.reportDate, date), eq(reportAudio.chapterKey, key), eq(reportAudio.variant, VARIANT)))
     .limit(1);
   if (hit) return { audio: Buffer.from(hit.audio), durationMs: hit.durationMs };
 
@@ -88,7 +94,7 @@ export async function chapterAudio(date: string, key: string): Promise<{ audio: 
   if (!chapter) throw new AudioError("The report changed since the player loaded. Reload the page.", 409);
 
   // Two taps, or two devices, on the same uncached chapter share one paid request.
-  const id = `${date}/${key}/${variant()}`;
+  const id = `${date}/${key}/${VARIANT}`;
   let pending = inFlight.get(id);
   if (!pending) {
     pending = generate(date, chapter).finally(() => inFlight.delete(id));

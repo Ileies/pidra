@@ -63,7 +63,7 @@ Each is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.
 
 ## Spoken report
 
-The report page's Play button speaks a chapter on its first request and caches it in `report_audio` (migration `0040_report_audio.sql`, applied raw like every migration; apply it before deploying the code that reads it). Optional env: `OPENAI_MODEL_TTS` (default `gpt-4o-mini-tts`) and `OPENAI_TTS_VOICE` (default `cedar`); the generated speech uses 1.2x speed. Changing the model, voice or speed speaks the day again, since the cache key includes `model:voice:speed`.
+The report page's Play button speaks a chapter on its first request and caches it in `report_audio` (migration `0040_report_audio.sql`, applied raw like every migration; apply it before deploying the code that reads it). Optional env: `OPENAI_MODEL_TTS` (default `gpt-4o-mini-tts`) and `OPENAI_TTS_VOICE` (default `cedar`); the generated speech uses 1.2x speed. Changing the model, voice or speed speaks the day again, since the cache key includes `model:voice:speed`. A long chapter's text chunks are spoken 3 at a time (`SPEAK_CONCURRENCY`) to cut first-play latency.
 
 - **Cost**, measured for 2026-10-02 at normal speed (1.2x is shorter, so these are upper bounds): the spoken text is 1,611 tokens, 7,777 characters and about 9 minutes of audio (the raw markdown is 4,405 tokens, mostly refs UUIDs). A fully played report costs about $0.001 in input and $0.13 in audio output (`gpt-4o-mini-tts`, about $0.015 per minute), and each chapter is paid once.
 - **Size:** the output is MPEG-2 Layer 3, 128 kbit/s CBR, 24 kHz, about 14 characters of text per second of speech, so about 9.6 MB per fully cached report in Postgres. Rows older than 30 days are deleted whenever a chapter is generated, except the day just spoken. There is no job for it.
@@ -96,4 +96,4 @@ Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`):
 
 When adding a pipeline phase, always call it as `withRetry("phaseN", () => runPhaseN(...))`, never directly in `run.ts`.
 
-RSS ingest looks back 14 days by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages are not missed; message IDs deduplicate. Each feed fetch records its latest error or success on the feed row, and failures also enter the run error log shown on `/runs`.
+RSS ingest looks back 14 days by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages are not missed; message IDs deduplicate: RSS (per feed) and IMAP (per batch of 8 parsed mails) check existing ids with one query and bulk insert, and the insert skips a conflicting `raw_items.message_id` instead of failing, since feeds and mail accounts run in parallel and can carry the same id. Each feed fetch records its latest error or success on the feed row, and failures also enter the run error log shown on `/runs`.

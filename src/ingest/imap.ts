@@ -1,7 +1,7 @@
 import type Imap from "imap";
 import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
-import { db, ingestDrops, rawItems, rawItemExists, sourceQuality } from "../db";
+import { db, ingestDrops, rawItems, existingMessageIds, sourceQuality } from "../db";
 import { classifyEmail, isBulkMail, senderAddress } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
@@ -11,6 +11,8 @@ import type { EmailAccount } from "../config/email-accounts";
 
 /** The four ways a fetched mail can be discarded before it becomes a `raw_items` row. */
 type DropReason = "substack_system" | "ignored_sender" | "covered_by_rss" | "empty_content";
+
+const PARSE_BATCH = 8;
 
 function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Buffer[]> {
   return new Promise((resolve, reject) => {
@@ -62,100 +64,111 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string, 
 
   let stored = 0;
   let dropped = 0;
+  const seen = new Set<string>();
 
-  for (const buffer of raw) {
-    const parsed = await simpleParser(buffer);
+  for (let start = 0; start < raw.length; start += PARSE_BATCH) {
+    const batch = await Promise.all(raw.slice(start, start + PARSE_BATCH).map((buffer) => simpleParser(buffer)));
+    const known = await existingMessageIds(batch.flatMap((p) => (p.messageId ? [p.messageId] : [])));
+    const drops: (typeof ingestDrops.$inferInsert)[] = [];
+    const items: (typeof rawItems.$inferInsert)[] = [];
 
-    const messageId = parsed.messageId ?? null;
-    const from = parsed.from?.text ?? "";
-    const subject = parsed.subject ?? "";
+    for (const parsed of batch) {
+      const messageId = parsed.messageId ?? null;
+      const from = parsed.from?.text ?? "";
+      const subject = parsed.subject ?? "";
 
-    const senderEmail = senderAddress(from);
+      const senderEmail = senderAddress(from);
 
-    /**
-     * Records why a mail was thrown away, so `/[date]/triage` can show it. Without this, a mail
-     * discarded here is indistinguishable from one that never arrived - which is the single
-     * hardest case to diagnose, because the reader knows perfectly well that it was sent.
-     */
-    const drop = async (reason: DropReason, sourceType?: string, sourceName?: string | null) => {
-      dropped++;
-      await db.insert(ingestDrops).values({
-        runDate,
-        accountId: account.user,
-        sourceType: sourceType ?? null,
-        sourceName: sourceName ?? null,
-        messageId,
-        subject: subject || null,
-        sender: from || null,
-        receivedAt: parsed.date?.toISOString() ?? null,
-        reason,
-      });
-    };
-
-    // Skip Substack system notifications
-    if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") {
-      await drop("substack_system");
-      continue;
-    }
-
-    if (account.ignore?.some((addr) => addr.toLowerCase() === senderEmail)) {
-      await drop("ignored_sender");
-      continue;
-    }
-
-    // Not a drop: the message is already in `raw_items` under the run that first saw it, and
-    // with a one-day lookback that is most of what a fetch returns.
-    if (messageId && await rawItemExists(messageId)) continue;
-
-    const { sourceType, sourceName } = account.isNewsAccount
-      ? classifyEmail(from, newsletterConfig, isBulkMail({
-          listUnsubscribe: parsed.headers.get("list-unsubscribe"),
-          listId: parsed.headers.get("list-id"),
-          precedence: parsed.headers.get("precedence"),
-        }))
-      : { sourceType: "personal_email" as const, sourceName: senderEmail };
-
-    // Skip newsletters covered by RSS - RSS content is cleaner and already ingested
-    if (sourceType === "newsletter" && sourceName && rssSourceNames.has(sourceName)) {
-      await drop("covered_by_rss", sourceType, sourceName);
-      continue;
-    }
-
-    // Looked up once per source, found or not, so a source that never mentions it isn't
-    // AI-scanned on every message forever. Read by the "delete source" flow in `/sources`.
-    if (sourceType === "newsletter" && sourceName && !checkedUnsubscribeSources.has(sourceName)) {
-      checkedUnsubscribeSources.add(sourceName);
-      const unsubscribeUrl = await findUnsubscribeLink(parsed);
-      await db
-        .insert(sourceQuality)
-        .values({ sourceName, unsubscribeUrl, unsubscribeCheckedAt: new Date().toISOString() })
-        .onConflictDoUpdate({
-          target: sourceQuality.sourceName,
-          set: { unsubscribeUrl, unsubscribeCheckedAt: new Date().toISOString() },
+      /**
+       * Records why a mail was thrown away, so `/[date]/triage` can show it. Without this, a mail
+       * discarded here is indistinguishable from one that never arrived - which is the single
+       * hardest case to diagnose, because the reader knows perfectly well that it was sent.
+       */
+      const drop = (reason: DropReason, sourceType?: string, sourceName?: string | null) => {
+        drops.push({
+          runDate,
+          accountId: account.user,
+          sourceType: sourceType ?? null,
+          sourceName: sourceName ?? null,
+          messageId,
+          subject: subject || null,
+          sender: from || null,
+          receivedAt: parsed.date?.toISOString() ?? null,
+          reason,
         });
+      };
+
+      // Skip Substack system notifications
+      if (senderEmail === "no-reply@substack.com" || senderEmail === "notifications@substack.com") {
+        drop("substack_system");
+        continue;
+      }
+
+      if (account.ignore?.some((addr) => addr.toLowerCase() === senderEmail)) {
+        drop("ignored_sender");
+        continue;
+      }
+
+      // Not a drop: the message is already in `raw_items` under the run that first saw it, and
+      // with a one-day lookback that is most of what a fetch returns.
+      if (messageId && (known.has(messageId) || seen.has(messageId))) continue;
+
+      const { sourceType, sourceName } = account.isNewsAccount
+        ? classifyEmail(from, newsletterConfig, isBulkMail({
+            listUnsubscribe: parsed.headers.get("list-unsubscribe"),
+            listId: parsed.headers.get("list-id"),
+            precedence: parsed.headers.get("precedence"),
+          }))
+        : { sourceType: "personal_email" as const, sourceName: senderEmail };
+
+      // Skip newsletters covered by RSS - RSS content is cleaner and already ingested
+      if (sourceType === "newsletter" && sourceName && rssSourceNames.has(sourceName)) {
+        drop("covered_by_rss", sourceType, sourceName);
+        continue;
+      }
+
+      // Looked up once per source, found or not, so a source that never mentions it isn't
+      // AI-scanned on every message forever. Read by the "delete source" flow in `/sources`.
+      if (sourceType === "newsletter" && sourceName && !checkedUnsubscribeSources.has(sourceName)) {
+        checkedUnsubscribeSources.add(sourceName);
+        const unsubscribeUrl = await findUnsubscribeLink(parsed);
+        await db
+          .insert(sourceQuality)
+          .values({ sourceName, unsubscribeUrl, unsubscribeCheckedAt: new Date().toISOString() })
+          .onConflictDoUpdate({
+            target: sourceQuality.sourceName,
+            set: { unsubscribeUrl, unsubscribeCheckedAt: new Date().toISOString() },
+          });
+      }
+
+      const content = cleanEmailContent(
+        parsed.html || undefined,
+        parsed.text || undefined
+      );
+
+      if (!content) {
+        drop("empty_content", sourceType, sourceName);
+        continue;
+      }
+
+      if (messageId) seen.add(messageId);
+      items.push({
+        runDate,
+        sourceType,
+        sourceName: sourceName ?? (parsed.from?.value[0]?.name ?? from),
+        accountId: account.user,
+        messageId,
+        rawContent: `Subject: ${subject}\nFrom: ${from}\n\n${content}`,
+        receivedAt: parsed.date?.toISOString() ?? new Date().toISOString(),
+      });
     }
 
-    const content = cleanEmailContent(
-      parsed.html || undefined,
-      parsed.text || undefined
-    );
-
-    if (!content) {
-      await drop("empty_content", sourceType, sourceName);
-      continue;
+    dropped += drops.length;
+    if (drops.length > 0) await db.insert(ingestDrops).values(drops);
+    if (items.length > 0) {
+      const inserted = await db.insert(rawItems).values(items).onConflictDoNothing({ target: rawItems.messageId }).returning({ id: rawItems.id });
+      stored += inserted.length;
     }
-
-    await db.insert(rawItems).values({
-      runDate,
-      sourceType,
-      sourceName: sourceName ?? (parsed.from?.value[0]?.name ?? from),
-      accountId: account.user,
-      messageId,
-      rawContent: `Subject: ${subject}\nFrom: ${from}\n\n${content}`,
-      receivedAt: parsed.date?.toISOString() ?? new Date().toISOString(),
-    });
-
-    stored++;
   }
 
   console.log(

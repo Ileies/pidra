@@ -50,6 +50,6 @@ Three Brave-search slots feed Section 1:
 
 1. **Topic deep-dive:** the active topic with the highest `update_count`.
 2. **Watched entity monitor:** entities with `importance = high` (the Watch control on `/entities/[id]`) that have gone 10 or more days unmentioned. Rotates by least recently searched (`last_watch_search`) so one target cannot monopolise the shared Brave quota.
-3. **Self/project reputation:** one target per day, rotating by day of year through `notes` with scope `search`.
+3. **Self/project reputation:** one target per day, rotating by the run date's day of year (so a rerun of a past day searches what that day did) through `notes` with scope `search`.
 
 Slots 4 (pre-meeting research) and 5 (user-specified search intent) are deliberately unbuilt (see "What's next" in `CLAUDE.md`).

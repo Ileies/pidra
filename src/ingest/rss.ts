@@ -2,7 +2,7 @@ import { DAY_MS } from "../util/time";
 import { errMessage } from "../util/text";
 import Parser from "rss-parser";
 import { eq } from "drizzle-orm";
-import { db, rawItems, rawItemExists, rssFeeds } from "../db";
+import { db, rawItems, existingMessageIds, rssFeeds } from "../db";
 import type { RssFeed } from "../config/rss-feeds";
 import { removeFooter, stripHtml } from "./html";
 
@@ -53,25 +53,31 @@ async function ingestFeed(feedConfig: RssFeed, since: Date, runDate: string): Pr
   const { sourceName, url } = feedConfig;
   try {
     const feed = await parser.parseURL(url);
-    let stored = 0;
+    const fresh = new Map<string, { item: Parser.Item; pubDate: Date | null }>();
     for (const item of feed.items) {
       const pubDate = item.isoDate ? new Date(item.isoDate) : (item.pubDate ? new Date(item.pubDate) : null);
       if (pubDate && pubDate < since) continue;
 
       const dedupKey = item.guid ?? item.link ?? null;
-      if (!dedupKey || await rawItemExists(dedupKey)) continue;
-
-      await db.insert(rawItems).values({
-        runDate,
-        sourceType: "newsletter",
-        sourceName,
-        accountId: null,
-        messageId: dedupKey,
-        rawContent: buildRawContent(item, sourceName),
-        receivedAt: pubDate?.toISOString() ?? new Date().toISOString(),
-      });
-      stored++;
+      if (dedupKey && !fresh.has(dedupKey)) fresh.set(dedupKey, { item, pubDate });
     }
+
+    const known = await existingMessageIds([...fresh.keys()]);
+    const rows = [...fresh].filter(([key]) => !known.has(key)).map(([messageId, { item, pubDate }]) => ({
+      runDate,
+      sourceType: "newsletter",
+      sourceName,
+      accountId: null,
+      messageId,
+      rawContent: buildRawContent(item, sourceName),
+      receivedAt: pubDate?.toISOString() ?? new Date().toISOString(),
+    }));
+    // Feeds are polled in parallel, so another feed can carry the same guid; the unique message id
+    // decides, and the loser is skipped rather than failing this feed.
+    const inserted = rows.length === 0
+      ? []
+      : await db.insert(rawItems).values(rows).onConflictDoNothing({ target: rawItems.messageId }).returning({ id: rawItems.id });
+    const stored = inserted.length;
 
     await db.update(rssFeeds).set({ lastError: null, lastErrorAt: null, lastSuccessAt: new Date().toISOString() })
       .where(eq(rssFeeds.sourceName, sourceName));

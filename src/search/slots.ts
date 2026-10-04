@@ -57,9 +57,9 @@ async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
   const candidate = eligible[0];
   if (!candidate) return null;
 
-  const now = new Date();
-  const month = now.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
-  const query = `${candidate.name} news ${month} ${now.getUTCFullYear()}`;
+  const day = new Date(`${runDate}T00:00:00Z`);
+  const month = day.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+  const query = `${candidate.name} news ${month} ${day.getUTCFullYear()}`;
 
   const { results } = await braveSearch(query, 5);
   await db.update(entities).set({ lastWatchSearch: runDate }).where(eq(entities.name, candidate.name));
@@ -79,9 +79,9 @@ async function runSlot3(runDate: string): Promise<WebSearchResult | null> {
 
   if (searchTargets.length === 0) return null;
 
-  // Rotate by day-of-year index
-  const now = new Date();
-  const dayOfYear = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / DAY_MS);
+  // Rotate by the run date's day-of-year, so a rerun of a day searches what that day did
+  const day = new Date(`${runDate}T00:00:00Z`);
+  const dayOfYear = Math.floor((day.getTime() - Date.UTC(day.getUTCFullYear(), 0, 0)) / DAY_MS);
   const target = searchTargets[dayOfYear % searchTargets.length].content;
   const query = `"${target}"`;
 

@@ -1,3 +1,4 @@
+import { parseJsonRows } from "../util/json";
 import { addDays } from "../util/time";
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
 import { eq, and, or, gte, isNull, inArray } from "drizzle-orm";
@@ -81,10 +82,6 @@ export interface ExtractionWithSource {
   sourceType: string;
   /** Why this item was or was not handed to synthesis. Persisted before this phase returns. */
   gate: GateDecision;
-}
-
-function parseJsonRows<T>(rows: { rawContent: string | null }[]): T[] {
-  return rows.flatMap((r) => { try { return [JSON.parse(r.rawContent ?? "") as T]; } catch { return []; } });
 }
 
 /**

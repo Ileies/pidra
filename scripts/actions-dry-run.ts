@@ -12,6 +12,7 @@
  * Google Calendar, so on a machine off the LAN it needs the tunnel from CLAUDE.md.
  */
 
+import { parseJsonRows } from "../src/util/json";
 import { isDateKey } from "../src/util/ids";
 
 import { utcDay } from "../src/util/time";
@@ -32,13 +33,7 @@ const [calendarRows, noteRows, longTermContext] = await Promise.all([
   loadLongTermContext(),
 ]);
 
-const calendarItems = calendarRows.flatMap((r) => {
-  try {
-    return [JSON.parse(r.rawContent ?? "") as CalendarEvent];
-  } catch {
-    return [];
-  }
-});
+const calendarItems = parseJsonRows<CalendarEvent>(calendarRows);
 
 const result = await proposeQuickActions(
   {

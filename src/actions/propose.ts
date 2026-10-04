@@ -29,6 +29,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
 import { extractJson, usageTally } from "../ai/openai";
+import { parseJsonRows } from "../util/json";
 import { calendarTimeZone, listCalendarEvents, type CalendarEvent, type TodoItem } from "../ingest/google";
 import type { ContextPayload } from "../pipeline/phase3-context";
 import { addDays, isLocalDate, localDay, zonedToIso } from "../util/time";
@@ -212,13 +213,7 @@ async function openTodos(runDate: string): Promise<TodoItem[]> {
     .select({ rawContent: rawItems.rawContent })
     .from(rawItems)
     .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "todo")));
-  return rows.flatMap((r) => {
-    try {
-      return [JSON.parse(r.rawContent ?? "") as TodoItem];
-    } catch {
-      return [];
-    }
-  });
+  return parseJsonRows<TodoItem>(rows);
 }
 
 /** An instant as the wall clock in `zone` reads it: "2026-09-30T14:00". */

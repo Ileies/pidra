@@ -1,7 +1,7 @@
 /**
  * The news desk run: every enabled desk researches the window in parallel, each answer is checked
  * (`validate.ts`), and every story is stored as an extraction under one `raw_items` delivery per
- * desk - `source_type = 'web_news'`, `source_name = 'news:<desk>'`.
+ * desk - `source_type = 'web_news'`, `source_name = 'news:<desk>'` (`store.ts`).
  *
  * Stored like any other source on purpose. From there the rest of the chain applies unchanged:
  * the Phase 3 gate judges each story and records why, `/[date]/triage` shows the ones held back,
@@ -14,22 +14,20 @@
  * news from those hours - the same trade the morning schedule makes anyway.
  */
 
-import { addDays } from "../util/time";
 import { errMessage } from "../util/text";
-import { and, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
-import { db, extractions, notes, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
-import { DeskResearchError, researchDesk, type SearchEvidence } from "./research";
+import { DeskResearchError, researchDesk, type UsageTotals } from "./research";
 import { loadLongTermContext } from "../pipeline/long-term-context";
 import { span } from "../util/trace";
 import { decideGate } from "../pipeline/gate";
 import {
-  DESKS, NEWS_SOURCE_TYPE, deskMessageId, deskSource, enabledDesks, homeConfig, newsWindow,
+  DESKS, NEWS_SOURCE_TYPE, deskSource, enabledDesks, homeConfig, newsWindow,
   type Desk, type DeskId, type HomeConfig, type NewsWindow,
 } from "./config";
+import { lastScanEnd, loadReusedDesks, persist, priorities, recentlyReported, type DeskAnswer } from "./store";
 import {
-  findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, toExtraction, verifySources, withinWindow,
-  type Candidate, type DeskStory, type NewsExtraction, type ReportedStory,
+  findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, verifySources, withinWindow,
+  type Candidate, type DeskStory, type ReportedStory,
 } from "./validate";
 export { toExtraction } from "./validate";
 
@@ -44,17 +42,12 @@ export interface DeskReport {
   error?: string;
 }
 
-export interface NewsDeskOutcome {
+export interface NewsDeskOutcome extends UsageTotals {
   window: NewsWindow | null;
   home: HomeConfig | null;
   desks: DeskReport[];
   /** In the `<source>: <message>` shape Phase 1 uses, so `step_errors` reads the same. */
   failures: { source: string; error: string }[];
-  /** Calls this run made. A reused desk costs nothing. */
-  aiCalls: number;
-  searchCalls: number;
-  tokensIn: number;
-  tokensOut: number;
   /** A dry run's stories with their verdicts, in place of storing them. */
   preview?: { desk: DeskId; story: DeskStory; validation: Candidate["validation"] }[];
 }
@@ -70,8 +63,12 @@ export const EMPTY_NEWS_DESK: NewsDeskOutcome = {
   tokensOut: 0,
 };
 
-/** How many days of what the reader was already told each desk is shown, and dedup compares against. */
-const REPORTED_LOOKBACK_DAYS = 3;
+function addUsage(outcome: NewsDeskOutcome, usage: UsageTotals) {
+  outcome.aiCalls += usage.aiCalls;
+  outcome.searchCalls += usage.searchCalls;
+  outcome.tokensIn += usage.tokensIn;
+  outcome.tokensOut += usage.tokensOut;
+}
 
 interface DeskInputs {
   window: NewsWindow;
@@ -121,172 +118,37 @@ function deskPayload(desk: Desk, inputs: DeskInputs): Record<string, unknown> {
   }
 }
 
-interface DeskAnswer {
-  desk: Desk;
-  stories: DeskStory[];
-  queries: string[];
-  sources: string[];
-  evidence: SearchEvidence[];
-  searchCalls: number;
-  aiCalls: number;
-  tokensIn: number;
-  tokensOut: number;
-  durationMs: number;
-  prompt: { section: string; version: number | null };
-  model: string;
-}
-
 async function research(desk: Desk, inputs: DeskInputs): Promise<DeskAnswer> {
   const prompt = await activePrompt(desk.section);
   const started = Date.now();
   const result = await researchDesk(desk, prompt.text, deskPayload(desk, inputs), inputs.window, inputs.home);
   return {
+    ...result,
     desk,
     stories: result.stories.map(tidyStory),
-    queries: result.queries,
-    sources: result.sources,
-    evidence: result.evidence,
-    searchCalls: result.searchCalls,
-    aiCalls: result.aiCalls,
-    tokensIn: result.tokensIn,
-    tokensOut: result.tokensOut,
     durationMs: Date.now() - started,
     prompt: { section: prompt.section, version: prompt.version },
-    model: result.model,
   };
 }
 
-/**
- * The delivery's `raw_content`: a header block the dashboard's `parseTitle` already reads, then
- * the whole answer, queries and consulted URLs included, so a surprising story can be traced back
- * to the searches that produced it.
- */
-function deliveryContent(answer: DeskAnswer, window: NewsWindow): string {
-  const header = [
-    `Title: ${answer.desk.label}`,
-    `Source: ${deskSource(answer.desk.id)}`,
-    `Window: ${window.start} to ${window.end}`,
-  ].join("\n");
-  const body = JSON.stringify({
-    desk: answer.desk.id,
-    model: answer.model,
-    prompt: answer.prompt,
-    window,
-    durationMs: answer.durationMs,
-    searchCalls: answer.searchCalls,
-    tokensIn: answer.tokensIn,
-    tokensOut: answer.tokensOut,
-    queries: answer.queries,
-    consulted: answer.sources,
-    searches: answer.evidence,
-    stories: answer.stories,
-  });
-  return `${header}\n\n${body}`;
-}
-
-/** The window an earlier run of the same day recorded, so every desk of one date shares one. */
-function storedWindow(rawContent: string | null): NewsWindow | null {
-  if (!rawContent) return null;
-  try {
-    const body = JSON.parse(rawContent.slice(rawContent.indexOf("\n\n") + 2)) as { window?: NewsWindow };
-    return body.window?.start && body.window?.end ? body.window : null;
-  } catch {
-    return null;
-  }
-}
-
-async function lastScanEnd(runDate: string): Promise<Date | null> {
-  const [row] = await db
-    .select({ end: max(rawItems.receivedAt) })
-    .from(rawItems)
-    .where(and(eq(rawItems.sourceType, NEWS_SOURCE_TYPE), lt(rawItems.runDate, runDate)));
-  return row?.end ? new Date(row.end) : null;
-}
-
-/** What the reader actually saw on the last few days: cited in a report, not merely researched. */
-async function recentlyReported(runDate: string): Promise<ReportedStory[]> {
-  const rows = await db
-    .select({ runDate: extractions.runDate, json: extractions.extractedJson })
-    .from(extractions)
-    .innerJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
-    .where(and(
-      eq(rawItems.sourceType, NEWS_SOURCE_TYPE),
-      eq(extractions.includedInReport, true),
-      gte(extractions.runDate, addDays(runDate, -REPORTED_LOOKBACK_DAYS)),
-      lt(extractions.runDate, runDate),
-    ));
-
-  return rows.flatMap((row) => {
-    const json = row.json as Partial<NewsExtraction> | null;
-    if (!json?.headline) return [];
-    return [{ date: row.runDate, headline: json.headline, urls: (json.sources ?? []).map((s) => s.url) }];
-  });
-}
-
-/** The reader's own ranking of what they follow, from the intel notes. Expired ones are skipped. */
-async function priorities(runDate: string): Promise<string[]> {
-  const rows = await db
-    .select({ content: notes.content })
-    .from(notes)
-    .where(and(
-      eq(notes.scope, "intel"),
-      isNull(notes.deletedAt),
-      or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
-    ));
-  return rows.map((r) => r.content);
-}
-
-function storyFromStored(json: NewsExtraction): DeskStory {
-  return {
-    headline: json.headline,
-    summary: json.key_claim,
-    context: json.context,
-    significance: json.significance,
-    status: json.status,
-    confidence: json.confidence,
-    region: json.region,
-    topic: json.topic,
-    happened_at: json.happened_at,
-    entities: json.entities ?? [],
-    sources: json.sources ?? [],
-  };
-}
-
-async function persist(answer: DeskAnswer, candidates: Candidate[], runDate: string, window: NewsWindow): Promise<number> {
-  return db.transaction(async (tx) => {
-    const [delivery] = await tx
-      .insert(rawItems)
-      .values({
-        runDate,
-        sourceType: NEWS_SOURCE_TYPE,
-        sourceName: deskSource(answer.desk.id),
-        messageId: deskMessageId(runDate, answer.desk.id),
-        rawContent: deliveryContent(answer, window),
-        receivedAt: window.end,
-      })
-      .onConflictDoNothing({ target: rawItems.messageId })
-      .returning({ id: rawItems.id });
-
-    // A concurrent run stored this desk first. Its stories are the record; ours are dropped whole
-    // rather than interleaved with them.
-    if (!delivery) return 0;
-
-    for (const { story, validation } of candidates) {
-      await tx.insert(extractions).values({
-        rawItemId: delivery.id,
-        runDate,
-        extractedJson: toExtraction(answer.desk.id, story, validation),
-        // The desk's significance, on its own scale. Phase 3 overwrites effective relevance with
-        // the gate's figure, which for a news story is the same number: no trust score applies.
-        relevanceScore: story.significance,
-        effectiveRelevance: story.significance,
-        novelty: story.status === "update" ? "continuation" : "new",
-        includedInReport: false,
-        aiFailed: false,
-      });
-    }
-    return candidates.length;
-  });
+/** One desk's stories with the checks run against them. */
+function buildCandidates(answer: DeskAnswer, inputs: DeskInputs): Candidate[] {
+  const { desk } = answer;
+  // Searched but reported no URLs: the check cannot be made. Never searched: nothing is sourced.
+  const consulted = answer.searchCalls > 0 && answer.sources.length === 0 ? null : answer.sources;
+  return answer.stories.map((story): Candidate => ({
+    desk: desk.id,
+    deskOrder: DESKS.indexOf(desk),
+    story,
+    validation: {
+      ...verifySources(story, consulted),
+      inWindow: withinWindow(story.happened_at, inputs.window),
+      duplicateOf: null,
+      alreadyReported: findAlreadyReported(story, inputs.reported),
+      abroad: desk.id === "home" && isAbroad(story.region, inputs.home),
+    },
+    stored: false,
+  }));
 }
 
 export interface RunOptions {
@@ -314,18 +176,12 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
     return outcome;
   }
 
-  const existing = await db
-    .select({ id: rawItems.id, sourceName: rawItems.sourceName, rawContent: rawItems.rawContent })
-    .from(rawItems)
-    .where(inArray(rawItems.messageId, plan.desks.map((desk) => deskMessageId(runDate, desk.id))));
-  const reusedIds = new Map(existing.map((row) => [row.sourceName, row]));
-
-  const window = existing.map((row) => storedWindow(row.rawContent)).find((w) => w !== null)
-    ?? newsWindow(now, await lastScanEnd(runDate));
+  const earlier = await loadReusedDesks(plan.desks, runDate);
+  const window = earlier.window ?? newsWindow(now, await lastScanEnd(runDate));
   outcome.window = window;
 
-  const toRun = plan.desks.filter((desk) => !reusedIds.has(deskSource(desk.id)));
-  const reused = plan.desks.filter((desk) => reusedIds.has(deskSource(desk.id)));
+  const toRun = plan.desks.filter((desk) => !earlier.desks.has(desk.id));
+  const reused = plan.desks.filter((desk) => earlier.desks.has(desk.id));
 
   const [reported, ltc, notesList] = await Promise.all([
     recentlyReported(runDate),
@@ -348,71 +204,28 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
 
   const settled = await Promise.allSettled(toRun.map((desk) => span(`news:${desk.id}`, () => research(desk, inputs))));
 
-  // Everything the day already holds takes part in the duplicate check, stored stories included,
-  // so a desk re-run after a failure cannot repeat a story another desk stored this morning.
-  const candidates: Candidate[] = [];
-  const reusedRows = reused.length
-    ? await db
-        .select({ json: extractions.extractedJson, rawItemId: extractions.rawItemId })
-        .from(extractions)
-        .where(inArray(extractions.rawItemId, reused.map((desk) => reusedIds.get(deskSource(desk.id))!.id)))
-    : [];
-  for (const row of reusedRows) {
-    const json = row.json as NewsExtraction | null;
-    if (!json?.headline) continue;
-    candidates.push({
-      desk: json.desk,
-      deskOrder: DESKS.findIndex((d) => d.id === json.desk),
-      story: storyFromStored(json),
-      validation: json.validation,
-      stored: true,
-    });
-  }
+  const candidates: Candidate[] = [...earlier.candidates];
   for (const desk of reused) {
-    const count = reusedRows.filter((row) => row.rawItemId === reusedIds.get(deskSource(desk.id))!.id).length;
-    outcome.desks.push({ desk: desk.id, status: "reused", stories: count, searchCalls: 0 });
+    outcome.desks.push({ desk: desk.id, status: "reused", stories: earlier.counts.get(desk.id) ?? 0, searchCalls: 0 });
   }
 
   const answers: { answer: DeskAnswer; candidates: Candidate[] }[] = [];
   settled.forEach((result, index) => {
     const desk = toRun[index];
     if (result.status === "rejected") {
+      const error = errMessage(result.reason);
       console.error(`[News] ${desk.id} failed:`, result.reason);
-      outcome.failures.push({ source: deskSource(desk.id), error: errMessage(result.reason) });
-      const used = result.reason instanceof DeskResearchError ? result.reason.searchCalls : 0;
-      outcome.searchCalls += used;
-      if (result.reason instanceof DeskResearchError) {
-        outcome.aiCalls += result.reason.aiCalls;
-        outcome.tokensIn += result.reason.tokensIn;
-        outcome.tokensOut += result.reason.tokensOut;
-      }
-      outcome.desks.push({ desk: desk.id, status: "failed", stories: 0, searchCalls: used, error: errMessage(result.reason) });
+      outcome.failures.push({ source: deskSource(desk.id), error });
+      const spent = result.reason instanceof DeskResearchError ? result.reason.usage : null;
+      if (spent) addUsage(outcome, spent);
+      outcome.desks.push({ desk: desk.id, status: "failed", stories: 0, searchCalls: spent?.searchCalls ?? 0, error });
       return;
     }
 
-    const answer = result.value;
-    outcome.aiCalls += answer.aiCalls;
-    outcome.searchCalls += answer.searchCalls;
-    outcome.tokensIn += answer.tokensIn;
-    outcome.tokensOut += answer.tokensOut;
-
-    // Searched but reported no URLs: the check cannot be made. Never searched: nothing is sourced.
-    const consulted = answer.searchCalls > 0 && answer.sources.length === 0 ? null : answer.sources;
-    const own = answer.stories.map((story): Candidate => ({
-      desk: desk.id,
-      deskOrder: DESKS.indexOf(desk),
-      story,
-      validation: {
-        ...verifySources(story, consulted),
-        inWindow: withinWindow(story.happened_at, window),
-        duplicateOf: null,
-        alreadyReported: findAlreadyReported(story, reported),
-        abroad: desk.id === "home" && isAbroad(story.region, home),
-      },
-      stored: false,
-    }));
+    addUsage(outcome, result.value);
+    const own = buildCandidates(result.value, inputs);
     candidates.push(...own);
-    answers.push({ answer, candidates: own });
+    answers.push({ answer: result.value, candidates: own });
   });
 
   markDuplicates(candidates, (c) => decideGate({

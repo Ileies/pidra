@@ -1,7 +1,8 @@
 /** Brave-backed research for one news desk. Search calls are budgeted here, not by the model. */
 
 import { errMessage, squash } from "../util/text";
-import { extractJson, usageTally, EXTRACTION_MODEL } from "../ai/openai";
+import { extractJson, EXTRACTION_MODEL } from "../ai/openai";
+import { NEWS_FINAL_INSTRUCTIONS, newsQueryPlanPrompt } from "../ai/prompts/news-desks";
 import { braveContext, braveSearch, type BraveResult } from "../search/brave";
 import { resolveStorySources, type CitedStory, type DeskStory } from "./validate";
 import { SEARCH_BUDGET, type Desk, type HomeConfig, type NewsWindow } from "./config";
@@ -40,22 +41,61 @@ export interface SearchEvidence {
   kind: "news" | "context";
 }
 
-export interface ResearchAnswer {
+export interface UsageTotals {
+  aiCalls: number;
+  searchCalls: number;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+/** What one desk's research spent, counted as it goes so a failed desk still reports its cost. */
+export class Usage implements UsageTotals {
+  aiCalls = 0;
+  searchCalls = 0;
+  tokensIn = 0;
+  tokensOut = 0;
+
+  /** Pass as `onUsage` to `extractJson`. */
+  readonly onUsage = (input: number, output: number) => {
+    this.tokensIn += input;
+    this.tokensOut += output;
+  };
+
+  /** Pass as `onAttempt` to a Brave call: every request, a retry included, spends quota. */
+  readonly onSearch = () => { this.searchCalls++; };
+
+  add(other: UsageTotals) {
+    this.aiCalls += other.aiCalls;
+    this.searchCalls += other.searchCalls;
+    this.tokensIn += other.tokensIn;
+    this.tokensOut += other.tokensOut;
+  }
+
+  totals(): UsageTotals {
+    return { aiCalls: this.aiCalls, searchCalls: this.searchCalls, tokensIn: this.tokensIn, tokensOut: this.tokensOut };
+  }
+}
+
+export interface ResearchAnswer extends UsageTotals {
   stories: DeskStory[];
   queries: string[];
   sources: string[];
   evidence: SearchEvidence[];
-  searchCalls: number;
-  aiCalls: number;
-  tokensIn: number;
-  tokensOut: number;
   model: string;
 }
 
 export class DeskResearchError extends Error {
-  constructor(cause: unknown, readonly searchCalls: number, readonly aiCalls: number, readonly tokensIn: number, readonly tokensOut: number) {
+  constructor(cause: unknown, readonly usage: UsageTotals) {
     super(errMessage(cause), { cause });
   }
+}
+
+interface ResearchContext {
+  desk: Desk;
+  prompt: string;
+  payload: Record<string, unknown>;
+  window: NewsWindow;
+  usage: Usage;
 }
 
 function fallbackQueries(desk: Desk, payload: Record<string, unknown>): string[] {
@@ -97,15 +137,19 @@ function completeQueries(proposed: string[], count: number, prior: string[], fal
 }
 
 async function planQueries(
-  desk: Desk, prompt: string, payload: Record<string, unknown>, window: NewsWindow,
-  count: number, prior: string[], evidence: SearchEvidence[], onUsage: (input: number, output: number) => void,
-  onAiCall: () => void,
+  { desk, prompt, payload, window, usage }: ResearchContext,
+  count: number, prior: string[], evidence: SearchEvidence[],
 ): Promise<string[]> {
-  const total = SEARCH_BUDGET[desk.id].reduce((sum, calls) => sum + calls, 0);
-  const instructions = `Plan exactly ${count} distinct Brave Search queries for the ${desk.id} desk. This desk has ${total} searches total across two rounds. Use the desk mandate below. Each query must be one coherent topic or event, with plain search terms, 3 to 8 words, under 100 characters. Spread queries across the mandate; do not cram unrelated themes into one query. Do not use OR lists, parentheses, after: or before: operators, URLs, or dates: the API already filters by the news window. Avoid site: restrictions except for a named organization on a professional beat. Prefer specific topics and local-language queries where useful. Do not put personal details, email addresses, or the reader's identity into a query. ${prior.length ? "These are follow-up searches: inspect the first results, cover important gaps, and verify the major developing stories." : "These are first-pass searches: sweep the desk's broad categories. Include an overview query where that helps find the day's biggest stories."} Return JSON only.\n\nDesk mandate:\n${prompt}`;
+  const instructions = newsQueryPlanPrompt({
+    deskId: desk.id,
+    count,
+    total: SEARCH_BUDGET[desk.id].reduce((sum, calls) => sum + calls, 0),
+    followUp: prior.length > 0,
+    mandate: prompt,
+  });
   const input = JSON.stringify({ desk_input: payload, window, prior_queries: prior, first_results: evidence.map((search) => ({ query: search.query, results: search.results.slice(0, 8).map(({ title, description, age }) => ({ title, description, age })) })) });
-  onAiCall();
-  const answer = await extractJson<{ queries: string[] }>(instructions, input, { schema: QUERY_SCHEMA, maxOutputTokens: 4000, reasoningEffort: "medium", onUsage });
+  usage.aiCalls++;
+  const answer = await extractJson<{ queries: string[] }>(instructions, input, { schema: QUERY_SCHEMA, maxOutputTokens: 4000, reasoningEffort: "medium", onUsage: usage.onUsage });
   return completeQueries(answer.queries ?? [], count, prior, fallbackQueries(desk, payload), desk.id === "beat" || desk.id === "field");
 }
 
@@ -115,14 +159,16 @@ function freshness(window: NewsWindow): string {
   return `${window.start.slice(0, 10)}to${window.end.slice(0, 10)}`;
 }
 
-async function searchRound(queries: string[], window: NewsWindow, country: string | undefined, kind: SearchEvidence["kind"], onCall: () => void): Promise<SearchEvidence[]> {
+async function searchRound(
+  { window, usage }: ResearchContext, queries: string[], country: string | undefined, kind: SearchEvidence["kind"],
+): Promise<SearchEvidence[]> {
   return Promise.all(queries.map(async (query) => {
     return {
       query,
       kind,
       results: (kind === "news"
-        ? await braveSearch(query, 20, { kind: "news", country: country ?? "ALL", freshness: freshness(window), extraSnippets: true, onAttempt: onCall })
-        : await braveContext(query, { country, freshness: freshness(window), onAttempt: onCall })).results,
+        ? await braveSearch(query, 20, { kind: "news", country: country ?? "ALL", freshness: freshness(window), extraSnippets: true, onAttempt: usage.onSearch })
+        : await braveContext(query, { country, freshness: freshness(window), onAttempt: usage.onSearch })).results,
     };
   }));
 }
@@ -130,19 +176,16 @@ async function searchRound(queries: string[], window: NewsWindow, country: strin
 export async function researchDesk(
   desk: Desk, prompt: string, payload: Record<string, unknown>, window: NewsWindow, home: HomeConfig | null,
 ): Promise<ResearchAnswer> {
-  if (!process.env.BRAVE_SEARCH_API_KEY) throw new DeskResearchError("BRAVE_SEARCH_API_KEY is not set", 0, 0, 0, 0);
-  const usage = usageTally();
-  const { onUsage } = usage;
-  let searchCalls = 0;
-  let aiCalls = 0;
-  const onAiCall = () => { aiCalls++; };
+  const usage = new Usage();
+  if (!process.env.BRAVE_SEARCH_API_KEY) throw new DeskResearchError("BRAVE_SEARCH_API_KEY is not set", usage);
+  const ctx: ResearchContext = { desk, prompt, payload, window, usage };
   try {
     const [firstCount, followupCount] = SEARCH_BUDGET[desk.id];
     const country = desk.locality ? home?.country : undefined;
-    const first = await planQueries(desk, prompt, payload, window, firstCount, [], [], onUsage, onAiCall);
-    const firstEvidence = await searchRound(first, window, country, "news", () => { searchCalls++; });
-    const followup = await planQueries(desk, prompt, payload, window, followupCount, first, firstEvidence, onUsage, onAiCall);
-    const evidence = [...firstEvidence, ...await searchRound(followup, window, country, "context", () => { searchCalls++; })];
+    const first = await planQueries(ctx, firstCount, [], []);
+    const firstEvidence = await searchRound(ctx, first, country, "news");
+    const followup = await planQueries(ctx, followupCount, first, firstEvidence);
+    const evidence = [...firstEvidence, ...await searchRound(ctx, followup, country, "context")];
     const sources = [...new Set(evidence.flatMap((search) => search.results.map((result) => result.url)))];
     if (sources.length === 0) throw new Error("Brave returned no sources for this desk");
     const displayed = evidence.map((search) => ({ ...search, results: search.results.slice(0, 12) }));
@@ -166,19 +209,17 @@ export async function researchDesk(
         })),
       })),
     });
-    const finalPrompt = `${prompt}\n\nThe search is complete. Use only the supplied Brave results and extracted page text as evidence. Do not invent an article or event date. A result's publication date alone does not prove when the event happened. Prefer corroborated developments. For each source return its supplied short id and the publisher name. The source must be a specific article, never a section page, homepage or roundup index. Code attaches the exact URL and title; do not write them. Return JSON only.`;
     const override = process.env.NEWS_REASONING_EFFORT?.trim().toLowerCase();
     const effort = override === "low" || override === "medium" || override === "high" ? override : desk.effort;
-    onAiCall();
-    const answer = await extractJson<{ stories: CitedStory[] }>(finalPrompt, finalInput, {
-      schema: DESK_SCHEMA, maxOutputTokens: 9000, reasoningEffort: effort, onUsage,
+    usage.aiCalls++;
+    const answer = await extractJson<{ stories: CitedStory[] }>(`${prompt}\n\n${NEWS_FINAL_INSTRUCTIONS}`, finalInput, {
+      schema: DESK_SCHEMA, maxOutputTokens: 9000, reasoningEffort: effort, onUsage: usage.onUsage,
     });
     return {
       stories: (answer.stories ?? []).map((story) => resolveStorySources(story, sourceById)),
-      queries: [...first, ...followup], sources, evidence, searchCalls, aiCalls,
-      tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, model: EXTRACTION_MODEL,
+      queries: [...first, ...followup], sources, evidence, ...usage.totals(), model: EXTRACTION_MODEL,
     };
   } catch (error) {
-    throw new DeskResearchError(error, searchCalls, aiCalls, usage.tokensIn, usage.tokensOut);
+    throw new DeskResearchError(error, usage.totals());
   }
 }

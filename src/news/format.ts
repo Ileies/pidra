@@ -132,6 +132,24 @@ interface Group {
   lines: string[];
 }
 
+/** A `###` group in the editor's markdown: its heading's line number and the lines under it. */
+interface ParsedGroup extends Group {
+  line: number;
+}
+
+/** Splits markdown at its `###` headings. `preamble` is whatever precedes the first one. */
+function parseGroups(lines: string[]): { preamble: string[]; groups: ParsedGroup[] } {
+  const preamble: string[] = [];
+  const groups: ParsedGroup[] = [];
+  lines.forEach((text, line) => {
+    const heading = GROUP_HEADING.exec(text);
+    if (heading) groups.push({ heading: heading[1], line, lines: [] });
+    else if (groups.length > 0) groups[groups.length - 1].lines.push(text);
+    else preamble.push(text);
+  });
+  return { preamble, groups };
+}
+
 const IN_BRIEF = "In brief";
 
 /** A single-story group's lines with its heading moved into the bullet, blank lines dropped. */
@@ -153,14 +171,7 @@ function labelledLines(group: Group): string[] {
  * nothing above it to join.
  */
 export function foldSingleStoryGroups(markdown: string): string {
-  const preamble: string[] = [];
-  const groups: Group[] = [];
-  for (const line of markdown.split("\n")) {
-    const heading = GROUP_HEADING.exec(line);
-    if (heading) groups.push({ heading: heading[1], lines: [] });
-    else if (groups.length > 0) groups[groups.length - 1].lines.push(line);
-    else preamble.push(line);
-  }
+  const { preamble, groups } = parseGroups(markdown.split("\n"));
 
   const single = (group: Group) => group.lines.filter((line) => BULLET_START.test(line)).length === 1;
   const kept: Group[] = [];
@@ -225,19 +236,16 @@ export function enforceNewsCaps(markdown: string, refs: Map<string, NewsItem>, h
     return "field";
   };
 
-  const headings: { line: number; kind: CapKind }[] = [];
+  const parsed = parseGroups(lines).groups;
+  const headings = parsed.map((g) => ({ line: g.line, kind: kindOf(g.heading) }));
   const bullets: Bullet[] = [];
-  lines.forEach((line, i) => {
-    const heading = GROUP_HEADING.exec(line);
-    if (heading) {
-      headings.push({ line: i, kind: kindOf(heading[1]) });
-      return;
-    }
-    if (headings.length === 0) return;
-    const group = headings.length - 1;
-    const last = bullets[bullets.length - 1];
-    if (BULLET_START.test(line)) bullets.push({ group, from: i, to: i, significance: 0 });
-    else if (line.trim() !== "" && last && last.group === group && last.to === i - 1) last.to = i;
+  parsed.forEach((g, group) => {
+    g.lines.forEach((text, k) => {
+      const i = g.line + 1 + k;
+      const last = bullets[bullets.length - 1];
+      if (BULLET_START.test(text)) bullets.push({ group, from: i, to: i, significance: 0 });
+      else if (text.trim() !== "" && last && last.group === group && last.to === i - 1) last.to = i;
+    });
   });
   for (const b of bullets) b.significance = significanceOf(lines.slice(b.from, b.to + 1).join("\n"), refs);
 

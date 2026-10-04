@@ -230,3 +230,14 @@ Significance on this desk, judged by how remarkable the story is:
 - 1-2: ordinary. Do not return these.
 
 Return up to 3 stories, most remarkable first.`;
+
+/** The query-planning instruction for one search round of one desk (`news/research.ts`). */
+export function newsQueryPlanPrompt(o: { deskId: string; count: number; total: number; followUp: boolean; mandate: string }): string {
+  const round = o.followUp
+    ? "These are follow-up searches: inspect the first results, cover important gaps, and verify the major developing stories."
+    : "These are first-pass searches: sweep the desk's broad categories. Include an overview query where that helps find the day's biggest stories.";
+  return `Plan exactly ${o.count} distinct Brave Search queries for the ${o.deskId} desk. This desk has ${o.total} searches total across two rounds. Use the desk mandate below. Each query must be one coherent topic or event, with plain search terms, 3 to 8 words, under 100 characters. Spread queries across the mandate; do not cram unrelated themes into one query. Do not use OR lists, parentheses, after: or before: operators, URLs, or dates: the API already filters by the news window. Avoid site: restrictions except for a named organization on a professional beat. Prefer specific topics and local-language queries where useful. Do not put personal details, email addresses, or the reader's identity into a query. ${round} Return JSON only.\n\nDesk mandate:\n${o.mandate}`;
+}
+
+/** Appended to a desk's mandate for the final call, once the searches are done. */
+export const NEWS_FINAL_INSTRUCTIONS = `The search is complete. Use only the supplied Brave results and extracted page text as evidence. Do not invent an article or event date. A result's publication date alone does not prove when the event happened. Prefer corroborated developments. For each source return its supplied short id and the publisher name. The source must be a specific article, never a section page, homepage or roundup index. Code attaches the exact URL and title; do not write them. Return JSON only.`;

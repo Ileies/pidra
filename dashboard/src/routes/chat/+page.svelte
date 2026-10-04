@@ -4,9 +4,8 @@
   import Panel from "#lib/assistant/Panel.svelte";
   import ConversationList from "#lib/assistant/ConversationList.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
-  import Badge from "#lib/components/Badge.svelte";
+  import CorrectionsSidebar from "#lib/assistant/CorrectionsSidebar.svelte";
   import Segmented from "#lib/components/Segmented.svelte";
-  import { label } from "#lib/labels.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -145,28 +144,7 @@
       class="min-w-0 min-h-0 flex-1 px-4 lg:px-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
       aria-label="Active corrections"
     >
-      <div class="rounded-lg border border-surface-800 bg-surface-900 p-4 flex flex-col gap-3 min-h-0">
-        <h2 class="text-surface-400 text-xs font-semibold uppercase tracking-wide shrink-0">Active corrections</h2>
-        {#if data.corrections.length === 0}
-          <p class="text-surface-400 text-xs">None yet.</p>
-        {:else}
-          <div class="flex flex-col gap-2 overflow-y-auto min-h-0">
-            {#each data.corrections as correction (correction.id)}
-              <div class="rounded-lg border border-surface-800 bg-surface-950 px-3 py-2 text-xs">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <Badge tone="primary">{label(correction.target_kind)}</Badge>
-                  <Badge tone="muted">{label(correction.operation)}</Badge>
-                </div>
-                <div class="text-surface-200 mt-1.5 break-words">{correction.statement}</div>
-                {#if correction.supersedes_text}
-                  <div class="text-surface-500 mt-1 line-through break-words">{correction.supersedes_text}</div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-          <a href="/context-builder" class="text-surface-400 text-xs hover:text-surface-200 shrink-0">See all and revert →</a>
-        {/if}
-      </div>
+      <CorrectionsSidebar corrections={data.corrections} />
     </aside>
   </div>
 </div>

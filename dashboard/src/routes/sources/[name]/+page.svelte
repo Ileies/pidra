@@ -1,17 +1,15 @@
 <script lang="ts">
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
-  import Badge from "#lib/components/Badge.svelte";
+  import DeliveryCard, { isSkipped } from "./DeliveryCard.svelte";
+  import SourceHeader from "./SourceHeader.svelte";
   import { goto } from "$app/navigation";
-  import ConfirmButton from "#lib/components/ConfirmButton.svelte";
   import DeleteSourceModal from "#lib/components/DeleteSourceModal.svelte";
   import DataTable from "#lib/components/DataTable.svelte";
   import StatCard from "#lib/components/StatCard.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import type { Column } from "#lib/components/table.js";
-  import { fmtDate, fmtDateTime, fmtPct, fmtScore, scoreTone } from "#lib/format.js";
-  import { label as displayLabel, TREND_GLYPH } from "#lib/labels.js";
-  import { sourceItemDetailHref } from "#lib/sourceLinks.js";
+  import { fmtDate, fmtPct, fmtScore, scoreTone } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -19,8 +17,6 @@
 
   $effect(() => toastFormResult(form));
 
-  type Delivery = PageData["deliveries"][number];
-  type Item = Delivery["items"][number];
   type DailyScore = PageData["dailyScores"][number];
 
   $effect(() => {
@@ -36,13 +32,6 @@
 
   let query = $state("");
   let onlyEmpty = $state(false);
-
-  const isActive = $derived(data.quality?.is_active !== false);
-
-  /** An extraction row without a headline carried no content: skipped, or an empty result. */
-  function isSkipped(item: Item): boolean {
-    return !item.headline && !item.keyClaim;
-  }
 
   const visible = $derived(
     data.deliveries.filter((delivery) => {
@@ -60,20 +49,6 @@
       return haystack.includes(q);
     }),
   );
-
-  function relevanceTone(score: number | null): string {
-    if (score == null) return "text-surface-400";
-    if (score >= 4) return "text-success-500";
-    if (score >= 3) return "text-warning-500";
-    return "text-surface-400";
-  }
-
-  function itemLabel(item: Item): string {
-    if (item.headline) return item.headline;
-    if (item.keyClaim) return item.keyClaim;
-    if (item.skipReason) return `Skipped: ${displayLabel(item.skipReason)}`;
-    return "Skipped - nothing extracted";
-  }
 
   const includeRate = $derived(data.stats.items > 0 ? data.stats.included / data.stats.items : null);
 
@@ -93,45 +68,7 @@
 {/snippet}
 
 <Page title={data.sourceName} size="app" class="flex flex-col gap-6">
-  <!-- Header: what the score is, and the one decision this page exists to support. -->
-  <section class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-    <div class="flex flex-col gap-1 min-w-0">
-      <div class="flex items-center gap-2 flex-wrap">
-        <a href="/sources" class="text-xs text-surface-400 hover:text-surface-200 no-underline">← Sources</a>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <h1 class="text-lg font-semibold text-surface-50 break-words">{data.sourceName}</h1>
-        {#if !isActive}<Badge tone="muted">Disabled</Badge>{/if}
-      </div>
-      <p class="text-xs text-surface-400">
-        {data.stats.deliveries} deliveries, {data.stats.items} items
-        {#if data.stats.firstSeen}· since {fmtDate(data.stats.firstSeen)}{/if}
-        {#if data.stats.lastSeen}· last {fmtDate(data.stats.lastSeen)}{/if}
-      </p>
-      {#if !isActive && data.quality?.disabled_reason}
-        <p class="text-xs text-surface-400">
-          Reason: <span class="text-surface-200">{data.quality.disabled_reason}</span>
-          {#if data.quality.disabled_at}({fmtDate(data.quality.disabled_at)}){/if}
-        </p>
-      {/if}
-    </div>
-
-    <div class="flex items-center gap-4 shrink-0">
-      <div class="text-right">
-        <div class="text-2xl font-semibold tabular-nums {scoreTone(data.quality?.composite_score_30d)}">
-          {fmtScore(data.quality?.composite_score_30d)}<span class="text-xs text-surface-400 ml-px">/10</span>
-        </div>
-        <div class="text-xs text-surface-400 whitespace-nowrap">
-          <span aria-hidden="true">{TREND_GLYPH[data.quality?.quality_trend ?? "stable"] ?? "→"}</span>
-          {displayLabel(data.quality?.quality_trend ?? "stable")}
-        </div>
-      </div>
-
-      {#if !isActive}
-        <ConfirmButton label="Enable" action="?/toggle" fields={{ isActive: "true" }} tone="success" immediate />
-      {/if}
-    </div>
-  </section>
+  <SourceHeader name={data.sourceName} stats={data.stats} quality={data.quality} />
 
   <!-- The numbers behind the score, so it is checkable rather than just a verdict. -->
   <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -188,68 +125,7 @@
     </div>
 
     {#each visible as delivery (delivery.rawItemId)}
-      <article class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3 flex flex-col gap-2">
-        <div class="flex flex-wrap items-baseline gap-2 text-xs">
-          <span class="text-surface-200 font-medium flex-1 min-w-0 break-words">{delivery.title ?? "(untitled)"}</span>
-          <span class="text-surface-400 whitespace-nowrap">{fmtDateTime(delivery.receivedAt)}</span>
-        </div>
-
-        {#if delivery.sender}
-          <p class="text-xs text-surface-400 break-all">From: {delivery.sender}</p>
-        {/if}
-
-        {#if delivery.items.length === 0}
-          <p class="text-xs text-surface-400">
-            Nothing extracted - skipped as promotional, automated, or without informational content.
-          </p>
-        {:else}
-          <ul class="flex flex-col divide-y divide-surface-800 border-t border-surface-800 -mx-1">
-            {#each delivery.items as item (item.id)}
-              {@const skipped = isSkipped(item)}
-              <li class="px-1 py-2 flex flex-col gap-1">
-                <div class="flex items-start gap-2">
-                  <span
-                    class="text-sm font-semibold tabular-nums w-8 shrink-0 text-right
-                      {skipped ? 'text-surface-400' : relevanceTone(item.effectiveRelevance ?? item.relevanceScore)}"
-                  >
-                    {skipped ? "-" : fmtScore(item.effectiveRelevance ?? item.relevanceScore, 1)}
-                  </span>
-                  <div class="flex-1 min-w-0 flex flex-col gap-1">
-                    <a
-                      href={sourceItemDetailHref(item.runDate ?? delivery.runDate, item.id)}
-                      class="text-sm leading-snug no-underline hover:text-primary-400 transition-colors
-                        {skipped ? 'text-surface-400 italic' : 'text-surface-200'}"
-                    >
-                      {itemLabel(item)}
-                    </a>
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      {#if item.includedInReport}
-                        <Badge tone="success">In report</Badge>
-                      {:else if !skipped}
-                        <Badge tone="muted">Filtered out</Badge>
-                      {/if}
-                      {#if item.novelty && item.novelty !== "new"}
-                        <Badge tone="warning">{displayLabel(item.novelty)}</Badge>
-                      {/if}
-                      {#if item.rating === "explicit_plus"}
-                        <Badge tone="success">Rated +</Badge>
-                      {:else if item.rating === "explicit_minus"}
-                        <Badge tone="error">Rated −</Badge>
-                      {/if}
-                      {#if item.aiFailed}
-                        <Badge tone="error">Extraction failed</Badge>
-                      {/if}
-                      {#each item.topicTags as tag (tag)}
-                        <Badge tone="neutral">{tag}</Badge>
-                      {/each}
-                    </div>
-                  </div>
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </article>
+      <DeliveryCard {delivery} />
     {/each}
 
     {#if data.deliveries.length === 0}

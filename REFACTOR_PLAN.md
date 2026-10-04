@@ -194,6 +194,8 @@ Each split brings the page under ~250 lines. Behavior must be identical; polling
 | 7.6 | `chat/+page.svelte` | `CorrectionsSidebar.svelte`, uses `Tabs` | -20 (L) |
 | 7.7 | `Navbar`, `CommandPalette`, `TriageCard` (242, 237, 237) | after 5.6-5.8 land they drop on their own; re-measure | - |
 
+**Status: done 2026-10-05, with these deviations.** 7.1: `[date]/+page.svelte` is 340 lines, not ~260 (the rest is the report markup); the extractions are `ReportSidebar`, `NoReportState`, `usePipelinePoll`, `useReadReceipt` (an effect-based helper rather than an attachment, so it also re-arms per date), `buildReportDigest` and a `report/view.ts` for stats, action placement and nav targets. 7.2: 231 lines; `RunControls` + `useContextRun`, `DocSearch`, `QuickLinks`, `useScrollSpy` (`ui/scrollSpy.svelte.ts`), `searchHighlight.ts`, `ui/details.ts`; the `search-hit-current` class is still toggled on the DOM inside `DocSearch` (no attachment). 7.3: 234 lines; `useNoteSelection` (one `runBulk` replaces the three bulk functions), `useNoteDrafts`, `BulkBar`, and `counts`/`scopeCounts` are one pass. 7.4: `weight`, `stepSum` and `groupWeights` live in `lib/runUsage.ts`, not `runTrace.ts` (that file is pure, tested alone and at its size limit; usage needs the pricing config); `runMs` was already one `$derived`. 7.5: `DeliveryCard` and `SourceHeader` sit next to the route. 7.6: `CorrectionsSidebar` (chat already used `Segmented`). 7.7: `Navbar` 157, `CommandPalette` 231 and `TriageCard` 238 are under budget after Phase 5. No manual browser pass was done; the full check including blackhole passes.
+
 ---
 
 ## Phase 8 - Offline layer and service worker

@@ -1,3 +1,4 @@
+import { utcDay } from "$pipeline/util/time";
 import { sql } from "#lib/server/postgres.js";
 
 /**
@@ -17,7 +18,7 @@ export async function deleteSource(sourceName: string): Promise<void> {
 
 /** Disabled sources are excluded from extraction; the row is created if the source has none yet. */
 export async function setSourceActive(sourceName: string, isActive: boolean, reason?: string): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = utcDay();
   const disabledAt = isActive ? null : today;
   const disabledReason = isActive ? null : (reason ?? null);
   await sql()`

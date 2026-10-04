@@ -212,7 +212,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
     // Bodies stay in Postgres: the header block carries the subject and sender, and a day of
     // newsletter HTML is megabytes the page has no use for. The original is one click away on
     // the detail page.
-    db`
+    db<Row[]>`
       WITH items AS (
         SELECT id, source_type, source_name, account_id, received_at,
                split_part(raw_content, E'\n\n', 1) AS raw_header
@@ -250,7 +250,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
       ORDER BY i.received_at DESC NULLS LAST, i.id,
                e.included_in_report DESC NULLS LAST, e.effective_relevance DESC NULLS LAST
     `,
-    db`
+    db<DropRow[]>`
       SELECT id, account_id, source_type, source_name, subject, sender, received_at, reason
       FROM ingest_drops
       WHERE run_date = ${date}
@@ -265,7 +265,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
   const items: TriageItem[] = [];
   const byRawItem = new Map<string, TriageItem>();
 
-  for (const row of rows as unknown as Row[]) {
+  for (const row of rows) {
     let item = byRawItem.get(row.raw_item_id);
     if (!item) {
       item = {
@@ -311,7 +311,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
 
   for (const item of items) item.outcome = outcomeOf(item.extractions);
 
-  for (const drop of dropRows as unknown as DropRow[]) {
+  for (const drop of dropRows) {
     items.push({
       id: drop.id,
       subject: drop.subject,

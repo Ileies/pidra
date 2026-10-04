@@ -75,7 +75,7 @@ export async function loadExtractions(ids: string[], options: LoadOptions = {}):
       WHERE e.id::text = ANY(${ids})
       ORDER BY e.effective_relevance DESC NULLS LAST
     `,
-    db`
+    db<{ extraction_id: string; event_type: string }[]>`
       SELECT extraction_id, event_type FROM feedback_events
       WHERE extraction_id::text = ANY(${ids})
       AND event_type IN ('explicit_plus', 'explicit_minus')
@@ -83,10 +83,7 @@ export async function loadExtractions(ids: string[], options: LoadOptions = {}):
   ]);
 
   const ratings = new Map(
-    (ratedRows as unknown as { extraction_id: string; event_type: string }[]).map((row) => [
-      row.extraction_id,
-      row.event_type,
-    ]),
+    ratedRows.map((row) => [row.extraction_id, row.event_type]),
   );
 
   return rows.map((row) => ({

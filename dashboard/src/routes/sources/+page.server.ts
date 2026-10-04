@@ -1,3 +1,4 @@
+import { daysAgo } from "$pipeline/util/time";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -26,11 +27,13 @@ export interface SourceRow {
   dailyScores: DailyScore[];
 }
 
+type QualityRow = Omit<SourceRow, "dailyScores" | "lastDelivery">;
+
 export const load: PageServerLoad = async () => {
   const db = sql();
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+  const thirtyDaysAgo = daysAgo(30);
   const [qualityRows, dailyRows, deliveryRows] = await Promise.all([
-    db`
+    db<QualityRow[]>`
       SELECT source_name AS "sourceName", is_active AS "isActive",
              disabled_at::text AS "disabledAt", disabled_reason AS "disabledReason",
              trust_score AS "trustScore",
@@ -38,7 +41,7 @@ export const load: PageServerLoad = async () => {
       FROM source_quality
       ORDER BY composite_score_30d DESC NULLS LAST
     `,
-    db`
+    db<DailyScore[]>`
       SELECT source_name AS "sourceName", run_date::text AS "runDate",
              items_received AS "itemsReceived", items_included AS "itemsIncluded",
              avg_relevance AS "avgRelevance", avg_effective_relevance AS "avgEffectiveRelevance",
@@ -47,7 +50,7 @@ export const load: PageServerLoad = async () => {
       WHERE run_date >= ${thirtyDaysAgo}
       ORDER BY run_date DESC
     `,
-    db`
+    db<{ sourceName: string; lastDelivery: string | Date | null }[]>`
       SELECT source_name AS "sourceName", max(received_at) AS "lastDelivery"
       FROM raw_items
       GROUP BY source_name
@@ -55,18 +58,18 @@ export const load: PageServerLoad = async () => {
   ]);
 
   const lastDeliveryBySource = new Map<string, string | Date | null>();
-  for (const row of deliveryRows as unknown as { sourceName: string; lastDelivery: string | Date | null }[]) {
+  for (const row of deliveryRows) {
     lastDeliveryBySource.set(row.sourceName, row.lastDelivery);
   }
 
   const dailyBySource = new Map<string, DailyScore[]>();
-  for (const row of dailyRows as unknown as DailyScore[]) {
+  for (const row of dailyRows) {
     const scores = dailyBySource.get(row.sourceName) ?? [];
     scores.push(row);
     dailyBySource.set(row.sourceName, scores);
   }
 
-  const sources: SourceRow[] = (qualityRows as unknown as Omit<SourceRow, "dailyScores" | "lastDelivery">[]).map((row) => ({
+  const sources: SourceRow[] = qualityRows.map((row) => ({
     ...row,
     lastDelivery: lastDeliveryBySource.get(row.sourceName) ?? null,
     dailyScores: (dailyBySource.get(row.sourceName) ?? []).slice(0, 30),

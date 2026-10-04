@@ -63,7 +63,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
   // about as a whole, and each kind gets its own title, snippet source and href shape anyway.
   const [reports, extractions, notes, entities] = await Promise.all([
     kinds.includes("report")
-      ? db`
+      ? db<{ id: string; snippet: string; score: number }[]>`
           SELECT report_date::text AS id,
                  ts_headline('simple', full_report, to_tsquery('simple', ${tsQuery}), ${HEADLINE}) AS snippet,
                  ts_rank(search_tsv, to_tsquery('simple', ${tsQuery})) AS score
@@ -74,7 +74,14 @@ export async function search(query: string, options: SearchOptions = {}): Promis
         `
       : [],
     kinds.includes("extraction")
-      ? db`
+      ? db<{
+          id: string;
+          run_date: string;
+          title: string;
+          source_name: string | null;
+          snippet: string;
+          score: number;
+        }[]>`
           SELECT e.id::text AS id,
                  e.run_date::text AS run_date,
                  coalesce(e.extracted_json ->> 'headline', e.extracted_json ->> 'key_claim', '(no headline)') AS title,
@@ -91,7 +98,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
         `
       : [],
     kinds.includes("note")
-      ? db`
+      ? db<{ id: string; scope: string; snippet: string; score: number }[]>`
           SELECT id::text AS id, scope,
                  ts_headline('simple', content, to_tsquery('simple', ${tsQuery}), ${HEADLINE}) AS snippet,
                  ts_rank(search_tsv, to_tsquery('simple', ${tsQuery})) AS score
@@ -102,7 +109,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
         `
       : [],
     kinds.includes("entity")
-      ? db`
+      ? db<{ id: string; name: string; type: string | null; snippet: string; score: number }[]>`
           SELECT id::text AS id, name, type, mention_count,
                  ts_headline('simple', coalesce(summary, name), to_tsquery('simple', ${tsQuery}), ${HEADLINE}) AS snippet,
                  ts_rank(search_tsv, to_tsquery('simple', ${tsQuery})) AS score
@@ -115,7 +122,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
   ]);
 
   const hits: SearchHit[] = [
-    ...(reports as unknown as { id: string; snippet: string; score: number }[]).map((row) => ({
+    ...reports.map((row) => ({
       id: row.id,
       kind: "report" as const,
       title: row.id,
@@ -124,14 +131,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
       href: `/${row.id}`,
       meta: "Report",
     })),
-    ...(extractions as unknown as {
-      id: string;
-      run_date: string;
-      title: string;
-      source_name: string | null;
-      snippet: string;
-      score: number;
-    }[]).map((row) => ({
+    ...extractions.map((row) => ({
       id: row.id,
       kind: "extraction" as const,
       title: row.title,
@@ -140,7 +140,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
       href: `/${row.run_date}/detail/${row.id}`,
       meta: row.source_name ?? "Item",
     })),
-    ...(notes as unknown as { id: string; scope: string; snippet: string; score: number }[]).map((row) => ({
+    ...notes.map((row) => ({
       id: row.id,
       kind: "note" as const,
       title: row.snippet.replace(/<\/?mark>/g, "").slice(0, 60) || "Note",
@@ -149,13 +149,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
       href: `/notes?q=${encodeURIComponent(query)}`,
       meta: `Note · ${row.scope}`,
     })),
-    ...(entities as unknown as {
-      id: string;
-      name: string;
-      type: string | null;
-      snippet: string;
-      score: number;
-    }[]).map((row) => ({
+    ...entities.map((row) => ({
       id: row.id,
       kind: "entity" as const,
       title: row.name,

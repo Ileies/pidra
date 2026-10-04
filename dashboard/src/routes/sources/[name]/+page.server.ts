@@ -1,3 +1,4 @@
+import { daysAgo } from "$pipeline/util/time";
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -72,20 +73,45 @@ type ItemRow = {
   rating: string | null;
 };
 
+type QualityRow = {
+  source_name: string;
+  trust_score: number | null;
+  include_rate_30d: number | null;
+  avg_revealed_relevance: number | null;
+  quality_trend: string | null;
+  promotional_rate_30d: number | null;
+  composite_score_30d: number | null;
+  is_active: boolean;
+  disabled_at: string | null;
+  disabled_reason: string | null;
+  notes: string | null;
+  unsubscribe_url: string | null;
+};
+
+type DailyScoreRow = {
+  runDate: string;
+  itemsReceived: number;
+  itemsIncluded: number;
+  avgRelevance: number | null;
+  avgEffectiveRelevance: number | null;
+  includeRate: number | null;
+  compositeScore: number | null;
+};
+
 export const load: PageServerLoad = async ({ params }) => {
   const sourceName = decodeURIComponent(params.name);
   const db = sql();
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+  const thirtyDaysAgo = daysAgo(30);
 
   const [qualityRows, dailyRows, rows, statsRows, ratingRows] = await Promise.all([
-    db`
+    db<QualityRow[]>`
       SELECT source_name, trust_score, include_rate_30d, avg_revealed_relevance, quality_trend,
              promotional_rate_30d, composite_score_30d, is_active, disabled_at, disabled_reason,
              notes, updated_at, unsubscribe_url
       FROM source_quality WHERE source_name = ${sourceName}
     `,
-    db`
+    db<DailyScoreRow[]>`
       SELECT run_date AS "runDate", items_received AS "itemsReceived",
              items_included AS "itemsIncluded", avg_relevance AS "avgRelevance",
              avg_effective_relevance AS "avgEffectiveRelevance", include_rate AS "includeRate",
@@ -95,7 +121,7 @@ export const load: PageServerLoad = async ({ params }) => {
       ORDER BY run_date DESC
     `,
     // The header block is all the template needs for a title, so the bodies stay in Postgres.
-    db`
+    db<ItemRow[]>`
       WITH deliveries AS (
         SELECT id, received_at, run_date::text AS run_date, source_type, split_part(raw_content, E'\n\n', 1) AS raw_header
         FROM raw_items
@@ -128,7 +154,7 @@ export const load: PageServerLoad = async ({ params }) => {
       ORDER BY d.received_at DESC NULLS LAST, d.id, e.effective_relevance DESC NULLS LAST
     `,
     // Lifetime totals, deliberately over every row rather than only the shown page.
-    db`
+    db<Record<string, unknown>[]>`
       SELECT
         count(DISTINCT r.id)::int AS deliveries,
         count(e.id)::int AS items,
@@ -149,7 +175,7 @@ export const load: PageServerLoad = async ({ params }) => {
       LEFT JOIN extractions e ON e.raw_item_id = r.id
       WHERE r.source_name = ${sourceName}
     `,
-    db`
+    db<{ event_type: string; n: number }[]>`
       SELECT f.event_type, count(*)::int AS n
       FROM feedback_events f
       JOIN extractions e ON e.id = f.extraction_id
@@ -159,27 +185,14 @@ export const load: PageServerLoad = async ({ params }) => {
     `,
   ]);
 
-  const quality = (qualityRows[0] ?? null) as {
-    source_name: string;
-    trust_score: number | null;
-    include_rate_30d: number | null;
-    avg_revealed_relevance: number | null;
-    quality_trend: string | null;
-    promotional_rate_30d: number | null;
-    composite_score_30d: number | null;
-    is_active: boolean;
-    disabled_at: string | null;
-    disabled_reason: string | null;
-    notes: string | null;
-    unsubscribe_url: string | null;
-  } | null;
+  const quality = qualityRows[0] ?? null;
 
   // A source with neither a quality row nor a single ingested item is a bad URL, not an empty page.
   if (!quality && rows.length === 0) error(404, `Unknown source: ${sourceName}`);
 
   const deliveries: Delivery[] = [];
   const byRawItem = new Map<string, Delivery>();
-  for (const row of rows as unknown as ItemRow[]) {
+  for (const row of rows) {
     let delivery = byRawItem.get(row.raw_item_id);
     if (!delivery) {
       delivery = {
@@ -220,10 +233,8 @@ export const load: PageServerLoad = async ({ params }) => {
     });
   }
 
-  const s = statsRows[0] as Record<string, unknown>;
-  const ratings = new Map(
-    (ratingRows as unknown as { event_type: string; n: number }[]).map((r) => [r.event_type, r.n]),
-  );
+  const s = statsRows[0];
+  const ratings = new Map(ratingRows.map((r) => [r.event_type, r.n]));
 
   const stats: SourceStats = {
     deliveries: (s?.deliveries as number) ?? 0,
@@ -243,15 +254,7 @@ export const load: PageServerLoad = async ({ params }) => {
   return {
     sourceName,
     quality,
-    dailyScores: dailyRows as unknown as {
-      runDate: string;
-      itemsReceived: number;
-      itemsIncluded: number;
-      avgRelevance: number | null;
-      avgEffectiveRelevance: number | null;
-      includeRate: number | null;
-      compositeScore: number | null;
-    }[],
+    dailyScores: [...dailyRows],
     deliveries,
     stats,
     deliveryLimit: DELIVERY_LIMIT,

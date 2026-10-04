@@ -157,13 +157,13 @@ export async function loadHarvestDocument(): Promise<{
 }> {
   const db = sql();
 
-  const runs = (await db`
+  const runs = await db<HarvestRun[]>`
     SELECT id, mode, started_at, completed_at, items_indexed, output_path, document
     FROM context_builder_runs
     WHERE status = 'completed'
     ORDER BY started_at DESC
     LIMIT ${CANDIDATE_RUNS}
-  `) as unknown as HarvestRun[];
+  `;
 
   let run: HarvestRun | null = null;
   let doc: HarvestDoc | null = null;

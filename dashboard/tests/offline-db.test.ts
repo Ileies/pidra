@@ -173,4 +173,23 @@ describe("upgrade", () => {
     expect(names).not.toContain("entityRelations");
     expect(names.sort()).toEqual([...db.STORES].sort());
   });
+
+  test("version 5 indexes appearances that an older build already stored", async () => {
+    await seedOlderVersion(4, {
+      entityAppearances: [
+        { id: "a1", entityId: "e1" },
+        { id: "a2", entityId: "e2" },
+      ] as { id: string }[],
+    });
+    const found = await db.getAllBy<db.Keyed>("entityAppearances", "entityId", "e1");
+    expect(found.map((r) => r.id)).toEqual(["a1"]);
+  });
+});
+
+describe("keys", () => {
+  test("lists every id without reading the rows", async () => {
+    await db.bulkPut("reports", [row("2026-10-02"), row("2026-10-01")]);
+    expect((await db.keys("reports")).sort()).toEqual(["2026-10-01", "2026-10-02"]);
+    expect(await db.keys("topics")).toEqual([]);
+  });
 });

@@ -91,8 +91,7 @@ export async function report(depends: Depends, date: string): Promise<MirroredRe
  *  uses for its prev/next steppers. */
 export async function reportDates(depends: Depends): Promise<string[]> {
   watch(depends, "reports");
-  const rows = await db.getAll<MirroredReport>("reports");
-  return rows.map((r) => r.date).sort((a, b) => b.localeCompare(a));
+  return (await db.keys("reports")).sort((a, b) => b.localeCompare(a));
 }
 
 export interface ArchiveDay {
@@ -257,13 +256,11 @@ export async function entity(
   watch(depends, "entities", "entityAppearances");
   const [row, appearanceRows] = await Promise.all([
     db.get<MirroredEntity>("entities", id),
-    db.getAll<MirroredAppearance>("entityAppearances"),
+    db.getAllBy<MirroredAppearance>("entityAppearances", "entityId", id),
   ]);
   if (!row) return null;
 
-  const appearances = appearanceRows
-    .filter((a) => a.entityId === id)
-    .sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? ""));
+  const appearances = appearanceRows.sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? ""));
 
   return { entity: row, appearances };
 }

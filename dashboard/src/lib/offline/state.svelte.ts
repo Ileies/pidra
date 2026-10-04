@@ -133,14 +133,14 @@ class OfflineState {
       outbox.pending(),
       outbox.failed(),
       getLastSyncedAt(),
-      db.getAll<{ id: string; date: string }>("reports"),
+      db.keys("reports"),
       navigator.storage?.persisted?.().catch(() => null) ?? Promise.resolve(null),
     ]);
     this.pending = pending;
     this.failed = failed;
     this.lastSyncedAt = lastSyncedAt;
     this.mirroredReportCount = reports.length;
-    this.oldestMirroredDate = reports.map((r) => r.date).sort()[0] ?? null;
+    this.oldestMirroredDate = reports.sort()[0] ?? null;
     this.persisted = persisted;
   }
 

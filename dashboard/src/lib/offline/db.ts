@@ -14,8 +14,12 @@ const DB_NAME = "pidra-offline";
  *  docs/scoring-formulas.md) - `entityRelations` is dropped on upgrade rather than left as dead,
  *  unsynced data. An upgrade otherwise only ever adds stores, so it keeps what is there.
  *  4: standing rules became notes - the `rules` store is dropped, along with any queued or failed
- *  `rule.*` writes, which no longer have an endpoint. */
-const DB_VERSION = 4;
+ *  `rule.*` writes, which no longer have an endpoint.
+ *  5: `entityAppearances` gets an `entityId` index, so one entity's page reads its own rows. */
+const DB_VERSION = 5;
+
+/** Secondary indexes, by store. Created on upgrade; `getAllBy` reads them. */
+const INDEXES: Partial<Record<Store, string[]>> = { entityAppearances: ["entityId"] };
 
 export const STORES = [
   "reports",
@@ -77,6 +81,10 @@ function openDb(): Promise<IDBDatabase> {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
+      for (const [name, fields] of Object.entries(INDEXES)) {
+        const os = req.transaction!.objectStore(name);
+        for (const field of fields) if (!os.indexNames.contains(field)) os.createIndex(field, field);
+      }
       // Dropped in version 3, kept here rather than left around unsynced.
       if (db.objectStoreNames.contains("entityRelations")) db.deleteObjectStore("entityRelations");
       if (db.objectStoreNames.contains("rules")) db.deleteObjectStore("rules");
@@ -112,31 +120,47 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-export async function get<T extends Keyed>(store: Store, id: string): Promise<T | undefined> {
+/** Runs one request on `store` and resolves with its result. */
+async function run<R>(store: Store, mode: IDBTransactionMode, make: (os: IDBObjectStore) => IDBRequest<R>): Promise<R> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readonly").objectStore(store).get(id);
-    req.onsuccess = () => resolve(req.result as T | undefined);
+    const req = make(db.transaction(store, mode).objectStore(store));
+    req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-export async function getAll<T extends Keyed>(store: Store): Promise<T[]> {
+/** Runs several writes in one transaction; resolves when it commits. */
+async function runBatch(store: Store, write: (os: IDBObjectStore) => void): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readonly").objectStore(store).getAll();
-    req.onsuccess = () => resolve(req.result as T[]);
-    req.onerror = () => reject(req.error);
+    const t = db.transaction(store, "readwrite");
+    write(t.objectStore(store));
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
   });
+}
+
+export function get<T extends Keyed>(store: Store, id: string): Promise<T | undefined> {
+  return run(store, "readonly", (os) => os.get(id) as IDBRequest<T | undefined>);
+}
+
+export function getAll<T extends Keyed>(store: Store): Promise<T[]> {
+  return run(store, "readonly", (os) => os.getAll() as IDBRequest<T[]>);
+}
+
+/** Every key of a store without cloning its rows. A row's key is its `id`. */
+export async function keys(store: Store): Promise<string[]> {
+  return (await run(store, "readonly", (os) => os.getAllKeys())).map(String);
+}
+
+/** The rows whose `field` equals `value`; only the fields in `INDEXES` can be asked for. */
+export function getAllBy<T extends Keyed>(store: Store, field: string, value: string): Promise<T[]> {
+  return run(store, "readonly", (os) => os.index(field).getAll(value) as IDBRequest<T[]>);
 }
 
 export async function put<T extends Keyed>(store: Store, value: T): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readwrite").objectStore(store).put(value);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await run(store, "readwrite", (os) => os.put(value));
 }
 
 /**
@@ -173,44 +197,20 @@ async function rewrite<T extends Keyed>(from: Store, to: Store, id: string, chan
 
 export async function bulkPut<T extends Keyed>(store: Store, values: T[]): Promise<void> {
   if (values.length === 0) return;
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const t = db.transaction(store, "readwrite");
-    const os = t.objectStore(store);
-    for (const value of values) os.put(value);
-    t.oncomplete = () => resolve();
-    t.onerror = () => reject(t.error);
-  });
+  await runBatch(store, (os) => values.forEach((value) => os.put(value)));
 }
 
 export async function del(store: Store, id: string): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readwrite").objectStore(store).delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await run(store, "readwrite", (os) => os.delete(id));
 }
 
 export async function bulkDelete(store: Store, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const t = db.transaction(store, "readwrite");
-    const os = t.objectStore(store);
-    for (const id of ids) os.delete(id);
-    t.oncomplete = () => resolve();
-    t.onerror = () => reject(t.error);
-  });
+  await runBatch(store, (os) => ids.forEach((id) => os.delete(id)));
 }
 
 export async function clear(store: Store): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readwrite").objectStore(store).clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await run(store, "readwrite", (os) => os.clear());
 }
 
 export interface StorePlan {

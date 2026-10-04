@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errMessage } from "$pipeline/util/text";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { startAuthentication } from "@simplewebauthn/browser";
@@ -31,7 +32,7 @@
       });
       step = "pin";
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = errMessage(err);
     } finally {
       busy = false;
     }
@@ -49,7 +50,7 @@
       });
       await goto(redirectTo, { invalidateAll: true });
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = errMessage(err);
       pin = "";
     } finally {
       busy = false;

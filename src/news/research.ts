@@ -1,5 +1,6 @@
 /** Brave-backed research for one news desk. Search calls are budgeted here, not by the model. */
 
+import { errMessage } from "../util/text";
 import { extractJson, EXTRACTION_MODEL } from "../ai/openai";
 import { braveContext, braveSearch, type BraveResult } from "../search/brave";
 import { resolveStorySources, type CitedStory, type DeskStory } from "./validate";
@@ -53,7 +54,7 @@ export interface ResearchAnswer {
 
 export class DeskResearchError extends Error {
   constructor(cause: unknown, readonly searchCalls: number, readonly aiCalls: number, readonly tokensIn: number, readonly tokensOut: number) {
-    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    super(errMessage(cause), { cause });
   }
 }
 

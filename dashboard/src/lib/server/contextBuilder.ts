@@ -1,3 +1,4 @@
+import { errMessage } from "$pipeline/util/text";
 import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { CONTEXT_BUILDER_OUTPUT_DIR } from "$app/env/private";
@@ -190,7 +191,7 @@ export async function loadHarvestDocument(): Promise<{
         path = file.path;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = errMessage(err);
       docError ??= message;
       note(message);
       continue;

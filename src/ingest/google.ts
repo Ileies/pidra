@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import { google, type calendar_v3 } from "googleapis";
 import { db, rawItems, rawItemExists } from "../db";
 import { isLocalDate, timeZoneOrUtc, zonedToIso } from "../util/time";
@@ -48,7 +49,7 @@ export function calendarTimeZone(): Promise<string> {
     .then((res) => timeZoneOrUtc(res.data.timeZone))
     .catch((err) => {
       primaryZone = undefined;
-      console.warn(`[Ingest/Google] calendar time zone unavailable, using UTC: ${err instanceof Error ? err.message : err}`);
+      console.warn(`[Ingest/Google] calendar time zone unavailable, using UTC: ${errMessage(err)}`);
       return "UTC";
     });
   return primaryZone;

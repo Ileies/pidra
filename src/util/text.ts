@@ -5,6 +5,11 @@ const LONE_LOW_SURROGATE = new RegExp("(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]",
 // C0 controls and DEL, keeping tab (09), newline (0A) and carriage return (0D).
 const CONTROL_CHARS = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]", "g");
 
+/** The message of a caught value, which is not always an Error. */
+export function errMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 /**
  * Removes unpaired UTF-16 surrogates and stray control bytes.
  *

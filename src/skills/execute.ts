@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import { eq } from "drizzle-orm";
 import { db, skillExecutions } from "../db";
 import { getSkill, type SkillContext } from "./loader";
@@ -110,7 +111,7 @@ export async function executeSkill(
     await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, execRow.id));
     return { status: "executed", message: result, executionId: execRow.id };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errMessage(err);
     await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, execRow.id));
     return { status: "failed", message: msg, executionId: execRow.id };
   }
@@ -179,7 +180,7 @@ export async function resolvePendingSkill(
     await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, executionId));
     return { status: "executed", message: result, executionId };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     await db.update(skillExecutions).set({ status: "failed", result: message }).where(eq(skillExecutions.id, executionId));
     return { status: "failed", message, executionId };
   }

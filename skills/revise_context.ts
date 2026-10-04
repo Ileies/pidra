@@ -1,3 +1,4 @@
+import { errMessage } from "../src/util/text";
 import type { Skill } from "../src/skills/loader";
 import { recordCorrection, TARGET_KINDS, OPERATIONS, type TargetKind, type Operation } from "../src/context/corrections";
 
@@ -42,7 +43,7 @@ const skill: Skill = {
           }
           fields = parsed as Record<string, unknown>;
         } catch (err) {
-          throw new Error(`fields must be a JSON object: ${err instanceof Error ? err.message : String(err)}`);
+          throw new Error(`fields must be a JSON object: ${errMessage(err)}`);
         }
       }
     }

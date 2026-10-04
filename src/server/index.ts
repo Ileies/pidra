@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
@@ -325,7 +326,7 @@ app.delete("/api/prompts/:id", async (c) => {
 // when this bridge is down; only editing needs it.
 
 function noteError(c: Context, err: unknown) {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errMessage(err);
   if (err instanceof NoteError) return c.json({ error: message }, message.includes("not found") ? 404 : 400);
   throw err;
 }
@@ -467,7 +468,7 @@ app.post("/api/chat", async (c) => {
   try {
     return c.json(await sendMessage(body.message!.trim(), body.conversation_id, body.context, body.origin ?? "page"));
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+    return c.json({ error: errMessage(err) }, 500);
   }
 });
 
@@ -508,7 +509,7 @@ app.post("/api/assistant/chat", async (c) => {
     } catch (err) {
       await stream.writeSSE({
         event: "error",
-        data: JSON.stringify({ type: "error", message: err instanceof Error ? err.message : String(err) }),
+        data: JSON.stringify({ type: "error", message: errMessage(err) }),
       });
     } finally {
       clearInterval(heartbeat);

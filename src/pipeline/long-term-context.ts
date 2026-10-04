@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import { db, contextBuilderRuns } from "../db";
 import { eq, desc } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
@@ -154,7 +155,7 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
         problem: problems.length > 0 ? `fell back past ${problems.length} run(s): ${problems.join("; ")}` : null,
       };
     } catch (err) {
-      problems.push(`${label}: ${err instanceof Error ? err.message : String(err)}`);
+      problems.push(`${label}: ${errMessage(err)}`);
     }
   }
 

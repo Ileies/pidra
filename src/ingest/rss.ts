@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import Parser from "rss-parser";
 import { eq } from "drizzle-orm";
 import { db, rawItems, rawItemExists, rssFeeds } from "../db";
@@ -75,7 +76,7 @@ async function ingestFeed(feedConfig: RssFeed, since: Date, runDate: string): Pr
       .where(eq(rssFeeds.sourceName, sourceName));
     return stored;
   } catch (err) {
-    const error = (err instanceof Error ? err.message : String(err)).slice(0, 1000);
+    const error = errMessage(err).slice(0, 1000);
     console.warn(`[Ingest/RSS] [${sourceName}] Fetch failed: ${error}`);
     await db.update(rssFeeds).set({ lastError: error, lastErrorAt: new Date().toISOString() })
       .where(eq(rssFeeds.sourceName, sourceName));
@@ -98,7 +99,7 @@ export async function ingestRssFeeds(runDate: string, feeds: RssFeed[]): Promise
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status === "fulfilled") count += result.value;
-    else failures.push({ source: `rss:${feeds[i].sourceName}`, error: result.reason instanceof Error ? result.reason.message : String(result.reason) });
+    else failures.push({ source: `rss:${feeds[i].sourceName}`, error: errMessage(result.reason) });
   }
 
   console.log(`[Ingest/RSS] Done - ${count} new items from ${feeds.length} feeds, ${failures.length} failed`);

@@ -1,3 +1,4 @@
+import { errMessage } from "../src/util/text";
 import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
 import { eq, and, count, desc } from "drizzle-orm";
@@ -159,7 +160,7 @@ export async function loadPreviousDocument(): Promise<{ context: string; itemsIn
       if (missing.length === 0) return { context: doc, itemsIndexed: run.itemsIndexed ?? 0 };
       console.warn(`[Synthesis] ${label} is missing section(s) ${missing.join(", ")} - looking further back`);
     } catch (err) {
-      console.warn(`[Synthesis] ${label} unreadable (${err instanceof Error ? err.message : String(err)}) - looking further back`);
+      console.warn(`[Synthesis] ${label} unreadable (${errMessage(err)}) - looking further back`);
     }
   }
   return { context: "", itemsIndexed: 0 };

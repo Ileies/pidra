@@ -1,3 +1,4 @@
+import { errMessage } from "../../util/text";
 import { db, chatConversations, chatMessages, type ChatToolCall } from "../../db";
 import { eq } from "drizzle-orm";
 import { converse, type ResponseInput } from "../openai";
@@ -128,7 +129,7 @@ export async function* streamMessage(
   } catch (err) {
     // Whatever already ran has to stay visible: the transcript records the partial turn rather
     // than losing the fact that a write happened.
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     reply = reply || `The run was interrupted: ${message}`;
     await persistAssistantTurn(id, reply, toolCalls, ctx);
     yield { type: "error", message };

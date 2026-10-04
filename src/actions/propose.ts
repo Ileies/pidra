@@ -24,6 +24,7 @@
  * itself, since the classification carries no times or places, and answers in strict JSON only,
  * which makes it an extraction-shaped call: no prose from it ever reaches the report.
  */
+import { errMessage } from "../util/text";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
@@ -313,7 +314,7 @@ async function eventsOn(day: string, ingested: CalendarEvent[], cache: Map<strin
   let pending = cache.get(day);
   if (!pending) {
     pending = listCalendarEvents(zonedToIso(`${day}T00:00`, zone)!, zonedToIso(`${addDays(day, 1)}T00:00`, zone)!).catch((err) => {
-      console.warn(`[Actions] Calendar lookup for ${day} failed, checking the ingested week only: ${err instanceof Error ? err.message : err}`);
+      console.warn(`[Actions] Calendar lookup for ${day} failed, checking the ingested week only: ${errMessage(err)}`);
       return ingested.filter((event) => {
         const [first, last] = eventDays(event, zone);
         return first <= day && day <= last;

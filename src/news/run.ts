@@ -14,6 +14,7 @@
  * news from those hours - the same trade the morning schedule makes anyway.
  */
 
+import { errMessage } from "../util/text";
 import { and, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { db, extractions, notes, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
@@ -70,8 +71,6 @@ export const EMPTY_NEWS_DESK: NewsDeskOutcome = {
 
 /** How many days of what the reader was already told each desk is shown, and dedup compares against. */
 const REPORTED_LOOKBACK_DAYS = 3;
-
-const message = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason));
 
 function daysBefore(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -384,7 +383,7 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
     const desk = toRun[index];
     if (result.status === "rejected") {
       console.error(`[News] ${desk.id} failed:`, result.reason);
-      outcome.failures.push({ source: deskSource(desk.id), error: message(result.reason) });
+      outcome.failures.push({ source: deskSource(desk.id), error: errMessage(result.reason) });
       const used = result.reason instanceof DeskResearchError ? result.reason.searchCalls : 0;
       outcome.searchCalls += used;
       if (result.reason instanceof DeskResearchError) {
@@ -392,7 +391,7 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
         outcome.tokensIn += result.reason.tokensIn;
         outcome.tokensOut += result.reason.tokensOut;
       }
-      outcome.desks.push({ desk: desk.id, status: "failed", stories: 0, searchCalls: used, error: message(result.reason) });
+      outcome.desks.push({ desk: desk.id, status: "failed", stories: 0, searchCalls: used, error: errMessage(result.reason) });
       return;
     }
 
@@ -440,7 +439,7 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
     try {
       stored = dryRun ? own.length : await persist(answer, own, runDate, window);
     } catch (error) {
-      const detail = message(error);
+      const detail = errMessage(error);
       outcome.failures.push({ source: deskSource(answer.desk.id), error: detail });
       outcome.desks.push({ desk: answer.desk.id, status: "failed", stories: 0, searchCalls: answer.searchCalls, queries: answer.queries, error: detail });
       continue;

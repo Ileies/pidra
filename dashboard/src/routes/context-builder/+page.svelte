@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errMessage } from "$pipeline/util/text";
   import { onMount, onDestroy, tick } from "svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
@@ -65,7 +66,7 @@
       else toasts.error(body.error ?? "Failed to start.");
       await refresh();
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     } finally {
       starting = false;
     }
@@ -79,7 +80,7 @@
       else toasts.error(body.error ?? "Failed to stop.");
       await refresh();
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     } finally {
       stopping = false;
     }

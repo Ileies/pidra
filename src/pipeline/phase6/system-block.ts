@@ -1,3 +1,4 @@
+import { errMessage } from "../../util/text";
 import { db, activeTopics, entities, contacts } from "../../db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createNote } from "../../notes/store";
@@ -140,7 +141,7 @@ export async function applySection2SystemBlock(s2System: Record<string, any>): P
     try {
       await createNote({ content: note.content, scope: note.scope ?? "global" }, { by: "system" });
     } catch (err) {
-      console.warn(`[Phase 6] Skipped a note from the SYSTEM block: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(`[Phase 6] Skipped a note from the SYSTEM block: ${errMessage(err)}`);
     }
   }
 }

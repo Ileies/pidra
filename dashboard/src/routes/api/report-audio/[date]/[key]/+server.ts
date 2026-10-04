@@ -1,3 +1,4 @@
+import { errMessage } from "$pipeline/util/text";
 import type { RequestHandler } from "./$types";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
@@ -20,7 +21,7 @@ export const POST: RequestHandler = async ({ params }) => {
     return new Response(res.body, { status: res.status, headers });
   } catch (err) {
     return Response.json(
-      { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` },
+      { error: `Skills bridge unreachable at ${API}: ${errMessage(err)}` },
       { status: 502 },
     );
   }

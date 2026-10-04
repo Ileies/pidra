@@ -9,6 +9,7 @@
    * language selects) that talks to its endpoint directly. That is what keeps it mirrored rather
    * than online-only. The theme select is device-local (`$lib/theme.svelte.ts`), so it works offline.
    */
+  import { errMessage } from "$pipeline/util/text";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import Page from "#lib/components/Page.svelte";
@@ -55,7 +56,7 @@
       toasts.success("Content language changed. Applies from the next briefing.");
     } catch (err) {
       select.value = previous;
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     }
   }
 

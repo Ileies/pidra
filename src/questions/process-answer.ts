@@ -10,6 +10,7 @@
  *
  * Weekly-review answers are left to `absorbReviewAnswers`, which turns them into notes.
  */
+import { errMessage } from "../util/text";
 import { sendMessage } from "../ai/chat";
 import { askedReason, getAnsweredQuestion, setAnswerOutcome, type Question } from "./store";
 
@@ -60,7 +61,7 @@ export async function processAnswer(id: string): Promise<void> {
     const outcome = turn.reply || (changed > 0 ? `${changed} change(s) made.` : "Nothing needed changing.");
     await setAnswerOutcome(id, "done", outcome, turn.conversationId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     console.error(`[questions] Acting on the answer to ${id} failed:`, err);
     await setAnswerOutcome(id, "failed", message);
   }

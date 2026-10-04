@@ -1,4 +1,5 @@
 /** Server-only Jev boundary. A decision never changes the pipeline unless its caller opts in. */
+import { errMessage } from "../util/text";
 import {
   APIError, APITimeoutError, APIUserAbortError, TypeSafeClient,
   type EntryType, type Fetch, type Questions, type SystemOneResult,
@@ -156,7 +157,7 @@ export async function runJevDecision<Q extends Questions>(request: JevRequest<Q>
     if (error instanceof APITimeoutError) return fail("timeout", "Jev request timed out");
     if (error instanceof APIError && error.status === 429) return fail("rate_limit", "Jev rate limit after retries");
     if (error instanceof APIError) return fail("provider", `Jev API status ${error.status}`);
-    return fail("provider", error instanceof Error ? error.message : String(error));
+    return fail("provider", errMessage(error));
   } finally {
     if (acquired) release();
   }

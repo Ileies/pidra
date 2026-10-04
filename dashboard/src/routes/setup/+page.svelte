@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errMessage } from "$pipeline/util/text";
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import { startRegistration } from "@simplewebauthn/browser";
@@ -41,7 +42,7 @@
       deviceLabel = "";
       await invalidateAll();
     } catch (err) {
-      regError = err instanceof Error ? err.message : String(err);
+      regError = errMessage(err);
     } finally {
       registering = false;
     }
@@ -66,7 +67,7 @@
       pinConfirm = "";
       await invalidateAll();
     } catch (err) {
-      pinError = err instanceof Error ? err.message : String(err);
+      pinError = errMessage(err);
     } finally {
       pinBusy = false;
     }

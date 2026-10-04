@@ -5,6 +5,7 @@
    * against what the note says now, so "Restore this version" reads as exactly what it will do.
    * Online-only, as before: a revert replayed later would land on whatever the note has become.
    */
+  import { errMessage } from "$pipeline/util/text";
   import { noteHistory, revertRevision, type NoteRevisionRow, type NoteRow } from "#lib/notes/api.js";
   import { fmtDateTime } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
@@ -38,7 +39,7 @@
     let cancelled = false;
     noteHistory(id)
       .then((rows) => { if (!cancelled) history = rows; })
-      .catch((err) => { if (!cancelled) error = err instanceof Error ? err.message : String(err); })
+      .catch((err) => { if (!cancelled) error = errMessage(err); })
       .finally(() => { if (!cancelled) loading = false; });
     return () => { cancelled = true; };
   });
@@ -58,7 +59,7 @@
       onreverted();
       onclose();
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = errMessage(err);
     } finally {
       reverting = null;
     }

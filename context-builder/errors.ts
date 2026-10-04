@@ -1,3 +1,4 @@
+import { errMessage } from "../src/util/text";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -27,7 +28,7 @@ export async function logError(source: string, error: unknown, itemId?: string):
   const entry: ErrorEntry = {
     source,
     itemId,
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage(error),
     ts: new Date().toISOString(),
   };
   errorCache.push(entry);

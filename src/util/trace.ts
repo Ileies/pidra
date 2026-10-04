@@ -14,6 +14,7 @@
  * Measurement must never cost a briefing: every database write here is swallowed, and a failed
  * insert only means a missing bar.
  */
+import { errMessage } from "./text";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -35,7 +36,7 @@ async function persist(write: (steps: typeof import("../db")) => Promise<unknown
   try {
     await write(await import("../db"));
   } catch (err) {
-    console.warn(`[trace] step timing not recorded: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[trace] step timing not recorded: ${errMessage(err)}`);
   }
 }
 

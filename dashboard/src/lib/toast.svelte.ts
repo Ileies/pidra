@@ -7,6 +7,7 @@
  * next to the field it is about.
  */
 
+import { errMessage } from "$pipeline/util/text";
 import { untrack } from "svelte";
 
 export type ToastTone = "info" | "success" | "error";
@@ -71,7 +72,7 @@ class ToastStore {
     try {
       await item.undo();
     } catch (err) {
-      this.error(err instanceof Error ? err.message : String(err));
+      this.error(errMessage(err));
     }
   }
 }

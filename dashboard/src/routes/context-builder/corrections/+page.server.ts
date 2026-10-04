@@ -1,3 +1,4 @@
+import { errMessage } from "$pipeline/util/text";
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
@@ -17,7 +18,7 @@ export const actions: Actions = {
       if (!res.ok) return fail(res.status, { error: body.error ?? "Revert failed" });
       return { message: body.message as string };
     } catch (err) {
-      return fail(502, { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` });
+      return fail(502, { error: `Skills bridge unreachable at ${API}: ${errMessage(err)}` });
     }
   },
 };

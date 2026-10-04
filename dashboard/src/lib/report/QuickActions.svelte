@@ -13,6 +13,7 @@
    * with the reason, and a tap that loses the connection says whether it may have gone through.
    * A second tap on one that did is harmless: the bridge answers "done" instead of adding again.
    */
+  import { errMessage } from "$pipeline/util/text";
   import Spinner from "#lib/components/Spinner.svelte";
   import { fmtDay, fmtSpan } from "#lib/format.js";
   import { netJson, NetError } from "#lib/offline/net.js";
@@ -65,7 +66,7 @@
         ? `${err.message} It may have gone through; the report shows it once the connection is back.`
         : `Not sent: ${err.message.toLowerCase()}`;
     }
-    return err instanceof Error ? err.message : String(err);
+    return errMessage(err);
   }
 
   /** What a handler needs of an action; the rows it gets carry the local status on top. */

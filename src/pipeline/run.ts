@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import { eq } from "drizzle-orm";
 import { db, pipelineRuns } from "../db";
 import { runPhase1 } from "./phase1-ingest";
@@ -45,7 +46,7 @@ async function tolerantNewsDesk(date: string): Promise<NewsDeskOutcome> {
   try {
     return await runNewsDesk(date);
   } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
+    const error = errMessage(err);
     console.error(`[News] Giving up on the news desks: ${error}`);
     return { ...EMPTY_NEWS_DESK, failures: [{ source: "news", error }] };
   }

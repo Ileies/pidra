@@ -1,3 +1,4 @@
+import { errMessage } from "../util/text";
 import { isNotNull } from "drizzle-orm";
 import { db, sourceQuality } from "../db";
 import { ingestImapAccount } from "../ingest/imap";
@@ -22,8 +23,6 @@ export interface IngestResult {
   /** Sources that threw. The run continues on whatever else worked; `run.ts` records these. */
   failures: SourceFailure[];
 }
-
-const message = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason));
 
 /**
  * Ingestion, source by source, where no single source can take down the others.
@@ -72,7 +71,7 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
       emailCount += r.value;
     } else {
       console.error(`[Phase 1] Account "${accounts[i].user}" failed:`, r.reason);
-      failures.push({ source: `imap:${accounts[i].user}`, error: message(r.reason) });
+      failures.push({ source: `imap:${accounts[i].user}`, error: errMessage(r.reason) });
     }
   }
 
@@ -80,7 +79,7 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
   const count = (name: string, settled: PromiseSettledResult<number>): number => {
     if (settled.status === "fulfilled") return settled.value;
     console.error(`[Phase 1] ${name} failed:`, settled.reason);
-    failures.push({ source: name, error: message(settled.reason) });
+    failures.push({ source: name, error: errMessage(settled.reason) });
     return 0;
   };
 

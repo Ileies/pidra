@@ -6,6 +6,7 @@
  * meant every visit to `/settings` began in "checking" and the switch animated from off to on.
  */
 
+import { errMessage } from "$pipeline/util/text";
 import { PUBLIC_VAPID_KEY } from "$app/env/public";
 import { toasts } from "#lib/toast.svelte.js";
 import { net } from "#lib/offline/net.js";
@@ -82,7 +83,7 @@ class PushStore {
     } catch (err) {
       console.error("[push]", err);
       this.state = "unsubscribed";
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     }
   }
 }

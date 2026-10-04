@@ -1,3 +1,4 @@
+import { errMessage } from "$pipeline/util/text";
 import type { RequestHandler } from "./$types";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 import { isShuttingDown, registerStream } from "#lib/server/shutdown.js";
@@ -56,7 +57,7 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (err) {
     upstream.abort();
     return Response.json(
-      { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` },
+      { error: `Skills bridge unreachable at ${API}: ${errMessage(err)}` },
       { status: 502 },
     );
   }
@@ -102,7 +103,7 @@ function relay(source: ReadableStream<Uint8Array>, upstream: AbortController): R
       } catch (err) {
         // An aborted read during shutdown is expected and already has its frame. Anything else is
         // the bridge failing mid-turn, which the widget should hear about rather than infer.
-        finish(frame("error", { type: "error", message: err instanceof Error ? err.message : String(err) }));
+        finish(frame("error", { type: "error", message: errMessage(err) }));
       } finally {
         unregister();
       }

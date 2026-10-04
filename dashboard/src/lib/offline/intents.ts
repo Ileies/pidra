@@ -11,6 +11,7 @@
  * it twice for the same intent must produce the same mirror state as running it once.
  */
 
+import { errMessage } from "$pipeline/util/text";
 import * as db from "./db.js";
 import type { MirrorStore } from "./db.js";
 import type { NoteRow } from "#lib/notes/api.js";
@@ -271,7 +272,7 @@ export function drain(send: Fetcher, options: DrainOptions = {}): Promise<DrainR
         }
         // Nothing left the device, so it was not an attempt and says nothing new.
         if (!options.notSent?.(err)) {
-          const lastError = err instanceof Error ? err.message : String(err);
+          const lastError = errMessage(err);
           const noted = await db.update<Intent>("outbox", intent.id, (row) => ({ ...row, attempts: row.attempts + 1, lastError }));
           if (noted) options.onChange?.();
         }

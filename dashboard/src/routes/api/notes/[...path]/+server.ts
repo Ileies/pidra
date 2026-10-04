@@ -1,3 +1,4 @@
+import { errMessage } from "$pipeline/util/text";
 import type { RequestHandler } from "./$types";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
 
@@ -24,7 +25,7 @@ async function proxy(method: string, path: string, search: string, body: string 
     // A dead bridge is the common failure, and worth naming rather than showing a generic
     // fetch error in a toast.
     return Response.json(
-      { error: `Skills bridge unreachable at ${API}: ${err instanceof Error ? err.message : String(err)}` },
+      { error: `Skills bridge unreachable at ${API}: ${errMessage(err)}` },
       { status: 502 },
     );
   }

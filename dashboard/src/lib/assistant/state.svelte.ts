@@ -1,3 +1,4 @@
+import { errMessage } from "$pipeline/util/text";
 import { browser } from "$app/env";
 import { refreshAll } from "$app/navigation";
 import { BUDGET, net } from "#lib/offline/net.js";
@@ -235,7 +236,7 @@ class Assistant {
           content: current.content || "Stopped.",
         }));
       } else {
-        this.error = err instanceof Error ? err.message : String(err);
+        this.error = errMessage(err);
         // The draft comes back so a failed turn does not eat the message.
         this.setDraft(message);
         this.messages = this.messages.filter((entry) => entry.id !== reply.id);

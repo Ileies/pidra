@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errMessage } from "$pipeline/util/text";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import NoteCard from "#lib/notes/NoteCard.svelte";
@@ -169,7 +170,7 @@
       delete drafts[note.id];
     } catch (err) {
       // The editor stays open with the text intact: a failed save must not lose the edit.
-      draft.error = err instanceof Error ? err.message : String(err);
+      draft.error = errMessage(err);
       draft.saving = false;
     }
   }
@@ -192,7 +193,7 @@
       composing = false;
       toasts.success("Note added.");
     } catch (err) {
-      composer.error = err instanceof Error ? err.message : String(err);
+      composer.error = errMessage(err);
       composer.saving = false;
     }
   }
@@ -250,7 +251,7 @@
       selected = new Set();
       toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} set to "${scope}".`);
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     } finally {
       busy = false;
     }
@@ -267,7 +268,7 @@
         for (const id of ids) await restoreNote(id);
       });
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     } finally {
       busy = false;
     }
@@ -282,7 +283,7 @@
       selected = new Set();
       toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} restored.`);
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     } finally {
       busy = false;
     }
@@ -298,7 +299,7 @@
         await restoreNote(note.id);
       });
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     }
   }
 
@@ -306,7 +307,7 @@
     try {
       await restoreNote(note.id);
     } catch (err) {
-      toasts.error(err instanceof Error ? err.message : String(err));
+      toasts.error(errMessage(err));
     }
   }
 </script>

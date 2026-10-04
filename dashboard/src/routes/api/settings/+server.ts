@@ -1,4 +1,5 @@
 import type { RequestHandler } from "./$types";
+import { readJson } from "#lib/server/form.js";
 import { loadSettings, saveLanguages, SettingsError } from "#lib/server/settings.js";
 
 /**
@@ -10,7 +11,7 @@ import { loadSettings, saveLanguages, SettingsError } from "#lib/server/settings
 export const GET: RequestHandler = async () => Response.json(await loadSettings());
 
 export const PATCH: RequestHandler = async ({ request }) => {
-  const body = (await request.json().catch(() => ({}))) as { uiLanguage?: unknown; contentLanguage?: unknown };
+  const body = await readJson<{ uiLanguage: unknown; contentLanguage: unknown }>(request);
   try {
     return Response.json(await saveLanguages({ uiLanguage: body.uiLanguage, contentLanguage: body.contentLanguage }));
   } catch (err) {

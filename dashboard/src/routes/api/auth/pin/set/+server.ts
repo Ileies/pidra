@@ -1,10 +1,12 @@
 import type { RequestHandler } from "./$types";
-import { canManageAuth, setPin, AuthError, BOOTSTRAP_COOKIE } from "#lib/server/auth.js";
+import { authManagerDenied, setPin, AuthError } from "#lib/server/auth.js";
+import { readJson } from "#lib/server/form.js";
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
-  if (!canManageAuth(locals.session, cookies.get(BOOTSTRAP_COOKIE))) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const denied = authManagerDenied({ locals, cookies });
+  if (denied) return denied;
 
-  const body = (await request.json().catch(() => ({}))) as { pin?: string };
+  const body = await readJson<{ pin: string }>(request);
   try {
     await setPin(body.pin ?? "");
     return Response.json({ ok: true });

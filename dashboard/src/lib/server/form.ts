@@ -15,3 +15,8 @@ export async function readForm(request: Request) {
     },
   };
 }
+
+/** The JSON body of a request, `{}` when it is missing or malformed. Fields are unchecked: validate each. */
+export async function readJson<T extends object>(request: Request): Promise<Partial<T>> {
+  return ((await request.json().catch(() => ({}))) ?? {}) as Partial<T>;
+}

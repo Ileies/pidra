@@ -1,16 +1,14 @@
 import type { RequestHandler } from "./$types";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
-import { canManageAuth, rpConfig, takeChallenge, addCredential, BOOTSTRAP_COOKIE } from "#lib/server/auth.js";
+import { authManagerDenied, rpConfig, takeChallenge, addCredential } from "#lib/server/auth.js";
+import { readJson } from "#lib/server/form.js";
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
-  if (!canManageAuth(locals.session, cookies.get(BOOTSTRAP_COOKIE))) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const denied = authManagerDenied({ locals, cookies });
+  if (denied) return denied;
 
-  const body = (await request.json().catch(() => ({}))) as {
-    nonce?: string;
-    response?: RegistrationResponseJSON;
-    deviceLabel?: string;
-  };
+  const body = await readJson<{ nonce: string; response: RegistrationResponseJSON; deviceLabel: string }>(request);
   const challenge = takeChallenge(body.nonce ?? "");
   if (!challenge || !body.response) return Response.json({ error: "Challenge expired. Try again." }, { status: 400 });
 

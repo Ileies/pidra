@@ -12,6 +12,7 @@ import {
   rpConfig,
   AuthError,
   BOOTSTRAP_COOKIE,
+  setAuthCookie,
 } from "#lib/server/auth.js";
 
 /**
@@ -32,7 +33,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
     const token = url.searchParams.get("token");
     if (!AUTH_SETUP_TOKEN || token !== AUTH_SETUP_TOKEN) error(404, "Not found");
 
-    cookies.set(BOOTSTRAP_COOKIE, issueBootstrap(), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600 });
+    setAuthCookie(cookies, BOOTSTRAP_COOKIE, issueBootstrap(), 600);
   }
 
   const [credentials, pinSet, sessions] = await Promise.all([

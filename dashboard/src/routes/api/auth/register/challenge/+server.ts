@@ -1,9 +1,10 @@
 import type { RequestHandler } from "./$types";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
-import { canManageAuth, listCredentials, rpConfig, storeChallenge, randomToken, BOOTSTRAP_COOKIE } from "#lib/server/auth.js";
+import { authManagerDenied, listCredentials, rpConfig, storeChallenge, randomToken } from "#lib/server/auth.js";
 
 export const POST: RequestHandler = async ({ locals, cookies }) => {
-  if (!canManageAuth(locals.session, cookies.get(BOOTSTRAP_COOKIE))) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const denied = authManagerDenied({ locals, cookies });
+  if (denied) return denied;
 
   const { rpID, rpName } = rpConfig();
   const existing = await listCredentials(rpID);

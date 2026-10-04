@@ -1,4 +1,5 @@
 import type { RequestHandler } from "./$types";
+import { readJson } from "#lib/server/form.js";
 import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 
 /**
@@ -8,7 +9,7 @@ import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
  * `rateExtraction` deletes then inserts, so replaying the same rating twice is a no-op.
  */
 export const POST: RequestHandler = async ({ request }) => {
-  const body = (await request.json().catch(() => ({}))) as { extraction_id?: string; signal?: string };
+  const body = await readJson<{ extraction_id: string; signal: string }>(request);
   const extractionId = (body.extraction_id ?? "").trim();
   const signal = body.signal;
 

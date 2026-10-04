@@ -11,14 +11,16 @@ import {
   touchCredential,
   issuePkv,
   PKV_COOKIE,
+  setAuthCookie,
 } from "#lib/server/auth.js";
+import { readJson } from "#lib/server/form.js";
 
 /** Login step 2: the passkey assertion. Success only starts the PIN step - no session yet. */
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
   const ip = getClientAddress();
   if (ipLocked(ip)) return Response.json({ error: "Too many attempts. Try again later." }, { status: 429 });
 
-  const body = (await request.json().catch(() => ({}))) as { nonce?: string; response?: AuthenticationResponseJSON };
+  const body = await readJson<{ nonce: string; response: AuthenticationResponseJSON }>(request);
   const challenge = takeChallenge(body.nonce ?? "");
   if (!challenge || !body.response) return Response.json({ error: "Challenge expired. Try again." }, { status: 400 });
 
@@ -49,6 +51,6 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 
   await touchCredential(credential.id, verified.authenticationInfo.newCounter);
   clearIpFailures(ip);
-  cookies.set(PKV_COOKIE, issuePkv(credential.id), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 300 });
+  setAuthCookie(cookies, PKV_COOKIE, issuePkv(credential.id), 300);
   return Response.json({ ok: true });
 };

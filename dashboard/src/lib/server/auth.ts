@@ -9,6 +9,7 @@
  * and losing them on a restart just forces a fresh login, which is fine.
  */
 
+import type { Cookies } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
 import { AUTH_RP_ID, AUTH_ORIGIN } from "$app/env/private";
 
@@ -305,4 +306,15 @@ function sweep<K, V extends { expiresAt: number }>(map: Map<K, V>): void {
   if (map.size < 1000) return; // only worth the pass once it could matter
   const now = Date.now();
   for (const [key, value] of map) if (value.expiresAt < now) map.delete(key);
+}
+
+/** The 401 a route returns unless the caller is logged in or inside the `/setup` bootstrap window. */
+export function authManagerDenied(event: { locals: App.Locals; cookies: Cookies }): Response | null {
+  if (canManageAuth(event.locals.session, event.cookies.get(BOOTSTRAP_COOKIE))) return null;
+  return Response.json({ error: "unauthorized" }, { status: 401 });
+}
+
+/** A login-flow cookie: always `secure`, `lax`, site-wide; `httpOnly` unless the UI has to read it. */
+export function setAuthCookie(cookies: Cookies, name: string, value: string, maxAge: number, httpOnly = true): void {
+  cookies.set(name, value, { httpOnly, secure: true, sameSite: "lax", path: "/", maxAge });
 }

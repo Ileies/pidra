@@ -11,7 +11,9 @@ import {
   PKV_COOKIE,
   SESSION_COOKIE,
   SESSION_UI_COOKIE,
+  setAuthCookie,
 } from "#lib/server/auth.js";
+import { readJson } from "#lib/server/form.js";
 
 /** Login step 3: the PIN, only reachable with a still-live passkey-verified cookie. */
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
@@ -22,7 +24,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   const entry = checkPkv(nonce);
   if (!entry) return Response.json({ error: "Passkey step expired. Start over." }, { status: 401 });
 
-  const body = (await request.json().catch(() => ({}))) as { pin?: string };
+  const body = await readJson<{ pin: string }>(request);
   const ok = await verifyPin(body.pin ?? "");
   if (!ok) {
     recordPkvAttempt(nonce!);
@@ -35,7 +37,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   cookies.delete(PKV_COOKIE, { path: "/" });
   const token = await createSession(request.headers.get("user-agent"));
   const maxAge = 60 * 60 * 24 * 30;
-  cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge });
-  cookies.set(SESSION_UI_COOKIE, "1", { httpOnly: false, secure: true, sameSite: "lax", path: "/", maxAge });
+  setAuthCookie(cookies, SESSION_COOKIE, token, maxAge);
+  setAuthCookie(cookies, SESSION_UI_COOKIE, "1", maxAge, false);
   return Response.json({ ok: true });
 };

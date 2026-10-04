@@ -10,16 +10,14 @@
  *
  * Weekly-review answers are left to `absorbReviewAnswers`, which turns them into notes.
  */
-import { errMessage } from "../util/text";
+import { errMessage, squash } from "../util/text";
 import { sendMessage } from "../ai/chat";
 import { askedReason, getAnsweredQuestion, setAnswerOutcome, type Question } from "./store";
 
 const MAX_SOURCES = 5;
 const MAX_FIELD = 200;
 
-function clip(text: string | null | undefined): string {
-  return (text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_FIELD);
-}
+const clip = (text: string | null | undefined): string => squash(text, MAX_FIELD);
 
 function describe(question: Question, reason: string | null): string {
   const lines = [

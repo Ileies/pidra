@@ -1,6 +1,6 @@
 /** Brave-backed research for one news desk. Search calls are budgeted here, not by the model. */
 
-import { errMessage } from "../util/text";
+import { errMessage, squash } from "../util/text";
 import { extractJson, EXTRACTION_MODEL } from "../ai/openai";
 import { braveContext, braveSearch, type BraveResult } from "../search/brave";
 import { resolveStorySources, type CitedStory, type DeskStory } from "./validate";
@@ -83,10 +83,10 @@ function completeQueries(proposed: string[], count: number, prior: string[], fal
   for (const raw of [...proposed, ...fallback]) {
     if (/@|\b(?:my|me|our|we|email|address)\b/i.test(raw)) continue;
     const unrestricted = allowSite ? raw : raw.replace(/\bsite:\S+/gi, "");
-    const query = unrestricted
+    const query = squash(unrestricted
       .replace(/https?:\/\/\S+|\b(?:after|before):\S+/gi, "")
-      .replace(/[()]/g, " ").replace(/\bOR\b/gi, " ")
-      .replace(/\s+/g, " ").trim().split(" ")
+      .replace(/[()]/g, " ").replace(/\bOR\b/gi, " "))
+      .split(" ")
       .reduce((text, word) => (text.length + word.length + 1 <= 110 ? `${text} ${word}`.trim() : text), "");
     if (query.length < 4 || seen.has(query.toLowerCase())) continue;
     seen.add(query.toLowerCase());

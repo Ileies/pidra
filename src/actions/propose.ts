@@ -24,7 +24,7 @@
  * itself, since the classification carries no times or places, and answers in strict JSON only,
  * which makes it an extraction-shaped call: no prose from it ever reaches the report.
  */
-import { errMessage } from "../util/text";
+import { errMessage, squash } from "../util/text";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { activePrompt } from "../ai/active-prompts";
@@ -343,8 +343,7 @@ const LINK = /\b(?:https?:\/\/|www\.)\S+/gi;
  * or to-do list reads as one they put there themselves, which is exactly the trust a phishing
  * link is after; the prompt says so too, and this holds when it is not obeyed.
  */
-const clean = (text: string, max: number) =>
-  text.replace(LINK, "(link in the mail)").replace(/\s+/g, " ").trim().slice(0, max);
+const clean = (text: string, max: number) => squash(text.replace(LINK, "(link in the mail)"), max);
 
 interface Refs {
   mails: Map<string, Mail>;

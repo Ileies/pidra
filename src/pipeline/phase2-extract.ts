@@ -1,3 +1,4 @@
+import { squash } from "../util/text";
 import { contacts, db, extractions, notes, rawItems, sourceQuality } from "../db";
 import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
@@ -105,11 +106,11 @@ async function loadClassificationContext(): Promise<ClassificationContext> {
   const recentNotes = [...noteRows]
     .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
     .slice(0, MAX_CLASSIFICATION_NOTES)
-    .map((n) => n.content.replace(/\s+/g, " ").trim().slice(0, NOTE_CHARS));
+    .map((n) => squash(n.content, NOTE_CHARS));
 
   const knownContacts = contactRows.map((c) => ({
     ...c,
-    contextNotes: c.contextNotes ? c.contextNotes.replace(/\s+/g, " ").trim().slice(0, CONTACT_NOTE_CHARS) : null,
+    contextNotes: c.contextNotes ? squash(c.contextNotes, CONTACT_NOTE_CHARS) : null,
   }));
 
   return { knownContacts, notes: recentNotes };

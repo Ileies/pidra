@@ -20,6 +20,7 @@
  * If the call itself fails, `mechanicalPlan` still attaches a candidate to an open question about
  * the same single sender, so a dead API does not bring the repeats back.
  */
+import { squash } from "../util/text";
 import { and, inArray, isNull } from "drizzle-orm";
 import { contacts, db, notes } from "../db";
 import { activePrompt } from "../ai/active-prompts";
@@ -123,10 +124,6 @@ export function capCreated(plan: QueuePlan, max = MAX_NEW_QUESTIONS_PER_RUN): Qu
   return plan.created.length <= max ? plan : { ...plan, created: plan.created.slice(0, max) };
 }
 
-function clean(text: string | null | undefined, max: number): string {
-  return (text ?? "").replace(/\s+/g, " ").trim().slice(0, max);
-}
-
 function sendersOf(open: Question[], candidates: Candidate[]): string[] {
   return [
     ...new Set([
@@ -176,9 +173,9 @@ export function buildPlan(answer: ModelAnswer, open: Map<string, Question>, cand
   const outcome = new Map<string, { resolved?: string; mergedInto?: string }>();
 
   for (const [id, d] of decided) {
-    const reason = clean(d.reason, MAX_REASON_CHARS);
+    const reason = squash(d.reason, MAX_REASON_CHARS);
     if (d.action === "rewrite") {
-      const text = clean(d.question, MAX_QUESTION_CHARS);
+      const text = squash(d.question, MAX_QUESTION_CHARS);
       if (text) plan.rewrites.push({ id: open.get(id)!.id, question: text, reason: reason || "Rephrased to cover a related question." });
     } else if (d.action === "resolve") {
       const why = reason || "Settled by newer context.";
@@ -198,7 +195,7 @@ export function buildPlan(answer: ModelAnswer, open: Map<string, Question>, cand
 
   const newTexts = new Map<string, string>();
   for (const n of answer.new_questions) {
-    const text = clean(n.question, MAX_QUESTION_CHARS);
+    const text = squash(n.question, MAX_QUESTION_CHARS);
     if (text && !newTexts.has(n.id.trim())) newTexts.set(n.id.trim(), text);
   }
 
@@ -214,7 +211,7 @@ export function buildPlan(answer: ModelAnswer, open: Map<string, Question>, cand
     const target = d.target.trim();
 
     if (d.action === "drop") {
-      const reason = clean(d.reason, MAX_REASON_CHARS);
+      const reason = squash(d.reason, MAX_REASON_CHARS);
       if (reason) plan.dropped.push({ candidate: c, reason });
       else askAsIs(c);
     } else if (d.action === "attach") {

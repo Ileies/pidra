@@ -14,6 +14,7 @@
  * What Section 2 receives is every item answer of the last `ANSWER_DAYS`, so an answer sent after
  * one briefing went out is used by the next run's.
  */
+import { squash } from "../util/text";
 import { and, eq } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { lowConfidenceEntityCandidates } from "./entity-questions";
@@ -50,7 +51,7 @@ function splitMail(raw: string | null): { subject: string | null; body: string }
   const text = raw ?? "";
   const subject = text.match(/^Subject: (.*)$/m)?.[1]?.trim() || null;
   const cut = text.indexOf("\n\n");
-  return { subject, body: (cut >= 0 ? text.slice(cut + 2) : text).replace(/\s+/g, " ").trim() };
+  return { subject, body: squash(cut >= 0 ? text.slice(cut + 2) : text) };
 }
 
 /** This run's mail that the classifier could not place, minus anything a question already carries. */

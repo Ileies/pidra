@@ -10,6 +10,11 @@ export function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** Collapses every run of whitespace to one space, trims, and cuts to `max` characters. */
+export function squash(text: string | null | undefined, max = Infinity): string {
+  return (text ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
 /**
  * Removes unpaired UTF-16 surrogates and stray control bytes.
  *

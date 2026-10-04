@@ -1,6 +1,6 @@
 import { HttpError } from "../util/errors";
 import { isUuid, isDateKey } from "../util/ids";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql as drizzleSql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
 import { addDays, utcDay } from "../util/time";
 
@@ -67,27 +67,29 @@ export interface ListOptions {
 export const NOTE_SORTS = ["newest", "oldest", "edited"] as const;
 export const NOTE_AUTHORS = ["user", "chat", "system", "harvest"] as const;
 
-
 function assertUuid(id: string, label = "note_id"): string {
   const value = (id ?? "").trim();
   if (!isUuid(value)) throw new NoteError(`${label} must be a UUID`);
   return value;
 }
 
+function assertOneOf<T extends string>(value: string, allowed: readonly T[], label: string): T {
+  if (!allowed.includes(value as T)) throw new NoteError(`${label} must be one of ${allowed.join(", ")}`);
+  return value as T;
+}
+
+function assertDate(value: string, label: string): string {
+  if (!isDateKey(value)) throw new NoteError(`${label} must be a date as YYYY-MM-DD`);
+  return value;
+}
+
 function normaliseScope(scope: string): NoteScope {
-  const value = (scope ?? "").trim().toLowerCase();
-  if (!NOTE_SCOPES.includes(value as NoteScope)) {
-    throw new NoteError(`scope must be one of ${NOTE_SCOPES.join(", ")}`);
-  }
-  return value as NoteScope;
+  return assertOneOf((scope ?? "").trim().toLowerCase(), NOTE_SCOPES, "scope");
 }
 
 function normaliseExpiry(value: string | null): string | null {
-  if (value === null) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (!isDateKey(trimmed)) throw new NoteError("expires_at must be a date as YYYY-MM-DD");
-  return trimmed;
+  const trimmed = value?.trim();
+  return trimmed ? assertDate(trimmed, "expires_at") : null;
 }
 
 /** `days` from today (UTC) as `YYYY-MM-DD`, for a caller that thinks in "a week" rather than dates. */
@@ -108,25 +110,16 @@ export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
   const query = opts.query?.trim();
   if (query) filters.push(ilike(notes.content, `%${query}%`));
 
-  if (opts.createdBy) {
-    if (!NOTE_AUTHORS.includes(opts.createdBy as (typeof NOTE_AUTHORS)[number])) {
-      throw new NoteError(`created_by must be one of ${NOTE_AUTHORS.join(", ")}`);
-    }
-    filters.push(eq(notes.createdBy, opts.createdBy));
-  }
+  if (opts.createdBy) filters.push(eq(notes.createdBy, assertOneOf(opts.createdBy, NOTE_AUTHORS, "created_by")));
   if (opts.createdSince) {
-    if (!isDateKey(opts.createdSince)) throw new NoteError("created_since must be a date as YYYY-MM-DD");
-    filters.push(drizzleSql`(${notes.createdAt} AT TIME ZONE 'UTC')::date >= ${opts.createdSince}::date`);
+    filters.push(sql`(${notes.createdAt} AT TIME ZONE 'UTC')::date >= ${assertDate(opts.createdSince, "created_since")}::date`);
   }
-  if (opts.expiresBefore) {
-    if (!isDateKey(opts.expiresBefore)) throw new NoteError("expires_before must be a date as YYYY-MM-DD");
-    filters.push(lte(notes.expiresAt, opts.expiresBefore));
-  }
+  if (opts.expiresBefore) filters.push(lte(notes.expiresAt, assertDate(opts.expiresBefore, "expires_before")));
 
   const order = opts.sort === "oldest"
     ? asc(notes.createdAt)
     : opts.sort === "edited"
-      ? desc(drizzleSql`coalesce(${notes.updatedAt}, ${notes.createdAt})`)
+      ? desc(sql`coalesce(${notes.updatedAt}, ${notes.createdAt})`)
       : desc(notes.createdAt);
 
   return db
@@ -211,7 +204,7 @@ export async function seedHarvestedNotes(items: { key: string; content: string }
         previousExpiresAt: row.expiresAt,
         changedBy: "harvest",
       });
-      await tx.update(notes).set({ content, updatedAt: drizzleSql`now()`, updatedBy: "harvest" }).where(eq(notes.id, row.id));
+      await tx.update(notes).set({ content, updatedAt: sql`now()`, updatedBy: "harvest" }).where(eq(notes.id, row.id));
     });
     refreshed++;
   }
@@ -225,6 +218,45 @@ export async function wasUpdatedSince(id: string, baseUpdatedAt: string | null):
   const note = await getNote(assertUuid(id));
   if (!note) return false;
   return (note.updatedAt ?? null) !== (baseUpdatedAt ?? null);
+}
+
+/**
+ * One mutation: load the note, let `decide` pick the change (or null for "nothing to do", which
+ * returns the note as it is), append the pre-change state to the history and apply it, all in one
+ * transaction. `decide` throws for a note that is in the wrong state for the operation.
+ */
+async function mutateNote(
+  id: string,
+  operation: "update" | "delete" | "restore",
+  actor: Actor,
+  decide: (current: Note) => { [K in keyof Note]?: Note[K] | SQL } | null,
+): Promise<Note> {
+  const noteId = assertUuid(id);
+
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(notes).where(eq(notes.id, noteId)).limit(1);
+    if (!current) throw new NoteError(`note ${noteId} not found`);
+    const change = decide(current);
+    if (!change) return current;
+
+    await tx.insert(noteRevisions).values({
+      noteId,
+      operation,
+      previousContent: current.content,
+      previousScope: current.scope,
+      previousExpiresAt: current.expiresAt,
+      changedBy: actor.by,
+      skillExecutionId: actor.skillExecutionId ?? null,
+      conversationId: actor.conversationId ?? null,
+    });
+
+    const [row] = await tx
+      .update(notes)
+      .set({ ...change, updatedAt: sql`now()`, updatedBy: actor.by })
+      .where(eq(notes.id, noteId))
+      .returning();
+    return row;
+  });
 }
 
 /**
@@ -244,41 +276,20 @@ export async function updateNote(id: string, patch: NoteWrite, actor: Actor): Pr
     throw new NoteError("nothing to update: pass content, scope or expires_at");
   }
 
-  return db.transaction(async (tx) => {
-    const [current] = await tx.select().from(notes).where(eq(notes.id, noteId)).limit(1);
-    if (!current) throw new NoteError(`note ${noteId} not found`);
+  return mutateNote(noteId, "update", actor, (current) => {
     if (current.deletedAt) throw new NoteError(`note ${noteId} is deleted - restore it first`);
 
     const unchanged =
       (nextContent === undefined || nextContent === current.content) &&
       (nextScope === undefined || nextScope === current.scope) &&
       (!touchesExpiry || (nextExpiry ?? null) === (current.expiresAt ?? null));
-    if (unchanged) return current;
+    if (unchanged) return null;
 
-    await tx.insert(noteRevisions).values({
-      noteId,
-      operation: "update",
-      previousContent: current.content,
-      previousScope: current.scope,
-      previousExpiresAt: current.expiresAt,
-      changedBy: actor.by,
-      skillExecutionId: actor.skillExecutionId ?? null,
-      conversationId: actor.conversationId ?? null,
-    });
-
-    const [row] = await tx
-      .update(notes)
-      .set({
-        ...(nextContent === undefined ? {} : { content: nextContent }),
-        ...(nextScope === undefined ? {} : { scope: nextScope }),
-        ...(touchesExpiry ? { expiresAt: nextExpiry ?? null } : {}),
-        updatedAt: drizzleSql`now()`,
-        updatedBy: actor.by,
-      })
-      .where(eq(notes.id, noteId))
-      .returning();
-
-    return row;
+    return {
+      ...(nextContent === undefined ? {} : { content: nextContent }),
+      ...(nextScope === undefined ? {} : { scope: nextScope }),
+      ...(touchesExpiry ? { expiresAt: nextExpiry ?? null } : {}),
+    };
   });
 }
 
@@ -286,33 +297,8 @@ export async function updateNote(id: string, patch: NoteWrite, actor: Actor): Pr
  * Soft delete. This is why `delete_note` can stay a low-risk skill: nothing is lost, the note
  * leaves the briefing payload immediately, and the UI offers an undo.
  */
-export async function softDeleteNote(id: string, actor: Actor): Promise<Note> {
-  const noteId = assertUuid(id);
-
-  return db.transaction(async (tx) => {
-    const [current] = await tx.select().from(notes).where(eq(notes.id, noteId)).limit(1);
-    if (!current) throw new NoteError(`note ${noteId} not found`);
-    if (current.deletedAt) return current;
-
-    await tx.insert(noteRevisions).values({
-      noteId,
-      operation: "delete",
-      previousContent: current.content,
-      previousScope: current.scope,
-      previousExpiresAt: current.expiresAt,
-      changedBy: actor.by,
-      skillExecutionId: actor.skillExecutionId ?? null,
-      conversationId: actor.conversationId ?? null,
-    });
-
-    const [row] = await tx
-      .update(notes)
-      .set({ deletedAt: drizzleSql`now()`, updatedAt: drizzleSql`now()`, updatedBy: actor.by })
-      .where(eq(notes.id, noteId))
-      .returning();
-
-    return row;
-  });
+export function softDeleteNote(id: string, actor: Actor): Promise<Note> {
+  return mutateNote(id, "delete", actor, (current) => (current.deletedAt ? null : { deletedAt: sql`now()` }));
 }
 
 /**
@@ -323,39 +309,14 @@ export async function softDeleteNote(id: string, actor: Actor): Promise<Note> {
 export async function pruneDeletedNotes(): Promise<void> {
   const purged = await db
     .delete(notes)
-    .where(drizzleSql`${notes.deletedAt} <= now() - interval '30 days' AND ${notes.sourceKey} IS NULL`)
+    .where(sql`${notes.deletedAt} <= now() - interval '30 days' AND ${notes.sourceKey} IS NULL`)
     .returning({ id: notes.id });
 
   console.log(`[notes] Purged ${purged.length} notes from trash`);
 }
 
-export async function restoreNote(id: string, actor: Actor): Promise<Note> {
-  const noteId = assertUuid(id);
-
-  return db.transaction(async (tx) => {
-    const [current] = await tx.select().from(notes).where(eq(notes.id, noteId)).limit(1);
-    if (!current) throw new NoteError(`note ${noteId} not found`);
-    if (!current.deletedAt) return current;
-
-    await tx.insert(noteRevisions).values({
-      noteId,
-      operation: "restore",
-      previousContent: current.content,
-      previousScope: current.scope,
-      previousExpiresAt: current.expiresAt,
-      changedBy: actor.by,
-      skillExecutionId: actor.skillExecutionId ?? null,
-      conversationId: actor.conversationId ?? null,
-    });
-
-    const [row] = await tx
-      .update(notes)
-      .set({ deletedAt: null, updatedAt: drizzleSql`now()`, updatedBy: actor.by })
-      .where(eq(notes.id, noteId))
-      .returning();
-
-    return row;
-  });
+export function restoreNote(id: string, actor: Actor): Promise<Note> {
+  return mutateNote(id, "restore", actor, (current) => (current.deletedAt ? { deletedAt: null } : null));
 }
 
 export async function noteHistory(id: string): Promise<NoteRevision[]> {

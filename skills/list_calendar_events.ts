@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { intParam, listCalendarEvents } from "../src/ingest/google";
+import { listCalendarEvents } from "../src/ingest/google";
+import { intParam } from "../src/skills/params";
 import { addDays, isLocalDate, localDay, zonedToIso } from "../src/util/time";
 
 const DEFAULT_DAYS = 14;

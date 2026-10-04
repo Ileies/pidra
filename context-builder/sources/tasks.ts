@@ -14,7 +14,7 @@ export interface TaskItem {
 
 export async function fetchTaskItems(): Promise<TaskItem[]> {
   try {
-    const tasks = await getTasksClient();
+    const tasks = getTasksClient();
     const listsRes = await tasks.tasklists.list({ maxResults: 20 });
     const lists = listsRes.data.items ?? [];
 

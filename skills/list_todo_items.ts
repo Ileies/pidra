@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { boolParam, getTasksClient, intParam, resolveTaskList } from "../src/ingest/google";
+import { getTasksClient, resolveTaskList } from "../src/ingest/google";
+import { boolParam, intParam } from "../src/skills/params";
 import { addDays, isLocalDate, zonedToIso } from "../src/util/time";
 
 /** A `YYYY-MM-DD` as the RFC 3339 instant the Tasks API filters on. A task's due date is a date at UTC midnight, whatever the zone. */
@@ -24,7 +25,7 @@ const skill: Skill = {
     limit: { type: "number", required: false, description: "Maximum number of tasks, 1 to 500. Default: 100" },
   },
   execute: async (params) => {
-    const tasks = await getTasksClient();
+    const tasks = getTasksClient();
     const lists = params.list_id
       ? [{ id: await resolveTaskList(String(params.list_id)), title: String(params.list_id) }]
       : ((await tasks.tasklists.list({ maxResults: 50 })).data.items ?? []).map((l) => ({ id: l.id ?? "", title: l.title ?? "Tasks" }));

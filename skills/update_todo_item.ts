@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { assertExpectedTitle, boolParam, getTasksClient, resolveTaskList } from "../src/ingest/google";
+import { getTasksClient, resolveTaskList } from "../src/ingest/google";
+import { assertExpectedTitle, boolParam } from "../src/skills/params";
 import { isLocalDate } from "../src/util/time";
 
 const skill: Skill = {
@@ -26,7 +27,7 @@ const skill: Skill = {
     },
   },
   execute: async (params) => {
-    const tasks = await getTasksClient();
+    const tasks = getTasksClient();
     const listId = await resolveTaskList(params.list_id ? String(params.list_id) : null);
     const taskId = String(params.task_id ?? "").trim();
     if (!taskId) throw new Error("task_id is required");

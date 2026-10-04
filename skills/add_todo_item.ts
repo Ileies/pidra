@@ -22,7 +22,7 @@ const skill: Skill = {
     },
   },
   execute: async (params) => {
-    const tasks = await getTasksClient();
+    const tasks = getTasksClient();
     const listId = await resolveTaskList(params.list_id ? String(params.list_id) : null);
     const title = String(params.title ?? "").trim();
     if (!title) throw new Error("title is required");

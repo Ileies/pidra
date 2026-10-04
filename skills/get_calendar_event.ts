@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { boolParam, getCalendarClient, intParam } from "../src/ingest/google";
+import { getCalendarClient } from "../src/ingest/google";
+import { boolParam, intParam } from "../src/skills/params";
 
 const skill: Skill = {
   name: "get_calendar_event",
@@ -13,7 +14,7 @@ const skill: Skill = {
     max_description_chars: { type: "number", required: false, description: "Cut a long description after this many characters, 100 to 20000. Default: 4000" },
   },
   execute: async (params) => {
-    const calendar = await getCalendarClient();
+    const calendar = getCalendarClient();
     const calendarId = String(params.calendar_id ?? "primary");
     const eventId = String(params.event_id ?? "").trim();
     if (!eventId) throw new Error("event_id is required");

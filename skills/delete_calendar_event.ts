@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { assertExpectedTitle, getCalendarClient, sendUpdatesParam } from "../src/ingest/google";
+import { getCalendarClient } from "../src/ingest/google";
+import { assertExpectedTitle, sendUpdatesParam } from "../src/skills/params";
 
 /** Medium for the same reason as `update_calendar_event`: it removes an entry the owner made. */
 const skill: Skill = {
@@ -18,7 +19,7 @@ const skill: Skill = {
     calendar_id: { type: "string", required: false, description: "Calendar ID (default: primary)" },
   },
   execute: async (params) => {
-    const calendar = await getCalendarClient();
+    const calendar = getCalendarClient();
     const calendarId = String(params.calendar_id ?? "primary");
     const eventId = String(params.event_id ?? "").trim();
     if (!eventId) throw new Error("event_id is required");

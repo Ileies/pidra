@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { assertExpectedTitle, getTasksClient, resolveTaskList } from "../src/ingest/google";
+import { getTasksClient, resolveTaskList } from "../src/ingest/google";
+import { assertExpectedTitle } from "../src/skills/params";
 
 const skill: Skill = {
   name: "delete_todo_item",
@@ -20,7 +21,7 @@ const skill: Skill = {
     },
   },
   execute: async (params) => {
-    const tasks = await getTasksClient();
+    const tasks = getTasksClient();
     const listId = await resolveTaskList(params.list_id ? String(params.list_id) : null);
     const taskId = String(params.task_id ?? "").trim();
     if (!taskId) throw new Error("task_id is required");

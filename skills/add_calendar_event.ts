@@ -1,5 +1,6 @@
 import type { Skill } from "../src/skills/loader";
-import { boolParam, emailList, eventTime, getCalendarClient, intParam, reminderOverrides, sendUpdatesParam } from "../src/ingest/google";
+import { getCalendarClient } from "../src/ingest/google";
+import { boolParam, emailList, eventTime, intParam, reminderOverrides, sendUpdatesParam } from "../src/skills/params";
 import { addDays, isLocalDate } from "../src/util/time";
 
 const VISIBILITIES = ["default", "public", "private", "confidential"];
@@ -43,7 +44,7 @@ const skill: Skill = {
     calendar_id: { type: "string", required: false, description: "Calendar ID (default: primary)" },
   },
   execute: async (params, ctx) => {
-    const calendar = await getCalendarClient();
+    const calendar = getCalendarClient();
     const calendarId = String(params.calendar_id ?? "primary");
     const title = String(params.title ?? "").trim();
     if (!title) throw new Error("title is required");

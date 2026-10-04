@@ -72,7 +72,7 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:15432/pidra bun run context-builder
 
 ## Error handling and recovery
 
-Failed items are logged to `errors.json` and skipped; a failed source phase does not abort the run. `errors.json` accumulates across runs, so check the `ts` field before blaming a run for an error. An interrupted run (Ctrl+C) resumes from the checkpoint when restarted without flags.
+Failed items are logged to `errors.json` and skipped; a failed source phase does not abort the run. `errors.json` accumulates across runs, so check the `ts` field before blaming a run for an error. An interrupted run (Ctrl+C) resumes from its database run row when restarted without flags.
 
 The three seed targets are written independently. Model output is stripped of control characters before it reaches Postgres: a NUL byte in one entity name once failed a whole batch insert and silently left `standing_context` empty on a run that reported success.
 

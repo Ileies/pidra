@@ -6,24 +6,9 @@ import json
 import sys
 
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), "../.keep-token.json")
-ENV_PATH = os.path.join(os.path.dirname(__file__), "../../.env")
-
-
-def load_env(path):
-    if not os.path.exists(path):
-        return
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            os.environ.setdefault(key.strip(), value.strip())
 
 
 def main():
-    load_env(ENV_PATH)
-
     email = os.environ.get("GKEEPAPI_EMAIL")
     master_token = os.environ.get("GKEEPAPI_MASTER_TOKEN")
 

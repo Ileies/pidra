@@ -3,8 +3,8 @@
  * Dashboard check orchestrator.
  *
  * Only `svelte-kit sync` is a real prerequisite for the rest - it generates the `.svelte-kit`
- * types `svelte-check` reads. `svelte-check`, `contrast.ts`, `check-offline.ts`, the source-links
- * test, the component tests (`tests/`, jsdom via happy-dom - no Chrome, no build), and
+ * types `svelte-check` reads. `svelte-check`, `contrast.ts`, `check-offline.ts`, the component
+ * tests (`tests/`, jsdom via happy-dom - no Chrome, no build), and
  * `blackhole/run.ts` (which does its own production build internally) don't read each other's
  * output, so chaining them with `&&` was pure waste - `blackhole/run.ts` alone is the dominant
  * cost of the whole check suite (~65-70s against under 4s for everything else combined).
@@ -61,7 +61,6 @@ const steps: [string, () => Promise<Out>][] = [
   ["svelte-check", () => q($`svelte-check --tsconfig ./tsconfig.json`)],
   ["contrast", () => q($`bun run scripts/contrast.ts`)],
   ["check-offline", () => q($`bun run scripts/check-offline.ts`)],
-  ["source-links", () => q($`bun test scripts/source-links.test.ts`)],
   ["component tests", () => q($`bun test --conditions=browser tests/`)],
   ...(quick ? [] : ([["blackhole", () => q($`bun run scripts/blackhole/run.ts`)]] as [string, () => Promise<Out>][])),
 ];

@@ -4,6 +4,8 @@
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";
+  import Field from "#lib/components/Field.svelte";
+  import Sheet from "#lib/components/Sheet.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { PageData, ActionData } from "./$types";
@@ -22,12 +24,7 @@
     editingFeed = null;
   }
 
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && editingFeed) closeFeedModal();
-  }
 </script>
-
-<svelte:window onkeydown={onKeydown} />
 
 <Page title="Newsletter sources" size="app" class="flex flex-col gap-6">
   <div class="flex flex-wrap items-start justify-between gap-3">
@@ -85,47 +82,40 @@
   </ul>
 </Page>
 
-{#if editingFeed}
-  <div class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10dvh]">
-    <button type="button" aria-label="Close" class="absolute inset-0 bg-(--app-scrim) cursor-default" onclick={closeFeedModal}></button>
+<Sheet open={editingFeed !== null} title={editingFeed ? `Edit ${editingFeed.sourceName}` : "Edit feed"} onclose={closeFeedModal}>
+  {#if editingFeed}
+    <form
+      id="feed-form"
+      method="POST"
+      action="?/updateFeed"
+      class="flex flex-col gap-3"
+      use:enhance={() => {
+        submitting = true;
+        return async ({ update, result }) => {
+          try {
+            if (result.type === "success") closeFeedModal();
+            await update();
+          } finally {
+            submitting = false;
+          }
+        };
+      }}
+    >
+      <input type="hidden" name="oldName" value={editingFeed.sourceName} />
+      <Field name="sourceName" label="Source name" dense required maxlength="120" value={editingFeed.sourceName} />
+      <Field name="url" label="Feed URL" dense mono type="url" required value={editingFeed.url} />
+    </form>
+  {/if}
 
-    <div role="dialog" aria-modal="true" aria-labelledby="edit-feed-title" class="relative w-full max-w-xl max-h-[88dvh] rounded-lg border border-surface-600 bg-surface-900 shadow-2xl overflow-hidden flex flex-col">
-      <div class="flex items-center justify-between gap-3 border-b border-surface-700 px-4 sm:px-5 py-3 shrink-0">
-        <h2 id="edit-feed-title" class="text-sm font-semibold text-surface-100">Edit {editingFeed.sourceName}</h2>
-        <button type="button" onclick={closeFeedModal} aria-label="Close" class="tap text-surface-400 hover:text-surface-200 bg-transparent border-none px-1">✕</button>
-      </div>
-
-      <form
-        id="feed-form"
-        method="POST"
-        action="?/updateFeed"
-        use:enhance={() => {
-          submitting = true;
-          return async ({ update, result }) => {
-            try {
-              if (result.type === "success") closeFeedModal();
-              await update();
-            } finally {
-              submitting = false;
-            }
-          };
-        }}
-        class="contents"
-      >
-        <input type="hidden" name="oldName" value={editingFeed.sourceName} />
-        <div class="min-h-0 flex-1 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col gap-3">
-          <label class="flex flex-col gap-1 text-xs text-surface-400">Source name<input name="sourceName" required maxlength="120" value={editingFeed.sourceName} class="input-base-flush w-full" /></label>
-          <label class="flex flex-col gap-1 text-xs text-surface-400">Feed URL<input name="url" type="url" required value={editingFeed.url} class="input-base-flush w-full font-mono" /></label>
-        </div>
-      </form>
-
-      <div class="flex items-center justify-between gap-3 border-t border-surface-700 px-4 sm:px-5 py-3 shrink-0">
+  {#snippet footer()}
+    {#if editingFeed}
+      <div class="flex items-center justify-between gap-3">
         <ConfirmButton label="Remove feed" action="?/deleteFeed" fields={{ sourceName: editingFeed.sourceName }} onSuccess={closeFeedModal} />
         <div class="flex gap-2">
           <button type="button" onclick={closeFeedModal} class="btn btn-sm btn-solid">Cancel</button>
           <button type="submit" form="feed-form" disabled={submitting} class="btn btn-sm btn-primary">{submitting ? "Saving…" : "Save feed"}</button>
         </div>
       </div>
-    </div>
-  </div>
-{/if}
+    {/if}
+  {/snippet}
+</Sheet>

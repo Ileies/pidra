@@ -7,6 +7,7 @@
   import { enhance } from "$app/forms";
   import Card from "#lib/components/Card.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
+  import Field from "#lib/components/Field.svelte";
   import type { SenderRuleRow } from "#lib/server/newsletters.js";
 
   interface Props {
@@ -33,9 +34,12 @@
     class="contents"
   >
     <input type="hidden" name="id" value={rule.id} />
-    <label class="text-xs text-surface-400">Match<select name="matchKind" value={rule.matchKind} class="input-base-flush mt-1 w-full"><option value="domain">Domain</option><option value="address">Address</option></select></label>
-    <label class="text-xs text-surface-400">Sender<input name="pattern" required value={rule.pattern} class="input-base-flush mt-1 w-full min-w-0 font-mono" /></label>
-    <label class="text-xs text-surface-400">Source<input name="sourceName" maxlength="120" value={rule.sourceName} placeholder="Use display name" class="input-base-flush mt-1 w-full min-w-0" /></label>
+    <Field name="matchKind" label="Match" dense as="select" value={rule.matchKind}>
+      <option value="domain">Domain</option>
+      <option value="address">Address</option>
+    </Field>
+    <Field name="pattern" label="Sender" dense mono required value={rule.pattern} inputClass="min-w-0" />
+    <Field name="sourceName" label="Source" dense maxlength="120" value={rule.sourceName} placeholder="Use display name" inputClass="min-w-0" />
     <button
       disabled={!dirty}
       class="tap rounded border border-surface-500 px-3 py-2 sm:py-1.5 text-base sm:text-sm text-surface-300 hover:border-primary-500 hover:text-primary-300 transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-surface-500 disabled:hover:text-surface-300"

@@ -6,6 +6,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
+  import Field from "#lib/components/Field.svelte";
   import { fmtDate, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
@@ -119,35 +120,20 @@
               <input type="hidden" name="identifier" value={contact.identifier} />
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label class="flex flex-col gap-1 text-xs text-surface-400">
-                  Name
-                  <input name="name" value={contact.name ?? ""} class="input-base-flush" />
-                </label>
-                <label class="flex flex-col gap-1 text-xs text-surface-400">
-                  Relationship
-                  <input name="relationship" value={contact.relationship ?? ""} placeholder="service, colleague, insurer…" class="input-base-flush" />
-                </label>
-                <label class="flex flex-col gap-1 text-xs text-surface-400">
-                  Priority
-                  <select name="priority" value={contact.priority} class="input-base-flush">
-                    {#each PRIORITIES as priority (priority)}
-                      <option value={priority}>{priority}</option>
-                    {/each}
-                  </select>
-                </label>
+                <Field name="name" label="Name" dense value={contact.name ?? ""} />
+                <Field name="relationship" label="Relationship" dense value={contact.relationship ?? ""} placeholder="service, colleague, insurer…" />
+                <Field name="priority" label="Priority" dense as="select" value={contact.priority}>
+                  {#each PRIORITIES as priority (priority)}
+                    <option value={priority}>{priority}</option>
+                  {/each}
+                </Field>
               </div>
 
-              <label class="flex flex-col gap-1 text-xs text-surface-400">
-                Context for triage
-                <textarea name="contextNotes" rows="2" class="input-base-flush resize-y">{contact.contextNotes ?? ""}</textarea>
-              </label>
+              <Field name="contextNotes" label="Context for triage" dense as="textarea" rows="2" value={contact.contextNotes ?? ""} />
 
               <!-- The correction layer is append-only and keeps the reasoning, so it is worth
                    asking for one line of it while the change is being made. -->
-              <label class="flex flex-col gap-1 text-xs text-surface-400">
-                What is true about this sender (recorded as the correction)
-                <input name="statement" placeholder="Leave empty to record the fields as written above." class="input-base-flush" />
-              </label>
+              <Field name="statement" label="What is true about this sender (recorded as the correction)" dense placeholder="Leave empty to record the fields as written above." />
 
               <button
                 type="submit"

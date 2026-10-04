@@ -10,6 +10,7 @@
   import Card from "#lib/components/Card.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
+  import Field from "#lib/components/Field.svelte";
   import Sheet from "#lib/components/Sheet.svelte";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { EmailAccountRow } from "#lib/server/emailAccounts.js";
@@ -59,36 +60,20 @@
     return rows;
   }
 
-  const LABEL = "flex flex-col gap-1.5 text-sm text-surface-300";
   const HINT = "text-xs text-surface-500";
-  const MONO = "font-mono";
+  /** Host, address and folder fields: no autofill, no capitalisation, no spellcheck. */
+  const CODE = { autocomplete: "off", autocapitalize: "none", spellcheck: "false" } as const;
 </script>
 
 {#snippet fields(a?: EmailAccountRow)}
   <div class="flex flex-col gap-6">
     <fieldset class="flex flex-col gap-3 border-0 p-0 m-0 min-w-0">
       <legend class="mb-3 p-0 text-xs font-semibold uppercase tracking-wide text-surface-400">Account</legend>
-      <label class={LABEL}>
-        Label
-        <input name="label" required value={a?.label ?? ""} placeholder="Newsletter Inbox" autocomplete="off" class="input-base-flush w-full" />
-      </label>
-      <label class={LABEL}>
-        IMAP host
-        <input name="host" required value={a?.host ?? ""} placeholder="imap.example.com" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base-flush w-full {MONO}" />
-      </label>
-      <label class={LABEL}>
-        User
-        <input name="user" required value={a?.user ?? ""} placeholder="you@example.com" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base-flush w-full {MONO}" />
-      </label>
-      <label class={LABEL}>
-        Password
-        <input type="password" name="password" autocomplete="new-password" required={!a} class="input-base-flush w-full {MONO}" />
-        {#if a}<span class={HINT}>Leave blank to keep the current one.</span>{/if}
-      </label>
-      <label class={LABEL}>
-        Folder
-        <input name="folder" value={a?.folder ?? "INBOX"} placeholder="INBOX" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base-flush w-full {MONO}" />
-      </label>
+      <Field name="label" label="Label" required value={a?.label ?? ""} placeholder="Newsletter Inbox" autocomplete="off" />
+      <Field name="host" label="IMAP host" mono required value={a?.host ?? ""} placeholder="imap.example.com" {...CODE} />
+      <Field name="user" label="User" mono required value={a?.user ?? ""} placeholder="you@example.com" {...CODE} />
+      <Field name="password" label="Password" mono type="password" autocomplete="new-password" required={!a} hint={a ? "Leave blank to keep the current one." : undefined} />
+      <Field name="folder" label="Folder" mono value={a?.folder ?? "INBOX"} placeholder="INBOX" {...CODE} />
       <label class="tap-check text-sm text-surface-200">
         <input type="checkbox" name="isNewsAccount" checked={a?.isNewsAccount ?? false} class="h-5 w-5 shrink-0 accent-primary-500" />
         <span>Newsletter account <span class={HINT}>(skips personal classification)</span></span>
@@ -97,33 +82,16 @@
 
     <fieldset class="flex flex-col gap-3 border-0 p-0 m-0 min-w-0">
       <legend class="mb-3 p-0 text-xs font-semibold uppercase tracking-wide text-surface-400">Mail handling</legend>
-      <label class={LABEL}>
-        Aliases
-        <input name="aliases" value={a?.aliases?.join(", ") ?? ""} placeholder="admin@example.com, you@example.com" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base-flush w-full {MONO}" />
-        <span class={HINT}>Comma-separated.</span>
-      </label>
-      <label class={LABEL}>
-        Ignored senders
-        <input name="ignore" value={a?.ignore?.join(", ") ?? ""} placeholder="newsletter@example.com" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base-flush w-full {MONO}" />
-        <span class={HINT}>Comma-separated.</span>
-      </label>
-      <label class={LABEL}>
-        Custom instructions
-        <textarea name="customInstructions" rows="3" placeholder="How extraction should treat mail from this account" class="input-base-flush w-full resize-y">{a?.customInstructions ?? ""}</textarea>
-      </label>
+      <Field name="aliases" label="Aliases" mono hint="Comma-separated." value={a?.aliases?.join(", ") ?? ""} placeholder="admin@example.com, you@example.com" {...CODE} />
+      <Field name="ignore" label="Ignored senders" mono hint="Comma-separated." value={a?.ignore?.join(", ") ?? ""} placeholder="newsletter@example.com" {...CODE} />
+      <Field name="customInstructions" label="Custom instructions" as="textarea" rows="3" value={a?.customInstructions ?? ""} placeholder="How extraction should treat mail from this account" />
     </fieldset>
 
     <fieldset class="flex flex-col gap-3 border-0 p-0 m-0 min-w-0">
       <legend class="mb-3 p-0 text-xs font-semibold uppercase tracking-wide text-surface-400">Sending (SMTP)</legend>
-      <label class={LABEL}>
-        SMTP host override
-        <input name="smtpHost" value={a?.smtpHost ?? ""} placeholder="Derived from the IMAP host when empty" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base-flush w-full {MONO}" />
-      </label>
+      <Field name="smtpHost" label="SMTP host override" mono value={a?.smtpHost ?? ""} placeholder="Derived from the IMAP host when empty" {...CODE} />
       <div class="flex items-end gap-4">
-        <label class="{LABEL} flex-1">
-          SMTP port
-          <input type="number" inputmode="numeric" name="smtpPort" min="1" max="65535" value={a?.smtpPort ?? ""} placeholder="587" class="input-base-flush w-full {MONO}" />
-        </label>
+        <Field name="smtpPort" label="SMTP port" mono class="flex-1" type="number" inputmode="numeric" min="1" max="65535" value={a?.smtpPort ?? ""} placeholder="587" />
         <label class="tap-check text-sm text-surface-200 pb-0.5">
           <input type="checkbox" name="smtpSecure" checked={a?.smtpSecure ?? false} class="h-5 w-5 shrink-0 accent-primary-500" />
           TLS

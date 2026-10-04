@@ -9,6 +9,7 @@
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";
+  import Field from "#lib/components/Field.svelte";
   import { toastFormResult, toasts } from "#lib/toast.svelte.js";
   import { fmtDateTime } from "#lib/format.js";
   import type { PageData, ActionData } from "./$types";
@@ -129,14 +130,8 @@
       <h2 class="text-sm font-semibold text-surface-100">PIN</h2>
       <p class="text-xs text-surface-400">6-10 digits. Checked only after a passkey already succeeded.</p>
       <form onsubmit={submitPin} class="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <label class="flex flex-col gap-1 text-xs text-surface-400">
-          {data.pinSet ? "New PIN" : "PIN"}
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" bind:value={pin} class="input-base-flush w-full sm:w-40" />
-        </label>
-        <label class="flex flex-col gap-1 text-xs text-surface-400">
-          Confirm
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" bind:value={pinConfirm} class="input-base-flush w-full sm:w-40" />
-        </label>
+        <Field label={data.pinSet ? "New PIN" : "PIN"} dense type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" bind:value={pin} inputClass="sm:w-40" />
+        <Field label="Confirm" dense type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" bind:value={pinConfirm} inputClass="sm:w-40" />
         <button
           type="submit"
           disabled={pinBusy || pin.length < 6}

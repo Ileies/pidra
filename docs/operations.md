@@ -89,6 +89,9 @@ Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`):
 - Each failed attempt is recorded as a `StepAttemptError` (`{step, attempt, error, stack, ts}`). When all fail, a `StepError` is thrown carrying the log.
 - `run.ts` catches `StepError` and writes the outcome to `pipeline_runs`: `status`, `failed_step`, `step_errors` (JSONB array), `duration_ms`. The dashboard renders it as an error card with each attempt's message and timestamp and an expandable stack trace.
 
+- Steps the run can do without (quick actions, news editor, review absorb, question reconcile) use `tolerant(step, fn, fallback, errors, message)` from the same file: retries as above, but on exhaustion the attempts are pushed to `step_errors`, `message` is logged and `fallback()` stands in, so the run continues.
+- `withRetry`, `withFlexRetry` (`src/ai/openai.ts`) and the Brave request loop (`src/search/brave.ts`) are thin callers of the one generic `retry()` in `src/util/retry.ts`; add no new hand-written retry loops.
+
 When adding a pipeline phase, always call it as `withRetry("phaseN", () => runPhaseN(...))`, never directly in `run.ts`.
 
 RSS ingest looks back 14 days by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages are not missed; message IDs deduplicate. Each feed fetch records its latest error or success on the feed row, and failures also enter the run error log shown on `/runs`.

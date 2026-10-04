@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ReasoningEffort } from "openai/resources/shared";
 import type { FunctionTool, ResponseInput, ResponseInputItem } from "openai/resources/responses/responses";
+import { retry } from "../util/retry";
 import { stripControlChars } from "../util/text";
 import { recordAiCall, recordFlexRetry, recordUsage } from "../util/trace";
 
@@ -28,20 +29,13 @@ function isRetryable(err: unknown): boolean {
   return name === "APIConnectionError" || name === "APIConnectionTimeoutError";
 }
 
-export async function withFlexRetry<T>(fn: () => Promise<T>): Promise<T> {
-  for (let i = 0; i <= FLEX_RETRY_DELAYS_MS.length; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (isRetryable(err) && i < FLEX_RETRY_DELAYS_MS.length) {
-        recordFlexRetry();
-        await Bun.sleep(FLEX_RETRY_DELAYS_MS[i]);
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw new Error("unreachable");
+export function withFlexRetry<T>(fn: () => Promise<T>): Promise<T> {
+  return retry(fn, {
+    attempts: FLEX_RETRY_DELAYS_MS.length + 1,
+    delay: FLEX_RETRY_DELAYS_MS,
+    shouldRetry: isRetryable,
+    onRetry: recordFlexRetry,
+  });
 }
 
 export interface ExtractOptions {

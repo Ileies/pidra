@@ -8,7 +8,7 @@ import { runPhase3 } from "./phase3-context";
 import { runQuestionGate } from "./phase4-questiongate";
 import { newsItemsOf, runNewsSection, runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
-import { withRetry, StepError } from "./withRetry";
+import { withRetry, tolerant, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
 import { sendPushNotifications, sendFailureNotification, sendNewQuestionsNotification } from "../push";
 import { EMPTY_NEWS_DESK, runNewsDesk, type NewsDeskOutcome } from "../news/run";
@@ -23,18 +23,18 @@ import type { ContextPayload } from "./phase3-context";
  * the reader can do without, so a step that exhausted its retries costs the buttons and nothing
  * else: its attempts go into `step_errors` for `/runs`, and the report is written as usual.
  */
-async function tolerantQuickActions(ctx: ContextPayload, date: string, errors: StepAttemptError[]) {
-  try {
-    return await withRetry("phase5-actions", async () => {
+function tolerantQuickActions(ctx: ContextPayload, date: string, errors: StepAttemptError[]) {
+  return tolerant(
+    "phase5-actions",
+    async () => {
       const result = await proposeQuickActions(ctx, date);
       await saveProposals(date, result.proposals);
       return result;
-    });
-  } catch (err) {
-    if (err instanceof StepError) errors.push(...err.attempts);
-    console.error("[Phase 5] Quick actions failed, the report goes out without them:", err);
-    return { proposals: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 };
-  }
+    },
+    () => ({ proposals: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 }),
+    errors,
+    "[Phase 5] Quick actions failed, the report goes out without them:",
+  );
 }
 
 /**
@@ -108,11 +108,13 @@ async function executePipeline(date: string, run: { id: string }, start: number)
       withRetry("phase5-section1", () => runSection1(ctx, date)),
       // The editor is the one step here with a fallback that loses nothing but polish: the
       // stories are checked and stored already, so they are written out as they stand.
-      withRetry("phase5-news", () => runNewsSection(ctx, date)).catch((err) => {
-        if (err instanceof StepError) editorErrors.push(...err.attempts);
-        console.error("[Phase 5] News editor failed, writing the section from the stories directly:", err);
-        return { text: renderNewsFallback(newsItemsOf(ctx.newsItems), ctx.newsDesk.home), tokensIn: 0, tokensOut: 0, aiCalls: 0 };
-      }),
+      tolerant(
+        "phase5-news",
+        () => runNewsSection(ctx, date),
+        () => ({ text: renderNewsFallback(newsItemsOf(ctx.newsItems), ctx.newsDesk.home), tokensIn: 0, tokensOut: 0, aiCalls: 0 }),
+        editorErrors,
+        "[Phase 5] News editor failed, writing the section from the stories directly:",
+      ),
       runQuestionGate(ctx, date, questionErrors),
       tolerantQuickActions(ctx, date, actionErrors),
     ]);

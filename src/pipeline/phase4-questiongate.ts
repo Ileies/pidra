@@ -23,7 +23,7 @@ import { capCreated, mechanicalPlan, reconcileQueue, type CandidateInput } from 
 import { applyPlan, askedExtractionIds, listOpen, listRecentlyAnswered } from "../questions/store";
 import type { ContextPayload } from "./phase3-context";
 import { absorbReviewAnswers } from "./weekly-review";
-import { StepError, withRetry, type StepAttemptError } from "./withRetry";
+import { tolerant, withRetry, type StepAttemptError } from "./withRetry";
 
 const ANSWER_DAYS = 7;
 const EXCERPT_CHARS = 700;
@@ -97,14 +97,14 @@ async function candidatesFor(runDate: string): Promise<CandidateInput[]> {
  * job only asks now, it no longer sits for hours waiting to be answered. Costs the notes and
  * nothing else when it fails; the answers stay unabsorbed and the next run tries again.
  */
-async function tolerantAbsorb(errors: StepAttemptError[]) {
-  try {
-    return await withRetry("phase4-review", () => absorbReviewAnswers());
-  } catch (err) {
-    if (err instanceof StepError) errors.push(...err.attempts);
-    console.error("[Phase 4] Review answers not absorbed, the next run retries:", err);
-    return { tokensIn: 0, tokensOut: 0, aiCalls: 0 };
-  }
+function tolerantAbsorb(errors: StepAttemptError[]) {
+  return tolerant(
+    "phase4-review",
+    () => absorbReviewAnswers(),
+    () => ({ tokensIn: 0, tokensOut: 0, aiCalls: 0 }),
+    errors,
+    "[Phase 4] Review answers not absorbed, the next run retries:",
+  );
 }
 
 /**
@@ -121,27 +121,20 @@ async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepA
   const candidates = [...mailCandidates, ...entityCandidates, ...staleCandidates];
   const absorbed = await tolerantAbsorb(errors);
 
-  let usage = { tokensIn: 0, tokensOut: 0, aiCalls: 0 };
-  let plan;
-  try {
-    const result = await withRetry("phase4-questions", () =>
-      reconcileQueue(candidates, runDate, { longTermContext: ctx.longTermContext }),
-    );
-    plan = result.plan;
-    usage = result;
-  } catch (err) {
-    if (err instanceof StepError) errors.push(...err.attempts);
-    console.error("[Phase 4] Question reconcile failed, adding the candidates by sender only:", err);
-    plan = capCreated(mechanicalPlan(candidates, await listOpen()));
-  }
-
-  const raised = await applyPlan(plan, runDate);
+  const reconciled = await tolerant(
+    "phase4-questions",
+    () => reconcileQueue(candidates, runDate, { longTermContext: ctx.longTermContext }),
+    async () => ({ plan: capCreated(mechanicalPlan(candidates, await listOpen())), tokensIn: 0, tokensOut: 0, aiCalls: 0 }),
+    errors,
+    "[Phase 4] Question reconcile failed, adding the candidates by sender only:",
+  );
+  const raised = await applyPlan(reconciled.plan, runDate);
   return {
     raised,
-    newQuestionCount: plan.created.length,
-    tokensIn: usage.tokensIn + absorbed.tokensIn,
-    tokensOut: usage.tokensOut + absorbed.tokensOut,
-    aiCalls: usage.aiCalls + absorbed.aiCalls,
+    newQuestionCount: reconciled.plan.created.length,
+    tokensIn: reconciled.tokensIn + absorbed.tokensIn,
+    tokensOut: reconciled.tokensOut + absorbed.tokensOut,
+    aiCalls: reconciled.aiCalls + absorbed.aiCalls,
   };
 }
 

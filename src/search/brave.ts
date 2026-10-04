@@ -1,5 +1,6 @@
 import { db, braveDailyUsage } from "../db";
 import { lt, sql } from "drizzle-orm";
+import { retry } from "../util/retry";
 import { recordSearch } from "../util/trace";
 import { utcDay } from "../util/time";
 
@@ -55,33 +56,44 @@ export interface BraveSearchOptions {
   onAttempt?: () => void;
 }
 
+/** A non-OK Brave answer; `waitSeconds` is how long its rate-limit header asks us to back off. */
+class BraveStatusError extends Error {
+  constructor(readonly status: number, body: string, readonly waitSeconds: number) {
+    super(`Brave Search error ${status}: ${body.slice(0, 200)}`);
+  }
+  get retryable(): boolean {
+    return this.status === 429 || this.status >= 500;
+  }
+}
+
 async function braveRequest(url: URL, onAttempt?: () => void): Promise<Response> {
   const key = process.env.BRAVE_SEARCH_API_KEY;
   if (!key) throw new Error("BRAVE_SEARCH_API_KEY is not set");
-  let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await reserveRequest();
-    recordSearch();
-    onAttempt?.();
-    try {
+  // A failed reservation (the quota is spent, the database is down) is final: only the request itself is retried.
+  let reservationFailed = false;
+  return retry(
+    async () => {
+      await reserveRequest().catch((err) => {
+        reservationFailed = true;
+        throw err;
+      });
+      recordSearch();
+      onAttempt?.();
       const res = await fetch(url.toString(), {
         headers: { Accept: "application/json", "X-Subscription-Token": key },
         signal: AbortSignal.timeout(15_000),
       });
       if (res.ok) return res;
-      const body = await res.text();
-      lastError = new Error(`Brave Search error ${res.status}: ${body.slice(0, 200)}`);
-      if (res.status !== 429 && res.status < 500) break;
-      if (attempt === 2) break;
-      const reset = res.status === 429 ? Number(res.headers.get("x-ratelimit-reset")?.split(",")[0] ?? 1) : 1;
-      await Bun.sleep(Math.max(1, Math.min(reset, 10)) * 1000 * (attempt + 1));
-    } catch (error) {
-      lastError = error;
-      if (attempt === 2) break;
-      await Bun.sleep(1000 * (attempt + 1));
-    }
-  }
-  throw lastError;
+      const waitSeconds = res.status === 429 ? Number(res.headers.get("x-ratelimit-reset")?.split(",")[0] ?? 1) : 1;
+      throw new BraveStatusError(res.status, await res.text(), waitSeconds);
+    },
+    {
+      attempts: 3,
+      shouldRetry: (err) => !reservationFailed && (!(err instanceof BraveStatusError) || err.retryable),
+      delay: (failed, err) =>
+        (err instanceof BraveStatusError ? Math.max(1, Math.min(err.waitSeconds, 10)) : 1) * 1000 * failed,
+    },
+  );
 }
 
 export async function braveSearch(query: string, count = 5, options: BraveSearchOptions = {}): Promise<BraveSearchResponse> {

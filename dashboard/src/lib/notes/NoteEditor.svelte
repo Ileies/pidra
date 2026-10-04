@@ -7,6 +7,7 @@
   import { NOTE_SCOPES, SCOPE_INFO, SCOPE_FALLBACK_CLASS, type Draft } from "#lib/notes/api.js";
   import { label } from "#lib/labels.js";
   import { isoDay } from "#lib/format.js";
+  import { autosize } from "#lib/ui/autosize.js";
   import Spinner from "#lib/components/Spinner.svelte";
   import Trash from "@lucide/svelte/icons/trash";
 
@@ -23,18 +24,6 @@
   }
 
   let { draft = $bindable(), dirty, existing, onSave, onCancel, onDelete, onHistory }: Props = $props();
-
-  function autosize(node: HTMLTextAreaElement) {
-    const fit = () => {
-      node.style.height = "auto";
-      node.style.height = `${node.scrollHeight}px`;
-    };
-    fit();
-    node.focus();
-    node.setSelectionRange(node.value.length, node.value.length);
-    node.addEventListener("input", fit);
-    return { destroy: () => node.removeEventListener("input", fit) };
-  }
 
   function onKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
@@ -58,7 +47,7 @@
 <div class="flex flex-col gap-3 px-4 py-4 sm:px-5">
   <textarea
     bind:value={draft.content}
-    use:autosize
+    use:autosize={{ focus: true }}
     onkeydown={onKeydown}
     disabled={draft.saving}
     rows="3"

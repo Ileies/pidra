@@ -28,6 +28,7 @@
    * unread report, an open question and an unreviewed run each count on the page they belong to.
    */
   import { page } from "$app/state";
+  import { afterNavigate } from "$app/navigation";
   import { ROUTES, NAV_GROUPS, routeFor, type RouteDef } from "#lib/routes.js";
   import SyncLogo from "#lib/offline/SyncLogo.svelte";
   import { navBadges } from "#lib/navBadges.svelte.js";
@@ -71,8 +72,7 @@
   let moreOpen = $state(false);
 
   // A navigation closes the menu: leaving it open over the page it just opened is a trap (as in TabBar's sheet).
-  $effect(() => {
-    routeId;
+  afterNavigate(() => {
     moreOpen = false;
   });
 

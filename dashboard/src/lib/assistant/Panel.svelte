@@ -10,6 +10,7 @@
   import { renderMarkdown } from "#lib/markdown.js";
   import { fmtTime } from "#lib/format.js";
   import { ICON } from "#lib/routes.js";
+  import { autosize } from "#lib/ui/autosize.js";
 
   interface Props {
     /** The widget hides its own transcript scroller inside a fixed panel; /chat does not. */
@@ -32,20 +33,8 @@
     if (scroller) scroller.scrollTop = scroller.scrollHeight;
   });
 
-  // The panel is mounted when it opens, so this is the "focus on open" behaviour.
-  $effect(() => {
-    composer?.focus();
-  });
-
-  // Auto-grow the composer with its content instead of a fixed two rows, capped so a pasted
-  // paragraph scrolls inside the box rather than pushing the transcript off screen.
+  // Capped so a pasted paragraph scrolls inside the box rather than pushing the transcript off screen.
   const MAX_COMPOSER_HEIGHT = 160;
-  $effect(() => {
-    assistant.draft;
-    if (!composer) return;
-    composer.style.height = "auto";
-    composer.style.height = `${Math.min(composer.scrollHeight, MAX_COMPOSER_HEIGHT)}px`;
-  });
 
   async function useHint(hint: string) {
     assistant.setDraft(hint);
@@ -195,6 +184,7 @@
     >
       <textarea
         bind:this={composer}
+        use:autosize={{ max: MAX_COMPOSER_HEIGHT, focus: true, value: assistant.draft }}
         value={assistant.draft}
         oninput={(event) => assistant.setDraft(event.currentTarget.value)}
         onkeydown={onKeydown}

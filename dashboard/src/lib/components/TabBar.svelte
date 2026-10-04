@@ -11,6 +11,7 @@
    * under it.
    */
   import { page } from "$app/state";
+  import { afterNavigate } from "$app/navigation";
   import { ROUTES, TABS, MORE_ICON, routeFor } from "#lib/routes.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import CountBadge from "#lib/components/CountBadge.svelte";
@@ -34,9 +35,8 @@
   const sheetTotal = $derived(sheetRoutes.reduce((sum, entry) => sum + (badges[entry.href] ?? 0), 0));
 
   // A navigation closes the sheet: leaving it open over the page it just opened is a trap.
-  $effect(() => {
-    page.url.pathname;
-    onOpenChange(false);
+  afterNavigate(({ type }) => {
+    if (type !== "enter") onOpenChange(false);
   });
 </script>
 

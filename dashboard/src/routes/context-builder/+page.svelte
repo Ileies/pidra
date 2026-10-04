@@ -281,17 +281,11 @@
 
   // --- Back to top: only once there is somewhere to go back from. --------------------------------
 
-  let showBackToTop = $state(false);
-
-  $effect(() => {
-    function onScroll() {
-      showBackToTop = window.scrollY > 600;
-    }
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  });
+  let scrollY = $state(0);
+  const showBackToTop = $derived(scrollY > 600);
 </script>
+
+<svelte:window bind:scrollY />
 
 {#snippet statusBar()}
   <div class="bg-surface-900 border-b border-surface-700">

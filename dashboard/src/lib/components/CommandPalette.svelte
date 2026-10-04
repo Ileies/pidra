@@ -76,14 +76,9 @@
     }
   });
 
-  // Reset the cursor whenever the result set changes underneath it.
-  $effect(() => {
-    results.length;
-    cursor = 0;
-  });
-
   function onInput(event: Event & { currentTarget: HTMLInputElement }) {
     query = event.currentTarget.value;
+    cursor = 0;
     clearTimeout(searchTimer);
 
     const value = query.trim();
@@ -105,6 +100,7 @@
         // A slower earlier request must not overwrite a newer result set.
         if (id === requestId) {
           hits = body.hits;
+          cursor = 0;
           source = "server";
         }
       } catch (err) {
@@ -112,6 +108,7 @@
           const found = await searchMirror(value).catch(() => []);
           if (id === requestId) {
             mirrorHits = found;
+            cursor = 0;
             source = "mirror";
           }
         } else if (id === requestId) {

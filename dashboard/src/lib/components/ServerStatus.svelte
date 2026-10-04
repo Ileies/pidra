@@ -1,36 +1,20 @@
 <script lang="ts">
   import { netJson } from "#lib/offline/net.js";
   import { offline } from "#lib/offline/state.svelte.js";
+  import { poll } from "#lib/offline/poll.js";
 
   let serverOnline = $state<boolean | null>(null);
 
-  $effect(() => {
-    let active = true;
-
-    async function check() {
-      if (document.hidden) return;
-      try {
-        const result = await netJson<{ online: boolean }>("/api/server-status", { cache: "no-store" });
-        if (active) {
-          serverOnline = result.online;
-        }
-      } catch {
-        if (active) serverOnline = null;
-      }
+  async function check() {
+    try {
+      const result = await netJson<{ online: boolean }>("/api/server-status", { cache: "no-store" });
+      serverOnline = result.online;
+    } catch {
+      serverOnline = null;
     }
+  }
 
-    void check();
-    const timer = setInterval(check, 20_000);
-    const onVisible = () => {
-      if (!document.hidden) void check();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      active = false;
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  });
+  $effect(() => poll(check, 20_000, { immediate: true }));
 </script>
 
 {#if serverOnline === false && offline.reachable !== "offline"}

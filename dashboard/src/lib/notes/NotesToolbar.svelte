@@ -12,6 +12,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
   import ListChecks from "@lucide/svelte/icons/list-checks";
+  import { dismissable } from "#lib/ui/dismissable.js";
 
   interface Props {
     filter: NotesFilter;
@@ -40,13 +41,6 @@
   const chipIdle = "border-surface-700 bg-surface-950 text-surface-300 hover:bg-surface-800";
   const chipActive = "border-primary-800 bg-primary-950 text-primary-300";
 </script>
-
-<svelte:window
-  onclick={() => (sortOpen = false)}
-  onkeydown={(event) => {
-    if (event.key === "Escape") sortOpen = false;
-  }}
-/>
 
 <div class="flex flex-col gap-3">
   <div class="flex items-center gap-2">
@@ -104,13 +98,10 @@
 
     <div class="flex items-center justify-between gap-2 lg:justify-end">
       <div class="flex items-center gap-2">
-        <div class="relative">
+        <div class="relative" use:dismissable={{ open: sortOpen, onclose: () => (sortOpen = false), outside: "pass" }}>
           <button
             type="button"
-            onclick={(event) => {
-              event.stopPropagation();
-              sortOpen = !sortOpen;
-            }}
+            onclick={() => (sortOpen = !sortOpen)}
             aria-haspopup="menu"
             aria-expanded={sortOpen}
             aria-label="Sort order: {SORT_LABEL[filter.sort]}"

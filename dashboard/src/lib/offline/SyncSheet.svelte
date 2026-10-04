@@ -13,22 +13,8 @@
   import { INTENT_LABEL, intentSummary } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import { dismissable } from "#lib/ui/dismissable.js";
   import { swipeToClose } from "#lib/ui/swipeToClose.js";
-
-  let dialog = $state<HTMLElement | null>(null);
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && offline.sheetOpen) offline.closeSheet();
-  }
-
-  // Not modal: nothing dims or blocks the page behind it. A press anywhere else dismisses it, except
-  // on the logo that toggles it, which would otherwise close here and reopen on its own click.
-  function onPointerDown(event: PointerEvent) {
-    if (!offline.sheetOpen || !(event.target instanceof Node)) return;
-    if (dialog?.contains(event.target)) return;
-    if (event.target instanceof Element && event.target.closest("[data-sync-trigger]")) return;
-    offline.closeSheet();
-  }
 
   let confirmingClear = $state(false);
 
@@ -60,11 +46,11 @@
   );
 </script>
 
-<svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} />
-
 {#if offline.sheetOpen}
+  <!-- Not modal: nothing dims or blocks the page behind it. A press anywhere else dismisses it, except
+       on the logo that toggles it, which would otherwise close here and reopen on its own click. -->
   <div
-    bind:this={dialog}
+    use:dismissable={{ open: true, onclose: () => offline.closeSheet(), outside: "pass", ignore: "[data-sync-trigger]" }}
     use:swipeToClose={() => offline.closeSheet()}
     role="dialog"
     aria-label="Sync status"

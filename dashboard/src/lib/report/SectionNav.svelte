@@ -11,6 +11,7 @@
    */
   import { onMount } from "svelte";
   import List from "@lucide/svelte/icons/list";
+  import { dismissable } from "#lib/ui/dismissable.js";
   import type { NavTarget } from "#lib/report/types.js";
 
   interface Props {
@@ -114,7 +115,7 @@
     {#if domains.length > 0}
       <!-- The rail on `/[date]` shows the same list permanently from `xl` up, so the dropdown
            would be a second, redundant way to do the same thing there. -->
-      <div class="relative ml-auto shrink-0 xl:hidden">
+      <div class="relative ml-auto shrink-0 xl:hidden" use:dismissable={{ open: jumpOpen, onclose: () => (jumpOpen = false) }}>
         <button
           type="button"
           aria-expanded={jumpOpen}
@@ -128,13 +129,6 @@
         </button>
 
         {#if jumpOpen}
-          <!-- Closes on a tap anywhere else. A dropdown a thumb cannot dismiss is a trap. -->
-          <button
-            type="button"
-            aria-label="Close the jump list"
-            class="fixed inset-0 z-10 cursor-default"
-            onclick={() => (jumpOpen = false)}
-          ></button>
           <ul
             class="absolute right-0 z-20 mt-1 max-h-[60dvh] w-64 overflow-y-auto rounded-lg border border-surface-700 bg-surface-900 py-1 shadow-2xl"
           >

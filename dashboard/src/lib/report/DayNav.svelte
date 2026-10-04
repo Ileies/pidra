@@ -11,6 +11,7 @@
    */
   import { goto } from "$app/navigation";
   import { isTyping } from "#lib/ui/keys.js";
+  import { dismissable } from "#lib/ui/dismissable.js";
   import { archive, type ArchiveDay } from "#lib/offline/repo.js";
   import { fmtDate } from "#lib/format.js";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
@@ -41,7 +42,6 @@
 
     if (event.key === "ArrowLeft" && prevDate) goto(`/${prevDate}`);
     else if (event.key === "ArrowRight" && nextDate) goto(`/${nextDate}`);
-    else if (event.key === "Escape" && open) open = false;
   }
 </script>
 
@@ -63,7 +63,7 @@
     </span>
   {/if}
 
-  <div class="relative min-w-0 text-center">
+  <div class="relative min-w-0 text-center" use:dismissable={{ open, onclose: () => (open = false) }}>
     <button
       type="button"
       aria-expanded={open}
@@ -77,7 +77,6 @@
     </button>
 
     {#if open}
-      <button type="button" aria-label="Close the archive" class="fixed inset-0 z-30 cursor-default" onclick={() => (open = false)}></button>
       <div
         class="absolute left-1/2 z-40 mt-1 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-surface-700 bg-surface-900 shadow-2xl text-left"
       >

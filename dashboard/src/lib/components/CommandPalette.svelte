@@ -15,6 +15,8 @@
    * ranked keyword search finds.
    */
   import { goto } from "$app/navigation";
+  import Search from "@lucide/svelte/icons/search";
+  import { dismissable } from "#lib/ui/dismissable.js";
   import { ROUTES } from "#lib/routes.js";
   import type { SearchHit } from "#lib/server/search.js";
   import Spinner from "#lib/components/Spinner.svelte";
@@ -130,10 +132,6 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      onOpenChange(false);
-      return;
-    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       cursor = Math.min(cursor + 1, results.length - 1);
@@ -158,18 +156,17 @@
 
 {#if open}
   <div class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10dvh]">
-    <button type="button" aria-label="Close search" class="absolute inset-0 bg-(--app-scrim) cursor-default" onclick={() => onOpenChange(false)}></button>
+    <div class="absolute inset-0 bg-(--app-scrim)" aria-hidden="true"></div>
 
     <div
       role="dialog"
+      use:dismissable={{ open, onclose: () => onOpenChange(false) }}
       aria-modal="true"
       aria-label="Search"
       class="relative w-full max-w-xl rounded-lg border border-surface-600 bg-surface-900 shadow-2xl overflow-hidden"
     >
       <div class="flex items-center gap-2 border-b border-surface-700 px-3">
-        <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
-        </svg>
+        <Search class="h-4 w-4 shrink-0 text-surface-400" aria-hidden="true" />
         <input
           bind:this={input}
           value={query}

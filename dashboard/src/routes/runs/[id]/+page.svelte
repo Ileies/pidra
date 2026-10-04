@@ -1,6 +1,7 @@
 <script lang="ts">
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import StatCard from "#lib/components/StatCard.svelte";
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
@@ -172,12 +173,12 @@
   {/if}
 
   {#if !hasSteps}
-    <div class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-4 text-sm text-surface-300 max-w-prose">
+    <Card class="px-4 py-4 text-sm text-surface-300 max-w-prose">
       No per-step timing was recorded for this run. Step timing starts with the first run after it was
       added (2026-10-01), so older runs only have the totals above.
-    </div>
+    </Card>
   {:else}
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-4 flex flex-col gap-4" aria-labelledby="time-h">
+    <Card as="section" class="px-4 py-4 flex flex-col gap-4" aria-labelledby="time-h">
       <div class="flex flex-wrap items-center gap-3">
         <h2 id="time-h" class="text-sm font-semibold text-surface-100">Time</h2>
         {#if wait}
@@ -223,7 +224,7 @@
               aria-expanded={isOpen}
               title={rowTitle(node)}
               onclick={() => (openRow = isOpen ? null : node.id)}
-              class="w-full text-left flex flex-col gap-1 rounded px-1 py-1 hover:bg-surface-800 cursor-pointer min-w-0"
+              class="w-full text-left flex flex-col gap-1 rounded px-1 py-1 hover:bg-surface-800 min-w-0"
             >
               <span class="flex items-baseline gap-2 text-xs min-w-0" style="padding-left:{Math.min(node.depth - 1, 4) * 0.75}rem">
                 <span class="text-surface-200 truncate min-w-0">{stepLabel(node.step)}</span>
@@ -277,9 +278,9 @@
           or skipped; each attempt is its own row.
         </p>
       {/if}
-    </section>
+    </Card>
 
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-4 flex flex-col gap-4" aria-labelledby="cost-h">
+    <Card as="section" class="px-4 py-4 flex flex-col gap-4" aria-labelledby="cost-h">
       <h2 id="cost-h" class="text-sm font-semibold text-surface-100">Cost</h2>
 
       {#if weightSum <= 0}
@@ -378,6 +379,6 @@
           </table>
         </div>
       {/if}
-    </section>
+    </Card>
   {/if}
 </Page>

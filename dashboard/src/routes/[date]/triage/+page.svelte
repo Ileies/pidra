@@ -121,10 +121,7 @@
           type="button"
           aria-pressed={filter === chip.key}
           onclick={() => (filter = chip.key)}
-          class="tap px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-colors
-            {filter === chip.key
-              ? 'bg-primary-900 border-primary-600 text-primary-200'
-              : 'bg-surface-900 border-surface-700 text-surface-300 hover:bg-surface-800'}"
+          class="chip {filter === chip.key ? 'chip-on' : 'chip-off'}"
         >
           {chip.label}
           <span class="tabular-nums text-surface-400">{chip.count}</span>

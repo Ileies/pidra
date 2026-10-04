@@ -45,7 +45,7 @@
         type="button"
         onclick={onclose}
         aria-label="Close"
-        class="tap inline-flex items-center justify-center rounded bg-transparent px-2 text-surface-400 hover:text-surface-100 cursor-pointer border-none"
+        class="tap inline-flex items-center justify-center rounded bg-transparent px-2 text-surface-400 hover:text-surface-100 border-none"
       ><X class="h-4 w-4" aria-hidden="true" /></button>
     </div>
     <div class="min-h-0 overflow-y-auto px-4 py-4 sm:px-5 {footer ? '' : 'pb-[calc(1rem+var(--safe-b))]'}">

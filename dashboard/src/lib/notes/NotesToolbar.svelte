@@ -36,7 +36,7 @@
 
   let sortOpen = $state(false);
 
-  const chipBase = "tap shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs cursor-pointer transition-colors";
+  const chipBase = "chip shrink-0 inline-flex items-center gap-1.5";
   const chipIdle = "border-surface-700 bg-surface-950 text-surface-300 hover:bg-surface-800";
   const chipActive = "border-primary-800 bg-primary-950 text-primary-300";
 </script>
@@ -65,7 +65,7 @@
           type="button"
           onclick={() => onchange({ query: "" })}
           aria-label="Clear search"
-          class="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded border-none bg-transparent text-surface-400 hover:text-surface-100 cursor-pointer"
+          class="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded border-none bg-transparent text-surface-400 hover:text-surface-100"
         ><X class="h-4 w-4" aria-hidden="true" /></button>
       {/if}
     </div>
@@ -73,7 +73,7 @@
     <button
       type="button"
       onclick={onNew}
-      class="tap inline-flex shrink-0 items-center gap-1.5 rounded border border-primary-700 bg-primary-900 px-3 py-1.5 text-sm text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
+      class="btn btn-md btn-primary shrink-0"
     >
       <Plus class="h-4 w-4" aria-hidden="true" />
       <span class="max-sm:sr-only">New note</span>
@@ -114,7 +114,7 @@
             aria-haspopup="menu"
             aria-expanded={sortOpen}
             aria-label="Sort order: {SORT_LABEL[filter.sort]}"
-            class="tap inline-flex items-center gap-1.5 rounded border border-surface-700 bg-surface-900 px-3 py-1.5 text-xs text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors"
+            class="btn btn-sm btn-ghost"
           >
             <ArrowUpDown class="h-3.5 w-3.5" aria-hidden="true" />
             {SORT_LABEL[filter.sort]}
@@ -130,7 +130,7 @@
                     onchange({ sort: value as NotesFilter["sort"] });
                     sortOpen = false;
                   }}
-                  class="tap block w-full rounded border-none bg-transparent px-3 py-1.5 text-left text-xs cursor-pointer hover:bg-surface-800 {filter.sort === value
+                  class="tap block w-full rounded border-none bg-transparent px-3 py-1.5 text-left text-xs hover:bg-surface-800 {filter.sort === value
                     ? 'text-primary-300'
                     : 'text-surface-200'}"
                 >{text}</button>
@@ -143,9 +143,7 @@
           type="button"
           onclick={onToggleSelecting}
           aria-pressed={selecting}
-          class="tap inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs cursor-pointer transition-colors {selecting
-            ? 'border-primary-800 bg-primary-950 text-primary-300'
-            : 'border-surface-700 bg-surface-900 text-surface-300 hover:bg-surface-800'}"
+          class="btn btn-sm {selecting ? 'border-primary-800 bg-primary-950 text-primary-300' : 'btn-ghost'}"
         >
           <ListChecks class="h-3.5 w-3.5" aria-hidden="true" />
           Select
@@ -157,7 +155,7 @@
           type="button"
           onclick={() => onchange({ view: "active" })}
           aria-pressed={filter.view !== "deleted"}
-          class="tap px-3 py-1.5 text-xs cursor-pointer transition-colors {filter.view !== 'deleted'
+          class="tap px-3 py-1.5 text-xs transition-colors {filter.view !== 'deleted'
             ? 'bg-surface-800 text-surface-100'
             : 'bg-surface-900 text-surface-400 hover:bg-surface-800'}"
         >Notes</button>
@@ -165,7 +163,7 @@
           type="button"
           onclick={() => onchange({ view: "deleted" })}
           aria-pressed={filter.view === "deleted"}
-          class="tap px-3 py-1.5 text-xs cursor-pointer border-l border-surface-700 transition-colors {filter.view === 'deleted'
+          class="tap px-3 py-1.5 text-xs border-l border-surface-700 transition-colors {filter.view === 'deleted'
             ? 'bg-surface-800 text-surface-100'
             : 'bg-surface-900 text-surface-400 hover:bg-surface-800'}"
         >Trash{#if trashCount > 0}<span class="ml-1.5 tabular-nums opacity-70">{trashCount}</span>{/if}</button>

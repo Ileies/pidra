@@ -366,7 +366,7 @@
 						type="button"
 						disabled={offline.isOffline}
 						onclick={() => reportPlayer.start(data.date)}
-						class="tap inline-flex items-center gap-2 rounded-lg border border-primary-600 bg-primary-900 px-4 py-2 text-sm text-primary-200 cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+						class="btn btn-lg btn-primary"
 					>
 						<Play class="h-4 w-4 shrink-0" aria-hidden="true" fill="currentColor" />
 						Play this briefing
@@ -537,7 +537,7 @@
 						<button
 							type="submit"
 							disabled={offline.isOffline}
-							class="tap px-6 py-2.5 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							class="btn btn-lg btn-primary"
 						>
 							{data.pipelineRun?.status === 'failed'
 								? 'Retry'
@@ -634,7 +634,7 @@
 								<button
 									type="button"
 									onclick={() => jumpTo(target.id)}
-									class="w-full rounded px-2 py-1 text-left text-sm text-surface-300 hover:bg-surface-800 hover:text-primary-300 cursor-pointer bg-transparent border-none"
+									class="w-full rounded px-2 py-1 text-left text-sm text-surface-300 hover:bg-surface-800 hover:text-primary-300 bg-transparent border-none"
 								>
 									{target.label}
 								</button>

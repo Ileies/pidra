@@ -89,7 +89,7 @@
               type="button"
               onclick={() => revert(revision.id)}
               disabled={reverting !== null}
-              class="tap ml-auto rounded border border-surface-500 bg-surface-800 px-2.5 py-1 text-surface-100 hover:bg-surface-700 cursor-pointer disabled:opacity-40"
+              class="btn btn-solid ml-auto px-2.5 py-1"
             >Restore this version</button>
           {/if}
         </div>

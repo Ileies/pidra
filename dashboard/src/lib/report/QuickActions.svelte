@@ -166,7 +166,7 @@
               type="button"
               disabled={offline.isOffline}
               onclick={() => run(action)}
-              class="tap px-3 py-1.5 rounded text-xs bg-primary-900 border border-primary-600 text-primary-200 cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="btn btn-sm btn-primary"
             >
               {action.status === "failed" ? "Try again" : meta.verb}
             </button>
@@ -176,7 +176,7 @@
               onclick={() => dismiss(action)}
               aria-label="Dismiss this suggestion"
               title="Dismiss this suggestion"
-              class="tap px-2.5 py-1.5 rounded text-xs border border-surface-500 text-surface-300 cursor-pointer hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              class="btn btn-sm border-surface-500 text-surface-300 hover:bg-surface-800"
             >
               <span aria-hidden="true">×</span>
             </button>

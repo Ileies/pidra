@@ -106,7 +106,7 @@
             {#each hints as hint (hint)}
               <button
                 onclick={() => useHint(hint)}
-                class="tap text-left text-xs rounded-lg border border-surface-800 bg-surface-950 px-3 py-2 text-surface-300 hover:bg-surface-900 hover:text-surface-100 cursor-pointer transition-colors"
+                class="tap text-left text-xs rounded-lg border border-surface-800 bg-surface-950 px-3 py-2 text-surface-300 hover:bg-surface-900 hover:text-surface-100 transition-colors"
               >{hint.trimEnd()}…</button>
             {/each}
           </div>
@@ -155,7 +155,7 @@
                   onclick={() => copy(message.id, message.content)}
                   title="Copy reply"
                   aria-label="Copy reply"
-                  class="tap absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full border border-surface-700 bg-surface-950 text-surface-400 opacity-0 group-hover/msg:opacity-100 focus-visible:opacity-100 hover:text-surface-100 cursor-pointer transition-opacity"
+                  class="tap absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full border border-surface-700 bg-surface-950 text-surface-400 opacity-0 group-hover/msg:opacity-100 focus-visible:opacity-100 hover:text-surface-100 transition-opacity"
                 >
                   {#if copiedId === message.id}
                     <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
@@ -212,7 +212,7 @@
           onclick={() => assistant.cancel()}
           aria-label="Stop"
           title="Stop"
-          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 cursor-pointer transition-colors"
+          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 transition-colors"
         >
           <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
         </button>
@@ -222,7 +222,7 @@
           disabled={assistant.draft.trim() === ""}
           aria-label="Send"
           title="Send"
-          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-primary-600 text-primary-50 hover:bg-primary-500 cursor-pointer transition-colors disabled:bg-surface-800 disabled:text-surface-500 disabled:cursor-not-allowed"
+          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-primary-600 text-primary-50 hover:bg-primary-500 transition-colors disabled:bg-surface-800 disabled:text-surface-500 disabled:cursor-not-allowed"
         >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
         </button>

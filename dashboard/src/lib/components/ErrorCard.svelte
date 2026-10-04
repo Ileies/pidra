@@ -74,7 +74,7 @@
           : 'text-error-400'}">{attempt.error}</pre>
       {#if attempt.stack}
         <details class="mt-1">
-          <summary class="text-xs text-surface-400 cursor-pointer select-none hover:text-surface-200">Stack trace</summary>
+          <summary class="text-xs text-surface-400 select-none hover:text-surface-200">Stack trace</summary>
           <pre class="font-mono text-xs text-surface-400 bg-surface-950 rounded px-3 py-2 mt-1 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">{attempt.stack}</pre>
         </details>
       {/if}

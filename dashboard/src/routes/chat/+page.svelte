@@ -109,7 +109,7 @@
           type="button"
           aria-pressed={view === key}
           onclick={() => (view = key)}
-          class="tap nav-btn text-center cursor-pointer {view === key ? 'nav-btn-active' : 'nav-btn-muted'}"
+          class="tap nav-btn text-center {view === key ? 'nav-btn-active' : 'nav-btn-muted'}"
         >
           {viewLabel}{key === "corrections" && data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}
         </button>
@@ -121,7 +121,7 @@
       disabled={assistant.streaming}
       aria-label="New chat"
       title="New chat"
-      class="tap nav-btn shrink-0 cursor-pointer border-primary-700 text-primary-300 hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed"
+      class="tap nav-btn shrink-0 border-primary-700 text-primary-300 hover:bg-surface-800"
     >+ New</button>
   </div>
 

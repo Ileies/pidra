@@ -67,7 +67,7 @@
         disabled={assistant.streaming || assistant.messages.length === 0}
         aria-label="New chat"
         title="New chat"
-        class="ml-auto text-surface-400 hover:text-surface-200 text-sm cursor-pointer bg-transparent border-none px-1 disabled:opacity-40 disabled:cursor-not-allowed"
+        class="ml-auto text-surface-400 hover:text-surface-200 text-sm bg-transparent border-none px-1 disabled:opacity-40 disabled:cursor-not-allowed"
       >+</button>
       <a
         href={assistant.conversationId ? `/chat?c=${assistant.conversationId}` : "/chat"}
@@ -78,7 +78,7 @@
       <button
         onclick={() => assistant.close()}
         aria-label="Close assistant"
-        class="tap text-surface-400 hover:text-surface-200 text-sm cursor-pointer bg-transparent border-none px-1"
+        class="tap text-surface-400 hover:text-surface-200 text-sm bg-transparent border-none px-1"
       >✕</button>
     </header>
 
@@ -95,7 +95,7 @@
     title="Assistant (Ctrl+J)"
     class="group fixed z-50 hidden lg:flex h-14 w-14 p-0 border-none bg-transparent
            bottom-[calc(1.25rem+var(--safe-b))] right-5
-           cursor-pointer items-center justify-center
+           items-center justify-center
            drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] transition-transform duration-150
            hover:scale-110 hover:drop-shadow-[0_6px_16px_rgba(0,0,0,0.55)]
            active:scale-95 rounded-full"

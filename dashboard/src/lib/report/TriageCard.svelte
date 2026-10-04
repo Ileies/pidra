@@ -8,6 +8,7 @@
    * source's trust score, or the threshold.
    */
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import { fmtDateTimeShort, fmtScore } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
   import type { Outcome, TriageExtraction, TriageItem } from "#lib/server/triage.js";
@@ -116,7 +117,7 @@
   );
 </script>
 
-<article class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex flex-col gap-2">
+<Card as="article" class="px-4 py-3 flex flex-col gap-2">
   <div class="flex flex-wrap items-center gap-2 text-xs">
     <Badge tone={meta.tone} solid title={meta.hint}>{meta.label}</Badge>
     {#if item.sourceType === "web_news"}
@@ -234,4 +235,4 @@
       Open the original and the full extraction →
     </a>
   {/if}
-</article>
+</Card>

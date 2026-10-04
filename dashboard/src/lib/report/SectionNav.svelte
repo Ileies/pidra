@@ -76,7 +76,7 @@
           type="button"
           aria-current={active === section.id ? "true" : undefined}
           onclick={() => jump(section.id)}
-          class="flex-1 whitespace-nowrap rounded px-2 py-1 text-center text-xs border transition-colors cursor-pointer
+          class="flex-1 whitespace-nowrap rounded px-2 py-1 text-center text-xs border transition-colors
             {active === section.id
               ? 'bg-surface-800 border-surface-500 text-surface-50'
               : 'bg-transparent border-transparent text-surface-400 hover:bg-surface-800 hover:text-primary-300'}"
@@ -101,7 +101,7 @@
           type="button"
           aria-current={active === section.id ? "true" : undefined}
           onclick={() => jump(section.id)}
-          class="tap flex-1 whitespace-nowrap rounded px-0.5 py-1.5 text-center xs:px-1 text-xs border transition-colors cursor-pointer sm:flex-none sm:shrink-0 sm:px-3
+          class="tap flex-1 whitespace-nowrap rounded px-0.5 py-1.5 text-center xs:px-1 text-xs border transition-colors sm:flex-none sm:shrink-0 sm:px-3
             {active === section.id
               ? 'bg-surface-800 border-surface-500 text-surface-50'
               : 'bg-transparent border-transparent text-surface-400 hover:text-surface-200'}"
@@ -121,7 +121,7 @@
           aria-label="Jump to a story"
           title="Jump to a story"
           onclick={() => (jumpOpen = !jumpOpen)}
-          class="tap flex items-center justify-center rounded border border-surface-700 bg-surface-900 px-2.5 py-1.5 text-xs text-surface-300 hover:text-surface-100 cursor-pointer sm:px-3"
+          class="tap flex items-center justify-center rounded border border-surface-700 bg-surface-900 px-2.5 py-1.5 text-xs text-surface-300 hover:text-surface-100 sm:px-3"
         >
           <List class="h-4 w-4 sm:hidden" aria-hidden="true" />
           <span class="hidden sm:inline" aria-hidden="true">Jump to…</span>
@@ -143,7 +143,7 @@
                 <button
                   type="button"
                   onclick={() => jump(domain.id)}
-                  class="tap w-full px-3 py-2 text-left text-xs text-surface-200 hover:bg-surface-800 cursor-pointer bg-transparent border-none"
+                  class="tap w-full px-3 py-2 text-left text-xs text-surface-200 hover:bg-surface-800 bg-transparent border-none"
                 >
                   {domain.label}
                 </button>

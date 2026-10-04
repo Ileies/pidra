@@ -79,7 +79,7 @@
           type="submit"
           disabled={offline.isOffline}
           title={offline.isOffline ? "Needs the connection" : undefined}
-          class="tap px-3 py-1 rounded text-xs border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 {data.entity.importance === 'high'
+          class="btn btn-sm {data.entity.importance === 'high'
             ? 'bg-warning-900 border-warning-700 text-warning-200 hover:bg-warning-800'
             : 'bg-surface-800 border-surface-700 text-surface-300 hover:bg-surface-700'}"
         >{data.entity.importance === "high" ? "Watching" : "Watch"}</button>

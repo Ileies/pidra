@@ -6,6 +6,7 @@
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
@@ -100,7 +101,7 @@
     <input type="hidden" name="status" value={statusFilter} />
     <button
       type="submit"
-      class="tap px-4 py-1.5 rounded text-sm bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
+      class="btn btn-md btn-solid"
     >Search</button>
   </form>
 
@@ -127,7 +128,7 @@
   {:else}
     <ul class="flex flex-col gap-3">
       {#each shown as topic (topic.id)}
-        <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-4 flex flex-col gap-3">
+        <Card as="li" class="px-4 py-4 flex flex-col gap-3">
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div class="min-w-0 flex flex-col gap-1.5">
               <h2 class="text-sm font-semibold text-surface-50 break-words">{topic.headline}</h2>
@@ -163,7 +164,7 @@
                   disabled={offline.isOffline}
                   name="status"
                   value="active"
-                  class="tap px-3 py-1.5 rounded text-xs border border-success-600 text-success-400 hover:bg-success-950 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  class="btn btn-sm border-success-600 text-success-400 hover:bg-success-950"
                 >Reactivate</button>
               {/if}
               {#if topic.status === "active" || topic.status === "dormant"}
@@ -172,7 +173,7 @@
                   disabled={offline.isOffline}
                   name="status"
                   value="archived"
-                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  class="btn btn-sm btn-ghost"
                 >Remove</button>
               {/if}
               {#if topic.status !== "resolved"}
@@ -181,7 +182,7 @@
                   disabled={offline.isOffline}
                   name="status"
                   value="resolved"
-                  class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:border-primary-700 hover:text-primary-300 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  class="btn btn-sm btn-ghost"
                 >Resolve</button>
               {/if}
             </form>
@@ -216,7 +217,7 @@
               {/if}
             </div>
           {/if}
-        </li>
+        </Card>
       {/each}
     </ul>
     <ShowMore {pager} total={filtered.length} />

@@ -1,6 +1,7 @@
 <script lang="ts">
   /** One figure with its label and, where the figure needs it, the sentence behind it. */
   import type { Snippet } from "svelte";
+  import Card from "#lib/components/Card.svelte";
 
   interface Props {
     label: string;
@@ -23,11 +24,11 @@
   } as const;
 </script>
 
-<div class="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5">
+<Card class="px-3 py-2.5">
   <div class="text-xs text-surface-400">{label}</div>
   <div class="text-base font-semibold tabular-nums {TONES[tone]}">{value}</div>
   {#if hint}
     <div class="text-xs text-surface-400 leading-tight mt-0.5 opacity-80">{hint}</div>
   {/if}
   {@render children?.()}
-</div>
+</Card>

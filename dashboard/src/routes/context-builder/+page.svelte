@@ -309,21 +309,21 @@
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <button
-            class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800"
             disabled={offline.isOffline || starting || status?.running}
             onclick={() => start(null)}
           >
             {starting ? "Starting…" : "Start"}
           </button>
           <button
-            class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="tap nav-btn nav-btn-muted"
             disabled={offline.isOffline || starting || status?.running}
             onclick={() => start("full")}
           >
             Force full
           </button>
           <button
-            class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800"
             disabled={offline.isOffline || stopping || !status?.trackedByDashboard}
             onclick={stop}
           >
@@ -384,9 +384,9 @@
           <span class="text-surface-400 text-xs tabular-nums shrink-0" aria-live="polite">
             {matchCount > 0 ? `${matchIndex + 1} / ${matchCount}` : "No matches"}
           </span>
-          <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(-1)} aria-label="Previous match">↑</button>
-          <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(1)} aria-label="Next match">↓</button>
-          <button type="button" class="tap nav-btn nav-btn-muted cursor-pointer shrink-0" onclick={clearSearch} aria-label="Clear search">✕</button>
+          <button type="button" class="tap nav-btn nav-btn-muted shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(-1)} aria-label="Previous match">↑</button>
+          <button type="button" class="tap nav-btn nav-btn-muted shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(1)} aria-label="Next match">↓</button>
+          <button type="button" class="tap nav-btn nav-btn-muted shrink-0" onclick={clearSearch} aria-label="Clear search">✕</button>
         {/if}
       </div>
 
@@ -397,7 +397,7 @@
           id="tab-document"
           aria-selected={activeTab === "document"}
           aria-controls="panel-document"
-          class="tap cursor-pointer pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'document' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
+          class="tap pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'document' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
           onclick={() => (activeTab = "document")}
         >Document</button>
         <button
@@ -406,7 +406,7 @@
           id="tab-summaries"
           aria-selected={activeTab === "summaries"}
           aria-controls="panel-summaries"
-          class="tap cursor-pointer pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'summaries' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
+          class="tap pb-2 text-sm border-b-2 -mb-px transition-colors {activeTab === 'summaries' ? 'border-primary-500 text-surface-50 font-medium' : 'border-transparent text-surface-400 hover:text-surface-200'}"
           onclick={() => (activeTab = "summaries")}
         >Source summaries</button>
       </div>
@@ -445,7 +445,7 @@
               open={expandedSummaries.has(section.key)}
               ontoggle={(e) => setExpanded(section.key, e.currentTarget.open)}
             >
-              <summary class="tap cursor-pointer text-surface-200 text-sm flex items-baseline justify-between gap-3">
+              <summary class="tap text-surface-200 text-sm flex items-baseline justify-between gap-3">
                 <span>{section.title}</span>
                 <span class="text-surface-400 text-xs tabular-nums shrink-0">{fmtNum(section.chars)} chars</span>
               </summary>
@@ -488,7 +488,7 @@
             {#each docHeadings as heading (heading.id)}
               <button
                 type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer {activeSectionId === heading.id ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
+                class="tap text-left px-2 py-1 rounded text-xs transition-colors {activeSectionId === heading.id ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
                 onclick={() => jumpTo(heading.id, "document")}
               >{heading.title}</button>
             {/each}
@@ -500,7 +500,7 @@
             {#each summarySections as section (section.key)}
               <button
                 type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors cursor-pointer flex items-baseline justify-between gap-2 {activeSectionId === `summary-${section.key}` ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
+                class="tap text-left px-2 py-1 rounded text-xs transition-colors flex items-baseline justify-between gap-2 {activeSectionId === `summary-${section.key}` ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
                 onclick={() => jumpTo(`summary-${section.key}`, "summaries")}
               >
                 <span>{section.title}</span>
@@ -524,7 +524,7 @@
 {#if showBackToTop}
   <button
     type="button"
-    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg cursor-pointer fixed z-30 left-1/2 -translate-x-1/2 bottom-[calc(4.5rem+var(--safe-b))] lg:bottom-[calc(1.5rem+var(--safe-b))] transition-opacity"
+    class="tap nav-btn nav-btn-idle bg-surface-900 shadow-lg fixed z-30 left-1/2 -translate-x-1/2 bottom-[calc(4.5rem+var(--safe-b))] lg:bottom-[calc(1.5rem+var(--safe-b))] transition-opacity"
     onclick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
     aria-label="Back to top"
   >↑ Top</button>

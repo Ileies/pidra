@@ -7,6 +7,7 @@
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import Sheet from "#lib/components/Sheet.svelte";
@@ -141,7 +142,7 @@
       <button
         type="button"
         onclick={() => openSheet("new")}
-        class="tap inline-flex shrink-0 items-center justify-center gap-1.5 rounded border border-primary-700 bg-primary-900 px-3 py-1.5 text-sm text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
+        class="btn btn-md btn-primary shrink-0"
       ><Plus class="h-4 w-4" aria-hidden="true" />Add account</button>
     </div>
     <p class="text-xs text-surface-400 max-w-prose">
@@ -156,7 +157,7 @@
     <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-3">
       {#each data.accounts as account (account.id)}
         {@const rows = details(account)}
-        <li class="flex flex-col gap-3 rounded-lg border border-surface-700 bg-surface-900 p-4">
+        <Card as="li" class="flex flex-col gap-3 p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 flex-col gap-1">
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -173,7 +174,7 @@
               type="button"
               onclick={() => openSheet(account)}
               aria-label="Edit {account.label}"
-              class="tap inline-flex shrink-0 items-center justify-center gap-1.5 rounded border border-surface-600 px-3 py-1.5 text-xs text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors"
+              class="btn btn-sm btn-ghost shrink-0"
             ><Pencil class="h-3.5 w-3.5" aria-hidden="true" />Edit</button>
           </div>
 
@@ -192,7 +193,7 @@
               {/if}
             </div>
           {/if}
-        </li>
+        </Card>
       {/each}
     </ul>
   {/if}
@@ -242,13 +243,13 @@
         <button
           type="button"
           onclick={closeSheet}
-          class="tap flex-1 rounded border border-surface-500 bg-surface-800 px-4 py-1.5 text-sm text-surface-200 hover:bg-surface-700 cursor-pointer sm:flex-none"
+          class="btn btn-md btn-solid flex-1 sm:flex-none"
         >Cancel</button>
         <button
           type="submit"
           form="account-form"
           disabled={submitting}
-          class="tap flex-1 rounded border border-primary-700 bg-primary-900 px-4 py-1.5 text-sm text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed sm:flex-none"
+          class="btn btn-md btn-primary flex-1 sm:flex-none"
         >{submitting ? "Saving…" : editTarget ? "Save" : "Add account"}</button>
       </div>
     </div>

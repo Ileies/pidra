@@ -77,7 +77,7 @@
           aria-checked={active}
           onclick={() => (draft.scope = scope)}
           disabled={draft.saving}
-          class="tap badge border cursor-pointer transition-colors {active
+          class="tap badge border transition-colors {active
             ? (SCOPE_INFO[scope]?.classes ?? SCOPE_FALLBACK_CLASS)
             : 'text-surface-400 bg-transparent border-surface-700 hover:bg-surface-800'}"
         >{label(scope)}</button>
@@ -94,18 +94,18 @@
     <button
       type="button"
       onclick={() => expiresIn(7)}
-      class="tap rounded border border-surface-700 bg-surface-900 px-2.5 py-1 text-surface-300 hover:bg-surface-800 cursor-pointer"
+      class="btn btn-ghost px-2.5 py-1"
     >+1 week</button>
     <button
       type="button"
       onclick={() => expiresIn(30)}
-      class="tap rounded border border-surface-700 bg-surface-900 px-2.5 py-1 text-surface-300 hover:bg-surface-800 cursor-pointer"
+      class="btn btn-ghost px-2.5 py-1"
     >+1 month</button>
     {#if draft.expires}
       <button
         type="button"
         onclick={() => (draft.expires = "")}
-        class="tap rounded border border-surface-700 bg-surface-900 px-2.5 py-1 text-surface-300 hover:bg-surface-800 cursor-pointer"
+        class="btn btn-ghost px-2.5 py-1"
       >No expiry</button>
     {/if}
   </div>
@@ -115,13 +115,13 @@
       type="button"
       onclick={onSave}
       disabled={draft.saving || empty}
-      class="tap inline-flex items-center gap-2 rounded border border-primary-700 bg-primary-900 px-4 py-1.5 text-sm text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      class="btn btn-md btn-primary"
     >{#if draft.saving}<Spinner label="Saving" />{/if}{existing ? "Save" : "Add"}</button>
     <button
       type="button"
       onclick={onCancel}
       disabled={draft.saving}
-      class="tap rounded border border-surface-500 bg-surface-800 px-3 py-1.5 text-sm text-surface-200 hover:bg-surface-700 cursor-pointer disabled:opacity-40"
+      class="btn btn-md btn-solid"
     >Cancel</button>
     {#if dirty && !draft.saving}
       <span class="text-xs text-warning-400">Unsaved</span>
@@ -134,7 +134,7 @@
           <button
             type="button"
             onclick={onHistory}
-            class="tap rounded bg-transparent px-2 text-xs text-surface-400 hover:text-surface-100 cursor-pointer border-none"
+            class="tap rounded bg-transparent px-2 text-xs text-surface-400 hover:text-surface-100 border-none"
           >{existing.revisionCount} {existing.revisionCount === 1 ? "change" : "changes"}</button>
         {/if}
         {#if onDelete}
@@ -142,7 +142,7 @@
             type="button"
             onclick={onDelete}
             aria-label="Delete this note"
-            class="tap inline-flex items-center justify-center rounded bg-transparent px-2 text-surface-400 hover:text-error-400 cursor-pointer border-none transition-colors"
+            class="tap inline-flex items-center justify-center rounded bg-transparent px-2 text-surface-400 hover:text-error-400 border-none transition-colors"
           ><Trash class="h-4 w-4" aria-hidden="true" /></button>
         {/if}
       </span>

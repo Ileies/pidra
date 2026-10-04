@@ -25,7 +25,7 @@
     <select name="matchKind" aria-label="New sender rule type" class="input-base-flush"><option value="domain">Domain</option><option value="address">Address</option></select>
     <input name="pattern" required placeholder="example.com" aria-label="New sender pattern" class="input-base-flush min-w-0 font-mono" />
     <input name="sourceName" maxlength="120" placeholder="Newsletter name" aria-label="New sender source name" class="input-base-flush min-w-0" />
-    <button class="tap rounded border border-primary-700 bg-primary-900 px-3 py-2 text-xs text-primary-200 cursor-pointer">Add rule</button>
+    <button class="btn btn-sm btn-primary">Add rule</button>
   </form>
 
   {#if data.rules.length === 0}

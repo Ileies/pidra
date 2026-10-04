@@ -41,7 +41,7 @@
 <button
   type="button"
   onclick={() => (open = true)}
-  class="tap px-3 py-1.5 rounded text-xs border bg-transparent cursor-pointer transition-colors border-surface-500 text-surface-300 hover:border-error-500 hover:text-error-400"
+  class="btn btn-sm border-surface-500 text-surface-300 hover:border-error-500 hover:text-error-400"
 >
   Delete
 </button>
@@ -86,14 +86,14 @@
           <button
             type="submit"
             onclick={openUnsubscribeTab}
-            class="tap px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-error-800 border-error-600 text-error-100 hover:bg-error-700"
+            class="btn btn-sm bg-error-800 border-error-600 text-error-100 hover:bg-error-700"
           >
             Yes, also open unsubscribe link
           </button>
         {/if}
         <button
           type="submit"
-          class="tap px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors {unsubscribeUrl
+          class="btn btn-sm {unsubscribeUrl
             ? 'border-error-600 text-error-300 bg-transparent hover:bg-error-950'
             : 'bg-error-800 border-error-600 text-error-100 hover:bg-error-700'}"
         >
@@ -102,7 +102,7 @@
         <button
           type="button"
           onclick={close}
-          class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 bg-transparent hover:text-surface-100 cursor-pointer transition-colors"
+          class="btn btn-sm border-surface-500 text-surface-300 hover:text-surface-100"
         >
           No, cancel
         </button>

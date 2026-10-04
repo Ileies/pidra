@@ -18,6 +18,7 @@
    */
   import type { Snippet } from "svelte";
   import { ALIGN, SHOW_AT, type Column } from "#lib/components/table.js";
+  import Card from "#lib/components/Card.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
 
   interface Props {
@@ -105,9 +106,9 @@
   {#if mode === "cards"}
     <div class="flex flex-col gap-2 md:hidden">
       {#each rows as row (key(row))}
-        <article
-          class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex flex-col gap-2
-            {dim?.(row) ? 'opacity-60' : ''} {highlight?.(row) ? 'ring-1 ring-primary-600' : ''}"
+        <Card
+          as="article"
+          class="px-4 py-3 flex flex-col gap-2 {dim?.(row) ? 'opacity-60' : ''} {highlight?.(row) ? 'ring-1 ring-primary-600' : ''}"
         >
           {#if titleColumn}
             <div class="text-sm font-medium text-surface-100 break-words">
@@ -137,7 +138,7 @@
           {#each actionColumns as column (column.key)}
             <div class="pt-1">{@render column.cell(row)}</div>
           {/each}
-        </article>
+        </Card>
       {/each}
     </div>
   {/if}

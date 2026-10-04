@@ -11,6 +11,7 @@
    * So it sits above the report rather than beside it, and it says which account and how it failed,
    * because "could not connect" and "password rejected" send the reader to different places.
    */
+  import Card from "#lib/components/Card.svelte";
   import { failureLabel, isMailbox, isNewsDesk, type IngestFailure, type IngestFailureKind } from "#lib/pipeline.js";
 
   interface Props {
@@ -49,10 +50,7 @@
 </script>
 
 {#if failures.length > 0}
-  <div
-    role="alert"
-    class="rounded-lg border border-warning-800 bg-warning-950 px-3 py-2.5 text-xs text-warning-400 flex flex-col gap-1.5"
-  >
+  <Card tone="warning" role="alert" class="px-3 py-2.5 text-xs text-warning-400 flex flex-col gap-1.5">
     <p class="font-semibold">{headline}</p>
 
     <ul class="flex flex-col gap-0.5">
@@ -84,5 +82,5 @@
       {/if}
       <a href="/runs" class="underline">Every attempt</a>
     </p>
-  </div>
+  </Card>
 {/if}

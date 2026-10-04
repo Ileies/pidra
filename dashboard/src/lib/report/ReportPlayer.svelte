@@ -57,7 +57,7 @@
   });
 
   const button =
-    "tap inline-flex items-center justify-center gap-1 rounded-full text-surface-200 cursor-pointer bg-transparent border-none hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed";
+    "tap inline-flex items-center justify-center gap-1 rounded-full text-surface-200 bg-transparent border-none hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed";
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -80,7 +80,7 @@
                 void player.go(chapter.index);
                 listOpen = false;
               }}
-              class="tap flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm cursor-pointer border-none
+              class="tap flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm border-none
                 {chapter.index === player.current ? 'bg-surface-800 text-primary-300' : 'bg-transparent text-surface-200 hover:bg-surface-800'}"
             >
               <span class="min-w-0 truncate">{chapter.title}</span>
@@ -117,7 +117,7 @@
           <button
             type="button"
             style="flex: {Math.max(chapter.durationMs, 1000)} 1 0"
-            class="group relative h-6 min-w-1.5 cursor-pointer border-none bg-transparent p-0
+            class="group relative h-6 min-w-1.5 border-none bg-transparent p-0
               {index > 0 && chapter.section !== player.chapters[index - 1].section ? 'ml-2' : index > 0 ? 'ml-0.5' : ''}"
             aria-label="{chapter.section}: {chapter.title}, chapter {index + 1} of {player.chapters.length}"
             aria-current={index === player.current ? "true" : undefined}
@@ -140,7 +140,7 @@
     {#if player.error}
       <p role="alert" class="rounded-lg border border-error-700 bg-error-950 px-3 py-2 text-xs text-error-200">
         {player.error}
-        <button type="button" class="ml-2 cursor-pointer border-none bg-transparent p-0 text-error-100 underline" onclick={() => player.toggle()}>Try again</button>
+        <button type="button" class="ml-2 border-none bg-transparent p-0 text-error-100 underline" onclick={() => player.toggle()}>Try again</button>
       </p>
     {/if}
 
@@ -163,7 +163,7 @@
         </button>
         <button
           type="button"
-          class="tap inline-flex h-12 w-12 items-center justify-center rounded-full border-none bg-primary-500 text-surface-950 cursor-pointer hover:bg-primary-400 disabled:opacity-60"
+          class="tap inline-flex h-12 w-12 items-center justify-center rounded-full border-none bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:opacity-60"
           aria-label={player.buffering ? "Preparing the audio" : player.playing ? "Pause" : "Play"}
           disabled={player.chapters.length === 0}
           onclick={() => player.toggle()}

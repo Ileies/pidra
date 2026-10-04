@@ -121,7 +121,7 @@
           onclick={() => appUpdate.apply()}
           aria-label="Reload: a new version of PIDRA is ready"
           title="A new version of PIDRA is ready"
-          class="tap relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-primary-700 bg-primary-900 text-primary-200 hover:bg-primary-800 md:h-auto md:w-auto md:rounded md:px-3 md:py-1"
+          class="tap relative flex h-10 w-10 items-center justify-center rounded-lg border border-primary-700 bg-primary-900 text-primary-200 hover:bg-primary-800 md:h-auto md:w-auto md:rounded md:px-3 md:py-1"
         >
           <svg viewBox="0 0 24 24" class="h-5 w-5 md:hidden" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" />
@@ -174,7 +174,7 @@
             aria-haspopup="true"
             aria-label={overflowTotal > 0 ? `More pages: ${overflowTotal} waiting for you` : "More pages"}
             onclick={() => (moreOpen = !moreOpen)}
-            class="tap relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 hover:border-surface-500 hover:text-surface-100 transition-colors"
+            class="tap relative flex h-10 w-10 items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 hover:border-surface-500 hover:text-surface-100 transition-colors"
           >
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
               <path d="M5 5h.01M12 5h.01M19 5h.01M5 12h.01M12 12h.01M19 12h.01M5 19h.01M12 19h.01M19 19h.01" />

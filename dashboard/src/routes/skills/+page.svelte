@@ -9,6 +9,7 @@
   import { enhance } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import Switch from "#lib/components/Switch.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
@@ -88,13 +89,13 @@
                   type="submit"
                   name="decision"
                   value="confirm"
-                  class="tap flex-1 px-4 py-1.5 rounded text-xs bg-success-800 border border-success-600 text-success-100 hover:bg-success-700 cursor-pointer transition-colors"
+                  class="btn btn-md flex-1 border-success-600 bg-success-800 text-success-100 hover:bg-success-700"
                 >Confirm and run</button>
                 <button
                   type="submit"
                   name="decision"
                   value="reject"
-                  class="tap flex-1 px-4 py-1.5 rounded text-xs bg-surface-900 border border-error-700 text-error-400 hover:bg-surface-950 cursor-pointer transition-colors"
+                  class="btn btn-md btn-danger flex-1"
                 >Reject</button>
               </div>
             </form>
@@ -131,7 +132,7 @@
     {:else}
       <ul class="flex flex-col gap-2">
         {#each filteredSkills as skill (skill.name)}
-          <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex items-center gap-3 {skill.enabled ? '' : 'opacity-60'}">
+          <Card as="li" class="px-4 py-3 flex items-center gap-3 {skill.enabled ? '' : 'opacity-60'}">
             <div class="flex-1 min-w-0 flex flex-col gap-1.5">
               <span class="flex items-center gap-2 flex-wrap">
                 <span class="font-mono text-surface-100 text-sm break-all">{skill.name}</span>
@@ -161,7 +162,7 @@
                 <Switch checked={skill.enabled} />
               </label>
             </form>
-          </li>
+          </Card>
         {/each}
       </ul>
     {/if}

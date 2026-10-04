@@ -149,7 +149,7 @@
 
   {#if data.dailyScores.length > 0}
     <details class="bg-surface-900 border border-surface-700 rounded-lg px-4 py-3">
-      <summary class="tap text-xs text-surface-400 cursor-pointer select-none hover:text-surface-200">
+      <summary class="tap text-xs text-surface-400 select-none hover:text-surface-200">
         Daily values, last 30 days ({data.dailyScores.length})
       </summary>
       <div class="mt-3">

@@ -3,6 +3,7 @@
   import Page from "#lib/components/Page.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
   import type { PageData, ActionData } from "./$types";
@@ -61,25 +62,25 @@
   >
     <input name="sourceName" required maxlength="120" placeholder="Source name" aria-label="New feed source name" class="input-base-flush min-w-0 sm:w-1/3" />
     <input name="url" type="url" required placeholder="https://example.com/feed" aria-label="New feed URL" class="input-base-flush min-w-0 flex-1 font-mono" />
-    <button disabled={adding} class="tap rounded border border-primary-700 bg-primary-900 px-3 py-2 text-xs text-primary-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{adding ? "Adding…" : "Add feed"}</button>
+    <button disabled={adding} class="btn btn-sm btn-primary">{adding ? "Adding…" : "Add feed"}</button>
   </form>
   <!-- A grid, not a single stretched column (M14, 2026-10-01): these cards have a short header
        and a link, so one column at `app` width left most of the row empty. -->
   <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-3">
     {#each feeds as feed (feed.sourceName)}
-      <li class="rounded-lg border border-surface-700 bg-surface-900 p-4">
+      <Card as="li" class="p-4">
         <div class="flex items-center justify-between gap-2">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
             <strong class="text-sm text-surface-100">{feed.sourceName}</strong>
             {#if feed.lastError}<Badge tone="error">Fetch failed</Badge>{:else if feed.lastSuccessAt}<Badge tone="success">Fetched</Badge>{/if}
           </div>
-          <button type="button" onclick={() => (editingFeed = feed)} class="tap shrink-0 rounded border border-surface-600 px-3 py-1.5 text-xs text-surface-200 hover:bg-surface-800 cursor-pointer transition-colors">Edit</button>
+          <button type="button" onclick={() => (editingFeed = feed)} class="btn btn-sm btn-ghost shrink-0">Edit</button>
         </div>
         <a href={feed.url} target="_blank" rel="noopener noreferrer" class="mt-1 block break-all font-mono text-xs text-primary-300 hover:text-primary-200">{feed.url}</a>
         {#if feed.lastError}
           <p class="mt-2 text-xs text-error-400 break-words" role="alert">{feed.lastError}{feed.lastErrorAt ? ` · ${fmtDateTimeShort(feed.lastErrorAt)}` : ""}</p>
         {/if}
-      </li>
+      </Card>
     {/each}
   </ul>
 </Page>
@@ -91,7 +92,7 @@
     <div role="dialog" aria-modal="true" aria-labelledby="edit-feed-title" class="relative w-full max-w-xl max-h-[88dvh] rounded-lg border border-surface-600 bg-surface-900 shadow-2xl overflow-hidden flex flex-col">
       <div class="flex items-center justify-between gap-3 border-b border-surface-700 px-4 sm:px-5 py-3 shrink-0">
         <h2 id="edit-feed-title" class="text-sm font-semibold text-surface-100">Edit {editingFeed.sourceName}</h2>
-        <button type="button" onclick={closeFeedModal} aria-label="Close" class="tap text-surface-400 hover:text-surface-200 cursor-pointer bg-transparent border-none px-1">✕</button>
+        <button type="button" onclick={closeFeedModal} aria-label="Close" class="tap text-surface-400 hover:text-surface-200 bg-transparent border-none px-1">✕</button>
       </div>
 
       <form
@@ -121,8 +122,8 @@
       <div class="flex items-center justify-between gap-3 border-t border-surface-700 px-4 sm:px-5 py-3 shrink-0">
         <ConfirmButton label="Remove feed" action="?/deleteFeed" fields={{ sourceName: editingFeed.sourceName }} onSuccess={closeFeedModal} />
         <div class="flex gap-2">
-          <button type="button" onclick={closeFeedModal} class="tap px-3 py-1.5 rounded text-xs bg-surface-800 border border-surface-500 text-surface-200 hover:bg-surface-700 cursor-pointer">Cancel</button>
-          <button type="submit" form="feed-form" disabled={submitting} class="tap px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? "Saving…" : "Save feed"}</button>
+          <button type="button" onclick={closeFeedModal} class="btn btn-sm btn-solid">Cancel</button>
+          <button type="submit" form="feed-form" disabled={submitting} class="btn btn-sm btn-primary">{submitting ? "Saving…" : "Save feed"}</button>
         </div>
       </div>
     </div>

@@ -108,7 +108,7 @@
       aria-checked={selected}
       aria-label="Select this note"
       onclick={() => onToggleSelect(note.id, !selected)}
-      class="absolute -left-2 -top-2 z-10 h-5 w-5 items-center justify-center rounded-full border cursor-pointer p-0 {selecting || selected
+      class="absolute -left-2 -top-2 z-10 h-5 w-5 items-center justify-center rounded-full border p-0 {selecting || selected
         ? 'flex'
         : 'hidden lg:group-hover:flex'} {selected
         ? 'border-primary-500 bg-primary-600 text-surface-50'
@@ -135,7 +135,7 @@
         onclick={open}
         aria-pressed={selecting ? selected : undefined}
         title={selecting ? "Tap to select" : "Click to edit"}
-        class="block w-full cursor-pointer border-none bg-transparent px-4 pt-4 text-left text-sm whitespace-pre-wrap [overflow-wrap:anywhere] sm:px-5 {deleted
+        class="block w-full border-none bg-transparent px-4 pt-4 text-left text-sm whitespace-pre-wrap [overflow-wrap:anywhere] sm:px-5 {deleted
           ? 'text-surface-300'
           : 'text-surface-100'} {long && !expanded ? 'line-clamp-10' : ''}"
       >{note.content}</button>
@@ -145,7 +145,7 @@
       <button
         type="button"
         onclick={() => (expanded = !expanded)}
-        class="tap bg-transparent border-none px-4 pt-1 text-xs text-primary-300 hover:text-primary-200 cursor-pointer sm:px-5"
+        class="tap bg-transparent border-none px-4 pt-1 text-xs text-primary-300 hover:text-primary-200 sm:px-5"
       >{expanded ? "Show less" : "Show more"}</button>
     {/if}
 
@@ -171,13 +171,13 @@
           <button
             type="button"
             onclick={() => onRestore(note)}
-            class="tap rounded border border-surface-500 bg-surface-800 px-3 py-1 text-xs text-surface-100 hover:bg-surface-700 cursor-pointer"
+            class="btn btn-sm btn-solid"
           >Restore</button>
         {:else if note.revision_count > 0}
           <button
             type="button"
             onclick={() => onHistory(note)}
-            class="tap rounded bg-transparent px-1 text-xs text-surface-400 hover:text-surface-100 cursor-pointer border-none"
+            class="tap rounded bg-transparent px-1 text-xs text-surface-400 hover:text-surface-100 border-none"
           >{note.revision_count} {note.revision_count === 1 ? "change" : "changes"}</button>
         {/if}
       </span>

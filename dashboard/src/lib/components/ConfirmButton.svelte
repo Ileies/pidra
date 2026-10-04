@@ -82,7 +82,7 @@
     {#each Object.entries(fields) as [name, value] (name)}
       <input type="hidden" {name} {value} />
     {/each}
-    <button type="submit" class="tap rounded border bg-transparent cursor-pointer transition-colors {SIZE[size]} {TRIGGER[tone]}">
+    <button type="submit" class="tap rounded border bg-transparent transition-colors {SIZE[size]} {TRIGGER[tone]}">
       {label}
     </button>
   </form>
@@ -92,7 +92,7 @@
     onclick={() => (armed = true)}
     title={label}
     aria-label={label}
-    class="tap inline-flex items-center justify-center text-surface-500 hover:text-error-400 cursor-pointer transition-colors"
+    class="tap inline-flex items-center justify-center text-surface-500 hover:text-error-400 transition-colors"
   >
     <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>
   </button>
@@ -100,7 +100,7 @@
   <button
     type="button"
     onclick={() => (armed = true)}
-    class="tap rounded border bg-transparent cursor-pointer transition-colors {SIZE[size]} {TRIGGER[tone]}"
+    class="tap rounded border bg-transparent transition-colors {SIZE[size]} {TRIGGER[tone]}"
   >
     {label}
   </button>
@@ -131,14 +131,14 @@
     <div class="flex gap-2">
       <button
         type="submit"
-        class="tap flex-1 px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors {CONFIRM[tone]}"
+        class="tap flex-1 px-3 py-1.5 rounded text-xs border transition-colors {CONFIRM[tone]}"
       >
         {confirmLabel}
       </button>
       <button
         type="button"
         onclick={disarm}
-        class="tap flex-1 px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 bg-transparent hover:text-surface-100 cursor-pointer transition-colors"
+        class="tap flex-1 px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 bg-transparent hover:text-surface-100 transition-colors"
       >
         Cancel
       </button>

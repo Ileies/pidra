@@ -88,7 +88,7 @@
         type="button"
         onclick={() => offline.closeSheet()}
         aria-label="Close"
-        class="tap -mr-1.5 -mt-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-100"
+        class="tap -mr-1.5 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-100"
       >
         <X class="size-4" aria-hidden="true" />
       </button>
@@ -149,12 +149,12 @@
           <button
             type="button"
             onclick={() => (confirmingClear = false)}
-            class="tap cursor-pointer rounded-lg border border-surface-600 px-3 py-1.5 text-xs text-surface-200 transition-colors hover:border-surface-400 hover:text-surface-50"
+            class="btn btn-sm btn-ghost"
           >Cancel</button>
           <button
             type="button"
             onclick={clearMirror}
-            class="tap cursor-pointer rounded-lg border border-error-700 bg-error-900 px-3 py-1.5 text-xs font-medium text-error-100 transition-colors hover:bg-error-800"
+            class="tap rounded-lg border border-error-700 bg-error-900 px-3 py-1.5 text-xs font-medium text-error-100 transition-colors hover:bg-error-800"
           >Clear</button>
         </div>
       </div>
@@ -164,7 +164,7 @@
         type="button"
         onclick={() => offline.syncNow()}
         disabled={offline.syncing}
-        class="tap inline-flex cursor-pointer items-center gap-2 rounded-lg border border-primary-700 bg-primary-900 px-3.5 py-2 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-800 disabled:cursor-default disabled:opacity-60"
+        class="btn btn-sm btn-primary font-medium"
       >
         <RefreshCw class="size-3.5 {offline.syncing ? 'animate-spin' : ''}" aria-hidden="true" />
         {offline.syncing ? "Syncing…" : "Sync now"}
@@ -174,7 +174,7 @@
         onclick={() => (confirmingClear = true)}
         disabled={offline.pending.length > 0}
         title={offline.pending.length > 0 ? "Sync first - writes are still queued" : ""}
-        class="tap cursor-pointer rounded px-1 py-1 text-xs text-surface-400 transition-colors hover:text-error-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-surface-400"
+        class="tap rounded px-1 py-1 text-xs text-surface-400 transition-colors hover:text-error-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-surface-400"
       >Clear offline data</button>
     </div>
     {/if}

@@ -65,7 +65,7 @@
       <button
         type="submit"
         aria-pressed={rating === button.event}
-        class="h-11 w-11 sm:h-8 sm:w-8 rounded transition-colors border cursor-pointer inline-flex items-center justify-center
+        class="h-11 w-11 sm:h-8 sm:w-8 rounded transition-colors border inline-flex items-center justify-center
           {rating === button.event ? button.on : 'bg-surface-800 border-surface-500 text-surface-300 hover:border-surface-400'}"
       >
         <button.icon class="h-5 w-5 sm:h-4 sm:w-4" aria-hidden="true" />

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import StatCard from "#lib/components/StatCard.svelte";
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import Sparkline from "#lib/components/Sparkline.svelte";
@@ -89,7 +90,7 @@
 
   {#if durationSeries.length > 1}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex flex-col gap-2">
+      <Card class="px-4 py-3 flex flex-col gap-2">
         <span class="text-xs text-surface-400">Duration, minutes</span>
         <Sparkline
           points={durationSeries}
@@ -99,9 +100,9 @@
           label="Run duration in minutes"
           tone={() => "var(--color-primary-400)"}
         />
-      </div>
+      </Card>
       {#if PRICING_CONFIGURED}
-        <div class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex flex-col gap-2">
+        <Card class="px-4 py-3 flex flex-col gap-2">
           <span class="text-xs text-surface-400">Cost per run, USD</span>
           <Sparkline
             points={costSeries}
@@ -111,7 +112,7 @@
             label="Cost per run in USD"
             tone={() => "var(--color-success-500)"}
           />
-        </div>
+        </Card>
       {/if}
     </div>
   {/if}
@@ -128,7 +129,7 @@
              stored and never rendered: a green badge and no way to find out Calendar had been
              dead for a week. -->
         {@const degraded = !failed && run.stepErrors.length > 0}
-        <li class="rounded-lg border border-surface-700 bg-surface-900">
+        <Card as="li">
           <div class="flex items-center gap-3 px-4 py-3">
             <div class="min-w-0 flex-1 flex flex-col gap-1.5">
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -143,7 +144,7 @@
                     type="button"
                     aria-expanded={open}
                     onclick={() => (expanded[run.id] = !open)}
-                    class="py-1 -my-1 text-xs underline underline-offset-2 cursor-pointer {degraded ? 'text-warning-400' : 'text-error-400 font-mono'}"
+                    class="py-1 -my-1 text-xs underline underline-offset-2 {degraded ? 'text-warning-400' : 'text-error-400 font-mono'}"
                   >
                     {#if degraded}
                       {run.stepErrors.length} source{run.stepErrors.length === 1 ? "" : "s"} failed
@@ -172,7 +173,7 @@
                     <button
                       type="submit"
                       disabled={reviewing !== null}
-                      class="tap inline-flex items-center gap-1.5 rounded border border-surface-600 px-2 py-0.5 text-xs text-surface-300 hover:border-surface-400 hover:text-surface-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                      class="btn btn-ghost px-2 py-0.5 text-xs"
                     >
                       {#if reviewing === run.id}<Spinner label="Marking as reviewed" />{/if}
                       Mark reviewed
@@ -215,7 +216,7 @@
               />
             </div>
           {/if}
-        </li>
+        </Card>
       {/each}
     </ul>
   {/if}

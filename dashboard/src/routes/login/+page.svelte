@@ -7,6 +7,7 @@
   import type { PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON } from "@simplewebauthn/browser";
   import { netJson } from "#lib/offline/net.js";
   import Page from "#lib/components/Page.svelte";
+  import Card from "#lib/components/Card.svelte";
 
   type Step = "passkey" | "pin";
 
@@ -52,7 +53,7 @@
 </script>
 
 <Page title="Log in" size="form" class="flex flex-col items-center justify-center gap-6 min-h-[70dvh]">
-  <div class="w-full max-w-sm flex flex-col gap-5 rounded-lg border border-surface-700 bg-surface-900 px-6 py-8">
+  <Card class="w-full max-w-sm flex flex-col gap-5 px-6 py-8">
     <div class="flex flex-col gap-1 text-center">
       <h1 class="text-xl font-bold text-surface-50">PIDRA</h1>
       <p class="text-xs text-surface-400">
@@ -69,7 +70,7 @@
         type="button"
         onclick={signInWithPasskey}
         disabled={busy}
-        class="tap w-full px-4 py-2.5 rounded text-sm font-medium bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 disabled:opacity-50 cursor-pointer transition-colors"
+        class="btn btn-lg btn-primary w-full font-medium"
       >{busy ? "Waiting for passkey…" : "Sign in with passkey"}</button>
     {:else}
       <form onsubmit={submitPin} class="flex flex-col gap-3">
@@ -86,11 +87,11 @@
         <button
           type="submit"
           disabled={busy || pin.length < 6}
-          class="tap w-full px-4 py-2.5 rounded text-sm font-medium bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 disabled:opacity-50 cursor-pointer transition-colors"
+          class="btn btn-lg btn-primary w-full font-medium"
         >{busy ? "Checking…" : "Continue"}</button>
       </form>
     {/if}
-  </div>
+  </Card>
   <nav aria-label="Legal" class="flex items-center gap-4 text-xs text-surface-400">
     <a href="/privacy" class="underline hover:text-surface-200">Privacy policy</a>
     <a href="/terms" class="underline hover:text-surface-200">Terms of service</a>

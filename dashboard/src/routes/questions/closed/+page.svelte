@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance, type SubmitFunction } from "$app/forms";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import Page from "#lib/components/Page.svelte";
   import Spinner from "#lib/components/Spinner.svelte";
@@ -53,7 +54,7 @@
   {#if data.closed.length === 0}
     <EmptyState title="No closed questions yet." hint="Questions that are answered, dismissed, settled, or merged appear here." />
   {:else}
-    <ul class="flex flex-col divide-y divide-surface-800 rounded-lg border border-surface-700 bg-surface-900 px-4">
+    <Card as="ul" class="flex flex-col divide-y divide-surface-800 px-4">
       {#each data.closed as q (q.id)}
         <li class="py-4 flex flex-col gap-1.5">
           <div class="flex flex-wrap items-center gap-2">
@@ -84,7 +85,7 @@
                   <button
                     type="submit"
                     disabled={busy !== null}
-                    class="tap inline-flex items-center gap-2 rounded border border-surface-600 px-3 py-1 text-xs text-surface-300 hover:border-surface-400 hover:text-surface-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                    class="btn btn-sm btn-ghost"
                   >
                     {#if busy === q.id}<Spinner label="Running" />{/if}
                     Run again
@@ -102,7 +103,7 @@
               <button
                 type="submit"
                 disabled={busy !== null}
-                class="tap inline-flex items-center gap-2 rounded border border-surface-600 px-3 py-1 text-xs text-surface-300 hover:border-surface-400 hover:text-surface-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                class="btn btn-sm btn-ghost"
               >
                 {#if busy === q.id}<Spinner label="Reopening" />{/if}
                 Reopen
@@ -111,6 +112,6 @@
           {/if}
         </li>
       {/each}
-    </ul>
+    </Card>
   {/if}
 </Page>

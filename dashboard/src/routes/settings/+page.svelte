@@ -14,6 +14,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import Page from "#lib/components/Page.svelte";
+  import Card from "#lib/components/Card.svelte";
   import NotifyButton from "#lib/components/NotifyButton.svelte";
   import InstallApp from "#lib/components/InstallApp.svelte";
   import { netJson } from "#lib/offline/net.js";
@@ -76,17 +77,17 @@
        on a wide monitor just put empty space between each label and its description. -->
   <div class="flex flex-1 flex-col w-full">
   <div class="flex flex-1 flex-col gap-6 max-w-3xl mx-auto w-full">
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex items-center justify-between gap-4">
+    <Card as="section" class="px-4 sm:px-5 py-4 flex items-center justify-between gap-4">
       <div class="flex min-w-0 flex-col gap-1">
         <h2 id="notifications-heading" class="text-sm font-semibold text-surface-100">Notifications</h2>
         <p class="text-xs text-surface-400">Push a notification to this device when the morning briefing is ready.</p>
       </div>
       <NotifyButton variant="row" labelledby="notifications-heading" />
-    </section>
+    </Card>
 
     <InstallApp />
 
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-4">
+    <Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-4">
       <h2 class="text-sm font-semibold text-surface-100">Preferences</h2>
 
       <div class="flex flex-col gap-1">
@@ -134,9 +135,9 @@
         </select>
         <p class="text-xs text-surface-400">Translations coming soon.</p>
       </div>
-    </section>
+    </Card>
 
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+    <Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-3">
       <h2 class="text-sm font-semibold text-surface-100">Account</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <a
@@ -165,13 +166,13 @@
           onclick={logOut}
           disabled={loggingOut || offline.isOffline}
           title={offline.isOffline ? "Needs the connection" : undefined}
-          class="tap flex w-full flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 text-left text-sm text-surface-200 hover:bg-surface-800 cursor-pointer disabled:opacity-50"
+          class="tap flex w-full flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 text-left text-sm text-surface-200 hover:bg-surface-800 disabled:opacity-50"
         >
           <span>Log out</span>
           {#if offline.isOffline}<span class="text-xs text-surface-400">Needs the connection</span>{/if}
         </button>
       </div>
-    </section>
+    </Card>
 
     <nav aria-label="Legal" class="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2">
       <a href="/privacy" class="tap inline-flex items-center text-sm text-surface-400 underline underline-offset-2 hover:text-surface-200">Privacy policy</a>

@@ -4,6 +4,7 @@
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDate, fmtNum } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
@@ -63,7 +64,7 @@
     <ul class="flex flex-col gap-2">
       {#each data.contacts as contact (contact.id)}
         {@const open = editing === contact.id}
-        <li class="rounded-lg border border-surface-700 bg-surface-900 px-4 py-3 flex flex-col gap-3">
+        <Card as="li" class="px-4 py-3 flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-medium text-surface-100 break-all">{contact.name ?? contact.identifier}</span>
             <Badge tone={PRIORITY_TONE[contact.priority as keyof typeof PRIORITY_TONE] ?? "muted"}>
@@ -81,7 +82,7 @@
               disabled={offline.isOffline && !open}
               title={offline.isOffline && !open ? "Needs the connection" : undefined}
               onclick={() => (editing = open ? null : contact.id)}
-              class="tap ml-auto px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              class="btn btn-sm btn-ghost ml-auto"
             >{open ? "Cancel" : "Edit"}</button>
           </div>
 
@@ -151,11 +152,11 @@
               <button
                 type="submit"
                 disabled={submitting}
-                class="tap self-start px-4 py-1.5 rounded text-xs bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                class="btn btn-md btn-primary self-start"
               >{submitting ? "Saving…" : "Save as a correction"}</button>
             </form>
           {/if}
-        </li>
+        </Card>
       {/each}
     </ul>
   {/if}

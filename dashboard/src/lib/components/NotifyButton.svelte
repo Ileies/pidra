@@ -31,16 +31,16 @@
       aria-labelledby={labelledby}
       onclick={() => push.toggle()}
       disabled={push.state === "checking" || push.state === "busy"}
-      class="tap inline-flex shrink-0 items-center justify-center cursor-pointer disabled:opacity-50"
+      class="tap inline-flex shrink-0 items-center justify-center disabled:opacity-50"
     >
       <Switch checked={push.state === "subscribed"} />
     </button>
   {:else if push.state === "subscribed"}
-    <button onclick={() => push.toggle()} class="nav-btn border-success-700 text-success-400 hover:bg-surface-800 cursor-pointer">
+    <button onclick={() => push.toggle()} class="nav-btn border-success-700 text-success-400 hover:bg-surface-800">
       Notify ✓
     </button>
   {:else if push.state === "unsubscribed"}
-    <button onclick={() => push.toggle()} class="nav-btn nav-btn-muted cursor-pointer">Notify</button>
+    <button onclick={() => push.toggle()} class="nav-btn nav-btn-muted">Notify</button>
   {:else}
     <span class="nav-btn nav-btn-muted opacity-50 select-none">Notify</span>
   {/if}

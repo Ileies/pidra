@@ -8,6 +8,7 @@
   import { netJson } from "#lib/offline/net.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
+  import Card from "#lib/components/Card.svelte";
   import { toastFormResult, toasts } from "#lib/toast.svelte.js";
   import { fmtDateTime } from "#lib/format.js";
   import type { PageData, ActionData } from "./$types";
@@ -81,7 +82,7 @@
       {/if}
     </p>
 
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+    <Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-3">
       <h2 class="text-sm font-semibold text-surface-100">Passkeys</h2>
       {#if data.credentials.length === 0}
         <p class="text-xs text-surface-400">None registered yet.</p>
@@ -100,7 +101,7 @@
                   class="ml-auto"
                 >
                   <input type="hidden" name="id" value={cred.id} />
-                  <button type="submit" class="tap px-2 text-surface-400 hover:text-error-400 cursor-pointer bg-transparent border-none text-xs">Remove</button>
+                  <button type="submit" class="tap px-2 text-surface-400 hover:text-error-400 bg-transparent border-none text-xs">Remove</button>
                 </form>
               {/if}
             </li>
@@ -118,13 +119,13 @@
           type="button"
           onclick={registerPasskey}
           disabled={registering}
-          class="tap self-start px-4 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 disabled:opacity-50 cursor-pointer"
+          class="btn btn-md btn-primary self-start"
         >{registering ? "Waiting for passkey…" : "Register a passkey"}</button>
         {#if regError}<p class="text-xs text-error-400" role="alert">{regError}</p>{/if}
       </div>
-    </section>
+    </Card>
 
-    <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+    <Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-3">
       <h2 class="text-sm font-semibold text-surface-100">PIN</h2>
       <p class="text-xs text-surface-400">6-10 digits. Checked only after a passkey already succeeded.</p>
       <form onsubmit={submitPin} class="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -139,14 +140,14 @@
         <button
           type="submit"
           disabled={pinBusy || pin.length < 6}
-          class="tap px-4 py-1.5 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800 disabled:opacity-50 cursor-pointer"
+          class="btn btn-md btn-primary"
         >{pinBusy ? "Saving…" : data.pinSet ? "Change PIN" : "Set PIN"}</button>
       </form>
       {#if pinError}<p class="text-xs text-error-400" role="alert">{pinError}</p>{/if}
-    </section>
+    </Card>
 
     {#if !data.bootstrapping}
-      <section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-3">
+      <Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-3">
         <h2 class="text-sm font-semibold text-surface-100">Active sessions</h2>
         {#if data.sessions.length === 0}
           <p class="text-xs text-surface-400">None.</p>
@@ -159,17 +160,17 @@
                 <Badge tone="muted">expires {fmtDateTime(sess.expiresAt)}</Badge>
                 <form method="POST" action="?/revokeSession" use:enhance class="ml-auto">
                   <input type="hidden" name="id" value={sess.id} />
-                  <button type="submit" class="tap px-2 text-surface-400 hover:text-error-400 cursor-pointer bg-transparent border-none text-xs">Sign out</button>
+                  <button type="submit" class="tap px-2 text-surface-400 hover:text-error-400 bg-transparent border-none text-xs">Sign out</button>
                 </form>
               </li>
             {/each}
           </ul>
         {/if}
-      </section>
+      </Card>
     {/if}
 
     {#if data.bootstrapping && data.credentials.length > 0 && data.pinSet}
-      <a href="/login" class="tap self-start px-4 py-2 rounded text-sm bg-primary-900 border border-primary-700 text-primary-200 hover:bg-primary-800">
+      <a href="/login" class="btn btn-lg btn-primary self-start">
         Done - go to login
       </a>
     {/if}

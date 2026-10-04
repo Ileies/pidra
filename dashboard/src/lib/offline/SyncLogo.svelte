@@ -69,7 +69,7 @@
   data-sync-trigger
   aria-expanded={offline.sheetOpen}
   title={label}
-  class="tap relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg"
+  class="tap relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
 >
   <span
     class="logo flex h-8 w-8 {offline.reachable === 'checking' && !offline.syncing ? 'animate-pulse' : ''}"

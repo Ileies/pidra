@@ -130,7 +130,7 @@
 
             {#if q.history.length > 0}
               <details class="text-xs">
-                <summary class="tap text-surface-400 cursor-pointer select-none hover:text-surface-200">
+                <summary class="tap text-surface-400 select-none hover:text-surface-200">
                   Rephrased {q.history.length === 1 ? "once" : `${q.history.length} times`}
                 </summary>
                 <ol class="mt-2 flex flex-col gap-2 border-l border-surface-700 pl-3">
@@ -150,7 +150,7 @@
               <button
                 type="submit"
                 disabled={busy !== null}
-                class="tap inline-flex items-center gap-2 px-4 py-1.5 rounded bg-primary-700 hover:bg-primary-600 border border-primary-600 text-primary-50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                class="btn btn-md border-primary-600 bg-primary-700 text-primary-50 font-medium hover:bg-primary-600"
               >
                 {#if busy === `${q.id}:answer`}<Spinner label="Sending" />{/if}
                 Send
@@ -159,7 +159,7 @@
                 type="submit"
                 formaction="?/dismiss"
                 disabled={busy !== null}
-                class="tap inline-flex items-center gap-2 px-4 py-1.5 rounded border border-surface-500 text-surface-300 text-sm hover:text-surface-100 hover:border-surface-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                class="btn btn-md btn-ghost"
               >
                 {#if busy === `${q.id}:dismiss`}<Spinner label="Dismissing" />{/if}
                 Dismiss

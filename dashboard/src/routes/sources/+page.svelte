@@ -83,7 +83,7 @@
     {/if}
     <a
       href="/sources/{encodeURIComponent(source.sourceName)}"
-      class="tap inline-flex items-center px-3 py-1.5 rounded text-xs border no-underline cursor-pointer transition-colors border-surface-500 text-surface-300 hover:border-primary-500 hover:text-primary-400"
+      class="btn btn-sm btn-ghost"
     >
       Details
     </a>

@@ -201,7 +201,7 @@
                 onclick={() => choose(index)}
                 onmouseenter={() => (cursor = index)}
                 aria-current={cursor === index ? "true" : undefined}
-                class="tap w-full px-4 py-2 text-left flex flex-col gap-0.5 cursor-pointer border-none transition-colors
+                class="tap w-full px-4 py-2 text-left flex flex-col gap-0.5 border-none transition-colors
                   {cursor === index ? 'bg-surface-800' : 'bg-transparent'}"
               >
                 <span class="flex items-baseline gap-2">

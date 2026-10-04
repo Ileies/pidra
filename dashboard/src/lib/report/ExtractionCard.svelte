@@ -166,7 +166,7 @@
         <div class="flex items-center gap-3">
           <button
             type="button"
-            class="tap inline-flex items-center gap-2 px-3 py-1.5 bg-surface-800 border border-surface-600 text-surface-200 rounded-md text-xs cursor-pointer hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="btn btn-sm btn-solid"
             disabled={fetching || offline.isOffline}
             onclick={fetchBody}
           >
@@ -184,7 +184,7 @@
       {:else}
         <button
           type="button"
-          class="tap self-start text-xs text-surface-400 cursor-pointer hover:text-surface-200"
+          class="tap self-start text-xs text-surface-400 hover:text-surface-200"
           onclick={() => (body = null)}
         >
           Hide contents

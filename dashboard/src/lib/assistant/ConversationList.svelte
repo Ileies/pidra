@@ -71,7 +71,7 @@
 <div class="flex flex-col gap-2 min-h-0 h-full">
   <button
     type="button"
-    class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer text-left shrink-0"
+    class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 text-left shrink-0"
     onclick={() => onNewConversation?.()}
   >
     + New chat
@@ -121,10 +121,10 @@
               class="input-base w-full text-xs py-1"
               aria-label="Conversation title"
             />
-            <button type="submit" class="tap text-primary-400 hover:text-primary-300 cursor-pointer shrink-0" title="Save" aria-label="Save title">
+            <button type="submit" class="tap text-primary-400 hover:text-primary-300 shrink-0" title="Save" aria-label="Save title">
               <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
             </button>
-            <button type="button" onclick={cancelRename} class="tap text-surface-400 hover:text-surface-200 cursor-pointer shrink-0" title="Cancel" aria-label="Cancel">
+            <button type="button" onclick={cancelRename} class="tap text-surface-400 hover:text-surface-200 shrink-0" title="Cancel" aria-label="Cancel">
               <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
           </form>
@@ -151,7 +151,7 @@
               onclick={() => startRename(conversation)}
               title="Rename"
               aria-label="Rename conversation"
-              class="tap text-surface-500 hover:text-surface-200 cursor-pointer"
+              class="tap text-surface-500 hover:text-surface-200"
             >
               <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
             </button>

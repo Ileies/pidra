@@ -29,7 +29,7 @@
             type="button"
             aria-expanded={open}
             onclick={() => (expandedExecs[exec.id] = !open)}
-            class="tap w-full text-left px-4 py-2.5 flex flex-wrap items-center gap-2 cursor-pointer bg-transparent border-none"
+            class="tap w-full text-left px-4 py-2.5 flex flex-wrap items-center gap-2 bg-transparent border-none"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 shrink-0 text-surface-400 transition-transform {open ? 'rotate-90' : ''}" aria-hidden="true"><path d="M7 5l6 5-6 5V5z" /></svg>
             <span class="font-mono text-surface-100 text-sm break-all">{exec.skill_name}</span>

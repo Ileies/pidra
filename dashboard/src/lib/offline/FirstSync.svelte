@@ -27,7 +27,7 @@
       <button
         type="button"
         onclick={() => offline.syncNow()}
-        class="tap mt-2 rounded border border-surface-600 bg-surface-900 px-4 py-2 text-sm text-surface-200 hover:bg-surface-800 cursor-pointer"
+        class="btn btn-md btn-ghost mt-2"
       >
         Try again
       </button>

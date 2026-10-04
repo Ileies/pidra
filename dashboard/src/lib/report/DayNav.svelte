@@ -68,7 +68,7 @@
       type="button"
       aria-expanded={open}
       onclick={openPicker}
-      class="tap rounded-lg px-3 py-1 hover:bg-surface-900 cursor-pointer bg-transparent border-none"
+      class="tap rounded-lg px-3 py-1 hover:bg-surface-900 bg-transparent border-none"
     >
       <span class="block text-base font-semibold text-surface-50 tabular-nums">{fmtDate(date)}</span>
       <span class="block text-xs {date === today ? 'text-primary-400' : 'text-surface-400'}">

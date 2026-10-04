@@ -299,6 +299,13 @@
     text-decoration: underline;
   }
 
+  /* Preflight leaves buttons on the default cursor; one rule here replaces a `cursor-pointer` on every one. */
+  button:not(:disabled),
+  summary,
+  [role="tab"] {
+    cursor: pointer;
+  }
+
   /* On white-on-grey a 1px hairline is all that separates a card from the page, which reads flat.
      Light mode gets a soft two-layer lift; dark mode resolves both colours to transparent. */
   :root {
@@ -348,7 +355,7 @@
 /* Shared toolbar button styling. The navbar and every page-level toolbar build on
    the same base, so a button looks and behaves identically wherever it sits. */
 @utility nav-btn {
-  @apply px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline;
+  @apply px-3 py-1 rounded text-xs bg-surface-950 border transition-colors no-underline disabled:opacity-40 disabled:cursor-not-allowed;
 }
 @utility nav-btn-idle {
   @apply border-surface-700 text-surface-200 hover:bg-surface-800;
@@ -358,6 +365,44 @@
 }
 @utility nav-btn-muted {
   @apply border-surface-700 text-surface-400 hover:bg-surface-800;
+}
+
+/* Form and action buttons: behaviour (`btn`), one size, one tone. Sizes and tones never set the
+   same property, so any one of each composes without depending on stylesheet order. */
+@utility btn {
+  @apply tap inline-flex items-center justify-center gap-2 rounded border no-underline transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+@utility btn-md {
+  @apply px-4 py-1.5 text-sm;
+}
+@utility btn-lg {
+  @apply px-5 py-2 text-sm;
+}
+@utility btn-primary {
+  @apply border-primary-700 bg-primary-900 text-primary-200 hover:bg-primary-800;
+}
+@utility btn-solid {
+  @apply border-surface-500 bg-surface-800 text-surface-100 hover:bg-surface-700;
+}
+@utility btn-ghost {
+  @apply border-surface-600 text-surface-300 hover:border-surface-400 hover:text-surface-100;
+}
+@utility btn-danger {
+  @apply border-error-700 bg-surface-900 text-error-400 hover:bg-surface-950;
+}
+
+/* A rounded filter toggle; `chip-on` marks the selected one. */
+@utility chip {
+  @apply tap rounded-full border px-3 py-1.5 text-xs transition-colors;
+}
+@utility chip-on {
+  @apply border-primary-600 bg-primary-900 text-primary-200;
+}
+@utility chip-off {
+  @apply border-surface-700 bg-surface-900 text-surface-300 hover:bg-surface-800;
 }
 
 /* Context Builder (C-something): a jumped-to anchor sitting flush under the fixed header is half

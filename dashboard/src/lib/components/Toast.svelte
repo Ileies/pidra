@@ -35,13 +35,13 @@
           {#if toast.undo}
             <button
               onclick={() => toasts.runUndo(toast.id)}
-              class="tap shrink-0 px-2.5 py-1 rounded text-xs bg-surface-950 border border-primary-700 text-primary-300 hover:bg-surface-900 cursor-pointer"
+              class="tap shrink-0 px-2.5 py-1 rounded text-xs bg-surface-950 border border-primary-700 text-primary-300 hover:bg-surface-900"
             >Undo</button>
           {/if}
           <button
             onclick={() => toasts.dismiss(toast.id)}
             aria-label="Dismiss notification"
-            class="tap shrink-0 text-surface-400 hover:text-surface-100 cursor-pointer bg-transparent border-none px-1 text-base leading-none"
+            class="tap shrink-0 text-surface-400 hover:text-surface-100 bg-transparent border-none px-1 text-base leading-none"
           >&times;</button>
         </div>
         {#if toast.durationMs !== null}

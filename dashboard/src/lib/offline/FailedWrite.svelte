@@ -22,12 +22,12 @@
     <button
       type="button"
       onclick={() => offline.retryFailed(intent.id)}
-      class="tap px-2 py-0.5 rounded bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
+      class="btn btn-solid px-2 py-0.5"
     >Retry</button>
     <button
       type="button"
       onclick={() => offline.discardFailed(intent.id)}
-      class="tap px-2 py-0.5 rounded bg-surface-800 border border-surface-500 text-surface-100 hover:bg-surface-700 cursor-pointer"
+      class="btn btn-solid px-2 py-0.5"
     >Discard</button>
   </div>
 </div>

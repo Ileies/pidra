@@ -31,7 +31,7 @@
 
 <Page title="Corrections" size="app" class="flex flex-col gap-6">
   <div class="flex items-center gap-3 flex-wrap">
-    <a href="/context-builder" class="tap nav-btn nav-btn-muted cursor-pointer">← Context</a>
+    <a href="/context-builder" class="tap nav-btn nav-btn-muted">← Context</a>
     <p class="text-surface-400 text-sm">
       Injected into every briefing alongside the harvest, and authoritative wherever the two
       disagree. The harvest itself is never rewritten.
@@ -86,7 +86,7 @@
                   type="submit"
                   disabled={offline.isOffline}
                   title={offline.isOffline ? "Needs the connection" : undefined}
-                  class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="tap nav-btn nav-btn-muted"
                 >Revert</button>
               </form>
             </div>

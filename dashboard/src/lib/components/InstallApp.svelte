@@ -6,6 +6,7 @@
    * The wording avoids "PWA" on purpose.
    */
   import { onMount } from "svelte";
+  import Card from "#lib/components/Card.svelte";
   import { pwa } from "#lib/pwa.svelte.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { toasts } from "#lib/toast.svelte.js";
@@ -44,11 +45,10 @@
           : "Open it in its own window, like any other app on this device.",
   );
 
-  const button =
-    "tap inline-flex w-full sm:w-auto shrink-0 items-center justify-center gap-2 rounded-lg border border-primary-600 bg-primary-900 px-5 py-2 text-sm font-medium text-primary-100 no-underline transition-colors hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-default";
+  const button = "btn btn-lg btn-primary w-full sm:w-auto shrink-0 font-medium";
 </script>
 
-<section class="rounded-lg border border-surface-700 bg-surface-900 px-4 sm:px-5 py-4 flex flex-col gap-4">
+<Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-4">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div class="flex min-w-0 items-center gap-4">
       <div class="relative shrink-0">
@@ -95,7 +95,7 @@
   </div>
 
   {#if unavailable}
-    <div class="rounded-lg border border-surface-800 bg-surface-950 px-4 py-3 text-xs text-surface-300">
+    <Card tone="inset" class="px-4 py-3 text-xs text-surface-300">
       <p class="mb-2 text-surface-400">
         {#if pwa.dismissed}
           You closed the install dialog. Reload this page to get it back, or do this instead:
@@ -116,6 +116,6 @@
           <li>Choose "Install app" or "Add to Home screen".</li>
         </ol>
       {/if}
-    </div>
+    </Card>
   {/if}
-</section>
+</Card>

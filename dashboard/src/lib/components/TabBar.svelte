@@ -125,7 +125,7 @@
     onclick={() => onOpenChange(!open)}
     aria-expanded={open}
     aria-label={sheetTotal > 0 ? `More, ${sheetTotal} waiting for you` : undefined}
-    class="relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs cursor-pointer bg-transparent border-none
+    class="relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs bg-transparent border-none
       {open ? 'text-primary-300' : 'text-surface-400'}"
   >
     <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">

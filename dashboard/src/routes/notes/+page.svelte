@@ -348,7 +348,7 @@
         <button
           type="button"
           onclick={startNew}
-          class="tap mt-2 rounded border border-primary-700 bg-primary-900 px-4 py-1.5 text-sm text-primary-200 hover:bg-primary-800 cursor-pointer transition-colors"
+          class="btn btn-md btn-primary mt-2"
         >Write the first note</button>
       </EmptyState>
     {:else}
@@ -397,7 +397,7 @@
     <button
       type="button"
       onclick={toggleSelectAll}
-      class="tap rounded border border-surface-500 bg-surface-900 px-3 py-1 text-xs text-surface-200 hover:bg-surface-950 cursor-pointer"
+      class="btn btn-sm border-surface-500 bg-surface-900 text-surface-200 hover:bg-surface-950"
     >{allSelected ? "Select none" : "Select all"}</button>
 
     {#if filter.view === "deleted"}
@@ -405,7 +405,7 @@
         type="button"
         onclick={bulkRestore}
         disabled={busy}
-        class="tap rounded border border-surface-500 bg-surface-900 px-3 py-1 text-xs text-surface-100 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
+        class="btn btn-sm border-surface-500 bg-surface-900 text-surface-100 hover:bg-surface-950"
       >Restore</button>
     {:else}
       <select
@@ -428,14 +428,14 @@
         type="button"
         onclick={bulkDelete}
         disabled={busy}
-        class="tap rounded border border-error-700 bg-surface-900 px-3 py-1 text-xs text-error-400 hover:bg-surface-950 cursor-pointer disabled:opacity-40"
+        class="btn btn-sm btn-danger"
       >Delete</button>
     {/if}
 
     <button
       type="button"
       onclick={endSelection}
-      class="tap ml-auto rounded border border-surface-500 bg-surface-900 px-3 py-1 text-xs text-surface-200 hover:bg-surface-950 cursor-pointer"
+      class="btn btn-sm ml-auto border-surface-500 bg-surface-900 text-surface-200 hover:bg-surface-950"
     >Done</button>
   </div>
 {/if}

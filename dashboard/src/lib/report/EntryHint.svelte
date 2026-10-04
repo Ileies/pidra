@@ -16,7 +16,7 @@
       type="button"
       onclick={markEntryHintSeen}
       aria-label="Dismiss this hint"
-      class="rounded px-1.5 text-surface-400 cursor-pointer hover:text-surface-200 transition-colors"
+      class="rounded px-1.5 text-surface-400 hover:text-surface-200 transition-colors"
     >
       <span aria-hidden="true">×</span>
     </button>

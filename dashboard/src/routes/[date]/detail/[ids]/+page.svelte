@@ -121,7 +121,7 @@
     >
       <button
         type="submit"
-        class="tap inline-flex items-center gap-2 px-5 py-2 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="btn btn-lg btn-primary"
         disabled={loading || offline.isOffline}
       >
         {#if loading}<Spinner label="Analysing" />{/if}

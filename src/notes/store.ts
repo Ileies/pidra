@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql as drizzleSql } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
-import { addDays, localDay } from "../util/time";
+import { addDays, utcDay } from "../util/time";
 
 /**
  * The only writer of `notes` and `note_revisions`.
@@ -51,7 +51,7 @@ export interface ListOptions {
   limit?: number;
   /** Who created the note: user | chat | system | harvest. */
   createdBy?: string;
-  /** Created on or after this day (`YYYY-MM-DD`, Europe/Berlin). */
+  /** Created on or after this day (`YYYY-MM-DD`, UTC). */
   createdSince?: string;
   /** Has an expiry on or before this day (`YYYY-MM-DD`). Notes without an expiry never match. */
   expiresBefore?: string;
@@ -85,11 +85,11 @@ function normaliseExpiry(value: string | null): string | null {
   return trimmed;
 }
 
-/** `days` from today (Europe/Berlin) as `YYYY-MM-DD`, for a caller that thinks in "a week" rather than dates. */
+/** `days` from today (UTC) as `YYYY-MM-DD`, for a caller that thinks in "a week" rather than dates. */
 export function expiryInDays(days: unknown): string {
   const n = Number(days);
   if (!Number.isInteger(n) || n < 1 || n > 3650) throw new NoteError("expires_in_days must be a whole number from 1 to 3650");
-  return addDays(localDay(new Date().toISOString()), n);
+  return addDays(utcDay(), n);
 }
 
 export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
@@ -111,7 +111,7 @@ export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
   }
   if (opts.createdSince) {
     if (!DATE_ONLY.test(opts.createdSince)) throw new NoteError("created_since must be a date as YYYY-MM-DD");
-    filters.push(drizzleSql`(${notes.createdAt} AT TIME ZONE 'Europe/Berlin')::date >= ${opts.createdSince}::date`);
+    filters.push(drizzleSql`(${notes.createdAt} AT TIME ZONE 'UTC')::date >= ${opts.createdSince}::date`);
   }
   if (opts.expiresBefore) {
     if (!DATE_ONLY.test(opts.expiresBefore)) throw new NoteError("expires_before must be a date as YYYY-MM-DD");

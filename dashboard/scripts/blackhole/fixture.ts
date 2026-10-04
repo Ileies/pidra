@@ -18,9 +18,9 @@ import type {
 } from "../../src/lib/offline/repo.ts";
 import type { NoteRow } from "../../src/lib/notes/api.ts";
 
-/** The local date, as the pages compute "today". */
-export const TODAY = new Date().toLocaleDateString("sv-SE");
-export const YESTERDAY = new Date(Date.now() - 86_400_000).toLocaleDateString("sv-SE");
+/** The UTC date, as the pages compute "today": a briefing is dated by its UTC day. */
+export const TODAY = new Date().toISOString().slice(0, 10);
+export const YESTERDAY = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 /** A day the mirror has no report for, for the "no report" state and its Run pipeline form. */
 export const EMPTY_DAY = "2020-01-01";
 
@@ -308,7 +308,7 @@ export const SNAPSHOT = snapshotOf(ETAG, stores);
 const BULK_ROWS = 6;
 const bulkId = (kind: number, i: number) => `00000000-0000-4000-8000-${kind.toString(16).padStart(6, "0")}${i.toString(16).padStart(6, "0")}`;
 const bulk = <T>(make: (i: number) => T): T[] => Array.from({ length: BULK_ROWS }, (_, i) => make(i + 1));
-const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toLocaleDateString("sv-SE");
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
 const bulkExtractions = bulk((i) => extraction(bulkId(0x10, i), `Example bulk headline ${i}`));
 const entry = (text: string, i: number) => ({ html: `<p>${text}</p>`, refIds: [bulkExtractions[i % BULK_ROWS].id] });

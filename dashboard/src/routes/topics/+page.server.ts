@@ -27,7 +27,7 @@ export const actions: Actions = {
       return fail(400, { error: "Invalid topic id" });
     }
     await sql()`UPDATE active_topics SET status = ${status},
-      last_updated = CASE WHEN ${status} = 'active' THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Berlin')::date ELSE last_updated END
+      last_updated = CASE WHEN ${status} = 'active' THEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date ELSE last_updated END
       WHERE id = ${id}`;
     return { ok: true, id, status };
   },

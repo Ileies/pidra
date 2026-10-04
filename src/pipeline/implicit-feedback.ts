@@ -1,6 +1,6 @@
 import { google } from "googleapis";
-import { db, extractions, rawItems, feedbackEvents } from "../db";
-import { eq, and } from "drizzle-orm";
+import { db, extractions, rawItems, feedbackEvents, pipelineRuns } from "../db";
+import { eq, and, sql } from "drizzle-orm";
 
 function createAuthClient() {
   const auth = new google.auth.OAuth2(
@@ -38,10 +38,13 @@ function extractKeywords(json: unknown): string[] {
 export async function runImplicitFeedback(runDate: string): Promise<void> {
   console.log(`[ImplicitFeedback] Checking calendar/todo overlap for ${runDate}`);
 
-  // Today's pipeline run time acts as the lower bound for "newly added" events/tasks
-  const [h, m] = (process.env.PIPELINE_RUN_TIME ?? "06:30").split(":").map(Number);
-  const updatedMin = new Date();
-  updatedMin.setHours(h, m, 0, 0);
+  // When the day's briefing started is the lower bound for "newly added" events/tasks. Midnight
+  // UTC when no run is recorded for the day.
+  const [run] = await db
+    .select({ startedAt: sql<string | null>`to_char(min(${pipelineRuns.startedAt}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')` })
+    .from(pipelineRuns)
+    .where(eq(pipelineRuns.runDate, runDate));
+  const updatedMin = new Date(run?.startedAt ?? `${runDate}T00:00:00Z`);
 
   // Load today's newsletter extractions
   const rows = await db

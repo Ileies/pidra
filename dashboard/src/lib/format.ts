@@ -119,6 +119,11 @@ export function isoDay(value: DateInput = new Date()): string {
   return (toDate(value) ?? new Date()).toLocaleDateString("sv-SE");
 }
 
+/** The UTC calendar day, `YYYY-MM-DD`: what a briefing is dated by, wherever the reader is. */
+export function utcDay(value: DateInput = new Date()): string {
+  return (toDate(value) ?? new Date()).toISOString().slice(0, 10);
+}
+
 /** Grouped integer, "1,432". */
 export function fmtNum(value: number | null | undefined): string {
   if (value == null) return EMPTY;

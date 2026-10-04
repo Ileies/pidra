@@ -49,8 +49,8 @@ export async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyA
     })
     .from(feedbackEvents)
     .where(and(
-      gte(drizzleSql`created_at::date`, drizzleSql`${weekStart}::date`),
-      lte(drizzleSql`created_at::date`, drizzleSql`${weekEnd}::date`),
+      gte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekStart}::date`),
+      lte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekEnd}::date`),
     ));
 
   const newEntitiesCount = await db
@@ -140,7 +140,7 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
 export async function runWeeklyMetaRun(): Promise<void> {
   const today = new Date();
   // Compute analytics for the week that just ended (Mon–Sun)
-  const dayOfWeek = today.getDay(); // 0=Sun
+  const dayOfWeek = today.getUTCDay(); // 0=Sun
   const daysBack = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const weekStart = new Date(today.getTime() - (daysBack + 7) * 86400_000).toISOString().split("T")[0];
 

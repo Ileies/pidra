@@ -1,6 +1,7 @@
 import { db, braveDailyUsage } from "../db";
 import { lt, sql } from "drizzle-orm";
 import { recordSearch } from "../util/trace";
+import { utcDay } from "../util/time";
 
 const BASE_URL = "https://api.search.brave.com/res/v1";
 const MIN_INTERVAL_MS = 1100;
@@ -8,15 +9,9 @@ const DAILY_LIMIT = 30;
 let nextRequestAt = 0;
 let queue = Promise.resolve();
 
-function berlinDay(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(now);
-}
-
 async function reserveDailyCall(): Promise<void> {
   const [row] = await db.insert(braveDailyUsage)
-    .values({ day: berlinDay(), calls: 1 })
+    .values({ day: utcDay(), calls: 1 })
     .onConflictDoUpdate({
       target: braveDailyUsage.day,
       set: { calls: sql`${braveDailyUsage.calls} + 1` },

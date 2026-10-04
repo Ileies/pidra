@@ -1,5 +1,6 @@
 import type { PageLoad } from "./$types";
 import { redirect } from "@sveltejs/kit";
+import { utcDay } from "#lib/format.js";
 import { mirrorEmpty, reportDates } from "#lib/offline/repo.js";
 
 /**
@@ -19,6 +20,6 @@ export const load: PageLoad = async ({ depends }) => {
   const [dates, empty] = await Promise.all([reportDates(depends), mirrorEmpty()]);
   if (empty) return { mirrorEmpty: true };
 
-  const today = new Date().toLocaleDateString("sv-SE");
+  const today = utcDay();
   redirect(307, `/${dates.includes(today) ? today : (dates[0] ?? today)}`);
 };

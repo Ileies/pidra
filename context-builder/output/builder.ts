@@ -38,7 +38,7 @@ export async function writeOutputFiles(
 
   const mdOutput = `# PIDRA Context Snapshot - ${date}
 
-Generated: ${new Date().toLocaleString("de-DE")}
+Generated: ${new Date().toISOString()}
 
 ---
 

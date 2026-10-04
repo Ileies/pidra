@@ -335,9 +335,11 @@ app.post("/api/prompts/:id/approve", async (c) => {
   const [target] = await db.select().from(promptVersions).where(eq(promptVersions.id, id)).limit(1);
   if (!target) return c.json({ error: "Not found" }, 404);
 
-  // Deactivate all versions of the same section, then activate this one
-  await db.update(promptVersions).set({ active: false }).where(eq(promptVersions.section, target.section));
-  await db.update(promptVersions).set({ active: true, approvedAt: new Date().toISOString() }).where(eq(promptVersions.id, id));
+  // One transaction: a failure between the two writes must not leave the section with no active version.
+  await db.transaction(async (tx) => {
+    await tx.update(promptVersions).set({ active: false }).where(eq(promptVersions.section, target.section));
+    await tx.update(promptVersions).set({ active: true, approvedAt: new Date().toISOString() }).where(eq(promptVersions.id, id));
+  });
 
   return c.json({ ok: true, section: target.section, version: target.version });
 });

@@ -139,6 +139,38 @@ export async function put<T extends Keyed>(store: Store, value: T): Promise<void
   });
 }
 
+/**
+ * Rewrites a row only if it is still there, in one transaction. A separate `get` and `put` leave a
+ * gap in which a delete can land (a re-tapped rating drops the queued one), and the `put` would
+ * bring the deleted row back. Resolves whether the row was there.
+ */
+export function update<T extends Keyed>(store: Store, id: string, change: (row: T) => T): Promise<boolean> {
+  return rewrite(store, store, id, change, false);
+}
+
+/** Like `update`, across two stores: the row leaves `from` and lands changed in `to`, or nothing happens. */
+export function move<T extends Keyed>(from: Store, to: Store, id: string, change: (row: T) => T): Promise<boolean> {
+  return rewrite(from, to, id, change, true);
+}
+
+async function rewrite<T extends Keyed>(from: Store, to: Store, id: string, change: (row: T) => T, remove: boolean): Promise<boolean> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(from === to ? [from] : [from, to], "readwrite");
+    let found = false;
+    const read = t.objectStore(from).get(id);
+    read.onsuccess = () => {
+      if (!read.result) return;
+      found = true;
+      t.objectStore(to).put(change(read.result as T));
+      if (remove) t.objectStore(from).delete(id);
+    };
+    t.oncomplete = () => resolve(found);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error ?? new Error("mirror transaction aborted"));
+  });
+}
+
 export async function bulkPut<T extends Keyed>(store: Store, values: T[]): Promise<void> {
   if (values.length === 0) return;
   const db = await openDb();

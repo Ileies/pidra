@@ -257,25 +257,23 @@ export function drain(send: Fetcher, options: DrainOptions = {}): Promise<DrainR
         // Replaced while its request was out: `outbox.rate` drops the queued rating a new tap
         // supersedes, without waiting for this lock, and the request can take seconds to fail in a
         // blackhole. Writing the intent back would resurrect it and send both (found by
-        // scripts/blackhole).
-        if (!(await db.get<Intent>("outbox", intent.id))) {
-          if (err instanceof TerminalError) continue;
-          return { complete: false, delivered, changed: [...changed] };
-        }
+        // scripts/blackhole), so each write below happens only if the intent is still queued, in
+        // the same transaction as the check.
         if (err instanceof TerminalError) {
-          await db.put("failed", { ...intent, lastError: err.message });
-          await db.del("outbox", intent.id);
-          // Its optimistic effect is still in the mirror and the server will never match it, so a
-          // delta would never correct it either: without an ETag, the next sync is a full one.
-          await db.del("meta", "etag");
-          options.onChange?.();
+          const lastError = err.message;
+          if (await db.move<Intent>("outbox", "failed", intent.id, (row) => ({ ...row, lastError }))) {
+            // Its optimistic effect is still in the mirror and the server will never match it, so a
+            // delta would never correct it either: without an ETag, the next sync is a full one.
+            await db.del("meta", "etag");
+            options.onChange?.();
+          }
           continue;
         }
         // Nothing left the device, so it was not an attempt and says nothing new.
         if (!options.notSent?.(err)) {
-          const message = err instanceof Error ? err.message : String(err);
-          await db.put("outbox", { ...intent, attempts: intent.attempts + 1, lastError: message });
-          options.onChange?.();
+          const lastError = err instanceof Error ? err.message : String(err);
+          const noted = await db.update<Intent>("outbox", intent.id, (row) => ({ ...row, attempts: row.attempts + 1, lastError }));
+          if (noted) options.onChange?.();
         }
         return { complete: false, delivered, changed: [...changed] };
       }

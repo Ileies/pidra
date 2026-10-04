@@ -41,7 +41,7 @@ Output is kept short to save tokens: each step is buffered and a passing one pri
 
 | Job | Schedule |
 |---|---|
-| `pipeline` | daily 06:30 (`PIPELINE_RUN_TIME` only tells implicit feedback when the briefing ran; the timer is what schedules it) |
+| `pipeline` | daily 06:30 (the timer is what schedules it; implicit feedback takes the run's start from the earliest `pipeline_runs.started_at` for the run date, falling back to midnight UTC) |
 | `feedback` (implicit feedback) | daily 22:00 |
 | `prune` (entity graph pruning, trashed-note purge) | Sunday 02:00 |
 | `review` (weekly review conversation) | Sunday 20:00 |

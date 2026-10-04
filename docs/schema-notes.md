@@ -23,7 +23,7 @@
 - `pipeline_runs`: one row per run (`running | completed | failed`), with `failed_step` and `step_errors` (JSONB array of `StepAttemptError`).
 - `pipeline_run_steps`: span tree per run (`parent_id`, `step`, `attempt`, timing, own tokens, AI calls, searches, flex retries, `detail` JSONB), written by `src/util/trace.ts`. Absent for runs before 2026-10-01; deleted with the run.
 - `active_topics`: running story summaries, giving continuity across days.
-- `brave_daily_usage`: atomic shared count of actual Brave API attempts per Europe/Berlin day, capped at 30.
+- `brave_daily_usage`: atomic shared count of actual Brave API attempts per UTC day, capped at 30.
 - `report_actions`: the quick actions a report offers, with state `proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code that threw a proposal out.
 - `report_audio`: the spoken report, one MP3 (`audio`, bytea) per chapter, primary key (`report_date`, `chapter_key`, `variant`). `chapter_key` hashes the chapter's spoken text; `variant` is `model:voice:speed`, so changing any of them speaks again instead of serving stale audio. Also `duration_ms` (exact, from the MP3 frames) and `chars`. Written only by `src/audio/store.ts`, never touches `daily_reports`; migration `0040_report_audio.sql`. About 9.6 MB per fully cached report; rows older than 30 days are dropped when a chapter is generated, the day just spoken excepted.
 

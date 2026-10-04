@@ -78,7 +78,6 @@ const ICON = {
   settings:
     "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
   context: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5",
-  feedback: "M7 10l-3 3v-9h16v9H10l-3 3v-3M8.5 8.5h7",
   more: "M5 12h.01M12 12h.01M19 12h.01",
   auth: "M6 10V8a6 6 0 1 1 12 0v2M5 10h14v10H5zM12 14v3",
 } as const;
@@ -186,16 +185,6 @@ export const ROUTES: RouteDef[] = [
     group: "memory",
     icon: ICON.context,
     children: ["/context-builder/corrections"],
-    secondary: true,
-  },
-  {
-    href: "/feedback",
-    id: "/feedback",
-    label: "Feedback",
-    key: "f",
-    surface: "sources",
-    group: "intel",
-    icon: ICON.feedback,
     secondary: true,
   },
   {
@@ -357,7 +346,6 @@ export const ONLINE_ONLY: Readonly<Record<string, { label: string; reason: strin
   "/setup": { label: "Passkey", reason: "Registering a passkey or changing the PIN needs a live connection." },
   "/sources": { label: "Sources", reason: "Source trust scores are a live query against the pipeline's own tables." },
   "/sources/[name]": { label: "Sources", reason: "A source's delivery history is a live query against the pipeline's own tables." },
-  "/feedback": { label: "Feedback", reason: "The rating log is a live query against the pipeline's own tables." },
   "/skills": { label: "Skills", reason: "The approval queue and execution log are live state, not something a cache can represent honestly." },
   "/skills/executions": { label: "Recent executions", reason: "Skill execution history is live state and may contain results that are not available offline." },
   "/runs": { label: "Runs", reason: "Pipeline run history is a live query against the pipeline's own tables." },

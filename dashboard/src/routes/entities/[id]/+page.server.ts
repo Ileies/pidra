@@ -1,4 +1,5 @@
 import type { Actions } from "./$types";
+import { readForm } from "#lib/server/form.js";
 import { fail } from "@sveltejs/kit";
 import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
@@ -15,9 +16,9 @@ import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
 export const actions: Actions = {
   watch: async ({ request }) => {
-    const data = await request.formData();
-    const name = (data.get("name") as string | null)?.trim();
-    const watched = data.get("watched") === "true";
+    const form = await readForm(request);
+    const name = form.text("name");
+    const watched = form.flag("watched");
     if (!name) return fail(400, { error: "Missing entity name" });
 
     return bridgeAction(

@@ -1,4 +1,5 @@
 import { isUuid } from "$pipeline/util/ids";
+import { readForm } from "#lib/server/form.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -100,12 +101,12 @@ function conversationError(err: unknown) {
 
 export const actions: Actions = {
   rename: async ({ request }) => {
-    const data = await request.formData();
-    const id = (data.get("id") as string | null)?.trim();
+    const form = await readForm(request);
+    const id = form.text("id");
     if (!id) return fail(400, { error: "Missing conversation id" });
 
     try {
-      await renameConversation(id, (data.get("title") as string | null) ?? "");
+      await renameConversation(id, (form.text("title")) ?? "");
       return { ok: true };
     } catch (err) {
       return conversationError(err);
@@ -113,8 +114,8 @@ export const actions: Actions = {
   },
 
   delete: async ({ request }) => {
-    const data = await request.formData();
-    const id = (data.get("id") as string | null)?.trim();
+    const form = await readForm(request);
+    const id = form.text("id");
     if (!id) return fail(400, { error: "Missing conversation id" });
 
     await deleteConversation(id);

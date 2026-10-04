@@ -1,4 +1,5 @@
 import { isUuid } from "$pipeline/util/ids";
+import { readForm } from "#lib/server/form.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { bridgeAction } from "#lib/server/bridge.js";
@@ -53,7 +54,7 @@ export const load: PageServerLoad = async () => {
 };
 
 async function bridge(request: Request, op: "reopen" | "reprocess") {
-  const id = String((await request.formData()).get("id") ?? "");
+  const id = (await readForm(request)).text("id");
   if (!isUuid(id)) return fail(400, { id, error: "Invalid question id" });
 
   return bridgeAction(`/api/questions/${id}/${op}`, { method: "POST" }, () => ({ id, op }), { id });

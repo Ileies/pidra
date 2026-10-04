@@ -1,4 +1,5 @@
 import { isUuid } from "$pipeline/util/ids";
+import { readForm } from "#lib/server/form.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { acknowledgeNotification, runNotificationKey } from "#lib/server/notifications.js";
@@ -88,7 +89,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
   reviewRun: async ({ request }) => {
-    const id = String((await request.formData()).get("id") ?? "");
+    const id = (await readForm(request)).text("id");
     if (!isUuid(id)) return fail(400, { error: "Invalid run id." });
     await acknowledgeNotification(runNotificationKey(id));
     return { reviewedRun: id };

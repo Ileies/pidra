@@ -1,4 +1,5 @@
 import { daysAgo } from "$pipeline/util/time";
+import { readForm } from "#lib/server/form.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -263,10 +264,10 @@ export const load: PageServerLoad = async ({ params }) => {
 
 export const actions: Actions = {
   toggle: async ({ request, params }) => {
-    const data = await request.formData();
+    const form = await readForm(request);
     const sourceName = decodeURIComponent(params.name);
-    const isActive = data.get("isActive") === "true";
-    const reason = (data.get("reason") as string) || undefined;
+    const isActive = form.flag("isActive");
+    const reason = (form.text("reason")) || undefined;
 
     try {
       await setSourceActive(sourceName, isActive, reason);

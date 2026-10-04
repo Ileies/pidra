@@ -1,4 +1,5 @@
 import type { Actions } from "./$types";
+import { readForm } from "#lib/server/form.js";
 import { fail } from "@sveltejs/kit";
 import { rateExtraction, UUID_RE } from "#lib/server/extractions.js";
 import { bridgeAction } from "#lib/server/bridge.js";
@@ -17,9 +18,9 @@ export const actions: Actions = {
    * two-click detour to the detail page, which starved the relevance calibration loop.
    */
   rate: async ({ request }) => {
-    const data = await request.formData();
-    const extractionId = (data.get("extraction_id") as string | null)?.trim();
-    const signal = data.get("signal") as string | null;
+    const form = await readForm(request);
+    const extractionId = form.text("extraction_id");
+    const signal = form.text("signal");
 
     if (!extractionId || !UUID_RE.test(extractionId)) return fail(400, { error: "Invalid extraction id" });
     if (signal !== "1" && signal !== "-1") return fail(400, { error: "Invalid signal" });

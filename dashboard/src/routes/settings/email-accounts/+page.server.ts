@@ -1,4 +1,5 @@
 import type { Actions, PageServerLoad } from "./$types";
+import { readForm } from "#lib/server/form.js";
 import { fail } from "@sveltejs/kit";
 import {
   listEmailAccounts,
@@ -49,9 +50,9 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
   create: async ({ request }) => {
-    const data = await request.formData();
+    const form = await readForm(request);
     try {
-      await createEmailAccount(readInput(data));
+      await createEmailAccount(readInput(form.data));
       return { ok: true, message: "Account added." };
     } catch (err) {
       return accountError(err);
@@ -59,12 +60,12 @@ export const actions: Actions = {
   },
 
   update: async ({ request }) => {
-    const data = await request.formData();
-    const id = (data.get("id") as string | null)?.trim();
+    const form = await readForm(request);
+    const id = form.text("id");
     if (!id) return fail(400, { error: "Missing account id" });
 
     try {
-      await updateEmailAccount(id, readInput(data));
+      await updateEmailAccount(id, readInput(form.data));
       return { ok: true, message: "Account updated." };
     } catch (err) {
       return accountError(err);
@@ -72,8 +73,8 @@ export const actions: Actions = {
   },
 
   delete: async ({ request }) => {
-    const data = await request.formData();
-    const id = (data.get("id") as string | null)?.trim();
+    const form = await readForm(request);
+    const id = form.text("id");
     if (!id) return fail(400, { error: "Missing account id" });
 
     await deleteEmailAccount(id);

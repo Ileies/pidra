@@ -1,4 +1,5 @@
 import { isUuid } from "$pipeline/util/ids";
+import { readForm } from "#lib/server/form.js";
 import type { PageServerLoad, Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
@@ -90,12 +91,12 @@ function bridge(id: string, op: string, body?: unknown) {
 
 export const actions: Actions = {
   answer: async ({ request }) => {
-    const data = await request.formData();
-    const id = String(data.get("id") ?? "");
-    const answer = String(data.get("answer") ?? "").trim();
+    const form = await readForm(request);
+    const id = form.text("id");
+    const answer = form.text("answer");
     if (!answer) return fail(400, { id, error: "Write an answer first, or dismiss the question." });
     return bridge(id, "answer", { answer });
   },
-  dismiss: async ({ request }) => bridge(String((await request.formData()).get("id") ?? ""), "dismiss"),
-  reopen: async ({ request }) => bridge(String((await request.formData()).get("id") ?? ""), "reopen"),
+  dismiss: async ({ request }) => bridge((await readForm(request)).text("id"), "dismiss"),
+  reopen: async ({ request }) => bridge((await readForm(request)).text("id"), "reopen"),
 };

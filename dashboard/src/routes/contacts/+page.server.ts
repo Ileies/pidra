@@ -1,4 +1,5 @@
 import type { Actions } from "./$types";
+import { readForm } from "#lib/server/form.js";
 import { fail } from "@sveltejs/kit";
 import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
@@ -18,13 +19,13 @@ const PRIORITIES = ["critical", "high", "normal", "low"];
 
 export const actions: Actions = {
   update: async ({ request }) => {
-    const data = await request.formData();
-    const identifier = (data.get("identifier") as string | null)?.trim();
+    const form = await readForm(request);
+    const identifier = form.text("identifier");
     if (!identifier) return fail(400, { error: "Missing contact identifier" });
 
     const fields: Record<string, string | null> = {};
     for (const key of EDITABLE) {
-      const raw = data.get(key);
+      const raw = form.data.get(key);
       if (raw === null) continue;
       const value = String(raw).trim();
       fields[key] = value === "" ? null : value;
@@ -35,7 +36,7 @@ export const actions: Actions = {
     }
 
     const statement =
-      (data.get("statement") as string | null)?.trim() ||
+      form.text("statement") ||
       `${identifier} is ${fields.name ?? "unnamed"}${fields.relationship ? `, ${fields.relationship}` : ""}.`;
 
     return bridgeAction(

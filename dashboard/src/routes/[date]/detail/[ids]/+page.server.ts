@@ -1,4 +1,5 @@
 import type { Actions } from "./$types";
+import { readForm } from "#lib/server/form.js";
 import { fail } from "@sveltejs/kit";
 import { renderMarkdown } from "#lib/markdown.js";
 import { parseIds, UUID_RE } from "#lib/ids.js";
@@ -9,9 +10,9 @@ import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
  *  for why a co-located `load` here would never run for a client-side navigation now. */
 export const actions: Actions = {
   rate: async ({ request }) => {
-    const data = await request.formData();
-    const extractionId = (data.get("extraction_id") as string | null)?.trim();
-    const signal = data.get("signal") as string | null;
+    const form = await readForm(request);
+    const extractionId = form.text("extraction_id");
+    const signal = form.text("signal");
 
     if (!extractionId || !UUID_RE.test(extractionId)) return fail(400, { error: "Invalid extraction id" });
     if (signal !== "1" && signal !== "-1") return fail(400, { error: "Invalid signal" });

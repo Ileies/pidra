@@ -1,4 +1,5 @@
 import type { Actions, PageServerLoad } from "./$types";
+import { readForm } from "#lib/server/form.js";
 import { fail } from "@sveltejs/kit";
 import { bridgeAction, bridgeFetch, jsonPost } from "#lib/server/bridge.js";
 import { sql } from "#lib/server/postgres.js";
@@ -71,13 +72,13 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
   update: async ({ request }) => {
-    const data = await request.formData();
-    const skillName = data.get("skillName") as string;
+    const form = await readForm(request);
+    const skillName = form.text("skillName");
     if (!skillName) return fail(400, { error: "skillName required" });
 
     return bridgeAction(
       `/skills/${encodeURIComponent(skillName)}`,
-      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: data.get("enabled") === "true" }) },
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: form.flag("enabled") }) },
       () => ({ ok: true }),
     );
   },
@@ -92,10 +93,10 @@ export const actions: Actions = {
    * skill may run through.
    */
   resolve: async ({ request }) => {
-    const data = await request.formData();
-    const id = (data.get("id") as string | null)?.trim();
-    const decision = data.get("decision") as string | null;
-    const reason = (data.get("reason") as string | null) ?? undefined;
+    const form = await readForm(request);
+    const id = form.text("id");
+    const decision = form.text("decision");
+    const reason = (form.text("reason")) ?? undefined;
 
     if (!id) return fail(400, { error: "Missing execution id" });
     if (decision !== "confirm" && decision !== "reject") return fail(400, { error: "Invalid decision" });

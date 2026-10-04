@@ -37,11 +37,17 @@ export interface ContextPayload {
   longTermContext: LongTermContext;
 }
 
-export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMPTY_NEWS_DESK): Promise<ContextPayload> {
+export async function runPhase3(
+  runDate: string,
+  newsDesk: NewsDeskOutcome = EMPTY_NEWS_DESK,
+  loadContext: () => Promise<LongTermContext> = loadLongTermContext,
+): Promise<ContextPayload> {
   console.log(`[Phase 3] Assembling context for ${runDate}`);
 
   // Fetch topics first (needed for Slot 1 query generation)
-  const topicsResult = await db.select().from(activeTopics).where(eq(activeTopics.status, "active"));
+  const allTopics = await db.select().from(activeTopics).where(inArray(activeTopics.status, ["active", "dormant", "archived"]));
+  const topicsResult = allTopics.filter((t) => t.status === "active");
+  const inactiveTopics = allTopics.filter((t) => t.status !== "active");
 
   const [
     todaysExtractions,
@@ -49,7 +55,6 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     allNotes,
     allContacts,
     entityList,
-    inactiveTopics,
     calendarRaw,
     todoRaw,
     webSearchResults,
@@ -64,7 +69,6 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
     db.select().from(notes).where(and(isNull(notes.deletedAt), or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)))),
     db.select().from(contacts).where(isNull(contacts.removedAt)),
     db.select().from(entities).where(eq(entities.status, "active")),
-    db.select().from(activeTopics).where(inArray(activeTopics.status, ["dormant", "archived"])),
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "calendar"))),
@@ -106,7 +110,7 @@ export async function runPhase3(runDate: string, newsDesk: NewsDeskOutcome = EMP
   const volumeSignal: "light" | "normal" | "heavy" =
     highRelevanceCount < 10 ? "light" : highRelevanceCount > 25 ? "heavy" : "normal";
 
-  const longTermContext = await loadLongTermContext();
+  const longTermContext = await loadContext();
   if (longTermContext.problem) {
     // `problem` is also set when a fallback candidate succeeded, so the two cases read differently:
     // "unavailable" would be a lie about a run that did load 43k characters from an older harvest.

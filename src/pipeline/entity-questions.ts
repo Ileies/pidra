@@ -14,12 +14,11 @@ import { daysAgo } from "../util/time";
 import { and, eq, inArray, or, isNull, sql as drizzleSql } from "drizzle-orm";
 import { db, entities } from "../db";
 import type { CandidateInput } from "../questions/reconcile";
-import { askedExtractionIds } from "../questions/store";
 
 const MIN_MENTIONS = 3;
 const MIN_AGE_DAYS = 10;
 
-export async function lowConfidenceEntityCandidates(today: string): Promise<CandidateInput[]> {
+export async function lowConfidenceEntityCandidates(today: string, asked: ReadonlySet<string>): Promise<CandidateInput[]> {
   const threshold = daysAgo(MIN_AGE_DAYS);
 
   const rows = await db
@@ -39,7 +38,6 @@ export async function lowConfidenceEntityCandidates(today: string): Promise<Cand
 
   // Reuses the same "asked once, never again" dedup the mail path gets from a real extraction id -
   // an entity has no extraction to point at, so a synthetic `entity:<id>` fills that role.
-  const asked = await askedExtractionIds();
   return rows
     .filter((e) => !asked.has(`entity:${e.id}`))
     .map((e) => ({

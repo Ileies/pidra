@@ -17,6 +17,7 @@ import { proposeQuickActions } from "../actions/propose";
 import { saveProposals } from "../actions/store";
 import { span, traceRun } from "../util/trace";
 import type { ContextPayload } from "./phase3-context";
+import { shareLongTermContext, type LongTermContext } from "./long-term-context";
 
 /**
  * The quick actions, run so that they can only ever add to a report. A button is a convenience
@@ -43,9 +44,9 @@ function tolerantQuickActions(ctx: ContextPayload, date: string, errors: StepAtt
  * so a desk step that exhausted its retries degrades to "no news" plus a recorded failure, and the
  * report says so above the briefing.
  */
-async function tolerantNewsDesk(date: string): Promise<NewsDeskOutcome> {
+async function tolerantNewsDesk(date: string, loadContext: () => Promise<LongTermContext>): Promise<NewsDeskOutcome> {
   try {
-    return await runNewsDesk(date);
+    return await runNewsDesk(date, { loadContext });
   } catch (err) {
     const error = errMessage(err);
     console.error(`[News] Giving up on the news desks: ${error}`);
@@ -93,11 +94,12 @@ async function executePipeline(date: string, run: { id: string }, start: number)
     // Started first and awaited only before Phase 3: the desks need nothing the ingest produces,
     // and at half a minute to five minutes each on the flex tier (in parallel), running them after
     // Phase 2 would add all of that to every morning. Phase 3 is where their stories meet the gate.
-    const newsDesk = span("news", () => tolerantNewsDesk(date));
+    const loadContext = shareLongTermContext();
+    const newsDesk = span("news", () => tolerantNewsDesk(date, loadContext));
     const ingest = await withRetry("phase1", () => runPhase1(date));
     await withRetry("phase2", () => runPhase2(date));
     const news = await newsDesk;
-    const ctx = await withRetry("phase3", () => runPhase3(date, news));
+    const ctx = await withRetry("phase3", () => runPhase3(date, news, loadContext));
 
     // Section 1, the News section, the quick actions and the question gate run in parallel.
     // Section 2 starts once these are done; the gate only reconciles questions and never waits for answers.

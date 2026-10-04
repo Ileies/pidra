@@ -1,6 +1,7 @@
 import { daysAgo, addDays } from "../util/time";
 import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes } from "../db";
-import { and, gte, lte, eq, sql as drizzleSql, desc, count, avg } from "drizzle-orm";
+import { and, gte, lte, eq, sql as drizzleSql, desc, count, type SQL } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
 import { synthesize } from "../ai/openai";
 
@@ -25,13 +26,43 @@ export interface WeeklyAnalytics {
   resolvedTopicCount: number;
 }
 
+async function countWhere(table: PgTable, where: SQL | undefined): Promise<number> {
+  const [row] = await db.select({ c: count() }).from(table).where(where);
+  return Number(row.c);
+}
+
 async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytics> {
   const weekEnd = addDays(weekStart, 6);
 
-  const reports = await db
-    .select()
-    .from(dailyReports)
-    .where(and(gte(dailyReports.reportDate, weekStart), lte(dailyReports.reportDate, weekEnd)));
+  const [reports, [feedbackRow], newEntities, dormantEntities, activeTopicCount, resolvedTopicCount, sourcesAll] = await Promise.all([
+    db
+      .select()
+      .from(dailyReports)
+      .where(and(gte(dailyReports.reportDate, weekStart), lte(dailyReports.reportDate, weekEnd))),
+    db
+      .select({
+        plus: drizzleSql<number>`count(*) filter (where event_type = 'explicit_plus')`,
+        minus: drizzleSql<number>`count(*) filter (where event_type = 'explicit_minus')`,
+      })
+      .from(feedbackEvents)
+      .where(and(
+        gte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekStart}::date`),
+        lte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekEnd}::date`),
+      )),
+    countWhere(entities, and(gte(entities.firstSeen, weekStart), lte(entities.firstSeen, weekEnd))),
+    countWhere(entities, eq(entities.status, "dormant")),
+    countWhere(activeTopics, eq(activeTopics.status, "active")),
+    countWhere(activeTopics, and(
+      eq(activeTopics.status, "resolved"),
+      gte(activeTopics.lastUpdated, weekStart),
+      lte(activeTopics.lastUpdated, weekEnd),
+    )),
+    db
+      .select({ sourceName: sourceQuality.sourceName, score: sourceQuality.compositeScore30d })
+      .from(sourceQuality)
+      .where(eq(sourceQuality.isActive, true))
+      .orderBy(desc(sourceQuality.compositeScore30d)),
+  ]);
 
   const totalTokensIn = reports.reduce((s, r) => s + (r.tokensIn ?? 0), 0);
   const totalTokensOut = reports.reduce((s, r) => s + (r.tokensOut ?? 0), 0);
@@ -42,40 +73,6 @@ async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytic
   const totalIncluded = reports.reduce((s, r) => s + (r.itemsIncluded ?? 0), 0);
   const totalItems = reports.reduce((s, r) => s + (r.itemCount ?? 0), 0);
   const avgIncludeRate = totalItems > 0 ? totalIncluded / totalItems : 0;
-
-  const [feedbackRow] = await db
-    .select({
-      plus: drizzleSql<number>`count(*) filter (where event_type = 'explicit_plus')`,
-      minus: drizzleSql<number>`count(*) filter (where event_type = 'explicit_minus')`,
-    })
-    .from(feedbackEvents)
-    .where(and(
-      gte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekStart}::date`),
-      lte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekEnd}::date`),
-    ));
-
-  const newEntitiesCount = await db
-    .select({ c: count() })
-    .from(entities)
-    .where(and(gte(entities.firstSeen, weekStart), lte(entities.firstSeen, weekEnd)));
-
-  const dormantCount = await db
-    .select({ c: count() })
-    .from(entities)
-    .where(eq(entities.status, "dormant"));
-
-  const activeTopicCount = (await db.select({ c: count() }).from(activeTopics).where(eq(activeTopics.status, "active")))[0].c;
-  const resolvedTopicCount = (await db.select({ c: count() }).from(activeTopics).where(and(
-    eq(activeTopics.status, "resolved"),
-    gte(activeTopics.lastUpdated, weekStart),
-    lte(activeTopics.lastUpdated, weekEnd),
-  )))[0].c;
-
-  const sourcesAll = await db
-    .select({ sourceName: sourceQuality.sourceName, score: sourceQuality.compositeScore30d })
-    .from(sourceQuality)
-    .where(eq(sourceQuality.isActive, true))
-    .orderBy(desc(sourceQuality.compositeScore30d));
 
   const topSources = sourcesAll.slice(0, 3).map((s) => ({ name: s.sourceName, avgComposite: s.score ?? 0 }));
   const bottomSources = [...sourcesAll].reverse().slice(0, 3).map((s) => ({ name: s.sourceName, avgComposite: s.score ?? 0 }));
@@ -94,10 +91,10 @@ async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytic
     bottomSources,
     feedbackPlus: Number(feedbackRow?.plus ?? 0),
     feedbackMinus: Number(feedbackRow?.minus ?? 0),
-    newEntities: newEntitiesCount[0].c,
-    dormantEntities: dormantCount[0].c,
-    activeTopicCount: Number(activeTopicCount),
-    resolvedTopicCount: Number(resolvedTopicCount),
+    newEntities,
+    dormantEntities,
+    activeTopicCount,
+    resolvedTopicCount,
   };
 }
 

@@ -17,7 +17,7 @@
 import { errMessage } from "../util/text";
 import { activePrompt } from "../ai/active-prompts";
 import { DeskResearchError, researchDesk, type UsageTotals } from "./research";
-import { loadLongTermContext } from "../pipeline/long-term-context";
+import { loadLongTermContext, type LongTermContext } from "../pipeline/long-term-context";
 import { span } from "../util/trace";
 import { decideGate } from "../pipeline/gate";
 import {
@@ -155,6 +155,8 @@ export interface RunOptions {
   now?: Date;
   /** Research and check, but store nothing: for tuning the desk prompts without touching a run. */
   dryRun?: boolean;
+  /** Where the long-term context comes from; the pipeline passes a loader shared with Phase 3. */
+  loadContext?: () => Promise<LongTermContext>;
 }
 
 /**
@@ -162,7 +164,10 @@ export interface RunOptions {
  * that fails is recorded and the rest carry on. Failed searches are not automatically retried by
  * the pipeline, since another whole attempt could spend the same day's Brave budget twice.
  */
-export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = false }: RunOptions = {}): Promise<NewsDeskOutcome> {
+export async function runNewsDesk(
+  runDate: string,
+  { now = new Date(), dryRun = false, loadContext = loadLongTermContext }: RunOptions = {},
+): Promise<NewsDeskOutcome> {
   const plan = enabledDesks();
   const home = homeConfig();
   const outcome: NewsDeskOutcome = { ...EMPTY_NEWS_DESK, home, desks: [], failures: [] };
@@ -185,7 +190,7 @@ export async function runNewsDesk(runDate: string, { now = new Date(), dryRun = 
 
   const [reported, ltc, notesList] = await Promise.all([
     recentlyReported(runDate),
-    toRun.some((desk) => desk.id === "field" || desk.id === "beat") ? loadLongTermContext() : Promise.resolve(null),
+    toRun.some((desk) => desk.id === "field" || desk.id === "beat") ? loadContext() : Promise.resolve(null),
     priorities(runDate),
   ]);
   const inputs: DeskInputs = {

@@ -56,22 +56,19 @@ function splitMail(raw: string | null): { subject: string | null; body: string }
 }
 
 /** This run's mail that the classifier could not place, minus anything a question already carries. */
-async function candidatesFor(runDate: string): Promise<CandidateInput[]> {
-  const [rows, asked] = await Promise.all([
-    db
-      .select({
-        id: extractions.id,
-        questionForUser: extractions.questionForUser,
-        sourceName: rawItems.sourceName,
-        sourceType: rawItems.sourceType,
-        rawContent: rawItems.rawContent,
-        extractedJson: extractions.extractedJson,
-      })
-      .from(extractions)
-      .innerJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
-      .where(and(eq(extractions.runDate, runDate), eq(extractions.unknownContext, true))),
-    askedExtractionIds(),
-  ]);
+async function candidatesFor(runDate: string, asked: ReadonlySet<string>): Promise<CandidateInput[]> {
+  const rows = await db
+    .select({
+      id: extractions.id,
+      questionForUser: extractions.questionForUser,
+      sourceName: rawItems.sourceName,
+      sourceType: rawItems.sourceType,
+      rawContent: rawItems.rawContent,
+      extractedJson: extractions.extractedJson,
+    })
+    .from(extractions)
+    .innerJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
+    .where(and(eq(extractions.runDate, runDate), eq(extractions.unknownContext, true)));
 
   return rows
     .filter((row) => !asked.has(row.id))
@@ -114,10 +111,11 @@ function tolerantAbsorb(errors: StepAttemptError[]) {
  * candidates through `mechanicalPlan`, and its attempts go to `step_errors`.
  */
 async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepAttemptError[]) {
+  const asked = await askedExtractionIds();
   const [mailCandidates, entityCandidates, staleCandidates] = await Promise.all([
-    candidatesFor(runDate),
-    lowConfidenceEntityCandidates(runDate),
-    staleContextCandidates(runDate),
+    candidatesFor(runDate, asked),
+    lowConfidenceEntityCandidates(runDate, asked),
+    staleContextCandidates(runDate, asked),
   ]);
   const candidates = [...mailCandidates, ...entityCandidates, ...staleCandidates];
   const absorbed = await tolerantAbsorb(errors);

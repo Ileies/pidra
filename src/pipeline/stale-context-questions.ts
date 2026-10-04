@@ -22,11 +22,10 @@ import { daysAgo } from "../util/time";
 import { and, eq, or, isNull, sql as drizzleSql } from "drizzle-orm";
 import { contacts, db, extractions, rawItems } from "../db";
 import type { CandidateInput } from "../questions/reconcile";
-import { askedExtractionIds } from "../questions/store";
 
 const MIN_AGE_DAYS = 10;
 
-export async function staleContextCandidates(runDate: string): Promise<CandidateInput[]> {
+export async function staleContextCandidates(runDate: string, asked: ReadonlySet<string>): Promise<CandidateInput[]> {
   const threshold = daysAgo(MIN_AGE_DAYS);
 
   const rows = await db
@@ -59,7 +58,6 @@ export async function staleContextCandidates(runDate: string): Promise<Candidate
 
   if (rows.length === 0) return [];
 
-  const asked = await askedExtractionIds();
   return rows
     .filter((r) => r.identifier && !asked.has(r.extractionId))
     .map((r) => {

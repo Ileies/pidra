@@ -1,8 +1,10 @@
-import { db, extractions } from "../db";
-import { eq } from "drizzle-orm";
+import { db, type extractions } from "../db";
+import { sql } from "drizzle-orm";
 import { decideGate, type GateDecision } from "./gate";
 import { NEWS_SOURCE_TYPE } from "../news/config";
 import { handoffForOrder } from "./section1-handoff";
+
+const PERSIST_CHUNK = 500;
 
 export interface ExtractionWithSource {
   extraction: typeof extractions.$inferSelect;
@@ -69,22 +71,25 @@ export function gateExtractions(rows: TodaysExtraction[], qualityMap: Map<string
  * trust-weighted and corroborated. Phase 6 reads the column afterwards for the source scores,
  * which means its relevance fallback now matches the real bar rather than approximating it.
  *
- * Row by row rather than one statement: the phase is wrapped in `withRetry`, so this has to be
- * idempotent, and it is - every attempt writes the same verdict over the same id.
+ * The phase is wrapped in `withRetry`, so this has to be idempotent, and it is - every attempt
+ * writes the same verdict over the same id. One `UPDATE ... FROM (VALUES ...)` per chunk.
  */
 export async function persistGate(items: ExtractionWithSource[], newsletterOrder: Map<string, number>): Promise<void> {
-  for (const item of items) {
-    const order = newsletterOrder.get(item.extraction.id) ?? null;
-    await db
-      .update(extractions)
-      .set({
-        effectiveRelevance: item.gate.effectiveRelevance,
-        gatePassed: item.gate.passed,
-        gateReason: item.gate.reason,
-        gateDetail: item.gate.detail,
-        synthesisOrder: order,
-        synthesisHandoff: handoffForOrder(order),
-      })
-      .where(eq(extractions.id, item.extraction.id));
+  for (let start = 0; start < items.length; start += PERSIST_CHUNK) {
+    const rows = items.slice(start, start + PERSIST_CHUNK).map((item) => {
+      const order = newsletterOrder.get(item.extraction.id) ?? null;
+      return sql`(${item.extraction.id}::uuid, ${item.gate.effectiveRelevance}::real, ${item.gate.passed}::boolean, ${item.gate.reason}::text, ${JSON.stringify(item.gate.detail)}::jsonb, ${order}::integer, ${handoffForOrder(order)}::text)`;
+    });
+    await db.execute(sql`
+      UPDATE extractions AS e SET
+        effective_relevance = v.effective_relevance,
+        gate_passed = v.gate_passed,
+        gate_reason = v.gate_reason,
+        gate_detail = v.gate_detail,
+        synthesis_order = v.synthesis_order,
+        synthesis_handoff = v.synthesis_handoff
+      FROM (VALUES ${sql.join(rows, sql`, `)}) AS v(id, effective_relevance, gate_passed, gate_reason, gate_detail, synthesis_order, synthesis_handoff)
+      WHERE e.id = v.id
+    `);
   }
 }

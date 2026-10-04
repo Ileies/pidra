@@ -165,3 +165,12 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
     problem: `no usable context document in the last ${runs.length} run(s): ${problems.join("; ")}`,
   };
 }
+
+/** One load shared by everything in a run; a failed load is not cached, so a retry reads again. */
+export function shareLongTermContext(): () => Promise<LongTermContext> {
+  let cached: Promise<LongTermContext> | null = null;
+  return () => cached ??= loadLongTermContext().catch((err) => {
+    cached = null;
+    throw err;
+  });
+}

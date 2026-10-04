@@ -68,20 +68,12 @@ class Assistant {
   surfaces = $state<Record<string, SurfaceInfo> | null>(null);
 
   #controller: AbortController | null = null;
-  #restored = false;
 
-  get surface(): Surface {
-    return this.context.surface;
-  }
-
-  get info(): SurfaceInfo | null {
-    return this.surfaces?.[this.surface] ?? null;
-  }
+  surface = $derived<Surface>(this.context.surface);
+  info = $derived<SurfaceInfo | null>(this.surfaces?.[this.surface] ?? null);
 
   /** Called once from the layout, on the client only. */
   restore() {
-    if (this.#restored) return;
-    this.#restored = true;
     this.open = readStored(STORAGE_OPEN) === "1";
     this.draft = readStored(STORAGE_DRAFT) ?? "";
     if (this.open) this.loadSurfaces();

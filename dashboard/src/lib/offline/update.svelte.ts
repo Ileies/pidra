@@ -7,7 +7,6 @@
  * page of the old build is left to break.
  */
 
-import { browser } from "$app/env";
 import { reachability } from "./net.js";
 
 /** How often a foregrounded app asks whether a new worker exists. The browser's own check only
@@ -19,11 +18,9 @@ class AppUpdate {
 
   #registration: ServiceWorkerRegistration | null = null;
   #lastCheck = 0;
-  #started = false;
 
   start(): void {
-    if (this.#started || !browser || !("serviceWorker" in navigator)) return;
-    this.#started = true;
+    if (!("serviceWorker" in navigator)) return;
 
     // `ready` resolves once there is an active worker, whenever app.html's registration lands.
     void navigator.serviceWorker.ready.then((registration) => {

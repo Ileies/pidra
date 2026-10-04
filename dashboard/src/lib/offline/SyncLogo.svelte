@@ -15,17 +15,8 @@
    *
    * The path data is the same as `static/icons/icon.svg`, minus its blur filter (0.6 user units of a
    * 780 unit canvas, invisible at header size). A change to the mark means changing both.
-   *
-   * `offline.start()` runs once here rather than in the root layout directly, mirroring how
-   * `Assistant.svelte` calls `assistant.restore()`: an effect only ever runs client-side, so this
-   * is the established way to do a browser-only one-time setup from a component the layout mounts
-   * unconditionally.
    */
   import { offline } from "#lib/offline/state.svelte.js";
-
-  $effect(() => {
-    offline.start();
-  });
 
 
   // Every part that applies, so a count never hides that the app is offline, or the other way round.
@@ -33,7 +24,7 @@
     [
       offline.syncing ? "Syncing" : offline.isOffline ? "Offline" : offline.reachable === "checking" ? "Checking" : null,
       offline.failed.length > 0 ? `${offline.failed.length} not saved` : null,
-      offline.queuedCount > 0 ? `${offline.queuedCount} queued` : null,
+      offline.pending.length > 0 ? `${offline.pending.length} queued` : null,
     ]
       .filter(Boolean)
       .join(" · ") || "Synced",
@@ -54,7 +45,7 @@
       ? TONES.error
       : offline.syncing
         ? TONES.syncing
-        : offline.queuedCount > 0
+        : offline.pending.length > 0
           ? TONES.queued
           : offline.reachable === "checking"
             ? TONES.checking

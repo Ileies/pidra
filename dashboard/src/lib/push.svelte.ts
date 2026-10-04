@@ -26,12 +26,7 @@ function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
 class PushStore {
   state = $state<PushState>("checking");
 
-  #started = false;
-
   async start(): Promise<void> {
-    if (this.#started || typeof window === "undefined") return;
-    this.#started = true;
-
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       this.state = "unsupported";
       return;

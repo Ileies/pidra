@@ -69,7 +69,6 @@ class OfflineState {
   /** Whether the browser promised not to evict the mirror and the outbox. Null: not known. */
   persisted = $state<boolean | null>(null);
 
-  #started = false;
   #consecutiveFailures = 0;
   #pollTimer: ReturnType<typeof setTimeout> | undefined;
   #hiddenAt = 0;
@@ -78,15 +77,8 @@ class OfflineState {
     return this.reachable === "offline";
   }
 
-  get queuedCount(): number {
-    return this.pending.length;
-  }
-
   /** Called once from the root layout, client only. */
   start(): void {
-    if (this.#started || !browser) return;
-    this.#started = true;
-
     this.reachable = net.reachability();
     net.onReachability((next) => {
       this.reachable = next;
@@ -175,10 +167,6 @@ class OfflineState {
     if (this.syncing) return;
     if (await this.probe()) await sync({ force: true });
     await this.refresh();
-  }
-
-  async retryFailed(id: string): Promise<void> {
-    await outbox.retryFailed(id);
   }
 
   /** The discarded write's effect can still be in the mirror, so the row is put back to what the

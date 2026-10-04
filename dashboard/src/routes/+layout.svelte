@@ -2,6 +2,7 @@
   import "../app.css";
   import { browser } from "$app/env";
   import { page } from "$app/state";
+  import type { Attachment } from "svelte/attachments";
   import Navbar from "#lib/components/Navbar.svelte";
   import ServerStatus from "#lib/components/ServerStatus.svelte";
   import TabBar from "#lib/components/TabBar.svelte";
@@ -12,15 +13,12 @@
   import { assistant } from "#lib/assistant/state.svelte.js";
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import FirstSync from "#lib/offline/FirstSync.svelte";
-  import { appUpdate } from "#lib/offline/update.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import { navigating } from "$app/state";
   import { beforeNavigate } from "$app/navigation";
   import { MIRRORED_ROUTES } from "#lib/routes.js";
   import { navOrigin } from "#lib/navOrigin.svelte.js";
-  import { pwa } from "#lib/pwa.svelte.js";
-  import { push } from "#lib/push.svelte.js";
-  import { loadTheme } from "#lib/theme.svelte.js";
+  import { startClient } from "#lib/startClient.js";
 
   let { children } = $props();
 
@@ -55,12 +53,7 @@
     void navBadges.refresh();
   });
 
-  $effect(() => {
-    loadTheme();
-    appUpdate.start();
-    pwa.start();
-    void push.start();
-  });
+  $effect(() => startClient(loggedIn));
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.
   // `dvh`, not `vh`: mobile browser chrome makes 100vh taller than the visible area, which put
@@ -74,26 +67,25 @@
    * Publish the real header height as `--header-h` (M-6, X6). Every sticky element references
    * it instead of hard-coding `top-14`, which was a desktop-only 56px and left the notes bulk
    * bar hidden underneath the wrapped mobile header.
+   * Re-runs when `loggedIn` flips, because the header only exists while the logged-in chrome does.
    */
-  let shell = $state<HTMLDivElement | null>(null);
-
-  $effect(() => {
-    if (!shell) return;
+  const publishHeaderHeight: Attachment<HTMLDivElement> = (shell) => {
+    void loggedIn;
     const header = shell.querySelector<HTMLElement>("[data-app-header]");
     if (!header) return;
 
-    const publish = () => shell?.style.setProperty("--header-h", `${header.offsetHeight}px`);
+    const publish = () => shell.style.setProperty("--header-h", `${header.offsetHeight}px`);
     publish();
 
     const observer = new ResizeObserver(publish);
     observer.observe(header);
     return () => observer.disconnect();
-  });
+  };
 </script>
 
 <!-- Navbar and shell live here, above the swapped-out page, so navigating never unmounts the
      header. Mounting it per page made every click rebuild the button row for a frame. -->
-<div bind:this={shell} class="flex flex-col {fullHeight ? 'h-dvh' : 'min-h-dvh'}">
+<div {@attach publishHeaderHeight} class="flex flex-col {fullHeight ? 'h-dvh' : 'min-h-dvh'}">
   <!-- Only a server load is worth a bar: a mirrored page renders from IndexedDB in milliseconds,
        and the bar only flashed there. Its first-sync wait has its own screen. -->
   {#if navigating.to && !MIRRORED_ROUTES.has(navigating.to.route.id ?? "")}

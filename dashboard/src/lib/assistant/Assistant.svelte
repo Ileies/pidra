@@ -18,10 +18,6 @@
 
   let panel = $state<HTMLDivElement | null>(null);
 
-  $effect(() => {
-    assistant.restore();
-  });
-
   // Route fallback. A page's own `setPageContext` runs after this and wins.
   $effect(() => {
     assistant.setRoute(page.url.pathname);

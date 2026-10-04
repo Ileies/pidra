@@ -48,16 +48,10 @@ class PwaState {
   desktopChromium = $state(false);
 
   #prompt: BeforeInstallPromptEvent | null = null;
-  #started = false;
 
-  get installed(): boolean {
-    return this.inApp || this.installedInBrowser;
-  }
+  installed = $derived(this.inApp || this.installedInBrowser);
 
   start(): void {
-    if (this.#started || typeof window === "undefined") return;
-    this.#started = true;
-
     const nav = navigator as Navigator & NavigatorExtras;
     const mq = window.matchMedia("(display-mode: standalone)");
     const readInApp = () => {

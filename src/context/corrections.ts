@@ -1,6 +1,6 @@
 import { HttpError } from "../util/errors";
 import { db, contextCorrections, contacts, entities } from "../db";
-import { and, desc, eq, sql as drizzleSql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 /**
  * The correction layer over the harvested long-term context.
@@ -51,13 +51,111 @@ export interface ActiveCorrection {
   createdAt: string | null;
 }
 
-/** Only these columns can be merged into a row. Anything else is rejected rather than ignored. */
-const MERGEABLE: Record<"entity" | "contact", string[]> = {
-  entity: ["type", "domain", "summary", "importance", "status"],
-  contact: ["name", "relationship", "priority", "contextNotes"],
+export class CorrectionError extends HttpError {}
+
+type Fields = Record<string, unknown>;
+
+/** What a merge did to a structured row: the pre-merge row for a revert (null if nothing changed) and what to tell the caller. */
+interface MergeResult {
+  previousState: Fields | null;
+  applied: string;
+}
+
+/** What differs from the current row, or null when the correction would change nothing. */
+function noChange(kind: string, patch: Fields): MergeResult | null {
+  return Object.keys(patch).length === 0
+    ? { previousState: null, applied: `recorded as a correction; no ${kind} field actually changed, so the row is unchanged` }
+    : null;
+}
+
+/**
+ * Per structured kind: which columns a correction may merge (anything else is rejected rather than
+ * ignored), how a merge or removal reaches the row, and how a revert puts it back.
+ */
+const ROW_KINDS = {
+  contact: {
+    mergeable: ["name", "relationship", "priority", "contextNotes"],
+
+    async merge(key: string, candidate: Fields, remove: boolean): Promise<MergeResult> {
+      const [row] = await db.select().from(contacts).where(eq(contacts.identifier, key)).limit(1);
+      if (!row) throw new CorrectionError(`no contact with identifier "${key}"`);
+      if (remove) {
+        if (row.removedAt) throw new CorrectionError(`contact ${key} is already removed`);
+        await db.update(contacts).set({ removedAt: sql`now()`, locked: true, updatedAt: sql`now()` }).where(eq(contacts.identifier, key));
+        return { previousState: row as Fields, applied: `removed contact ${key} (the row is kept, locked, and comes back if this correction is reverted)` };
+      }
+      if (row.removedAt) throw new CorrectionError(`contact ${key} was removed; revert that removal before editing it`);
+      const patch = diffFromRow(candidate, row as Fields);
+      const none = noChange("contact", patch);
+      if (none) return none;
+      await db.update(contacts).set({ ...patch, locked: true, updatedAt: sql`now()` }).where(eq(contacts.identifier, key));
+      return { previousState: row as Fields, applied: `updated contact ${key}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };
+    },
+
+    async restore(prev: Fields, key: string): Promise<string> {
+      if (prev.__created === true) {
+        // Added by `addContact`: there is no earlier row to restore, so it is taken out of use again.
+        await db.update(contacts).set({ removedAt: sql`now()`, updatedAt: sql`now()` }).where(eq(contacts.identifier, key));
+        return `, contact ${key} removed again`;
+      }
+      await db
+        .update(contacts)
+        .set({
+          name: (prev.name as string) ?? null,
+          relationship: (prev.relationship as string) ?? null,
+          priority: (prev.priority as string) ?? null,
+          contextNotes: (prev.contextNotes as string) ?? null,
+          removedAt: (prev.removedAt as string) ?? null,
+          locked: (prev.locked as boolean) ?? false,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(contacts.identifier, key));
+      return `, contact ${key} restored`;
+    },
+  },
+
+  entity: {
+    mergeable: ["type", "domain", "summary", "importance", "status"],
+
+    async merge(key: string, candidate: Fields, remove: boolean): Promise<MergeResult> {
+      // Entity names are matched case-insensitively: the graph holds "Acme" where a user says "acme".
+      const [row] = await db.select().from(entities).where(sql`lower(${entities.name}) = lower(${key})`).limit(1);
+      if (!row) throw new CorrectionError(`no entity named "${key}"`);
+      if (remove) {
+        if (row.status === "archived") throw new CorrectionError(`entity ${row.name} is already removed`);
+        await db.update(entities).set({ status: "archived", locked: true }).where(eq(entities.id, row.id));
+        return { previousState: row as Fields, applied: `removed entity ${row.name} (archived and locked; it comes back if this correction is reverted)` };
+      }
+      const patch = diffFromRow(candidate, row as Fields);
+      const none = noChange("entity", patch);
+      if (none) return none;
+      await db.update(entities).set({ ...patch, locked: true }).where(eq(entities.id, row.id));
+      return { previousState: row as Fields, applied: `updated entity ${row.name}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };
+    },
+
+    async restore(prev: Fields, key: string): Promise<string> {
+      await db
+        .update(entities)
+        .set({
+          type: (prev.type as string) ?? null,
+          domain: (prev.domain as string) ?? null,
+          summary: (prev.summary as string) ?? null,
+          importance: (prev.importance as string) ?? null,
+          status: (prev.status as string) ?? null,
+          locked: (prev.locked as boolean) ?? false,
+        })
+        .where(eq(entities.id, prev.id as string));
+      return `, entity ${key} restored`;
+    },
+  },
 };
 
-export class CorrectionError extends HttpError {}
+type RowKind = keyof typeof ROW_KINDS;
+
+const insertCorrection = async (values: typeof contextCorrections.$inferInsert): Promise<string> => {
+  const [row] = await db.insert(contextCorrections).values(values).returning({ id: contextCorrections.id });
+  return row.id;
+};
 
 export async function listActiveCorrections(): Promise<ActiveCorrection[]> {
   return db
@@ -111,22 +209,18 @@ export async function recordCorrection(input: CorrectionInput): Promise<{ id: st
     applied = merge.applied;
   }
 
-  const [row] = await db
-    .insert(contextCorrections)
-    .values({
-      targetKind: input.targetKind,
-      targetKey,
-      operation: input.operation,
-      statement,
-      supersedesText: input.supersedesText?.trim() || null,
-      rationale: input.rationale?.trim() || null,
-      previousState,
-      source: input.source ?? "chat",
-      conversationId: input.conversationId ?? null,
-    })
-    .returning({ id: contextCorrections.id });
-
-  return { id: row.id, applied };
+  const id = await insertCorrection({
+    targetKind: input.targetKind,
+    targetKey,
+    operation: input.operation,
+    statement,
+    supersedesText: input.supersedesText?.trim() || null,
+    rationale: input.rationale?.trim() || null,
+    previousState,
+    source: input.source ?? "chat",
+    conversationId: input.conversationId ?? null,
+  });
+  return { id, applied };
 }
 
 /** Only the fields that actually differ from the current row belong in a merge patch. */
@@ -138,63 +232,18 @@ function diffFromRow(candidate: Record<string, unknown>, row: Record<string, unk
   return patch;
 }
 
-async function mergeStructuredRow(
-  kind: "entity" | "contact",
-  key: string,
-  fields: Record<string, unknown> | null,
-  remove: boolean,
-): Promise<{ previousState: Record<string, unknown> | null; applied: string }> {
-  const allowed = MERGEABLE[kind];
-  const candidate: Record<string, unknown> = {};
+function mergeStructuredRow(kind: RowKind, key: string, fields: Fields | null, remove: boolean): Promise<MergeResult> {
+  const { mergeable, merge } = ROW_KINDS[kind];
+  const candidate: Fields = {};
 
   for (const [k, v] of Object.entries(fields ?? {})) {
-    if (!allowed.includes(k)) {
-      throw new CorrectionError(`field "${k}" cannot be corrected on a ${kind}; allowed: ${allowed.join(", ")}`);
+    if (!mergeable.includes(k)) {
+      throw new CorrectionError(`field "${k}" cannot be corrected on a ${kind}; allowed: ${mergeable.join(", ")}`);
     }
     if (v !== null && v !== undefined && String(v).trim() !== "") candidate[k] = v;
   }
 
-  if (kind === "contact") {
-    const [row] = await db.select().from(contacts).where(eq(contacts.identifier, key)).limit(1);
-    if (!row) throw new CorrectionError(`no contact with identifier "${key}"`);
-    if (remove) {
-      if (row.removedAt) throw new CorrectionError(`contact ${key} is already removed`);
-      await db
-        .update(contacts)
-        .set({ removedAt: drizzleSql`now()`, locked: true, updatedAt: drizzleSql`now()` })
-        .where(eq(contacts.identifier, key));
-      return { previousState: row as Record<string, unknown>, applied: `removed contact ${key} (the row is kept, locked, and comes back if this correction is reverted)` };
-    }
-    if (row.removedAt) throw new CorrectionError(`contact ${key} was removed; revert that removal before editing it`);
-    const patch = diffFromRow(candidate, row as Record<string, unknown>);
-    if (Object.keys(patch).length === 0) {
-      return { previousState: null, applied: "recorded as a correction; no contact field actually changed, so the row is unchanged" };
-    }
-    await db
-      .update(contacts)
-      .set({ ...patch, locked: true, updatedAt: drizzleSql`now()` })
-      .where(eq(contacts.identifier, key));
-    return { previousState: row as Record<string, unknown>, applied: `updated contact ${key}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };
-  }
-
-  // Entity names are matched case-insensitively: the graph holds "Acme" where a user says "acme".
-  const [row] = await db
-    .select()
-    .from(entities)
-    .where(drizzleSql`lower(${entities.name}) = lower(${key})`)
-    .limit(1);
-  if (!row) throw new CorrectionError(`no entity named "${key}"`);
-  if (remove) {
-    if (row.status === "archived") throw new CorrectionError(`entity ${row.name} is already removed`);
-    await db.update(entities).set({ status: "archived", locked: true }).where(eq(entities.id, row.id));
-    return { previousState: row as Record<string, unknown>, applied: `removed entity ${row.name} (archived and locked; it comes back if this correction is reverted)` };
-  }
-  const patch = diffFromRow(candidate, row as Record<string, unknown>);
-  if (Object.keys(patch).length === 0) {
-    return { previousState: null, applied: "recorded as a correction; no entity field actually changed, so the row is unchanged" };
-  }
-  await db.update(entities).set({ ...patch, locked: true }).where(eq(entities.id, row.id));
-  return { previousState: row as Record<string, unknown>, applied: `updated entity ${row.name}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };
+  return merge(key, candidate, remove);
 }
 
 const EMAIL_SHAPED = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
@@ -241,7 +290,7 @@ export async function addContact(input: NewContact): Promise<{ id: string; appli
     previousState = existing as Record<string, unknown>;
     await db
       .update(contacts)
-      .set({ ...values, removedAt: null, locked: true, updatedAt: drizzleSql`now()` })
+      .set({ ...values, removedAt: null, locked: true, updatedAt: sql`now()` })
       .where(eq(contacts.identifier, identifier));
     applied = `restored previously removed contact ${identifier}`;
   } else {
@@ -251,21 +300,17 @@ export async function addContact(input: NewContact): Promise<{ id: string; appli
   }
 
   const described = [values.name, values.relationship].filter(Boolean).join(", ");
-  const [row] = await db
-    .insert(contextCorrections)
-    .values({
-      targetKind: "contact",
-      targetKey: identifier,
-      operation: "complement",
-      statement: `${identifier} is ${described || "a known contact"}.`,
-      rationale: input.rationale?.trim() || null,
-      previousState,
-      source: input.source ?? "chat",
-      conversationId: input.conversationId ?? null,
-    })
-    .returning({ id: contextCorrections.id });
-
-  return { id: row.id, applied };
+  const id = await insertCorrection({
+    targetKind: "contact",
+    targetKey: identifier,
+    operation: "complement",
+    statement: `${identifier} is ${described || "a known contact"}.`,
+    rationale: input.rationale?.trim() || null,
+    previousState,
+    source: input.source ?? "chat",
+    conversationId: input.conversationId ?? null,
+  });
+  return { id, applied };
 }
 
 /**
@@ -277,48 +322,12 @@ export async function revertCorrection(id: string): Promise<string> {
   if (!row) throw new CorrectionError(`no correction with id ${id}`, 409);
   if (row.status !== "active") throw new CorrectionError(`correction ${id} is already ${row.status}`, 409);
 
-  let restored = "";
   const prev = row.previousState;
-
-  if (prev && row.targetKind === "contact" && prev.__created === true) {
-    // Added by `addContact`: there is no earlier row to restore, so it is taken out of use again.
-    await db
-      .update(contacts)
-      .set({ removedAt: drizzleSql`now()`, updatedAt: drizzleSql`now()` })
-      .where(eq(contacts.identifier, row.targetKey));
-    restored = `, contact ${row.targetKey} removed again`;
-  } else if (prev && row.targetKind === "contact") {
-    await db
-      .update(contacts)
-      .set({
-        name: (prev.name as string) ?? null,
-        relationship: (prev.relationship as string) ?? null,
-        priority: (prev.priority as string) ?? null,
-        contextNotes: (prev.contextNotes as string) ?? null,
-        removedAt: (prev.removedAt as string) ?? null,
-        locked: (prev.locked as boolean) ?? false,
-        updatedAt: drizzleSql`now()`,
-      })
-      .where(eq(contacts.identifier, row.targetKey));
-    restored = `, contact ${row.targetKey} restored`;
-  } else if (prev && row.targetKind === "entity") {
-    await db
-      .update(entities)
-      .set({
-        type: (prev.type as string) ?? null,
-        domain: (prev.domain as string) ?? null,
-        summary: (prev.summary as string) ?? null,
-        importance: (prev.importance as string) ?? null,
-        status: (prev.status as string) ?? null,
-        locked: (prev.locked as boolean) ?? false,
-      })
-      .where(eq(entities.id, prev.id as string));
-    restored = `, entity ${row.targetKey} restored`;
-  }
+  const restored = prev && row.targetKind in ROW_KINDS ? await ROW_KINDS[row.targetKind as RowKind].restore(prev, row.targetKey) : "";
 
   await db
     .update(contextCorrections)
-    .set({ status: "reverted", revertedAt: drizzleSql`now()` })
+    .set({ status: "reverted", revertedAt: sql`now()` })
     .where(and(eq(contextCorrections.id, id), eq(contextCorrections.status, "active")));
 
   return `Correction ${id} reverted${restored}.`;

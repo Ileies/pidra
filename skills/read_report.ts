@@ -1,3 +1,4 @@
+import { isDateKey } from "../src/util/ids";
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import type { Skill } from "../src/skills/loader";
 import { db, dailyReports, extractions, rawItems } from "../src/db";
@@ -84,7 +85,7 @@ const skill: Skill = {
 
     const rawDate = params.date ? String(params.date).trim() : "";
     const date = rawDate.toLowerCase() === "latest" ? "" : rawDate;
-    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must be YYYY-MM-DD or 'latest'");
+    if (date && !isDateKey(date)) throw new Error("date must be YYYY-MM-DD or 'latest'");
 
     const section = String(params.section ?? "full").trim().toLowerCase();
     if (!(SECTIONS as readonly string[]).includes(section)) {

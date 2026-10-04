@@ -1,3 +1,4 @@
+import { isUuid } from "$pipeline/util/ids";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -53,7 +54,7 @@ export const load: PageServerLoad = async () => {
 
 async function bridge(request: Request, op: "reopen" | "reprocess") {
   const id = String((await request.formData()).get("id") ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return fail(400, { id, error: "Invalid question id" });
+  if (!isUuid(id)) return fail(400, { id, error: "Invalid question id" });
 
   try {
     const res = await fetch(`${API}/api/questions/${id}/${op}`, { method: "POST" });

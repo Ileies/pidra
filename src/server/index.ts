@@ -1,3 +1,4 @@
+import { isUuid, isDateKey } from "../util/ids";
 import { utcDay } from "../util/time";
 import { errMessage } from "../util/text";
 import { Hono, type Context } from "hono";
@@ -102,12 +103,11 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 // Listening to a report. The chapters and their text come from the stored report; a request names
 // only a date and a chapter key, so it can never make the server speak text of its own choosing.
-const DATE_PARAM = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_PARAM = /^[0-9a-f]{16}$/;
 
 app.get("/api/report-audio/:date", async (c) => {
   const date = c.req.param("date");
-  if (!DATE_PARAM.test(date)) return c.json({ error: "Invalid date" }, 400);
+  if (!isDateKey(date)) return c.json({ error: "Invalid date" }, 400);
   try {
     return c.json(await audioManifest(date));
   } catch (err) {
@@ -119,7 +119,7 @@ app.get("/api/report-audio/:date", async (c) => {
 // POST because it can cost money (a chapter not yet spoken); a cached chapter is a plain read.
 app.post("/api/report-audio/:date/:key", async (c) => {
   const { date, key } = c.req.param();
-  if (!DATE_PARAM.test(date) || !KEY_PARAM.test(key)) return c.json({ error: "Invalid chapter" }, 400);
+  if (!isDateKey(date) || !KEY_PARAM.test(key)) return c.json({ error: "Invalid chapter" }, 400);
   try {
     const { audio, durationMs } = await chapterAudio(date, key);
     return new Response(new Uint8Array(audio), {
@@ -177,7 +177,7 @@ app.post("/api/pipeline/run", async (c) => {
 
 app.post("/api/deepen", async (c) => {
   const body = await c.req.json() as { ids: string[] };
-  const idList = (body.ids ?? []).filter((id: string) => /^[0-9a-f-]{36}$/.test(id)).slice(0, 10);
+  const idList = (body.ids ?? []).filter((id: string) => isUuid(id)).slice(0, 10);
   if (idList.length === 0) return c.json({ error: "No valid IDs" }, 400);
 
   const rows = await db
@@ -220,7 +220,7 @@ app.post("/api/deepen", async (c) => {
 app.post("/api/questions/:id/:op", async (c) => {
   const id = c.req.param("id");
   const op = c.req.param("op");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  if (!isUuid(id)) return c.json({ error: "Invalid id" }, 400);
 
   try {
     if (op === "answer") {
@@ -294,7 +294,7 @@ app.post("/api/prompts", async (c) => {
 
 app.post("/api/prompts/:id/approve", async (c) => {
   const id = c.req.param("id");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  if (!isUuid(id)) return c.json({ error: "Invalid id" }, 400);
 
   const [target] = await db.select().from(promptVersions).where(eq(promptVersions.id, id)).limit(1);
   if (!target) return c.json({ error: "Not found" }, 404);
@@ -310,7 +310,7 @@ app.post("/api/prompts/:id/approve", async (c) => {
 
 app.delete("/api/prompts/:id", async (c) => {
   const id = c.req.param("id");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  if (!isUuid(id)) return c.json({ error: "Invalid id" }, 400);
 
   const [target] = await db.select({ active: promptVersions.active }).from(promptVersions).where(eq(promptVersions.id, id)).limit(1);
   if (!target) return c.json({ error: "Not found" }, 404);
@@ -433,7 +433,7 @@ const ACTION_OPS = {
 app.post("/api/actions/:id/:op", async (c) => {
   const id = c.req.param("id");
   const op = c.req.param("op");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  if (!isUuid(id)) return c.json({ error: "Invalid id" }, 400);
   if (!(op in ACTION_OPS)) return c.json({ error: "op must be run, dismiss or restore" }, 400);
 
   try {
@@ -457,7 +457,7 @@ interface ChatRequest {
 
 function chatRequestError(body: ChatRequest): string | null {
   if (!body.message?.trim()) return "message is required";
-  if (body.conversation_id && !/^[0-9a-f-]{36}$/i.test(body.conversation_id)) return "Invalid conversation_id";
+  if (body.conversation_id && !isUuid(body.conversation_id)) return "Invalid conversation_id";
   return null;
 }
 
@@ -560,7 +560,7 @@ app.post("/api/context/corrections", async (c) => {
 
 app.post("/api/context/corrections/:id/revert", async (c) => {
   const id = c.req.param("id");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "Invalid id" }, 400);
+  if (!isUuid(id)) return c.json({ error: "Invalid id" }, 400);
   try {
     return c.json({ ok: true, message: await revertCorrection(id) });
   } catch (err) {

@@ -1,3 +1,4 @@
+import { isUuid } from "$pipeline/util/ids";
 import { errMessage } from "$pipeline/util/text";
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
@@ -10,7 +11,7 @@ export const actions: Actions = {
   revertCorrection: async ({ request }) => {
     const form = await request.formData();
     const id = String(form.get("id") ?? "");
-    if (!(/^[0-9a-f-]{36}$/i).test(id)) return fail(400, { error: "Invalid correction id" });
+    if (!isUuid(id)) return fail(400, { error: "Invalid correction id" });
 
     try {
       const res = await fetch(`${API}/api/context/corrections/${id}/revert`, { method: "POST" });

@@ -4,12 +4,13 @@
  * browser's for a chat turn, the primary calendar's for the unattended pipeline. Nothing here
  * defaults to a place; a caller that has no zone passes none and gets UTC.
  */
+import { isDateKey } from "./ids";
+
 const UTC = "UTC";
 
 export const DAY_MS = 86_400_000;
 
 const LOCAL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
-const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Minutes `timeZone` is ahead of UTC at the instant `utcMs`. */
 function offsetMinutes(utcMs: number, timeZone: string): number {
@@ -29,7 +30,7 @@ function offsetMinutes(utcMs: number, timeZone: string): number {
 }
 
 export function isLocalDate(value: string): boolean {
-  return LOCAL_DATE.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  return isDateKey(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
 /** Whether `value` is an IANA zone name this runtime knows ("Europe/Zurich", "UTC"). */

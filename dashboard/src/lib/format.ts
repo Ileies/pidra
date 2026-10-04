@@ -10,6 +10,8 @@
  * only, where it is a trick for getting a local ISO date and not a locale choice.
  */
 
+import { isDateKey } from "$pipeline/util/ids";
+
 const LOCALE = "en-GB";
 
 /** A dash, not an empty string: an absent value should be visibly absent in a table cell. */
@@ -21,7 +23,7 @@ function toDate(value: DateInput): Date | null {
   if (value == null || value === "") return null;
   // A bare `YYYY-MM-DD` parses as UTC midnight, which renders as the previous day west of
   // Greenwich. Noon local keeps a date-only value on its own day in every timezone.
-  const date = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+  const date = typeof value === "string" && isDateKey(value)
     ? new Date(`${value}T12:00:00`)
     : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;

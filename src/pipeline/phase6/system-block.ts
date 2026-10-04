@@ -1,3 +1,4 @@
+import { isUuid } from "../../util/ids";
 import { errMessage } from "../../util/text";
 import { db, activeTopics, entities, contacts } from "../../db";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -17,7 +18,7 @@ export function parseSystemBlock(text: string): Record<string, any> | null {
 }
 
 function isValidTopicUpdate(update: any): boolean {
-  if (typeof update.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(update.id)) return false;
+  if (!isUuid(update.id)) return false;
   if (update.status !== "active" && update.status !== "resolved") return false;
   if (typeof update.new_summary !== "string" || !update.new_summary.trim()) return false;
   if (update.status === "resolved" && (typeof update.resolution_evidence !== "string" || !update.resolution_evidence.trim())) return false;

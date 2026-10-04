@@ -14,6 +14,8 @@
  * Pure, so the rules are testable without a database or an API key.
  */
 
+import { isDateKey } from "../util/ids";
+
 import type { DeskId, HomeConfig, NewsWindow } from "./config";
 import type { BraveResult } from "../search/brave";
 
@@ -186,7 +188,7 @@ export function withinWindow(happenedAt: string, window: NewsWindow): boolean | 
   const value = happenedAt.trim();
   if (!value) return null;
 
-  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const dateOnly = isDateKey(value);
   const parsed = Date.parse(dateOnly ? `${value}T00:00:00Z` : value);
   if (Number.isNaN(parsed)) return null;
 

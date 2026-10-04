@@ -1,3 +1,4 @@
+import { isUuid } from "$pipeline/util/ids";
 import type { PageServerLoad } from "./$types";
 import { error } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -12,10 +13,9 @@ import type { StepRow } from "#lib/runTrace.js";
  * report hold (total time, status, token counts) and says so, instead of drawing an empty graph.
  */
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const load: PageServerLoad = async ({ params }) => {
-  if (!UUID.test(params.id)) error(404, "No such run");
+  if (!isUuid(params.id)) error(404, "No such run");
 
   const [runRows, stepRows] = await Promise.all([
     sql()`

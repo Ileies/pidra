@@ -1,3 +1,4 @@
+import { isDateKey } from "$pipeline/util/ids";
 import { errMessage } from "$pipeline/util/text";
 import type { RequestHandler } from "./$types";
 import { SKILLS_BRIDGE_URL } from "$app/env/private";
@@ -7,7 +8,7 @@ import { SKILLS_BRIDGE_URL } from "$app/env/private";
 const API = SKILLS_BRIDGE_URL ?? "http://localhost:4000";
 
 export const POST: RequestHandler = async ({ params }) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date) || !/^[0-9a-f]{16}$/.test(params.key)) {
+  if (!isDateKey(params.date) || !/^[0-9a-f]{16}$/.test(params.key)) {
     return Response.json({ error: "Invalid chapter" }, { status: 400 });
   }
 

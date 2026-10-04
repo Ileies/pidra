@@ -1,3 +1,4 @@
+import { isUuid } from "../src/util/ids";
 import type { Skill } from "../src/skills/loader";
 import { revertCorrection } from "../src/context/corrections";
 
@@ -12,7 +13,7 @@ const skill: Skill = {
   },
   execute: async (params) => {
     const id = String(params.correction_id ?? "").trim();
-    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error("correction_id must be a UUID");
+    if (!isUuid(id)) throw new Error("correction_id must be a UUID");
     return revertCorrection(id);
   },
 };

@@ -3,6 +3,7 @@
  * Usage: bun run scripts/jev-baseline.ts YYYY-MM-DD --output /private/path/DATE.json
  * The output can contain paid newsletter claims. Keep it outside version control.
  */
+import { isDateKey } from "../src/util/ids";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { open } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -12,7 +13,7 @@ import { db, dailyReports, extractions, feedbackEvents, ingestDrops, pipelineRun
 import { candidateOutcome, sourceFailures } from "../src/evaluation/baseline";
 
 const [date, flag, outputPath] = Bun.argv.slice(2);
-if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? "") || flag !== "--output" || !outputPath) {
+if (!isDateKey(date ?? "") || flag !== "--output" || !outputPath) {
   throw new Error("Usage: bun run scripts/jev-baseline.ts YYYY-MM-DD --output /private/path/DATE.json");
 }
 if (!isAbsolute(outputPath)) throw new Error("--output must be an absolute path outside this repository");

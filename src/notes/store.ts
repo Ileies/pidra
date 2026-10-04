@@ -1,3 +1,4 @@
+import { isUuid, isDateKey } from "../util/ids";
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql as drizzleSql } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
 import { addDays, utcDay } from "../util/time";
@@ -60,12 +61,10 @@ export interface ListOptions {
 export const NOTE_SORTS = ["newest", "oldest", "edited"] as const;
 export const NOTE_AUTHORS = ["user", "chat", "system", "harvest"] as const;
 
-const UUID = /^[0-9a-f-]{36}$/i;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 function assertUuid(id: string, label = "note_id"): string {
   const value = (id ?? "").trim();
-  if (!UUID.test(value)) throw new NoteError(`${label} must be a UUID`);
+  if (!isUuid(value)) throw new NoteError(`${label} must be a UUID`);
   return value;
 }
 
@@ -81,7 +80,7 @@ function normaliseExpiry(value: string | null): string | null {
   if (value === null) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (!DATE_ONLY.test(trimmed)) throw new NoteError("expires_at must be a date as YYYY-MM-DD");
+  if (!isDateKey(trimmed)) throw new NoteError("expires_at must be a date as YYYY-MM-DD");
   return trimmed;
 }
 
@@ -110,11 +109,11 @@ export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
     filters.push(eq(notes.createdBy, opts.createdBy));
   }
   if (opts.createdSince) {
-    if (!DATE_ONLY.test(opts.createdSince)) throw new NoteError("created_since must be a date as YYYY-MM-DD");
+    if (!isDateKey(opts.createdSince)) throw new NoteError("created_since must be a date as YYYY-MM-DD");
     filters.push(drizzleSql`(${notes.createdAt} AT TIME ZONE 'UTC')::date >= ${opts.createdSince}::date`);
   }
   if (opts.expiresBefore) {
-    if (!DATE_ONLY.test(opts.expiresBefore)) throw new NoteError("expires_before must be a date as YYYY-MM-DD");
+    if (!isDateKey(opts.expiresBefore)) throw new NoteError("expires_before must be a date as YYYY-MM-DD");
     filters.push(lte(notes.expiresAt, opts.expiresBefore));
   }
 

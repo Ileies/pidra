@@ -1,3 +1,4 @@
+import { isUuid } from "$pipeline/util/ids";
 import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -23,7 +24,7 @@ export const actions: Actions = {
     if (!id) return fail(400, { error: "Missing topic id" });
     if (!status || !(STATUSES as readonly string[]).includes(status)) return fail(400, { error: "Invalid status" });
 
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    if (!isUuid(id)) {
       return fail(400, { error: "Invalid topic id" });
     }
     await sql()`UPDATE active_topics SET status = ${status},

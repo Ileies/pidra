@@ -12,6 +12,8 @@
  * Google Calendar, so on a machine off the LAN it needs the tunnel from CLAUDE.md.
  */
 
+import { isDateKey } from "../src/util/ids";
+
 import { utcDay } from "../src/util/time";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, notes, rawItems } from "../src/db";
@@ -19,7 +21,7 @@ import { proposeQuickActions } from "../src/actions/propose";
 import type { CalendarEvent } from "../src/ingest/google";
 import { loadLongTermContext } from "../src/pipeline/long-term-context";
 
-const date = process.argv.slice(2).find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? utcDay();
+const date = process.argv.slice(2).find((a) => isDateKey(a)) ?? utcDay();
 
 const [calendarRows, noteRows, longTermContext] = await Promise.all([
   db

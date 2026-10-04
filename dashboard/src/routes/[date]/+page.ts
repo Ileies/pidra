@@ -1,3 +1,4 @@
+import { isDateKey } from "$pipeline/util/ids";
 import type { PageLoad } from "./$types";
 import { error } from "@sveltejs/kit";
 import { utcDay } from "#lib/format.js";
@@ -13,7 +14,7 @@ export const ssr = false;
 
 export const load: PageLoad = async ({ params, depends }) => {
   const { date } = params;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error(404, "Not found");
+  if (!isDateKey(date)) error(404, "Not found");
 
   const [data, dates, empty] = await Promise.all([report(depends, date), reportDates(depends), mirrorEmpty()]);
   const today = utcDay();

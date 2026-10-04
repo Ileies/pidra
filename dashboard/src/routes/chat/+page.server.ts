@@ -1,3 +1,4 @@
+import { isUuid } from "$pipeline/util/ids";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -41,7 +42,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const requested = url.searchParams.get("c");
   // No param (or `?c=new`) is an empty composer. The page itself carries the live conversation
   // over a client-side navigation by redirecting to `?c=<id>`; a fresh load always starts new.
-  const activeId = requested && /^[0-9a-f-]{36}$/i.test(requested) ? requested : null;
+  const activeId = requested && isUuid(requested) ? requested : null;
 
   const messages = activeId
     ? await db`

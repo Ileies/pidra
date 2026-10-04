@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { EXTRACTION_MODEL, SYNTHESIS_MODEL } from "../src/ai/models";
 import { loadEmailAccounts, type EmailAccount } from "../src/config/email-accounts";
 
 export type { EmailAccount };
@@ -34,8 +35,8 @@ export async function loadConfig(): Promise<Config> {
     emailAccounts: await loadEmailAccounts(),
     emailYears: Number(process.env.CONTEXT_BUILDER_EMAIL_YEARS ?? 3),
     githubToken: resolveGithubToken(),
-    extractionModel: process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-6-luna",
-    synthesisModel: process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-6-luna",
+    extractionModel: EXTRACTION_MODEL,
+    synthesisModel: SYNTHESIS_MODEL,
     outputDir: process.env.CONTEXT_BUILDER_OUTPUT_DIR
       ? resolve(process.env.CONTEXT_BUILDER_OUTPUT_DIR)
       : resolve(import.meta.dir, "output"),

@@ -6,6 +6,7 @@ import type {
   ResponseInput,
   ResponseInputItem,
 } from "openai/resources/responses/responses";
+import { EXTRACTION_MODEL, SYNTHESIS_MODEL } from "./models";
 import { retry } from "../util/retry";
 import { stripControlChars } from "../util/text";
 import { recordAiCall, recordFlexRetry, recordUsage } from "../util/trace";
@@ -14,8 +15,7 @@ if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export const EXTRACTION_MODEL = process.env.OPENAI_MODEL_EXTRACTION ?? "gpt-6-luna";
-export const SYNTHESIS_MODEL = process.env.OPENAI_MODEL_SYNTHESIS ?? "gpt-6-luna";
+export { EXTRACTION_MODEL, SYNTHESIS_MODEL };
 
 // With reasoning enabled, gpt-6-luna rejects `temperature`; `max_tokens` is unsupported.
 // Use strict JSON schemas plus low reasoning effort instead; the output cap is `max_output_tokens`

@@ -1,28 +1,20 @@
 <script lang="ts">
-  import Search from "@lucide/svelte/icons/search";
-  import { jsonInit } from "#lib/http.js";
-  import { readStored, writeStored } from "#lib/storage.js";
-  import { errMessage } from "$pipeline/util/text";
-  import { onMount, onDestroy, tick } from "svelte";
+  import { tick } from "svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
-  import Badge from "#lib/components/Badge.svelte";
-  import StatBar from "#lib/components/StatBar.svelte";
   import Tabs from "#lib/components/Tabs.svelte";
-  import { fmtDateTime, fmtElapsed, fmtNum } from "#lib/format.js";
-  import { label as displayLabel, toneFor } from "#lib/labels.js";
-  import { toasts } from "#lib/toast.svelte.js";
-  import type { ContextBuilderStatus } from "#lib/server/contextBuilder.js";
-  import { netJson } from "#lib/offline/net.js";
-  import { poll } from "#lib/offline/poll.js";
-  import { sync } from "#lib/offline/sync.js";
-  import { offline } from "#lib/offline/state.svelte.js";
+  import DocSearch from "#lib/contextBuilder/DocSearch.svelte";
+  import QuickLinks from "#lib/contextBuilder/QuickLinks.svelte";
+  import RunControls from "#lib/contextBuilder/RunControls.svelte";
+  import { useContextRun } from "#lib/contextBuilder/useContextRun.svelte.js";
+  import { fmtDateTime, fmtNum } from "#lib/format.js";
+  import { highlightHtml, withHeadingIds } from "#lib/searchHighlight.js";
+  import { readStored, writeStored } from "#lib/storage.js";
+  import { openAncestors } from "#lib/ui/details.js";
+  import { useScrollSpy } from "#lib/ui/scrollSpy.svelte.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
-
-  // The run controls are online-only (live state, and the bridge): disabled once the app knows it
-  // is offline, with the reason, like the writes on /contacts and /topics.
 
   // The harvest is never overwritten here: the assistant records corrections that outrank it.
   // Corrections themselves moved to their own route (see below) - it can grow arbitrarily long,
@@ -41,223 +33,51 @@
     });
   });
 
-  let status = $state<ContextBuilderStatus | null>(null);
-  let starting = $state(false);
-  let stopping = $state(false);
-  let stopPoll: (() => void) | undefined;
+  // The run controls are online-only (live state, and the bridge): disabled once the app knows it
+  // is offline, with the reason, like the writes on /contacts and /topics.
+  const run = useContextRun();
 
-  async function refresh() {
-    try {
-      const wasRunning = status?.running ?? false;
-      status = await netJson<ContextBuilderStatus>("/api/context-builder/status");
-      // A run that just finished wrote a new harvest, which this page reads from the offline copy.
-      if (wasRunning && !status.running) void sync({ force: true });
-    } catch {
-      // transient - next poll will retry
-    }
-  }
-
-  async function start(mode: "full" | "update" | null) {
-    starting = true;
-    try {
-      const body = await netJson<{ ok: boolean; error?: string }>("/api/context-builder/start", jsonInit("POST", { mode }));
-      if (body.ok) toasts.success(`Context Builder started${mode ? ` in ${mode} mode` : ""}.`);
-      else toasts.error(body.error ?? "Failed to start.");
-      await refresh();
-    } catch (err) {
-      toasts.error(errMessage(err));
-    } finally {
-      starting = false;
-    }
-  }
-
-  async function stop() {
-    stopping = true;
-    try {
-      const body = await netJson<{ ok: boolean; error?: string }>("/api/context-builder/stop", { method: "POST" });
-      if (body.ok) toasts.show("Context Builder stopped.");
-      else toasts.error(body.error ?? "Failed to stop.");
-      await refresh();
-    } catch (err) {
-      toasts.error(errMessage(err));
-    } finally {
-      stopping = false;
-    }
-  }
-
-  onMount(() => {
-    stopPoll = poll(refresh, 2000, { immediate: true });
-  });
-
-  onDestroy(() => stopPoll?.());
-
-  // --- Document + source summaries as tabs ------------------------------------------------------
-  //
-  // The old page stacked the document, then source summaries, so reaching the summaries meant
-  // scrolling past the whole (often huge) document first. Tabs make them one click away.
-
+  // The document and the source summaries are tabs: stacked, reaching the summaries meant
+  // scrolling past the whole (often huge) document first.
   type Tab = "document" | "summaries";
   let activeTab = $state<Tab>("document");
-
-  function slugify(text: string): string {
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  }
-
-  interface DocHeading {
-    id: string;
-    title: string;
-  }
-
-  /** Tags each `<h1>` (the document's five contract-mandated sections, CLAUDE.md) with a scroll
-   *  anchor, and reports what it found so Quick Links can list them - generically, rather than
-   *  hardcoding the five titles here too, so a wording change on the pipeline side does not
-   *  silently leave a stale Quick Links entry. */
-  function withHeadingIds(html: string): { html: string; headings: DocHeading[] } {
-    const headings: DocHeading[] = [];
-    const tagged = html.replace(/<h1(\s[^>]*)?>([\s\S]*?)<\/h1>/g, (_m, attrs: string | undefined, inner: string) => {
-      const title = inner.replace(/<[^>]+>/g, "").trim();
-      const id = `doc-${slugify(title)}`;
-      headings.push({ id, title });
-      return `<h1${attrs ?? ""} id="${id}" class="cb-anchor">${inner}</h1>`;
-    });
-    return { html: tagged, headings };
-  }
 
   const docTagged = $derived(data.doc ? withHeadingIds(data.doc.fullContextHtml) : null);
   const docHeadings = $derived(docTagged?.headings ?? []);
   const summarySections = $derived((data.doc?.sections ?? []).filter((section) => section.chars > 0));
 
-  // --- In-page search: highlights matches in both tabs' rendered HTML directly, so it works
-  // whichever tab is open and needs no DOM-diffing to undo when the query changes. ---------------
-
-  function escapeRegExp(s: string): string {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-
-  /** Wraps matches in a `<mark>` without ever touching tag content: the input here is always
-   *  already-sanitised HTML from `renderMarkdown()`, split on its own tags, and the replacement is
-   *  the matched substring itself, so this can only ever add a wrapper around text that was
-   *  already safe to render. */
-  function highlightHtml(html: string, query: string): string {
-    const q = query.trim();
-    if (!q) return html;
-    const re = new RegExp(escapeRegExp(q), "gi");
-    return html
-      .split(/(<[^>]+>)/g)
-      .map((chunk, i) => (i % 2 === 1 ? chunk : chunk.replace(re, (m) => `<mark class="search-hit">${m}</mark>`)))
-      .join("");
-  }
-
-  let searchInput = $state("");
+  // Search highlights matches in both tabs' rendered HTML directly, so it works whichever tab is
+  // open and needs no DOM-diffing to undo when the query changes.
   let searchQuery = $state("");
-  let searchDebounce: ReturnType<typeof setTimeout> | undefined;
-
-  function onSearchInput(value: string) {
-    searchInput = value;
-    clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => (searchQuery = value), 150);
-  }
-
-  function clearSearch() {
-    clearTimeout(searchDebounce);
-    searchInput = "";
-    searchQuery = "";
-  }
-
   const docHtml = $derived(highlightHtml(docTagged?.html ?? "", searchQuery));
   const summaryHtml = $derived(
     new Map(summarySections.map((section) => [section.key, highlightHtml(section.html, searchQuery)])),
   );
-
   let contentRoot = $state<HTMLElement | undefined>();
-  let matches: HTMLElement[] = [];
-  let matchIndex = $state(0);
-  let matchCount = $state(0);
 
-  function revealAndScroll(el: HTMLElement) {
-    let details = el.closest("details");
-    while (details) {
-      details.open = true;
-      details = details.parentElement?.closest("details") ?? null;
-    }
-    const panel = el.closest<HTMLElement>("[data-tab-panel]");
-    if (panel?.dataset.tabPanel === "document" || panel?.dataset.tabPanel === "summaries") {
-      activeTab = panel.dataset.tabPanel;
-    }
-    void tick().then(() => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+  function showTabOf(el: HTMLElement) {
+    const tab = el.closest<HTMLElement>("[data-tab-panel]")?.dataset.tabPanel;
+    if (tab === "document" || tab === "summaries") activeTab = tab;
   }
 
-  // Re-finds every match whenever the query (or the content it searches) changes. Cheaper than
-  // diffing the previous highlight pass away: the highlighted HTML above is already a fresh
-  // string each time, so there is nothing stale to undo.
-  $effect(() => {
-    const query = searchQuery;
-    const root = contentRoot;
-    void docHtml;
-    void summaryHtml;
-    if (!root) return;
-    void tick().then(() => {
-      const found = Array.from(root.querySelectorAll<HTMLElement>("mark.search-hit"));
-      matches = found;
-      matchCount = found.length;
-      matchIndex = 0;
-      found.forEach((m, i) => m.classList.toggle("search-hit-current", i === 0));
-      if (query && found.length > 0) revealAndScroll(found[0]);
-    });
-  });
+  const spy = useScrollSpy(() => [
+    ...docHeadings.map((h) => h.id),
+    ...summarySections.map((s) => `summary-${s.key}`),
+  ]);
 
-  function gotoMatch(delta: number) {
-    if (matches.length === 0) return;
-    matches[matchIndex]?.classList.remove("search-hit-current");
-    matchIndex = (matchIndex + delta + matches.length) % matches.length;
-    matches[matchIndex]?.classList.add("search-hit-current");
-    const el = matches[matchIndex];
-    if (el) revealAndScroll(el);
-  }
-
-  // --- Scrollspy: highlights whichever document heading or source summary is currently in view,
-  // so the Quick Links rail doubles as a live "you are here". -----------------------------------
-
-  let activeSectionId = $state<string | null>(null);
-
-  $effect(() => {
-    const ids = [...docHeadings.map((h) => h.id), ...summarySections.map((s) => `summary-${s.key}`)];
-    const elements = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el != null);
-    if (elements.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) activeSectionId = visible[0].target.id;
-      },
-      { rootMargin: "-80px 0px -70% 0px", threshold: 0 },
-    );
-    for (const el of elements) observer.observe(el);
-    return () => observer.disconnect();
-  });
-
-  function jumpTo(id: string, tab?: Tab) {
-    if (tab) activeTab = tab;
+  function jumpTo(id: string, tab: Tab) {
+    activeTab = tab;
     void tick().then(() => {
       const el = document.getElementById(id);
       if (!el) return;
-      let details = el.closest("details");
-      while (details) {
-        details.open = true;
-        details = details.parentElement?.closest("details") ?? null;
-      }
+      openAncestors(el);
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
-  // --- Source summaries: which <details> are open, remembered across visits. A small thing, but
-  // re-collapsing four sections every single time you open this page is the kind of friction
-  // that is never worth reporting yet always worth fixing. ----------------------------------------
-
+  // Which source summaries are open, remembered across visits: re-collapsing four sections every
+  // time you open this page is the kind of friction that is never worth reporting yet always
+  // worth fixing.
   const EXPANDED_KEY = "cb-expanded-summaries";
 
   function loadExpanded(): Set<string> {
@@ -279,8 +99,7 @@
     writeStored(EXPANDED_KEY, JSON.stringify([...next]));
   }
 
-  // --- Back to top: only once there is somewhere to go back from. --------------------------------
-
+  // Back to top: only once there is somewhere to go back from.
   let scrollY = $state(0);
   const showBackToTop = $derived(scrollY > 600);
 </script>
@@ -288,51 +107,7 @@
 <svelte:window bind:scrollY />
 
 {#snippet statusBar()}
-  <div class="bg-surface-900 border-b border-surface-700">
-    <div class="mx-auto w-full max-w-app px-4 sm:px-6 lg:px-8 py-2 flex flex-col gap-2">
-      <div class="flex items-center justify-between flex-wrap gap-3">
-        <div class="flex items-center gap-3 flex-wrap">
-          <Badge tone={toneFor(status?.dbRun?.status)}>
-            {offline.isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
-          </Badge>
-          {#if status?.dbRun}
-            <span class="text-surface-400 text-xs">{displayLabel(status.dbRun.mode)} mode</span>
-            <span class="text-surface-400 text-xs tabular-nums">· {fmtElapsed(status.dbRun.started_at, status.dbRun.completed_at)} elapsed</span>
-            <span class="text-surface-400 text-xs tabular-nums">· {fmtNum(status.dbRun.items_indexed)} items indexed</span>
-          {:else if status}
-            <span class="text-surface-400 text-xs">No runs yet.</span>
-          {/if}
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button
-            class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800"
-            disabled={offline.isOffline || starting || status?.running}
-            onclick={() => start(null)}
-          >
-            {starting ? "Starting…" : "Start"}
-          </button>
-          <button
-            class="tap nav-btn nav-btn-muted"
-            disabled={offline.isOffline || starting || status?.running}
-            onclick={() => start("full")}
-          >
-            Force full
-          </button>
-          <button
-            class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800"
-            disabled={offline.isOffline || stopping || !status?.trackedByDashboard}
-            onclick={stop}
-          >
-            {stopping ? "Stopping…" : "Stop"}
-          </button>
-        </div>
-      </div>
-      {#if offline.isOffline}
-        <!-- Live run state is what this strip shows, and a copy of it would be a lie. -->
-        <p class="text-xs text-surface-400">Starting or stopping a run needs the connection. The status above is the last one seen.</p>
-      {/if}
-    </div>
-  </div>
+  <RunControls {run} />
 {/snippet}
 
 <Page title="Context Builder" size="app" bleed={statusBar} class="flex flex-col gap-4">
@@ -362,27 +137,12 @@
   <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_14rem] xl:items-start xl:gap-6">
     <div class="flex flex-col gap-4 min-w-0" bind:this={contentRoot}>
     {#if data.doc}
-      <!-- Search reaches into both tabs at once: the highlighted HTML for a tab still renders
-           fine while that tab is hidden, so a match in the tab you are not looking at is found
-           immediately instead of only after you happen to switch there. -->
-      <div class="bg-surface-900 border border-surface-700 rounded-lg p-2 flex items-center gap-2">
-        <Search class="size-4 text-surface-500 shrink-0" />
-        <input
-          type="search"
-          placeholder="Search the document and source summaries…"
-          value={searchInput}
-          oninput={(e) => onSearchInput(e.currentTarget.value)}
-          class="flex-1 bg-transparent text-surface-100 text-sm placeholder:text-surface-500 outline-none min-w-0"
-        />
-        {#if searchQuery}
-          <span class="text-surface-400 text-xs tabular-nums shrink-0" aria-live="polite">
-            {matchCount > 0 ? `${matchIndex + 1} / ${matchCount}` : "No matches"}
-          </span>
-          <button type="button" class="tap nav-btn nav-btn-muted shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(-1)} aria-label="Previous match">↑</button>
-          <button type="button" class="tap nav-btn nav-btn-muted shrink-0" disabled={matchCount === 0} onclick={() => gotoMatch(1)} aria-label="Next match">↓</button>
-          <button type="button" class="tap nav-btn nav-btn-muted shrink-0" onclick={clearSearch} aria-label="Clear search">✕</button>
-        {/if}
-      </div>
+      <DocSearch
+        bind:query={searchQuery}
+        root={contentRoot}
+        content={[docHtml, summaryHtml]}
+        onreveal={showTabOf}
+      />
 
       <Tabs
         tabs={[{ key: "document", label: "Document" }, { key: "summaries", label: "Source summaries" }]}
@@ -457,46 +217,7 @@
     {/if}
     </div>
 
-      <nav
-        aria-label="Quick links"
-        class="hidden xl:flex xl:flex-col gap-3 sticky top-[calc(var(--header-h)+1rem)] max-h-[calc(100dvh-var(--header-h)-2rem)] overflow-y-auto text-sm"
-      >
-        {#if docHeadings.length > 0}
-          <div class="flex flex-col gap-0.5">
-            <span class="text-surface-500 text-xs uppercase tracking-wide font-semibold">Document</span>
-            {#each docHeadings as heading (heading.id)}
-              <button
-                type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors {activeSectionId === heading.id ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
-                onclick={() => jumpTo(heading.id, "document")}
-              >{heading.title}</button>
-            {/each}
-          </div>
-        {/if}
-        {#if summarySections.length > 0}
-          <div class="flex flex-col gap-0.5">
-            <span class="text-surface-500 text-xs uppercase tracking-wide font-semibold">Source summaries</span>
-            {#each summarySections as section (section.key)}
-              <button
-                type="button"
-                class="tap text-left px-2 py-1 rounded text-xs transition-colors flex items-baseline justify-between gap-2 {activeSectionId === `summary-${section.key}` ? 'bg-primary-950 text-primary-300' : 'text-surface-300 hover:bg-surface-800'}"
-                onclick={() => jumpTo(`summary-${section.key}`, "summaries")}
-              >
-                <span>{section.title}</span>
-                <span class="text-surface-500 tabular-nums shrink-0">{fmtNum(section.chars)}</span>
-              </button>
-            {/each}
-          </div>
-        {/if}
-        <a
-          href="/notes?scope=personal"
-          class="tap px-2 py-1 text-xs text-primary-400 underline"
-        >Standing rules</a>
-        <a
-          href="/context-builder/corrections"
-          class="tap px-2 py-1 text-xs text-primary-400 underline"
-        >Corrections</a>
-      </nav>
+    <QuickLinks headings={docHeadings} summaries={summarySections} activeId={spy.active} onjump={jumpTo} />
   </div>
 </Page>
 

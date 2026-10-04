@@ -1,5 +1,5 @@
 import type { ClientInit, HandleClientError } from "@sveltejs/kit/hooks";
-import { adoptWorkerHint, guardKitFetch, NetError, probe } from "#lib/offline/net.js";
+import { adoptWorkerHint, guardKitFetch, NetError, probe, statusOf } from "#lib/offline/net.js";
 
 /**
  * Runs before the first navigation (SvelteKit awaits it in `_start`), which is what makes it the
@@ -20,7 +20,7 @@ export const init: ClientInit = async () => {
 export const handleError: HandleClientError = ({ error }) => {
   if (error instanceof NetError) {
     return {
-      status: error.kind === "offline" ? 503 : error.kind === "slow" ? 504 : 502,
+      status: statusOf(error.kind),
       message: error.message,
       offline: error.kind === "offline",
     };

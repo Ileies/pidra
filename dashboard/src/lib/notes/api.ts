@@ -10,6 +10,7 @@
  * trivia, not core to reading or writing a note.
  */
 
+import { jsonInit } from "#lib/http.js";
 import * as outbox from "#lib/offline/outbox.js";
 import { netJson } from "#lib/offline/net.js";
 
@@ -65,11 +66,7 @@ export interface NotePatch {
 }
 
 function call<T>(path: string, method: string, body?: unknown): Promise<T> {
-  return netJson<T>(`/api/notes${path}`, {
-    method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  return netJson<T>(`/api/notes${path}`, jsonInit(method, body));
 }
 
 export const createNote = (input: { content: string; scope?: string; expires_at?: string | null }) =>

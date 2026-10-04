@@ -6,6 +6,7 @@
  * meant every visit to `/settings` began in "checking" and the switch animated from off to on.
  */
 
+import { jsonInit } from "#lib/http.js";
 import { errMessage } from "$pipeline/util/text";
 import { PUBLIC_VAPID_KEY } from "$app/env/public";
 import { toasts } from "#lib/toast.svelte.js";
@@ -50,11 +51,7 @@ class PushStore {
       const existing = await sw.pushManager.getSubscription();
 
       if (existing) {
-        await net("/api/push/subscribe", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: existing.endpoint }),
-        });
+        await net("/api/push/subscribe", jsonInit("DELETE", { endpoint: existing.endpoint }));
         await existing.unsubscribe();
         this.state = "unsubscribed";
         toasts.show("Notifications off.");
@@ -72,11 +69,7 @@ class PushStore {
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
       });
 
-      await net("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub.toJSON()),
-      });
+      await net("/api/push/subscribe", jsonInit("POST", sub.toJSON()));
 
       this.state = "subscribed";
       toasts.success("Notifications on.");

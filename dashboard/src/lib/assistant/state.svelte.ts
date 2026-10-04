@@ -1,3 +1,4 @@
+import { jsonInit } from "#lib/http.js";
 import { readStored, writeStored } from "#lib/storage.js";
 import { errMessage } from "$pipeline/util/text";
 import { browser } from "$app/env";
@@ -188,9 +189,7 @@ class Assistant {
       const res = await net(
         "/api/assistant/chat",
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          ...jsonInit("POST", {
             message,
             conversation_id: this.conversationId ?? undefined,
             context: { ...this.context, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },

@@ -9,6 +9,7 @@
    * language selects) that talks to its endpoint directly. That is what keeps it mirrored rather
    * than online-only. The theme select is device-local (`$lib/theme.svelte.ts`), so it works offline.
    */
+  import { jsonInit } from "#lib/http.js";
   import { errMessage } from "$pipeline/util/text";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -48,11 +49,7 @@
     const next = select.value;
     if (next === previous) return;
     try {
-      languages = await netJson<Languages>("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentLanguage: next }),
-      });
+      languages = await netJson<Languages>("/api/settings", jsonInit("PATCH", { contentLanguage: next }));
       toasts.success("Content language changed. Applies from the next briefing.");
     } catch (err) {
       select.value = previous;

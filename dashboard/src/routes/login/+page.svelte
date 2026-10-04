@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { jsonInit } from "#lib/http.js";
   import { errMessage } from "$pipeline/util/text";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -25,11 +26,7 @@
         { method: "POST" },
       );
       const response: AuthenticationResponseJSON = await startAuthentication({ optionsJSON: options });
-      await netJson("/api/auth/webauthn/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nonce, response }),
-      });
+      await netJson("/api/auth/webauthn/verify", jsonInit("POST", { nonce, response }));
       step = "pin";
     } catch (err) {
       error = errMessage(err);
@@ -43,11 +40,7 @@
     error = null;
     busy = true;
     try {
-      await netJson("/api/auth/pin/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
-      });
+      await netJson("/api/auth/pin/verify", jsonInit("POST", { pin }));
       await goto(redirectTo, { invalidateAll: true });
     } catch (err) {
       error = errMessage(err);

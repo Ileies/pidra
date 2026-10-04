@@ -11,6 +11,7 @@
  * it twice for the same intent must produce the same mirror state as running it once.
  */
 
+import { jsonInit } from "#lib/http.js";
 import { errMessage } from "$pipeline/util/text";
 import * as db from "./db.js";
 import type { MirrorStore } from "./db.js";
@@ -163,17 +164,14 @@ export function storesOf(kind: IntentKind): MirrorStore[] {
 class TerminalError extends Error {}
 
 function request(intent: Intent, send: Fetcher): Promise<Response> {
-  const json = (body: unknown) => JSON.stringify(body);
-  const headers = { "Content-Type": "application/json" };
-
   switch (intent.kind) {
     case "note.create": {
       const p = intent.payload as { id: string; content: string; scope: string; expiresAt: string | null };
-      return send("/api/notes", { method: "POST", headers, body: json({ id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt }) });
+      return send("/api/notes", jsonInit("POST", { id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt }));
     }
     case "note.update": {
       const p = intent.payload as { id: string; patch: NotePatchPayload; baseUpdatedAt: string | null };
-      return send(`/api/notes/${p.id}`, { method: "PATCH", headers, body: json({ ...p.patch, base_updated_at: p.baseUpdatedAt }) });
+      return send(`/api/notes/${p.id}`, jsonInit("PATCH", { ...p.patch, base_updated_at: p.baseUpdatedAt }));
     }
     case "note.delete": {
       const p = intent.payload as { id: string };
@@ -185,7 +183,7 @@ function request(intent: Intent, send: Fetcher): Promise<Response> {
     }
     case "rate": {
       const p = intent.payload as { extractionId: string; signal: "1" | "-1" };
-      return send("/api/feedback", { method: "POST", headers, body: json({ extraction_id: p.extractionId, signal: p.signal }) });
+      return send("/api/feedback", jsonInit("POST", { extraction_id: p.extractionId, signal: p.signal }));
     }
   }
 }

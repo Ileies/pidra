@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { jsonInit } from "#lib/http.js";
   import { readStored, writeStored } from "#lib/storage.js";
   import { errMessage } from "$pipeline/util/text";
   import { onMount, onDestroy, tick } from "svelte";
@@ -58,11 +59,7 @@
   async function start(mode: "full" | "update" | null) {
     starting = true;
     try {
-      const body = await netJson<{ ok: boolean; error?: string }>("/api/context-builder/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
+      const body = await netJson<{ ok: boolean; error?: string }>("/api/context-builder/start", jsonInit("POST", { mode }));
       if (body.ok) toasts.success(`Context Builder started${mode ? ` in ${mode} mode` : ""}.`);
       else toasts.error(body.error ?? "Failed to start.");
       await refresh();

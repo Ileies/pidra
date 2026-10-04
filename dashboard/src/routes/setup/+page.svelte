@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { jsonInit } from "#lib/http.js";
   import { errMessage } from "$pipeline/util/text";
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
@@ -33,11 +34,7 @@
         { method: "POST" },
       );
       const response: RegistrationResponseJSON = await startRegistration({ optionsJSON: options });
-      await netJson("/api/auth/register/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nonce, response, deviceLabel: deviceLabel || undefined }),
-      });
+      await netJson("/api/auth/register/verify", jsonInit("POST", { nonce, response, deviceLabel: deviceLabel || undefined }));
       toasts.success("Passkey registered.");
       deviceLabel = "";
       await invalidateAll();
@@ -57,11 +54,7 @@
     }
     pinBusy = true;
     try {
-      await netJson("/api/auth/pin/set", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
-      });
+      await netJson("/api/auth/pin/set", jsonInit("POST", { pin }));
       toasts.success(data.pinSet ? "PIN changed." : "PIN set.");
       pin = "";
       pinConfirm = "";

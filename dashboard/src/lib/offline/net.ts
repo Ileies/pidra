@@ -250,6 +250,9 @@ export async function netJson<T>(input: string | URL, init: RequestInit = {}, op
 
 const STATUS: Record<NetErrorKind, number> = { offline: 503, slow: 504, failed: 502 };
 
+/** The HTTP status a failed `net()` call surfaces as. */
+export const statusOf = (kind: NetErrorKind): number => STATUS[kind];
+
 /**
  * `load_data` turns a non-OK JSON response into `page.error` by spreading the body into it
  * (`client.js`, `load_data`), so `offline: true` reaches `+error.svelte` as a field of the error

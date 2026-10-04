@@ -22,7 +22,7 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 - `MIRRORED_ROUTES`: client-rendered with `ssr = false`, reading through `$lib/offline/repo.ts`.
 - `STATIC_OFFLINE_ROUTES`: prerendered and precached (`/privacy`, `/terms`).
-- `ONLINE_ONLY`: offline, renders `OfflineNotice` with its one-line reason and comes back by itself when the server answers. For live state where a copy would be a lie: approvals, the question queue, prompt versions, runs, sources, triage, the chat.
+- `ONLINE_ONLY`: offline, renders `OfflineNotice` with its one-line reason and comes back by itself when the server answers. For live state where a copy would be a lie: approvals, the question queue, runs, sources, triage, the chat.
 
 `dashboard/scripts/check-offline.ts` fails the build on a page in no tier or two, and on a mirrored page that has a server load for its read, is not `ssr = false`, or awaits the network.
 

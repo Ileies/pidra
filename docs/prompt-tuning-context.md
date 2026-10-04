@@ -56,7 +56,7 @@ Functional, not stylistic:
 
 ## Output language and prompt tags
 
-Prompt text may contain `{{tag}}` placeholders, filled in one pass by `renderPrompt` (`src/ai/prompt-vars.ts`) from values the code chose. The only tag is `{{language}}`, the English name of the owner's content language. `activePrompt()` returns the rendered text; `resolveActivePrompts()` stays raw, so `/prompts` and the weekly prompt review see the template as written. An unknown tag is left in place and logged.
+Prompt text may contain `{{tag}}` placeholders, filled in one pass by `renderPrompt` (`src/ai/prompt-vars.ts`) from values the code chose. The only tag is `{{language}}`, the English name of the owner's content language. `activePrompt()` returns the rendered text; `resolveActivePrompts()` stays raw, so the prompt API and the weekly prompt review see the template as written. An unknown tag is left in place and logged.
 
 The reader-facing sections (`LANGUAGE_SECTIONS` in `src/ai/prompt-catalog.ts`: `section1`, `section2`, `news`, `quick_actions`, `questions`) carry the shared `OUTPUT_LANGUAGE` rule from `src/ai/prompts/language.ts`. It keeps what code parses in English: `##` and fixed `###` headings, refs comments, and SYSTEM block keys and fixed values. Never translate those in a prompt edit. A DB prompt version written without `{{language}}` ignores the setting and logs a warning, so keep the tag when approving a rewrite. Extraction, the news desks and answer classification stay English on purpose.
 

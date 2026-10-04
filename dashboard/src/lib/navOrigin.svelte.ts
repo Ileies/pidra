@@ -12,7 +12,7 @@ import { routeFor } from "#lib/routes.js";
 
 const DETAIL_ROUTE = "/[date]/detail/[ids]";
 
-export interface BackLink {
+interface BackLink {
   href: string;
   label: string;
 }

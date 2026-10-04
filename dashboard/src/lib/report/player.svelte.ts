@@ -16,7 +16,7 @@
 import { browser } from "$app/env";
 import { net, netJson } from "#lib/offline/net.js";
 
-export interface PlayerChapter {
+interface PlayerChapter {
   key: string;
   section: string;
   title: string;
@@ -26,7 +26,7 @@ export interface PlayerChapter {
 
 /** Generating a long chapter takes a few seconds, not the 15 an ordinary tap is allowed. */
 const AUDIO_BUDGET_MS = 120_000;
-export const SPEEDS = [1, 1.25, 1.5, 1.75, 2] as const;
+const SPEEDS = [1, 1.25, 1.5, 1.75, 2] as const;
 const BACK_SECONDS = 15;
 const FORWARD_SECONDS = 30;
 /** Previous restarts the chapter unless it has only just begun. */

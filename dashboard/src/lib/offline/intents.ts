@@ -41,7 +41,7 @@ export const INTENT_LABEL: Record<IntentKind, string> = {
 };
 
 /** The row an intent is about: a note (a queued create's temporary id) or an extraction. */
-export function intentTarget(intent: Intent): string {
+function intentTarget(intent: Intent): string {
   const p = intent.payload as { id?: string; localId?: string; extractionId?: string };
   return p.localId ?? p.id ?? p.extractionId ?? "";
 }

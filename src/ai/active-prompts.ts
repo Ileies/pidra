@@ -4,8 +4,8 @@
  * `prompt_versions` is an override layer, not the source of truth: the constants in `prompts.ts`
  * are the baseline every section falls back to, and an approved row in the table replaces the
  * baseline for that section until it is deactivated. So an empty table means "run the code",
- * which is the state the system starts in, and activating a version on `/prompts` changes the
- * next run without a deploy.
+ * which is the state the system starts in, and activating a version changes the next run
+ * without a deploy.
  *
  * Deliberately not cached, and never resolved at import time: a run needs a handful of lookups,
  * while a cache or a module-level constant would mean an activation waits for the next process
@@ -41,7 +41,7 @@ export async function resolveActivePrompts(): Promise<Record<PromptSection, Effe
 /**
  * One section's effective prompt, ready to send: its `{{tags}}` are already filled in from the
  * owner's settings. `resolveActivePrompts` above deliberately stays raw, because its callers
- * (the /prompts page, the weekly prompt review) want the template as written.
+ * (the prompt versions API, the weekly prompt review) want the template as written.
  */
 export async function activePrompt(section: PromptSection): Promise<EffectivePrompt> {
   const [row] = await db

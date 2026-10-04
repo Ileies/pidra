@@ -15,7 +15,7 @@ export interface WebSearchResult {
 }
 
 // Slot 1: top active topic deep-dive
-export async function runSlot1(
+async function runSlot1(
   topics: (typeof activeTopics.$inferSelect)[],
   runDate: string,
 ): Promise<WebSearchResult | null> {
@@ -40,7 +40,7 @@ export async function runSlot1(
 // this was previously also gated on `status = 'dormant'`, which no writer ever reached on its
 // own (nothing ever set `importance = 'high'` before the Watch control existed), so the slot had
 // no candidate ever, in production, since launch.
-export async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
+async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
   const tenDaysAgo = daysAgo(10);
 
   const watched = await db
@@ -67,7 +67,7 @@ export async function runSlot2(runDate: string): Promise<WebSearchResult | null>
 }
 
 // Slot 3: self/project reputation monitoring (rotating through notes with scope="search")
-export async function runSlot3(runDate: string): Promise<WebSearchResult | null> {
+async function runSlot3(runDate: string): Promise<WebSearchResult | null> {
   const searchTargets = await db
     .select({ content: notes.content })
     .from(notes)

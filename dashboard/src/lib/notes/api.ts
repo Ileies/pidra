@@ -34,7 +34,7 @@ export interface NoteRow {
   conflicted?: boolean;
 }
 
-export interface NoteApiRow {
+interface NoteApiRow {
   id: string;
   content: string;
   scope: string;

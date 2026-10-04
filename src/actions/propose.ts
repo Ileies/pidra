@@ -4,7 +4,7 @@
  * A separate model call, not a field of the Section 2 synthesis. Section 2 is asked to write,
  * and a writer handed a "suggestions" field fills it; this call is asked one narrower question,
  * whether a mail is worth a button, and is told that the normal answer is no. Its prompt is the
- * `quick_actions` section (`QUICK_ACTIONS_PROMPT`), overridable on /prompts like any other.
+ * `quick_actions` section (`QUICK_ACTIONS_PROMPT`), overridable by an active prompt version like any other.
  *
  * The model proposes, code decides, the same split as the news desks:
  * - It sees short ids ("m1", "c3", "t12"), never a UUID or a Google id, and code maps them back.

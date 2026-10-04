@@ -19,7 +19,7 @@ export interface Desk {
   id: DeskId;
   /** For logs, `raw_items.raw_content` and the triage view. */
   label: string;
-  /** Each desk's mandate is its own prompt section, overridable on /prompts like any other. */
+  /** Each desk's mandate is its own prompt section, overridable by an active prompt version like any other. */
   section: Extract<PromptSection, `news_${string}`>;
   /**
    * How far Brave search is localised to the reader's home. The world, field and serendipity desks
@@ -153,9 +153,9 @@ export interface NewsWindow {
 
 const HOUR = 3600_000;
 /** The morning run is daily, so a normal window is a day. */
-export const MIN_WINDOW_HOURS = 24;
+const MIN_WINDOW_HOURS = 24;
 /** A weekend or an outage without runs still gets covered, up to this far back. */
-export const MAX_WINDOW_HOURS = 72;
+const MAX_WINDOW_HOURS = 72;
 
 /**
  * From where the last scan ended to now, never shorter than a day and never longer than three.

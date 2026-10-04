@@ -86,7 +86,7 @@ async function readJsonFile<T>(path: string): Promise<T | null> {
  * The resolved path comes back with the content because the page displays it, and displaying a
  * path that does not exist on this machine is how the mismatch stayed invisible in the first place.
  */
-export async function readContextDocument(
+async function readContextDocument(
   outputPath: string,
 ): Promise<{ content: string; path: string }> {
   try {

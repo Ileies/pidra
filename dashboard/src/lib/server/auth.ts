@@ -261,14 +261,14 @@ export function issueBootstrap(): string {
   return nonce;
 }
 
-export function checkBootstrap(nonce: string | undefined): boolean {
+function checkBootstrap(nonce: string | undefined): boolean {
   if (!nonce) return false;
   const entry = bootstrapNonces.get(nonce);
   return !!entry && entry.expiresAt >= Date.now();
 }
 
 /** True once logged in, or during the one-time bootstrap window `/setup`'s `load` opened. */
-export function canManageAuth(session: { id: string } | null, bootstrapNonce: string | undefined): boolean {
+function canManageAuth(session: { id: string } | null, bootstrapNonce: string | undefined): boolean {
   return !!session || checkBootstrap(bootstrapNonce);
 }
 

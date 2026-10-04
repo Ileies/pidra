@@ -19,7 +19,7 @@ import {
 } from "$app/env/public";
 
 /** The model these prices describe. Kept beside them so a model swap is visibly a price change. */
-export const COST_MODEL = "gpt-6-luna";
+const COST_MODEL = "gpt-6-luna";
 
 function price(raw: string | undefined): number | null {
   if (raw == null || raw.trim() === "") return null;
@@ -27,8 +27,8 @@ function price(raw: string | undefined): number | null {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-export const PRICE_IN_PER_MTOK = price(PUBLIC_MODEL_PRICE_IN_PER_MTOK);
-export const PRICE_OUT_PER_MTOK = price(PUBLIC_MODEL_PRICE_OUT_PER_MTOK);
+const PRICE_IN_PER_MTOK = price(PUBLIC_MODEL_PRICE_IN_PER_MTOK);
+const PRICE_OUT_PER_MTOK = price(PUBLIC_MODEL_PRICE_OUT_PER_MTOK);
 
 /** False until both prices are configured. The UI hides cost rather than inventing one. */
 export const PRICING_CONFIGURED = PRICE_IN_PER_MTOK !== null && PRICE_OUT_PER_MTOK !== null;

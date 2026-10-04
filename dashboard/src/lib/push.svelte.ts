@@ -12,7 +12,7 @@ import { PUBLIC_VAPID_KEY } from "$app/env/public";
 import { toasts } from "#lib/toast.svelte.js";
 import { net } from "#lib/offline/net.js";
 
-export type PushState = "checking" | "unsupported" | "denied" | "unsubscribed" | "subscribed" | "busy";
+type PushState = "checking" | "unsupported" | "denied" | "unsubscribed" | "subscribed" | "busy";
 
 function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (b64.length % 4)) % 4);

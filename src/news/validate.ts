@@ -206,7 +206,7 @@ const STOPWORDS = new Set([
  * The content words of a headline. Numbers stay whatever their length: "6-0" and "3%" are what
  * tell two otherwise identical match reports apart.
  */
-export function headlineTokens(headline: string): Set<string> {
+function headlineTokens(headline: string): Set<string> {
   return new Set(
     headline
       .toLowerCase()

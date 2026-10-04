@@ -25,7 +25,7 @@ export interface WeeklyAnalytics {
   resolvedTopicCount: number;
 }
 
-export async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytics> {
+async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytics> {
   const weekEnd = addDays(weekStart, 6);
 
   const reports = await db
@@ -101,7 +101,7 @@ export async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyA
   };
 }
 
-export async function generatePromptDiff(analytics: WeeklyAnalytics): Promise<string | null> {
+async function generatePromptDiff(analytics: WeeklyAnalytics): Promise<string | null> {
   // The effective prompts, not just the rows in `prompt_versions`. The table is empty until the
   // first version is approved, and reviewing nothing was the wrong answer for that state: the
   // baselines in the code are what the week actually ran on.

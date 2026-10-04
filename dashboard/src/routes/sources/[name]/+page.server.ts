@@ -41,7 +41,7 @@ export interface Delivery {
   items: SourceItem[];
 }
 
-export interface SourceStats {
+interface SourceStats {
   deliveries: number;
   items: number;
   emptyDeliveries: number;

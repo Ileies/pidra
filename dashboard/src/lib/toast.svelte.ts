@@ -10,9 +10,9 @@
 import { errMessage } from "$pipeline/util/text";
 import { untrack } from "svelte";
 
-export type ToastTone = "info" | "success" | "error";
+type ToastTone = "info" | "success" | "error";
 
-export interface ToastItem {
+interface ToastItem {
   id: number;
   message: string;
   tone: ToastTone;

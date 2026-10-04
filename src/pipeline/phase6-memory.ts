@@ -50,12 +50,14 @@ export async function runPhase6(
     console.warn("[Phase 6] Report did not parse into report_json - the dashboard will fall back to markdown");
   }
 
+  const shortSummary = synthesis.section1.split("\n").slice(0, 5).join(" ").slice(0, 500);
+
   // Write daily report
   await db.insert(dailyReports).values({
     reportDate: runDate,
     fullReport,
     reportJson,
-    shortSummary: synthesis.section1.split("\n").slice(0, 5).join(" ").slice(0, 500),
+    shortSummary,
     itemCount,
     itemsIncluded: reportItemsIncluded,
     itemsFiltered: itemCount - reportItemsIncluded,
@@ -69,7 +71,7 @@ export async function runPhase6(
     set: {
       fullReport,
       reportJson,
-      shortSummary: synthesis.section1.slice(0, 500),
+      shortSummary,
       tokensIn: synthesis.tokensIn,
       tokensOut: synthesis.tokensOut,
     },

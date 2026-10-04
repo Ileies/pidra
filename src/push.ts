@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db, pushSubscriptions } from "./db";
 
 /**
@@ -37,18 +37,18 @@ async function deliver(payload: string): Promise<void> {
     )
   );
 
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r.status === "rejected") {
-      const err = r.reason as { statusCode?: number };
-      if (err.statusCode === 410 || err.statusCode === 404) {
-        await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, subs[i].endpoint));
-        console.log(`[push] Removed stale subscription for ${subs[i].endpoint.slice(0, 60)}…`);
-      } else {
-        console.error(`[push] Failed to notify ${subs[i].endpoint.slice(0, 60)}…:`, err);
-      }
+  const stale: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status !== "rejected") return;
+    const err = r.reason as { statusCode?: number };
+    if (err.statusCode === 410 || err.statusCode === 404) {
+      stale.push(subs[i].endpoint);
+      console.log(`[push] Removed stale subscription for ${subs[i].endpoint.slice(0, 60)}…`);
+    } else {
+      console.error(`[push] Failed to notify ${subs[i].endpoint.slice(0, 60)}…:`, err);
     }
-  }
+  });
+  if (stale.length > 0) await db.delete(pushSubscriptions).where(inArray(pushSubscriptions.endpoint, stale));
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   console.log(`[push] Sent ${sent}/${subs.length} push notifications.`);

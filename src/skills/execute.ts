@@ -1,7 +1,7 @@
 import { errMessage } from "../util/text";
 import { eq } from "drizzle-orm";
 import { db, skillExecutions } from "../db";
-import { getSkill, type SkillContext } from "./loader";
+import { getSkill, type Skill, type SkillContext } from "./loader";
 import { getEffectiveSkill } from "./overrides";
 import { isSkillAllowed, SURFACES, type Surface } from "../ai/surfaces";
 import { timeZoneOrUtc, utcDay } from "../util/time";
@@ -35,10 +35,34 @@ export interface ExecutionOptions {
   timeZone?: string;
 }
 
+/** Updates the audit row. `result` is left as it was when omitted. */
+const settle = (id: string, status: string, result?: string) =>
+  db.update(skillExecutions).set({ status, ...(result === undefined ? {} : { result }) }).where(eq(skillExecutions.id, id));
+
+/** Records a rejection on the audit row and answers with it. */
+async function reject(id: string, message: string): Promise<ExecutionOutcome> {
+  await settle(id, "rejected", message);
+  return { status: "rejected", message, executionId: id };
+}
+
+/** Runs the skill and records how it went. A throwing skill is a `failed` outcome, not an error. */
+async function runSkill(skill: Skill, parameters: Record<string, unknown>, ctx: SkillContext): Promise<ExecutionOutcome> {
+  try {
+    const result = await skill.execute(parameters, ctx);
+    await settle(ctx.executionId, "executed", result);
+    return { status: "executed", message: result, executionId: ctx.executionId };
+  } catch (err) {
+    const message = errMessage(err);
+    await settle(ctx.executionId, "failed", message);
+    return { status: "failed", message, executionId: ctx.executionId };
+  }
+}
+
 /**
  * The single path every skill call takes, whether it comes from the REST bridge, the pipeline or
  * the chat. Risk gating, the surface policy and the `skill_executions` audit log live here so a
- * second caller cannot accidentally bypass any of them.
+ * second caller cannot accidentally bypass any of them. The audit row is written before any gate,
+ * so a rejected call is still on record.
  */
 export async function executeSkill(
   skillName: string,
@@ -60,23 +84,17 @@ export async function executeSkill(
 
   // Disabled from /skills. Checked before anything else - a skill an operator turned off must
   // not run just because it's otherwise low-risk and surface-allowed.
-  if (effective && !effective.enabled) {
-    const message = `${skillName} is disabled`;
-    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, execRow.id));
-    return { status: "rejected", message, executionId: execRow.id };
-  }
+  if (effective && !effective.enabled) return reject(execRow.id, `${skillName} is disabled`);
 
   // The surface policy is checked before the risk level: a skill that does not belong on the page
   // must not run even if it is harmless elsewhere. The rejection is logged rather than swallowed,
   // so a policy that is too tight shows up on /skills instead of as silent weirdness.
   if (options.surface && !isSkillAllowed(options.surface, skillName)) {
-    const message = `${skillName} is not available on the ${options.surface} page (allowed there: ${SURFACES[options.surface].skills.join(", ")})`;
-    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, execRow.id));
-    return { status: "rejected", message, executionId: execRow.id };
+    return reject(execRow.id, `${skillName} is not available on the ${options.surface} page (allowed there: ${SURFACES[options.surface].skills.join(", ")})`);
   }
 
   if (riskLevel === "critical") {
-    await db.update(skillExecutions).set({ status: "rejected" }).where(eq(skillExecutions.id, execRow.id));
+    await settle(execRow.id, "rejected");
     return {
       status: "rejected",
       message: "critical skills require manual review and cannot be auto-executed",
@@ -96,7 +114,7 @@ export async function executeSkill(
     console.log(`[Skills] Medium-risk skill executed: ${skillName} - triggered_by=${triggeredBy}`);
   }
 
-  const ctx: SkillContext = {
+  return runSkill(skill, parameters, {
     executionId: execRow.id,
     triggeredBy,
     conversationId: options.conversationId ?? null,
@@ -104,25 +122,11 @@ export async function executeSkill(
     // unless the caller knows better.
     actor: options.actor ?? (triggeredBy === "chat" ? "chat" : "system"),
     timeZone: timeZoneOrUtc(options.timeZone),
-  };
-
-  try {
-    const result = await skill.execute(parameters, ctx);
-    await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, execRow.id));
-    return { status: "executed", message: result, executionId: execRow.id };
-  } catch (err) {
-    const msg = errMessage(err);
-    await db.update(skillExecutions).set({ status: "failed", result: msg }).where(eq(skillExecutions.id, execRow.id));
-    return { status: "failed", message: msg, executionId: execRow.id };
-  }
+  });
 }
 
 /**
- * Runs or rejects a queued high-risk call.
- *
- * `executeSkill` leaves a `high` skill as a `pending` row and tells the caller it is queued. That
- * is the documented approval workflow, and until now nothing could complete it: the queue had no
- * confirm and no reject, so a queued call sat there forever.
+ * Runs or rejects a queued high-risk call (`executeSkill` parks a `high` skill as a `pending` row).
  *
  * Everything is re-checked at confirmation time rather than trusted from when the call was made:
  * the skill may have been disabled, or raised to `critical`, in between. A confirmation is an
@@ -139,49 +143,28 @@ export async function resolvePendingSkill(
     return { status: "rejected", message: `Execution ${executionId} is already ${row.status}`, executionId };
   }
 
-  if (decision === "reject") {
-    const message = reason?.trim() || "Rejected by the owner";
-    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, executionId));
-    return { status: "rejected", message, executionId };
-  }
+  if (decision === "reject") return reject(executionId, reason?.trim() || "Rejected by the owner");
 
   const skillName = row.skillName ?? "";
   const skill = getSkill(skillName);
   if (!skill) {
     const message = `Unknown skill: ${skillName}`;
-    await db.update(skillExecutions).set({ status: "failed", result: message }).where(eq(skillExecutions.id, executionId));
+    await settle(executionId, "failed", message);
     return { status: "unknown_skill", message, executionId };
   }
 
   const effective = await getEffectiveSkill(skillName);
-  if (effective && !effective.enabled) {
-    const message = `${skillName} has been disabled since this call was queued`;
-    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, executionId));
-    return { status: "rejected", message, executionId };
-  }
-
+  if (effective && !effective.enabled) return reject(executionId, `${skillName} has been disabled since this call was queued`);
   if ((effective?.risk_level ?? skill.risk_level) === "critical") {
-    const message = `${skillName} is now critical and cannot be run, even with confirmation`;
-    await db.update(skillExecutions).set({ status: "rejected", result: message }).where(eq(skillExecutions.id, executionId));
-    return { status: "rejected", message, executionId };
+    return reject(executionId, `${skillName} is now critical and cannot be run, even with confirmation`);
   }
 
-  const ctx: SkillContext = {
+  return runSkill(skill, (row.parameters ?? {}) as Record<string, unknown>, {
     executionId,
     triggeredBy: row.triggeredBy ?? "manual",
     conversationId: null,
     // The owner pressed Confirm, so the write is theirs however the call was originally proposed.
     actor: "user",
     timeZone: "UTC",
-  };
-
-  try {
-    const result = await skill.execute((row.parameters ?? {}) as Record<string, unknown>, ctx);
-    await db.update(skillExecutions).set({ status: "executed", result }).where(eq(skillExecutions.id, executionId));
-    return { status: "executed", message: result, executionId };
-  } catch (err) {
-    const message = errMessage(err);
-    await db.update(skillExecutions).set({ status: "failed", result: message }).where(eq(skillExecutions.id, executionId));
-    return { status: "failed", message, executionId };
-  }
+  });
 }

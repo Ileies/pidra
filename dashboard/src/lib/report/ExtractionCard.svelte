@@ -167,13 +167,13 @@
           <button
             type="button"
             class="tap inline-flex items-center gap-2 px-3 py-1.5 bg-surface-800 border border-surface-600 text-surface-200 rounded-md text-xs cursor-pointer hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={fetching || offline.reachable === "offline"}
+            disabled={fetching || offline.isOffline}
             onclick={fetchBody}
           >
             {#if fetching}<Spinner label="Fetching" />{/if}
             {fetching ? "Fetching…" : "Fetch contents"}
           </button>
-          {#if offline.reachable === "offline"}
+          {#if offline.isOffline}
             <span class="text-xs text-surface-400">Needs the connection.</span>
           {:else if fetchError}
             <span class="text-xs text-error-400">{fetchError}</span>

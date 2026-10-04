@@ -12,7 +12,7 @@
   import Spinner from "#lib/components/Spinner.svelte";
   import { offline } from "./state.svelte.js";
 
-  const stuck = $derived(!offline.syncing && (offline.lastResult === "offline" || offline.lastResult === "failed" || offline.reachable === "offline"));
+  const stuck = $derived(!offline.syncing && (offline.lastResult === "offline" || offline.lastResult === "failed" || offline.isOffline));
 </script>
 
 <Page title="First sync" size="read">
@@ -20,7 +20,7 @@
     {#if stuck}
       <h1 class="text-lg font-semibold text-surface-100">Nothing stored on this device yet</h1>
       <p class="text-sm text-surface-400 max-w-prose">
-        {offline.reachable === "offline"
+        {offline.isOffline
           ? "The dashboard server is not reachable. Open the app once with a connection and it works offline from then on."
           : "The offline copy could not be downloaded. The server answered, so trying again usually works."}
       </p>

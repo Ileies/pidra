@@ -38,7 +38,6 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	// A pipeline trigger is online-only (it needs the server); said before the tap, not after it.
-	const isOffline = $derived(offline.reachable === 'offline');
 
 	$effect(() => toastFormResult(form));
 
@@ -365,14 +364,14 @@
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 					<button
 						type="button"
-						disabled={isOffline}
+						disabled={offline.isOffline}
 						onclick={() => reportPlayer.start(data.date)}
 						class="tap inline-flex items-center gap-2 rounded-lg border border-primary-600 bg-primary-900 px-4 py-2 text-sm text-primary-200 cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						<Play class="h-4 w-4 shrink-0" aria-hidden="true" fill="currentColor" />
 						Play this briefing
 					</button>
-					{#if isOffline}
+					{#if offline.isOffline}
 						<span class="text-xs text-surface-400">Listening needs the connection.</span>
 					{/if}
 				</div>
@@ -537,7 +536,7 @@
 					>
 						<button
 							type="submit"
-							disabled={isOffline}
+							disabled={offline.isOffline}
 							class="tap px-6 py-2.5 bg-primary-900 border border-primary-600 text-primary-200 rounded-md text-sm cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 						>
 							{data.pipelineRun?.status === 'failed'
@@ -545,7 +544,7 @@
 								: 'Run pipeline now'}
 						</button>
 					</form>
-					{#if isOffline}
+					{#if offline.isOffline}
 						<p class="text-xs text-surface-400">
 							Running the pipeline needs the connection.
 						</p>

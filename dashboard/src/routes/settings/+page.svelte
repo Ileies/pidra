@@ -22,7 +22,6 @@
   import { THEME_MODES, setTheme, theme, type ThemeMode } from "#lib/theme.svelte.js";
   import { CONTENT_LANGUAGES, UI_LANGUAGES } from "$pipeline/config/languages";
 
-  const isOffline = $derived(offline.reachable === "offline");
   let loggingOut = $state(false);
 
   // The language fields save on change, through `/api/settings`: this page has no server load
@@ -33,7 +32,7 @@
     contentLanguage: string;
   }
   let languages = $state<Languages | null>(null);
-  const languageDisabled = $derived(!languages || isOffline);
+  const languageDisabled = $derived(!languages || offline.isOffline);
 
   onMount(async () => {
     try {
@@ -61,7 +60,7 @@
   // edits, topic curation): logging out is disabled with the reason rather than attempted, since
   // there is no way to know locally whether the server actually forgot the session.
   async function logOut() {
-    if (isOffline) return;
+    if (offline.isOffline) return;
     loggingOut = true;
     try {
       await netJson("/api/auth/logout", { method: "POST" });
@@ -118,7 +117,7 @@
             <option value={code}>{lang.native}{lang.native === lang.name ? "" : ` (${lang.name})`}</option>
           {/each}
         </select>
-        {#if isOffline}<p class="text-xs text-surface-400">Needs the connection to change.</p>{/if}
+        {#if offline.isOffline}<p class="text-xs text-surface-400">Needs the connection to change.</p>{/if}
       </div>
 
       <div class="flex flex-col gap-1">
@@ -164,12 +163,12 @@
         <button
           type="button"
           onclick={logOut}
-          disabled={loggingOut || isOffline}
-          title={isOffline ? "Needs the connection" : undefined}
+          disabled={loggingOut || offline.isOffline}
+          title={offline.isOffline ? "Needs the connection" : undefined}
           class="tap flex w-full flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 text-left text-sm text-surface-200 hover:bg-surface-800 cursor-pointer disabled:opacity-50"
         >
           <span>Log out</span>
-          {#if isOffline}<span class="text-xs text-surface-400">Needs the connection</span>{/if}
+          {#if offline.isOffline}<span class="text-xs text-surface-400">Needs the connection</span>{/if}
         </button>
       </div>
     </section>

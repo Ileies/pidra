@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ShowMore from "#lib/components/ShowMore.svelte";
+  import { Paged } from "#lib/ui/paged.svelte.js";
   import { enhance } from "$app/forms";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
@@ -16,8 +18,7 @@
 
   type TopicRow = PageData["topics"][number];
 
-  const TOPICS_PAGE = 20;
-  let visibleTopics = $state(TOPICS_PAGE);
+  const pager = new Paged(20);
 
   // Filtered here, from the URL the chips and the GET form write: the load
   // reads no URL, so a filter change re-renders this and never re-runs the load.
@@ -43,11 +44,10 @@
     );
   });
 
-  const shown = $derived(filtered.slice(0, visibleTopics));
+  const shown = $derived(pager.slice(filtered));
 
   // Curation writes `active_topics` on the server, never through the outbox: it changes what
   // tomorrow's briefing carries forward.
-  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => {
     setPageContext({
@@ -77,7 +77,7 @@
 </script>
 
 <Page title="Topics" size="app" class="flex flex-col gap-4">
-  {#if isOffline}
+  {#if offline.isOffline}
     <p class="text-xs text-warning-400 max-w-prose">
       Resolving and archiving need the connection: they change what tomorrow's briefing carries
       forward, so they are never queued offline.
@@ -160,7 +160,7 @@
               {#if topic.status === "resolved" || topic.status === "dormant" || topic.status === "archived"}
                 <button
                   type="submit"
-                  disabled={isOffline}
+                  disabled={offline.isOffline}
                   name="status"
                   value="active"
                   class="tap px-3 py-1.5 rounded text-xs border border-success-600 text-success-400 hover:bg-success-950 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
@@ -169,7 +169,7 @@
               {#if topic.status === "active" || topic.status === "dormant"}
                 <button
                   type="submit"
-                  disabled={isOffline}
+                  disabled={offline.isOffline}
                   name="status"
                   value="archived"
                   class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
@@ -178,7 +178,7 @@
               {#if topic.status !== "resolved"}
                 <button
                   type="submit"
-                  disabled={isOffline}
+                  disabled={offline.isOffline}
                   name="status"
                   value="resolved"
                   class="tap px-3 py-1.5 rounded text-xs border border-surface-500 text-surface-300 hover:border-primary-700 hover:text-primary-300 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
@@ -219,12 +219,6 @@
         </li>
       {/each}
     </ul>
-    {#if visibleTopics < filtered.length}
-      <button
-        type="button"
-        onclick={() => (visibleTopics += TOPICS_PAGE)}
-        class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer"
-      >Show more ({filtered.length - visibleTopics} more)</button>
-    {/if}
+    <ShowMore {pager} total={filtered.length} />
   {/if}
 </Page>

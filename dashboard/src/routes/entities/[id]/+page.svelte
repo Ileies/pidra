@@ -20,7 +20,6 @@
 
   // Watching is a correction, which is never queued offline: replayed later, a locking merge on a
   // row that moved meanwhile does lasting damage.
-  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
@@ -78,8 +77,8 @@
         <input type="hidden" name="watched" value={data.entity.importance === "high" ? "false" : "true"} />
         <button
           type="submit"
-          disabled={isOffline}
-          title={isOffline ? "Needs the connection" : undefined}
+          disabled={offline.isOffline}
+          title={offline.isOffline ? "Needs the connection" : undefined}
           class="tap px-3 py-1 rounded text-xs border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 {data.entity.importance === 'high'
             ? 'bg-warning-900 border-warning-700 text-warning-200 hover:bg-warning-800'
             : 'bg-surface-800 border-surface-700 text-surface-300 hover:bg-surface-700'}"
@@ -95,7 +94,7 @@
       <p class="text-sm text-surface-200 max-w-prose">{data.entity.summary}</p>
     {/if}
 
-    {#if isOffline}
+    {#if offline.isOffline}
       <p class="text-xs text-warning-400 max-w-prose">
         Watching needs the connection: it is recorded as a correction, and corrections are never
         queued offline.

@@ -21,7 +21,6 @@
 
   // The run controls are online-only (live state, and the bridge): disabled once the app knows it
   // is offline, with the reason, like the writes on /contacts and /topics.
-  const isOffline = $derived(offline.reachable === "offline");
 
   // The harvest is never overwritten here: the assistant records corrections that outrank it.
   // Corrections themselves moved to their own route (see below) - it can grow arbitrarily long,
@@ -298,7 +297,7 @@
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3 flex-wrap">
           <Badge tone={toneFor(status?.dbRun?.status)}>
-            {isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
+            {offline.isOffline ? "Offline" : displayLabel(status?.dbRun?.status ?? (status ? "idle" : "loading"))}
           </Badge>
           {#if status?.dbRun}
             <span class="text-surface-400 text-xs">{displayLabel(status.dbRun.mode)} mode</span>
@@ -311,28 +310,28 @@
         <div class="flex items-center gap-2 flex-wrap">
           <button
             class="tap nav-btn border-primary-700 text-primary-300 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={isOffline || starting || status?.running}
+            disabled={offline.isOffline || starting || status?.running}
             onclick={() => start(null)}
           >
             {starting ? "Starting…" : "Start"}
           </button>
           <button
             class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={isOffline || starting || status?.running}
+            disabled={offline.isOffline || starting || status?.running}
             onclick={() => start("full")}
           >
             Force full
           </button>
           <button
             class="tap nav-btn border-error-700 text-error-400 hover:bg-surface-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={isOffline || stopping || !status?.trackedByDashboard}
+            disabled={offline.isOffline || stopping || !status?.trackedByDashboard}
             onclick={stop}
           >
             {stopping ? "Stopping…" : "Stop"}
           </button>
         </div>
       </div>
-      {#if isOffline}
+      {#if offline.isOffline}
         <!-- Live run state is what this strip shows, and a copy of it would be a lie. -->
         <p class="text-xs text-surface-400">Starting or stopping a run needs the connection. The status above is the last one seen.</p>
       {/if}

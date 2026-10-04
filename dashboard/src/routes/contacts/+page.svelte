@@ -16,7 +16,6 @@
 
   // An edit is a correction, which is never queued offline: replayed later, a locking merge on a
   // row that moved meanwhile does lasting damage.
-  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
@@ -48,7 +47,7 @@
 <Page title="Contacts" size="app" class="flex flex-col gap-5">
   <!-- Six rows from 1,432 emails is the correct outcome, not a seeding bug, and saying so here
        saves the next person from going looking for the missing rows (CLAUDE.md §8). -->
-  {#if isOffline}
+  {#if offline.isOffline}
     <p class="text-xs text-warning-400 max-w-prose">
       Editing needs the connection: a change here is recorded as a correction, and corrections are
       never queued offline.
@@ -79,8 +78,8 @@
             <button
               type="button"
               aria-expanded={open}
-              disabled={isOffline && !open}
-              title={isOffline && !open ? "Needs the connection" : undefined}
+              disabled={offline.isOffline && !open}
+              title={offline.isOffline && !open ? "Needs the connection" : undefined}
               onclick={() => (editing = open ? null : contact.id)}
               class="tap ml-auto px-3 py-1 rounded text-xs border border-surface-500 text-surface-300 hover:bg-surface-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             >{open ? "Cancel" : "Edit"}</button>

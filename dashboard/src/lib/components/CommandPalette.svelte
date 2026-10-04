@@ -97,7 +97,7 @@
       const id = ++requestId;
       try {
         // Known offline, `net()` would refuse in the same frame; skip straight to the mirror.
-        if (offline.reachable === "offline") throw new NetError("offline", false);
+        if (offline.isOffline) throw new NetError("offline", false);
         const res = await net(`/api/search?q=${encodeURIComponent(value)}`);
         const body = (await res.json()) as { hits: SearchHit[] };
         // A slower earlier request must not overwrite a newer result set.

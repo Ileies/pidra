@@ -36,7 +36,6 @@
   let local = $state<Record<string, LocalStatus>>({});
   let busy = $state<Record<string, boolean>>({});
 
-  const isOffline = $derived(offline.reachable === "offline");
   const shown = $derived(
     actions
       .map((action) => ({ ...action, status: local[action.id] ?? action.status }))
@@ -158,14 +157,14 @@
               Working…
             </span>
           {:else}
-            {#if isOffline}
+            {#if offline.isOffline}
               <span class="text-xs text-surface-400">Needs the connection</span>
             {:else if action.status === "failed"}
               <span class="text-xs text-error-400">Did not go through</span>
             {/if}
             <button
               type="button"
-              disabled={isOffline}
+              disabled={offline.isOffline}
               onclick={() => run(action)}
               class="tap px-3 py-1.5 rounded text-xs bg-primary-900 border border-primary-600 text-primary-200 cursor-pointer hover:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -173,7 +172,7 @@
             </button>
             <button
               type="button"
-              disabled={isOffline}
+              disabled={offline.isOffline}
               onclick={() => dismiss(action)}
               aria-label="Dismiss this suggestion"
               title="Dismiss this suggestion"

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ShowMore from "#lib/components/ShowMore.svelte";
+  import { Paged } from "#lib/ui/paged.svelte.js";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -8,8 +10,7 @@
 
   let { data }: { data: PageData } = $props();
   let expandedExecs = $state<Record<string, boolean>>({});
-  const EXECS_PAGE = 20;
-  let visibleExecs = $state(EXECS_PAGE);
+  const pager = new Paged(20);
 
 </script>
 
@@ -21,7 +22,7 @@
     <EmptyState title="No skill executions yet." compact />
   {:else}
     <ul class="flex flex-col gap-2">
-      {#each data.executions.slice(0, visibleExecs) as exec (exec.id)}
+      {#each pager.slice(data.executions) as exec (exec.id)}
         {@const open = !!expandedExecs[exec.id]}
         <li class="rounded-lg border border-surface-800 bg-surface-900">
           <button
@@ -48,8 +49,6 @@
         </li>
       {/each}
     </ul>
-    {#if visibleExecs < data.executions.length}
-      <button type="button" onclick={() => (visibleExecs += EXECS_PAGE)} class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer">Show more ({data.executions.length - visibleExecs} more)</button>
-    {/if}
+    <ShowMore {pager} total={data.executions.length} />
   {/if}
 </Page>

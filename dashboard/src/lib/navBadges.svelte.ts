@@ -22,7 +22,7 @@ class NavBadges {
 
   /** Keyed by href, so the navbar renders a badge without knowing what it counts. */
   get counts(): Record<string, number> {
-    return offline.reachable === "offline" ? {} : this.#counts;
+    return offline.isOffline ? {} : this.#counts;
   }
 
   async refresh(): Promise<void> {

@@ -74,6 +74,10 @@ class OfflineState {
   #pollTimer: ReturnType<typeof setTimeout> | undefined;
   #hiddenAt = 0;
 
+  get isOffline(): boolean {
+    return this.reachable === "offline";
+  }
+
   get queuedCount(): number {
     return this.pending.length;
   }

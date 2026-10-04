@@ -12,7 +12,6 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  const isOffline = $derived(offline.reachable === "offline");
 
   $effect(() => toastFormResult(form));
 
@@ -85,8 +84,8 @@
                 <input type="hidden" name="id" value={correction.id} />
                 <button
                   type="submit"
-                  disabled={isOffline}
-                  title={isOffline ? "Needs the connection" : undefined}
+                  disabled={offline.isOffline}
+                  title={offline.isOffline ? "Needs the connection" : undefined}
                   class="tap nav-btn nav-btn-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >Revert</button>
               </form>

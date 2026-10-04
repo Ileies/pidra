@@ -27,12 +27,11 @@
     offline.start();
   });
 
-  const isOffline = $derived(offline.reachable === "offline");
 
   // Every part that applies, so a count never hides that the app is offline, or the other way round.
   const label = $derived(
     [
-      offline.syncing ? "Syncing" : isOffline ? "Offline" : offline.reachable === "checking" ? "Checking" : null,
+      offline.syncing ? "Syncing" : offline.isOffline ? "Offline" : offline.reachable === "checking" ? "Checking" : null,
       offline.failed.length > 0 ? `${offline.failed.length} not saved` : null,
       offline.queuedCount > 0 ? `${offline.queuedCount} queued` : null,
     ]
@@ -51,7 +50,7 @@
   } as const satisfies Record<string, Tone>;
 
   const tone = $derived<Tone>(
-    isOffline || offline.failed.length > 0
+    offline.isOffline || offline.failed.length > 0
       ? TONES.error
       : offline.syncing
         ? TONES.syncing

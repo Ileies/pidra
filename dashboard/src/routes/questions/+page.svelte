@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ShowMore from "#lib/components/ShowMore.svelte";
+  import { Paged } from "#lib/ui/paged.svelte.js";
   import { enhance, type SubmitFunction } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -23,8 +25,7 @@
 
   const MAX_SOURCES = 3;
 
-  const OPEN_PAGE = 20;
-  let visibleOpen = $state(OPEN_PAGE);
+  const pager = new Paged(20);
 
   function submit(id: string): SubmitFunction {
     return ({ action }) => {
@@ -98,7 +99,7 @@
     </div>
 
     <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-4">
-      {#each data.open.slice(0, visibleOpen) as q (q.id)}
+      {#each pager.slice(data.open) as q (q.id)}
         <li class="rounded-lg border bg-surface-900 p-4 sm:p-5 border-surface-700">
           <div class="flex flex-wrap items-center gap-2 mb-2">
             <Badge tone="muted">{kindBadge(q)}</Badge>
@@ -168,13 +169,7 @@
         </li>
       {/each}
     </ul>
-    {#if visibleOpen < data.open.length}
-      <button
-        type="button"
-        onclick={() => (visibleOpen += OPEN_PAGE)}
-        class="tap self-start px-3 py-1.5 rounded text-xs border border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200 transition-colors cursor-pointer"
-      >Show more ({data.open.length - visibleOpen} more)</button>
-    {/if}
+    <ShowMore {pager} total={data.open.length} />
   {/if}
 
 </Page>

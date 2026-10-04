@@ -39,7 +39,6 @@
   const current = $derived(routeFor(routeId));
   /** Keyed by href, so the navbar renders a badge without knowing what it counts. */
   const badges = $derived(navBadges.counts);
-  const isOffline = $derived(offline.reachable === "offline");
 
   /**
    * Two routes name the thing on screen better than a static label does: the report is its
@@ -143,7 +142,7 @@
       {#each byGroup as group (group[0].href)}
         {#each group as entry (entry.href)}
           {@const badge = badges[entry.href] ?? 0}
-          {@const unavailable = isOffline && needsConnection(entry)}
+          {@const unavailable = offline.isOffline && needsConnection(entry)}
           <!-- Offline, a page that needs the connection stays tappable - it opens OfflineNotice in
                the same frame - but it looks it, and it no longer preloads on hover or touch. -->
           <a
@@ -194,7 +193,7 @@
             <ul class="absolute right-0 z-20 mt-2 grid w-[22rem] max-w-[calc(100vw-2rem)] grid-cols-3 gap-1 overflow-y-auto rounded-2xl border border-surface-700 bg-surface-900 p-3 shadow-2xl">
               {#each overflow as entry (entry.href)}
                 {@const badge = badges[entry.href] ?? 0}
-                {@const unavailable = isOffline && needsConnection(entry)}
+                {@const unavailable = offline.isOffline && needsConnection(entry)}
                 <li class="min-w-0">
                   <a
                     href={entry.href}

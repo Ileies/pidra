@@ -26,7 +26,6 @@
 
   const current = $derived(routeFor(page.route.id));
   const badges = $derived(navBadges.counts);
-  const isOffline = $derived(offline.reachable === "offline");
 
   /** Everything the tab bar does not already reach, minus header-icon and settings-only pages. */
   const sheetRoutes = $derived(ROUTES.filter((route) => route.tab === undefined && !route.headerIcon && !route.hidden));
@@ -68,7 +67,7 @@
 
     {#each sheetRoutes as entry (entry.href)}
       {@const badge = badges[entry.href] ?? 0}
-      {@const unavailable = isOffline && needsConnection(entry)}
+      {@const unavailable = offline.isOffline && needsConnection(entry)}
       <!-- Offline, a page that needs the connection stays tappable - it opens OfflineNotice in the
            same frame - but it says so, and it no longer preloads on touch. -->
       <a
@@ -103,7 +102,7 @@
          pb-[var(--safe-b)] grid grid-cols-4"
 >
   {#each TABS as tab (tab.href)}
-    {@const unavailable = isOffline && needsConnection(tab)}
+    {@const unavailable = offline.isOffline && needsConnection(tab)}
     {@const badge = badges[tab.href] ?? 0}
     <a
       href={tab.href}

@@ -46,7 +46,7 @@
 
   /** The headline, in the same order of precedence as the logo's colour. */
   const status = $derived(
-    offline.reachable === "offline"
+    offline.isOffline
       ? { word: "Offline", dot: "bg-error-500" }
       : offline.failed.length > 0
         ? { word: "Needs attention", dot: "bg-error-500" }
@@ -97,7 +97,7 @@
     <dl class="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-surface-800 bg-surface-950 p-3 text-xs">
       <div class="flex flex-col gap-0.5">
         <dt class="text-surface-400">Connection</dt>
-        <dd class="text-surface-100">{offline.reachable === "online" ? "Reachable" : offline.reachable === "offline" ? "Not reachable" : "Checking…"}</dd>
+        <dd class="text-surface-100">{offline.reachable === "online" ? "Reachable" : offline.isOffline ? "Not reachable" : "Checking…"}</dd>
       </div>
       <div class="flex flex-col gap-0.5">
         <dt class="text-surface-400">Last synced</dt>

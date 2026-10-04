@@ -13,7 +13,7 @@
   let busy = $state(false);
 
   onMount(() => {
-    if (offline.reachable === "offline") pwa.detected = true;
+    if (offline.isOffline) pwa.detected = true;
     else void pwa.refresh();
   });
 

@@ -26,13 +26,18 @@
   const statusFilter = $derived(page.url.searchParams.get("status") ?? "active");
   const search = $derived(page.url.searchParams.get("q") ?? "");
 
-  const counts = $derived({
-    all: data.topics.length,
-    active: data.topics.filter((t) => t.status === "active").length,
-    dormant: data.topics.filter((t) => t.status === "dormant").length,
-    archived: data.topics.filter((t) => t.status === "archived").length,
-    resolved: data.topics.filter((t) => t.status === "resolved").length,
-  });
+  const STATUSES = [
+    ["active", "Active"],
+    ["dormant", "Dormant"],
+    ["archived", "Archived"],
+    ["resolved", "Resolved"],
+  ] as const;
+
+  const filters = $derived([
+    ...STATUSES.map(([value, label]) => ({ value, label, count: data.topics.filter((t) => t.status === value).length })),
+    { value: "all", label: "All", count: data.topics.length },
+  ]);
+  const countOf = $derived(Object.fromEntries(filters.map((f) => [f.value, f.count])));
 
   const filtered = $derived.by(() => {
     const needle = search.trim().toLowerCase();
@@ -54,22 +59,17 @@
     setPageContext({
       surface: "entities",
       route: "/topics",
-      digest: `Topics: ${shown.length} shown (${counts.active} active, ${counts.dormant} dormant, ${counts.archived} archived, ${counts.resolved} resolved). Filter: ${statusFilter}.`,
+      digest: `Topics: ${shown.length} shown (${countOf.active} active, ${countOf.dormant} dormant, ${countOf.archived} archived, ${countOf.resolved} resolved). Filter: ${statusFilter}.`,
       focus: focusFrom(shown, "topic", (topic) => ({ id: topic.id, label: topic.headline })),
     });
   });
 
-  const FILTERS: [string, string][] = [
-    ["active", "Active"],
-    ["dormant", "Dormant"],
-    ["archived", "Archived"],
-    ["resolved", "Resolved"],
-    ["all", "All"],
+  /** The status changes a topic offers, by its current status. */
+  const ACTIONS: { status: string; label: string; from: string[]; class: string }[] = [
+    { status: "active", label: "Reactivate", from: ["resolved", "dormant", "archived"], class: "border-success-600 text-success-400 hover:bg-success-950" },
+    { status: "archived", label: "Remove", from: ["active", "dormant"], class: "btn-ghost" },
+    { status: "resolved", label: "Resolve", from: ["active", "dormant", "archived"], class: "btn-ghost" },
   ];
-
-  function count(key: string): number {
-    return counts[key as keyof typeof counts] ?? 0;
-  }
 
   /** The days a topic was live in, newest first, capped so a long-running story stays readable. */
   function days(topic: TopicRow) {
@@ -106,16 +106,16 @@
   </form>
 
   <div class="flex flex-wrap items-center gap-1">
-    {#each FILTERS as [value, filterLabel] (value)}
+    {#each filters as filter (filter.value)}
       <a
-        href="/topics?status={value}{search ? `&q=${encodeURIComponent(search)}` : ''}"
-        aria-current={statusFilter === value ? "true" : undefined}
+        href="/topics?status={filter.value}{search ? `&q=${encodeURIComponent(search)}` : ''}"
+        aria-current={statusFilter === filter.value ? "true" : undefined}
         class="tap px-3 py-1 rounded text-xs border no-underline transition-colors
-          {statusFilter === value
+          {statusFilter === filter.value
             ? 'bg-surface-700 border-surface-500 text-surface-50'
             : 'border-surface-700 text-surface-400 hover:border-surface-500 hover:text-surface-200'}"
       >
-        {filterLabel} <span class="opacity-70">{count(value)}</span>
+        {filter.label} <span class="opacity-70">{filter.count}</span>
       </a>
     {/each}
   </div>
@@ -158,33 +158,15 @@
               class="shrink-0 flex gap-2"
             >
               <input type="hidden" name="id" value={topic.id} />
-              {#if topic.status === "resolved" || topic.status === "dormant" || topic.status === "archived"}
+              {#each ACTIONS.filter((a) => a.from.includes(topic.status)) as action (action.status)}
                 <button
                   type="submit"
                   disabled={offline.isOffline}
                   name="status"
-                  value="active"
-                  class="btn btn-sm border-success-600 text-success-400 hover:bg-success-950"
-                >Reactivate</button>
-              {/if}
-              {#if topic.status === "active" || topic.status === "dormant"}
-                <button
-                  type="submit"
-                  disabled={offline.isOffline}
-                  name="status"
-                  value="archived"
-                  class="btn btn-sm btn-ghost"
-                >Remove</button>
-              {/if}
-              {#if topic.status !== "resolved"}
-                <button
-                  type="submit"
-                  disabled={offline.isOffline}
-                  name="status"
-                  value="resolved"
-                  class="btn btn-sm btn-ghost"
-                >Resolve</button>
-              {/if}
+                  value={action.status}
+                  class="btn btn-sm {action.class}"
+                >{action.label}</button>
+              {/each}
             </form>
           </div>
 

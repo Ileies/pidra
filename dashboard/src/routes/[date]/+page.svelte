@@ -18,6 +18,7 @@
 	import { reportPlayer } from '#lib/report/player.svelte.js';
 	import Play from '@lucide/svelte/icons/play';
 	import SectionNav from '#lib/report/SectionNav.svelte';
+	import { jumpToSection } from '#lib/report/jump.js';
 	import {
 		ACTION_META,
 		URGENCY_META,
@@ -99,13 +100,10 @@
 
 	// --- ratings: optimistic, re-synced whenever the load function returns ---
 
-	let ratings = $state<Record<string, string | null>>({});
-	$effect(() => {
-		ratings = { ...data.ratings };
-	});
+	let ratings = $derived<Record<string, string | null>>({ ...data.ratings });
 
 	function onRate(extractionId: string, eventType: string | null) {
-		ratings[extractionId] = eventType;
+		ratings = { ...ratings, [extractionId]: eventType };
 	}
 
 	// --- stats ---
@@ -260,15 +258,6 @@
 		if (reportPlayer.open && reportPlayer.date !== data.date) reportPlayer.close();
 	});
 	onDestroy(() => reportPlayer.close());
-
-	// Duplicates the scroll-and-focus behaviour `SectionNav` uses for its own jump list, for the
-	// rail's copy of it: two callers, not worth lifting into a shared helper for two lines.
-	function jumpTo(id: string) {
-		document
-			.getElementById(id)
-			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		document.getElementById(id)?.focus({ preventScroll: true });
-	}
 
 	// A report is acknowledged only once the reader reaches its actual end.
 	onMount(() => {
@@ -633,7 +622,7 @@
 							<li>
 								<button
 									type="button"
-									onclick={() => jumpTo(target.id)}
+									onclick={() => jumpToSection(target.id)}
 									class="w-full rounded px-2 py-1 text-left text-sm text-surface-300 hover:bg-surface-800 hover:text-primary-300 bg-transparent border-none"
 								>
 									{target.label}

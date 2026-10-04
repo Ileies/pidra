@@ -2,6 +2,7 @@
   import { errMessage } from "$pipeline/util/text";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
+  import { SvelteSet } from "svelte/reactivity";
   import NoteCard from "#lib/notes/NoteCard.svelte";
   import NoteEditor from "#lib/notes/NoteEditor.svelte";
   import NoteHistory from "#lib/notes/NoteHistory.svelte";
@@ -210,7 +211,7 @@
   // selected a tap on a card toggles it rather than opening the editor.
 
   let selecting = $state(false);
-  let selected = $state<Set<string>>(new Set());
+  const selected = new SvelteSet<string>();
   let busy = $state(false);
 
   const visibleIds = $derived(shown.map((note) => note.id));
@@ -221,25 +222,23 @@
   // A filter change can hide selected rows; acting on invisible selection is a nasty surprise.
   $effect(() => {
     const visible = new Set(visibleIds);
-    if ([...selected].some((id) => !visible.has(id))) {
-      selected = new Set([...selected].filter((id) => visible.has(id)));
-    }
+    for (const id of [...selected]) if (!visible.has(id)) selected.delete(id);
   });
 
   function toggleSelect(id: string, on: boolean) {
-    const next = new Set(selected);
-    if (on) next.add(id);
-    else next.delete(id);
-    selected = next;
+    if (on) selected.add(id);
+    else selected.delete(id);
   }
 
   function toggleSelectAll() {
-    selected = allSelected ? new Set() : new Set(visibleIds);
+    const selectAll = !allSelected;
+    selected.clear();
+    if (selectAll) for (const id of visibleIds) selected.add(id);
   }
 
   function endSelection() {
     selecting = false;
-    selected = new Set();
+    selected.clear();
   }
 
   async function bulkScope(scope: string) {
@@ -248,7 +247,7 @@
     const ids = [...selected];
     try {
       for (const id of ids) await updateNote(id, { scope });
-      selected = new Set();
+      selected.clear();
       toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} set to "${scope}".`);
     } catch (err) {
       toasts.error(errMessage(err));
@@ -263,7 +262,7 @@
     const ids = [...selected];
     try {
       for (const id of ids) await deleteNote(id);
-      selected = new Set();
+      selected.clear();
       toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} deleted.`, async () => {
         for (const id of ids) await restoreNote(id);
       });
@@ -280,7 +279,7 @@
     const ids = [...selected];
     try {
       for (const id of ids) await restoreNote(id);
-      selected = new Set();
+      selected.clear();
       toasts.success(`${ids.length} ${ids.length === 1 ? "note" : "notes"} restored.`);
     } catch (err) {
       toasts.error(errMessage(err));

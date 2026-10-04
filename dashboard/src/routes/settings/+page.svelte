@@ -25,6 +25,12 @@
 
   let loggingOut = $state(false);
 
+  const ACCOUNT_LINKS = [
+    { href: "/setup", title: "Passkey and PIN", hint: "Register a device, change the PIN" },
+    { href: "/settings/email-accounts", title: "Email accounts", hint: "IMAP/SMTP accounts the pipeline reads" },
+    { href: "/settings/newsletters", title: "Newsletter sources", hint: "RSS feeds, errors, and email sender rules" },
+  ];
+
   // The language fields save on change, through `/api/settings`: this page has no server load
   // (it is mirrored), so the stored values are fetched here and the selects stay disabled until
   // they arrive, or while offline.
@@ -140,27 +146,15 @@
     <Card as="section" class="px-4 sm:px-5 py-4 flex flex-col gap-3">
       <h2 class="text-sm font-semibold text-surface-100">Account</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <a
-          href="/setup"
-          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-        >
-          <span>Passkey and PIN</span>
-          <span class="text-xs text-surface-400">Register a device, change the PIN</span>
-        </a>
-        <a
-          href="/settings/email-accounts"
-          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-        >
-          <span>Email accounts</span>
-          <span class="text-xs text-surface-400">IMAP/SMTP accounts the pipeline reads</span>
-        </a>
-        <a
-          href="/settings/newsletters"
-          class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
-        >
-          <span>Newsletter sources</span>
-          <span class="text-xs text-surface-400">RSS feeds, errors, and email sender rules</span>
-        </a>
+        {#each ACCOUNT_LINKS as link (link.href)}
+          <a
+            href={link.href}
+            class="tap flex flex-col gap-1 rounded-lg border border-surface-700 bg-surface-950 px-4 py-3 no-underline text-sm text-surface-200 hover:bg-surface-800"
+          >
+            <span>{link.title}</span>
+            <span class="text-xs text-surface-400">{link.hint}</span>
+          </a>
+        {/each}
         <button
           type="button"
           onclick={logOut}

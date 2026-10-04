@@ -12,6 +12,7 @@
   import { onMount } from "svelte";
   import List from "@lucide/svelte/icons/list";
   import { dismissable } from "#lib/ui/dismissable.js";
+  import { jumpToSection } from "#lib/report/jump.js";
   import type { NavTarget } from "#lib/report/types.js";
 
   interface Props {
@@ -63,9 +64,7 @@
 
   function jump(id: string) {
     jumpOpen = false;
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Move focus as well as the viewport, so a keyboard reader lands where the click did.
-    document.getElementById(id)?.focus({ preventScroll: true });
+    jumpToSection(id);
   }
 </script>
 

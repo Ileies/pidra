@@ -69,13 +69,12 @@
   const items = $derived([...data.items, ...fetched]);
 
   // Optimistic, re-synced whenever the load function returns fresh rows.
-  let ratings = $state<Record<string, string | null>>({});
-  $effect(() => {
-    ratings = Object.fromEntries(items.map((item) => [item.id, item.rating ?? null]));
-  });
+  let ratings = $derived<Record<string, string | null>>(
+    Object.fromEntries(items.map((item) => [item.id, item.rating ?? null])),
+  );
 
   function onRate(extractionId: string, eventType: string | null) {
-    ratings[extractionId] = eventType;
+    ratings = { ...ratings, [extractionId]: eventType };
   }
 </script>
 

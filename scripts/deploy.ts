@@ -64,6 +64,13 @@ function step(title: string) {
   console.log(`\n\x1b[1m▸ ${title}\x1b[0m`);
 }
 
+/** Prints a verification line with a tick or a cross, marks the deploy unhealthy on a cross, and returns `ok`. */
+function report(ok: boolean, text: string): boolean {
+  console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${text}`);
+  if (!ok) failed = true;
+  return ok;
+}
+
 function fail(message: string): never {
   console.error(`\n\x1b[31m✗ ${message}\x1b[0m`);
   process.exit(1);
@@ -222,10 +229,7 @@ const serviceStates = await Promise.all(
 );
 for (const { service, state } of serviceStates) {
   if (DRY) continue;
-  const ok = state === "active";
-  console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${service}: ${state}`);
-  if (!ok) {
-    failed = true;
+  if (!report(state === "active", `${service}: ${state}`)) {
     console.error(await remote(`journalctl -u ${service} -n 15 --no-pager`));
   }
 }
@@ -245,10 +249,7 @@ const verifyResults = await Promise.all(
   })),
 );
 for (const { path, code } of verifyResults) {
-  if (DRY) continue;
-  const ok = code === "200";
-  console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${path} on :${port} answered ${code || "nothing"}`);
-  if (!ok) failed = true;
+  if (!DRY) report(code === "200", `${path} on :${port} answered ${code || "nothing"}`);
 }
 
 // The document the briefing actually synthesises on. It is loaded by a path recorded on a run row

@@ -3,7 +3,7 @@ import type { PageServerLoad } from "./$types";
 import { error } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
-import type { StepAttempt } from "#lib/pipeline.js";
+import { mapRun, runColumns } from "#lib/server/runs.js";
 import type { StepRow } from "#lib/runTrace.js";
 
 /**
@@ -19,18 +19,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
   const [runRows, stepRows] = await Promise.all([
     sql()`
-      SELECT
-        r.id,
-        r.run_date::text AS run_date,
-        r.status,
-        r.failed_step,
-        r.step_errors,
-        r.started_at,
-        r.completed_at,
-        r.duration_ms,
-        d.tokens_in,
-        d.tokens_out,
-        d.items_included
+      SELECT ${runColumns()}
       FROM pipeline_runs r
       LEFT JOIN daily_reports d ON d.report_date = r.run_date
       WHERE r.id = ${params.id}
@@ -67,20 +56,5 @@ export const load: PageServerLoad = async ({ params }) => {
     detail: parseJsonb<Record<string, unknown> | null>(row.detail, null),
   }));
 
-  return {
-    run: {
-      id: run.id as string,
-      runDate: run.run_date as string,
-      status: run.status as string,
-      failedStep: (run.failed_step as string | null) ?? null,
-      stepErrors: parseJsonb<StepAttempt[]>(run.step_errors, []),
-      startedAt: iso(run.started_at),
-      completedAt: iso(run.completed_at),
-      durationMs: run.duration_ms == null ? null : Number(run.duration_ms),
-      tokensIn: run.tokens_in == null ? null : Number(run.tokens_in),
-      tokensOut: run.tokens_out == null ? null : Number(run.tokens_out),
-      itemsIncluded: run.items_included == null ? null : Number(run.items_included),
-    },
-    steps,
-  };
+  return { run: mapRun(run), steps };
 };

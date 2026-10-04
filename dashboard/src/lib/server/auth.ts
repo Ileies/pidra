@@ -59,6 +59,10 @@ export interface CredentialRow {
   lastUsedAt: string | null;
 }
 
+const credentialColumns = () => sql()`
+  id, credential_id AS "credentialId", rp_id AS "rpId", public_key AS "publicKey", counter,
+  device_label AS "deviceLabel", transports, created_at AS "createdAt", last_used_at AS "lastUsedAt"`;
+
 /**
  * Scoped to `rpID`: dev (`localhost`) and prod (`pidra.de`) share this table (same
  * `DATABASE_URL`), and a credential bound to one RP ID can never authenticate the other, so an
@@ -67,11 +71,8 @@ export interface CredentialRow {
  * or match rows for a WebAuthn identity the current origin isn't allowed to touch.
  */
 export async function listCredentials(rpID: string): Promise<CredentialRow[]> {
-  const rows = await sql()<CredentialRow[]>`
-    SELECT id, credential_id AS "credentialId", rp_id AS "rpId", public_key AS "publicKey", counter,
-           device_label AS "deviceLabel", transports, created_at AS "createdAt", last_used_at AS "lastUsedAt"
-    FROM auth_credentials WHERE rp_id = ${rpID} ORDER BY created_at ASC`;
-  return rows;
+  return sql()<CredentialRow[]>`
+    SELECT ${credentialColumns()} FROM auth_credentials WHERE rp_id = ${rpID} ORDER BY created_at ASC`;
 }
 
 export async function hasCredentials(rpID: string): Promise<boolean> {
@@ -81,9 +82,7 @@ export async function hasCredentials(rpID: string): Promise<boolean> {
 
 export async function findCredentialByCredentialId(credentialId: string, rpID: string): Promise<CredentialRow | null> {
   const [row] = await sql()<CredentialRow[]>`
-    SELECT id, credential_id AS "credentialId", rp_id AS "rpId", public_key AS "publicKey", counter,
-           device_label AS "deviceLabel", transports, created_at AS "createdAt", last_used_at AS "lastUsedAt"
-    FROM auth_credentials WHERE credential_id = ${credentialId} AND rp_id = ${rpID} LIMIT 1`;
+    SELECT ${credentialColumns()} FROM auth_credentials WHERE credential_id = ${credentialId} AND rp_id = ${rpID} LIMIT 1`;
   return row ?? null;
 }
 
@@ -153,6 +152,9 @@ export interface SessionRow {
   userAgent: string | null;
 }
 
+const sessionColumns = () => sql()`
+  id, created_at AS "createdAt", expires_at AS "expiresAt", last_seen_at AS "lastSeenAt", user_agent AS "userAgent"`;
+
 export async function createSession(userAgent: string | null): Promise<string> {
   const raw = randomToken();
   const id = await hashToken(raw);
@@ -166,8 +168,7 @@ export async function validateSession(rawToken: string | undefined): Promise<{ i
   if (!rawToken) return null;
   const id = await hashToken(rawToken);
   const [row] = await sql()<SessionRow[]>`
-    SELECT id, created_at AS "createdAt", expires_at AS "expiresAt", last_seen_at AS "lastSeenAt", user_agent AS "userAgent"
-    FROM auth_sessions WHERE id = ${id} AND expires_at > now() LIMIT 1`;
+    SELECT ${sessionColumns()} FROM auth_sessions WHERE id = ${id} AND expires_at > now() LIMIT 1`;
   if (!row) return null;
   const lastSeen = row.lastSeenAt ? new Date(row.lastSeenAt).getTime() : 0;
   if (Date.now() - lastSeen > SESSION_TOUCH_MIN_INTERVAL_MS) {
@@ -186,58 +187,70 @@ export async function revokeSessionById(id: string): Promise<void> {
 
 export async function listSessions(): Promise<SessionRow[]> {
   return sql()<SessionRow[]>`
-    SELECT id, created_at AS "createdAt", expires_at AS "expiresAt", last_seen_at AS "lastSeenAt", user_agent AS "userAgent"
-    FROM auth_sessions WHERE expires_at > now() ORDER BY last_seen_at DESC NULLS LAST`;
+    SELECT ${sessionColumns()} FROM auth_sessions WHERE expires_at > now() ORDER BY last_seen_at DESC NULLS LAST`;
 }
 
 // --- WebAuthn challenges (in-memory, single-use, short-lived) ---
 
-interface StoredChallenge {
-  challenge: string;
-  expiresAt: number;
+/** A nonce store whose entries die on their own: expired ones read as absent and are swept once the map is big. */
+class ExpiringMap<V> {
+  #entries = new Map<string, { value: V; expiresAt: number }>();
+
+  set(key: string, value: V, ttlMs: number): void {
+    if (this.#entries.size >= 1000) { // only worth the pass once it could matter
+      const now = Date.now();
+      for (const [k, e] of this.#entries) if (e.expiresAt < now) this.#entries.delete(k);
+    }
+    this.#entries.set(key, { value, expiresAt: Date.now() + ttlMs });
+  }
+
+  get(key: string): V | undefined {
+    const entry = this.#entries.get(key);
+    if (entry && entry.expiresAt < Date.now()) this.#entries.delete(key);
+    return this.#entries.get(key)?.value;
+  }
+
+  /** Reads and removes, so a value can be used once. */
+  take(key: string): V | undefined {
+    const value = this.get(key);
+    this.#entries.delete(key);
+    return value;
+  }
+
+  delete(key: string): void {
+    this.#entries.delete(key);
+  }
 }
 
-const challenges = new Map<string, StoredChallenge>();
+const challenges = new ExpiringMap<string>();
 
 export function storeChallenge(nonce: string, challenge: string): void {
-  sweep(challenges);
-  challenges.set(nonce, { challenge, expiresAt: Date.now() + CHALLENGE_TTL_MS });
+  challenges.set(nonce, challenge, CHALLENGE_TTL_MS);
 }
 
 export function takeChallenge(nonce: string): string | null {
-  const entry = challenges.get(nonce);
-  challenges.delete(nonce);
-  if (!entry || entry.expiresAt < Date.now()) return null;
-  return entry.challenge;
+  return challenges.take(nonce) ?? null;
 }
 
 // --- passkey-verified cookie value (opaque nonce -> which credential passed) ---
 
 interface PkvEntry {
   credentialId: string;
-  expiresAt: number;
   attempts: number;
 }
 
-const pkvStore = new Map<string, PkvEntry>();
+const pkvStore = new ExpiringMap<PkvEntry>();
 
 export function issuePkv(credentialId: string): string {
-  sweep(pkvStore);
   const nonce = randomToken();
-  pkvStore.set(nonce, { credentialId, expiresAt: Date.now() + PKV_TTL_MS, attempts: 0 });
+  pkvStore.set(nonce, { credentialId, attempts: 0 }, PKV_TTL_MS);
   return nonce;
 }
 
 /** Returns the entry if the nonce is live and under the per-nonce attempt cap, else null. */
 export function checkPkv(nonce: string | undefined): PkvEntry | null {
-  if (!nonce) return null;
-  const entry = pkvStore.get(nonce);
-  if (!entry || entry.expiresAt < Date.now()) {
-    if (entry) pkvStore.delete(nonce);
-    return null;
-  }
-  if (entry.attempts >= PIN_MAX_ATTEMPTS) return null;
-  return entry;
+  const entry = nonce ? pkvStore.get(nonce) : undefined;
+  return entry && entry.attempts < PIN_MAX_ATTEMPTS ? entry : null;
 }
 
 export function recordPkvAttempt(nonce: string): void {
@@ -251,20 +264,17 @@ export function consumePkv(nonce: string): void {
 
 // --- one-time bootstrap: the setup token only ever opens the door once ---
 
-const bootstrapNonces = new Map<string, { expiresAt: number }>();
+const bootstrapNonces = new ExpiringMap<true>();
 
 /** Called once, when `/setup` sees a matching `AUTH_SETUP_TOKEN` and zero credentials exist. */
 export function issueBootstrap(): string {
-  sweep(bootstrapNonces);
   const nonce = randomToken();
-  bootstrapNonces.set(nonce, { expiresAt: Date.now() + BOOTSTRAP_TTL_MS });
+  bootstrapNonces.set(nonce, true, BOOTSTRAP_TTL_MS);
   return nonce;
 }
 
 function checkBootstrap(nonce: string | undefined): boolean {
-  if (!nonce) return false;
-  const entry = bootstrapNonces.get(nonce);
-  return !!entry && entry.expiresAt >= Date.now();
+  return !!nonce && bootstrapNonces.get(nonce) === true;
 }
 
 /** True once logged in, or during the one-time bootstrap window `/setup`'s `load` opened. */
@@ -300,12 +310,6 @@ export function recordIpFailure(ip: string): void {
 
 export function clearIpFailures(ip: string): void {
   ipAttempts.delete(ip);
-}
-
-function sweep<K, V extends { expiresAt: number }>(map: Map<K, V>): void {
-  if (map.size < 1000) return; // only worth the pass once it could matter
-  const now = Date.now();
-  for (const [key, value] of map) if (value.expiresAt < now) map.delete(key);
 }
 
 /** The 401 a route returns unless the caller is logged in or inside the `/setup` bootstrap window. */

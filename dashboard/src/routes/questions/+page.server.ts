@@ -78,8 +78,7 @@ export const load: PageServerLoad = async () => {
     ORDER BY (kind = 'item') DESC, last_asked DESC, created_at
   `;
 
-  const openViews = open.map(shape);
-  return { open: openViews };
+  return { open: open.map(shape) };
 };
 
 function bridge(id: string, op: string, body?: unknown) {

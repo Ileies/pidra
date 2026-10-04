@@ -333,22 +333,32 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
   const stamp = (value: TriageItem["receivedAt"]): number => (value ? new Date(value).getTime() : 0);
   items.sort((a, b) => stamp(b.receivedAt) - stamp(a.receivedAt));
 
-  const count = (outcome: Outcome) => items.filter((i) => i.outcome === outcome).length;
+  const counts: Record<Outcome, number> = {
+    in_report: 0, passed: 0, outside_synthesis_capacity: 0, gated: 0, failed: 0,
+    not_extracted: 0, dropped_at_ingest: 0, unjudged: 0,
+  };
+  let extractionCount = 0;
+  let hasReconstructed = false;
+  for (const item of items) {
+    counts[item.outcome]++;
+    extractionCount += item.extractions.length;
+    hasReconstructed ||= item.extractions.some((e) => e.gateDetail?.recordedBy === "backfill");
+  }
 
   return {
     items,
     summary: {
-      ingested: items.length - count("dropped_at_ingest"),
-      inReport: count("in_report"),
-      passed: count("passed"),
-      outsideSynthesisCapacity: count("outside_synthesis_capacity"),
-      gated: count("gated"),
-      failed: count("failed"),
-      notExtracted: count("not_extracted"),
-      droppedAtIngest: count("dropped_at_ingest"),
-      unjudged: count("unjudged"),
-      extractions: items.reduce((sum, i) => sum + i.extractions.length, 0),
-      hasReconstructed: items.some((i) => i.extractions.some((e) => e.gateDetail?.recordedBy === "backfill")),
+      ingested: items.length - counts.dropped_at_ingest,
+      inReport: counts.in_report,
+      passed: counts.passed,
+      outsideSynthesisCapacity: counts.outside_synthesis_capacity,
+      gated: counts.gated,
+      failed: counts.failed,
+      notExtracted: counts.not_extracted,
+      droppedAtIngest: counts.dropped_at_ingest,
+      unjudged: counts.unjudged,
+      extractions: extractionCount,
+      hasReconstructed,
       ingestFailures: ingestFailures(parseJsonb<StepAttempt[]>(runRows[0]?.step_errors, [])),
     },
   };

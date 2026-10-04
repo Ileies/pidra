@@ -1,20 +1,9 @@
-import { daysAgo } from "$pipeline/util/time";
 import { readForm } from "#lib/server/form.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
 import { setSourceActive } from "#lib/server/sources.js";
-
-export interface DailyScore {
-  sourceName: string;
-  runDate: string;
-  itemsReceived: number;
-  itemsIncluded: number;
-  avgRelevance: number | null;
-  avgEffectiveRelevance: number | null;
-  includeRate: number | null;
-  compositeScore: number | null;
-}
+import { recentDailyScores, type DailyScore } from "#lib/server/sourceScores.js";
 
 export interface SourceRow {
   sourceName: string;
@@ -32,7 +21,6 @@ type QualityRow = Omit<SourceRow, "dailyScores" | "lastDelivery">;
 
 export const load: PageServerLoad = async () => {
   const db = sql();
-  const thirtyDaysAgo = daysAgo(30);
   const [qualityRows, dailyRows, deliveryRows] = await Promise.all([
     db<QualityRow[]>`
       SELECT source_name AS "sourceName", is_active AS "isActive",
@@ -42,15 +30,7 @@ export const load: PageServerLoad = async () => {
       FROM source_quality
       ORDER BY composite_score_30d DESC NULLS LAST
     `,
-    db<DailyScore[]>`
-      SELECT source_name AS "sourceName", run_date::text AS "runDate",
-             items_received AS "itemsReceived", items_included AS "itemsIncluded",
-             avg_relevance AS "avgRelevance", avg_effective_relevance AS "avgEffectiveRelevance",
-             include_rate AS "includeRate", composite_score AS "compositeScore"
-      FROM source_daily_scores
-      WHERE run_date >= ${thirtyDaysAgo}
-      ORDER BY run_date DESC
-    `,
+    recentDailyScores(),
     db<{ sourceName: string; lastDelivery: string | Date | null }[]>`
       SELECT source_name AS "sourceName", max(received_at) AS "lastDelivery"
       FROM raw_items

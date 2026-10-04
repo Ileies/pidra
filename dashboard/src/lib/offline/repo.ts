@@ -24,7 +24,7 @@ import { getLastSyncedAt, sync } from "./sync.js";
 import { mirrorKey, type MirrorKey, type MirrorStore } from "./deps.js";
 import type { RenderedReport } from "#lib/server/reports.js";
 import type { ExtractedJson } from "#lib/server/extractions.js";
-import type { HarvestDoc, HarvestRun } from "#lib/server/contextBuilder.js";
+import type { HarvestDoc, HarvestRun } from "#lib/server/contextHarvest.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
 import type { IngestFailure, StepAttempt } from "#lib/pipeline.js";
 import type { QuickAction } from "#lib/report/types.js";

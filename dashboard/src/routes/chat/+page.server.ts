@@ -26,41 +26,41 @@ const iso = (value: unknown): string => new Date(value as string).toISOString();
 export const load: PageServerLoad = async ({ url }) => {
   const db = sql();
 
-  // The last message's content rides along as a preview snippet for the conversation list.
-  const conversations = await db`
-    SELECT c.id, c.title, c.surface, c.updated_at, m.content AS snippet
-    FROM chat_conversations c
-    LEFT JOIN LATERAL (
-      SELECT content FROM chat_messages
-      WHERE conversation_id = c.id
-      ORDER BY created_at DESC
-      LIMIT 1
-    ) m ON true
-    ORDER BY c.updated_at DESC
-    LIMIT 30
-  `;
-
   const requested = url.searchParams.get("c");
   // No param (or `?c=new`) is an empty composer. The page itself carries the live conversation
   // over a client-side navigation by redirecting to `?c=<id>`; a fresh load always starts new.
   const activeId = requested && isUuid(requested) ? requested : null;
 
-  const messages = activeId
-    ? await db`
-        SELECT id, role, content, tool_calls, created_at
-        FROM chat_messages
-        WHERE conversation_id = ${activeId}
-        ORDER BY created_at
-      `
-    : [];
-
-  const corrections = await db`
-    SELECT id, target_kind, target_key, operation, statement, supersedes_text, created_at
-    FROM context_corrections
-    WHERE status = 'active'
-    ORDER BY created_at DESC
-    LIMIT 15
-  `;
+  const [conversations, messages, corrections] = await Promise.all([
+    // The last message's content rides along as a preview snippet for the conversation list.
+    db`
+      SELECT c.id, c.title, c.surface, c.updated_at, m.content AS snippet
+      FROM chat_conversations c
+      LEFT JOIN LATERAL (
+        SELECT content FROM chat_messages
+        WHERE conversation_id = c.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) m ON true
+      ORDER BY c.updated_at DESC
+      LIMIT 30
+    `,
+    activeId
+      ? db`
+          SELECT id, role, content, tool_calls, created_at
+          FROM chat_messages
+          WHERE conversation_id = ${activeId}
+          ORDER BY created_at
+        `
+      : [],
+    db`
+      SELECT id, target_kind, target_key, operation, statement, supersedes_text, created_at
+      FROM context_corrections
+      WHERE status = 'active'
+      ORDER BY created_at DESC
+      LIMIT 15
+    `,
+  ]);
 
   // postgres.js returns untyped rows, so each query's shape is asserted here rather than in the
   // component, matching how the other dashboard pages hand typed data to their templates.

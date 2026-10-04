@@ -3,7 +3,7 @@ import { parseJsonb } from "#lib/jsonb.js";
 import { MIRROR_DAYS, type SnapshotStores } from "#lib/server/snapshotCache.js";
 import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/reports.js";
 import { loadExtractions } from "#lib/server/extractions.js";
-import { loadHarvestDocument } from "#lib/server/contextBuilder.js";
+import { loadHarvestDocument } from "#lib/server/contextHarvest.js";
 import { ingestFailures, withoutDetail, type IngestFailure, type StepAttempt } from "#lib/pipeline.js";
 import type { ActionPreview, ActionStatus, QuickAction, ReportJson } from "#lib/report/types.js";
 

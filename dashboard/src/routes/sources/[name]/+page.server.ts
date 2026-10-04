@@ -1,5 +1,5 @@
-import { daysAgo } from "$pipeline/util/time";
 import { readForm } from "#lib/server/form.js";
+import { recentDailyScores } from "#lib/server/sourceScores.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
@@ -89,21 +89,9 @@ type QualityRow = {
   unsubscribe_url: string | null;
 };
 
-type DailyScoreRow = {
-  runDate: string;
-  itemsReceived: number;
-  itemsIncluded: number;
-  avgRelevance: number | null;
-  avgEffectiveRelevance: number | null;
-  includeRate: number | null;
-  compositeScore: number | null;
-};
-
 export const load: PageServerLoad = async ({ params }) => {
   const sourceName = decodeURIComponent(params.name);
   const db = sql();
-
-  const thirtyDaysAgo = daysAgo(30);
 
   const [qualityRows, dailyRows, rows, statsRows, ratingRows] = await Promise.all([
     db<QualityRow[]>`
@@ -112,15 +100,7 @@ export const load: PageServerLoad = async ({ params }) => {
              notes, updated_at, unsubscribe_url
       FROM source_quality WHERE source_name = ${sourceName}
     `,
-    db<DailyScoreRow[]>`
-      SELECT run_date AS "runDate", items_received AS "itemsReceived",
-             items_included AS "itemsIncluded", avg_relevance AS "avgRelevance",
-             avg_effective_relevance AS "avgEffectiveRelevance", include_rate AS "includeRate",
-             composite_score AS "compositeScore"
-      FROM source_daily_scores
-      WHERE source_name = ${sourceName} AND run_date >= ${thirtyDaysAgo}
-      ORDER BY run_date DESC
-    `,
+    recentDailyScores(sourceName),
     // The header block is all the template needs for a title, so the bodies stay in Postgres.
     db<ItemRow[]>`
       WITH deliveries AS (

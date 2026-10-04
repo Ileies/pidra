@@ -4,8 +4,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { acknowledgeNotification, runNotificationKey } from "#lib/server/notifications.js";
 import { sql } from "#lib/server/postgres.js";
-import { parseJsonb } from "#lib/jsonb.js";
-import type { StepAttempt } from "#lib/pipeline.js";
+import { mapRun, runColumns, type RunSummary } from "#lib/server/runs.js";
 
 /**
  * Pipeline run history (D5).
@@ -19,36 +18,16 @@ import type { StepAttempt } from "#lib/pipeline.js";
  * timing and cost live on `/runs/[id]`.
  */
 
-export interface RunRow {
-  id: string;
-  runDate: string;
-  status: string;
-  failedStep: string | null;
-  stepErrors: StepAttempt[];
-  startedAt: string | null;
-  completedAt: string | null;
-  durationMs: number | null;
-  tokensIn: number | null;
-  tokensOut: number | null;
-  itemsIncluded: number | null;
+export interface RunRow extends RunSummary {
   /** Failed or degraded, and not yet marked reviewed: the rows the Runs badge counts. */
   unreviewed: boolean;
 }
 
 export const load: PageServerLoad = async () => {
-  const rows = await sql()`
+  const db = sql();
+  const rows = await db`
     SELECT
-      r.id,
-      r.run_date::text AS run_date,
-      r.status,
-      r.failed_step,
-      r.step_errors,
-      r.started_at,
-      r.completed_at,
-      r.duration_ms,
-      d.tokens_in,
-      d.tokens_out,
-      d.items_included,
+      ${runColumns()},
       (n.notification_key IS NULL
         AND (r.status = 'failed' OR COALESCE(jsonb_array_length(r.step_errors), 0) > 0)) AS unreviewed
     FROM pipeline_runs r
@@ -58,20 +37,7 @@ export const load: PageServerLoad = async () => {
     LIMIT 90
   `;
 
-  const runs: RunRow[] = rows.map((row) => ({
-    id: row.id as string,
-    runDate: row.run_date as string,
-    status: row.status as string,
-    failedStep: (row.failed_step as string | null) ?? null,
-    stepErrors: parseJsonb<StepAttempt[]>(row.step_errors, []),
-    startedAt: (row.started_at as string | null) ?? null,
-    completedAt: (row.completed_at as string | null) ?? null,
-    durationMs: (row.duration_ms as number | null) ?? null,
-    tokensIn: (row.tokens_in as number | null) ?? null,
-    tokensOut: (row.tokens_out as number | null) ?? null,
-    itemsIncluded: (row.items_included as number | null) ?? null,
-    unreviewed: row.unreviewed === true,
-  }));
+  const runs: RunRow[] = rows.map((row) => ({ ...mapRun(row), unreviewed: row.unreviewed === true }));
 
   const completed = runs.filter((run) => run.status === "completed");
 

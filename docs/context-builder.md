@@ -23,7 +23,7 @@ The files hold the summaries and the document, not raw bodies or the full corpus
 | From index | `--from-index` | Rebuilds synthesis, output and seeds from stored extractions with a full synthesis; Tasks and GitHub are refetched. |
 | Seed only | `--seed-only` | Reapplies the three DB seeds from stored extractions; no fetch, no model calls. |
 
-State lives in three places: `context_builder_runs` (status, the document, item counts), `context_builder_indexed_items` (the persistent skip set and stored extraction JSON) and, on the machine that ran it, `.checkpoint.json` (progress) and `errors.json` (error records persisted across runs). An update whose delta exceeds 30% of the index prints a full-rebuild recommendation and proceeds.
+State lives in three places: `context_builder_runs` (status, the document, item counts), `context_builder_indexed_items` (the persistent skip set and stored extraction JSON) and, on the machine that ran it, `.checkpoint.json` (a progress snapshot that is written but never read back: resume runs from the DB row) and `errors.json` (error records persisted across runs). An update whose delta exceeds 30% of the index prints a full-rebuild recommendation and proceeds.
 
 A failed source does not abort the run; synthesis uses what arrived. Check `errors.json` timestamps and source counts before treating a completed run as full coverage.
 

@@ -17,9 +17,6 @@ export interface PromptVars {
   language: string;
 }
 
-/** Every tag a prompt may use, in the order the /prompts page lists them. */
-export const PROMPT_VARIABLES = ["language"] as const satisfies readonly (keyof PromptVars)[];
-
 const TAG = /\{\{\s*([a-z_]+)\s*\}\}/g;
 
 export function renderPrompt(template: string, vars: PromptVars): string {

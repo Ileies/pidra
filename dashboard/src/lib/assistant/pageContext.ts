@@ -10,8 +10,6 @@
  * and the visible-row ids.
  */
 
-import { surfaceForPath } from "#lib/routes.js";
-
 export type Surface = "notes" | "context" | "entities" | "report" | "sources" | "prompts" | "questions" | "global";
 
 export interface FocusItem {
@@ -26,17 +24,6 @@ export interface PageContext {
   /** One or two sentences: filters, counts, which date - whatever names what is on screen. */
   digest?: string;
   focus?: FocusItem[];
-}
-
-/**
- * Mirrors the server's fallback so the widget's header is right before the first turn.
- *
- * The route-to-surface table used to live here as a third copy of the same regex list. It is
- * derived from the route registry now, so a new page cannot end up with a different surface on
- * the client than the one the server resolves for it.
- */
-export function surfaceForRoute(pathname: string): Surface {
-  return surfaceForPath(pathname);
 }
 
 /** Trimmed to keep a turn's prompt small. The server caps these again. */

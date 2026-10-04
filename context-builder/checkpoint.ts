@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 export interface CheckpointState {
@@ -19,15 +19,6 @@ export interface CheckpointState {
 }
 
 const CHECKPOINT_PATH = resolve(import.meta.dir, ".checkpoint.json");
-
-export async function loadCheckpoint(): Promise<CheckpointState | null> {
-  try {
-    const raw = await readFile(CHECKPOINT_PATH, "utf-8");
-    return JSON.parse(raw) as CheckpointState;
-  } catch {
-    return null;
-  }
-}
 
 export async function saveCheckpoint(state: CheckpointState): Promise<void> {
   await writeFile(CHECKPOINT_PATH, JSON.stringify(state, null, 2), "utf-8");

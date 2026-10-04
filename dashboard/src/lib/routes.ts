@@ -292,11 +292,6 @@ export function routeFor(routeId: string | null | undefined): RouteDef | undefin
   return BY_ID.get(routeId);
 }
 
-/** True when a nav entry should render as the current page. */
-export function isCurrent(entry: RouteDef, routeId: string | null | undefined): boolean {
-  return routeFor(routeId)?.href === entry.href;
-}
-
 /**
  * The offline tiers (CLAUDE.md, Offline mode), per SvelteKit route id rather than per nav entry:
  * `/[date]` reads the mirror while its child `/[date]/triage` is live, so the entry is the wrong

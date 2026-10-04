@@ -236,9 +236,7 @@
 
   --app-bg: var(--color-surface-950);
   --app-panel: var(--color-surface-900);
-  --app-panel-raised: var(--color-surface-800);
   --app-border: var(--color-surface-700);
-  --app-border-soft: var(--color-surface-800);
   /* A control's boundary carries information, so it needs 3:1 against its surroundings
      (WCAG 1.4.11); a card separator does not. Inputs, selects and buttons use this. */
   --app-border-control: var(--color-surface-500);
@@ -360,9 +358,6 @@
 }
 @utility nav-btn-muted {
   @apply border-surface-700 text-surface-400 hover:bg-surface-800;
-}
-@utility nav-btn-disabled {
-  @apply border-surface-700 text-surface-400 opacity-40 cursor-default select-none;
 }
 
 /* Context Builder (C-something): a jumped-to anchor sitting flush under the fixed header is half

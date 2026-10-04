@@ -12,8 +12,6 @@ export interface StepAttempt {
   ts: string;
 }
 
-export type RunStatus = "running" | "completed" | "failed";
-
 /**
  * How a source failed. A closed vocabulary on purpose, and the reason this is a classifier rather
  * than a pass-through: `step_errors` is raw text from whatever threw, and the plan keeps it off the

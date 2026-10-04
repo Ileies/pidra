@@ -5,7 +5,8 @@ import { browser } from "$app/env";
 import { refreshAll } from "$app/navigation";
 import { BUDGET, net } from "#lib/offline/net.js";
 import { sync } from "#lib/offline/sync.js";
-import { surfaceForRoute, type PageContext, type Surface } from "#lib/assistant/pageContext.js";
+import type { PageContext, Surface } from "#lib/assistant/pageContext.js";
+import { surfaceForPath } from "#lib/routes.js";
 
 /**
  * The floating assistant's client state. Lives in the root layout, so it survives navigation
@@ -29,7 +30,7 @@ export interface UiMessage {
 }
 
 /** A row of a stored transcript, as /chat's load function returns it. */
-export interface StoredMessage {
+interface StoredMessage {
   id: string;
   role: string;
   content: string;
@@ -37,7 +38,7 @@ export interface StoredMessage {
   created_at?: string;
 }
 
-export interface SurfaceInfo {
+interface SurfaceInfo {
   label: string;
   hints: string[];
   notice: string | null;
@@ -93,7 +94,7 @@ class Assistant {
   /** Fallback for a page that does not declare its own context. */
   setRoute(pathname: string) {
     if (this.context.route === pathname) return;
-    this.context = { surface: surfaceForRoute(pathname), route: pathname };
+    this.context = { surface: surfaceForPath(pathname), route: pathname };
   }
 
   toggle() {

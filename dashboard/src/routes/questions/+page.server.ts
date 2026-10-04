@@ -65,8 +65,6 @@ function shape(row: Row) {
   };
 }
 
-export type QuestionView = ReturnType<typeof shape>;
-
 export const load: PageServerLoad = async () => {
   const db = sql();
   const columns = () => db`

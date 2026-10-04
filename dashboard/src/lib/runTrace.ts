@@ -133,7 +133,7 @@ function selfUsage(row: StepRow): Usage {
   };
 }
 
-export function addUsage(a: Usage, b: Usage): Usage {
+function addUsage(a: Usage, b: Usage): Usage {
   return {
     tokensIn: a.tokensIn + b.tokensIn,
     tokensOut: a.tokensOut + b.tokensOut,
@@ -291,14 +291,6 @@ export function stepTotals(tree: RunTree): StepTotal[] {
     }
   }
   return [...byStep.values()];
-}
-
-export interface Segment {
-  /** Real milliseconds covered. */
-  startMs: number;
-  endMs: number;
-  /** Drawn width as a share of the axis. */
-  weight: number;
 }
 
 /**

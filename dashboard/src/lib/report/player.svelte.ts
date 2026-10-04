@@ -27,8 +27,8 @@ interface PlayerChapter {
 /** Generating a long chapter takes a few seconds, not the 15 an ordinary tap is allowed. */
 const AUDIO_BUDGET_MS = 120_000;
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2] as const;
-const BACK_SECONDS = 15;
-const FORWARD_SECONDS = 30;
+export const BACK_SECONDS = 15;
+export const FORWARD_SECONDS = 30;
 /** Previous restarts the chapter unless it has only just begun. */
 const RESTART_AFTER_SECONDS = 3;
 
@@ -73,17 +73,16 @@ class ReportPlayer {
   #ticket = 0;
   #unlock: string | null = null;
 
-  /** Length of everything before the current chapter, plus how far into this one. */
-  get elapsedMs(): number {
-    return this.chapters.slice(0, this.current).reduce((sum, c) => sum + c.durationMs, 0) + this.position * 1000;
-  }
+  /** Length of everything before the current chapter: only recomputed when the chapter changes, not on every `timeupdate`. */
+  #beforeMs = $derived(this.chapters.slice(0, this.current).reduce((sum, c) => sum + c.durationMs, 0));
+  elapsedMs = $derived(this.#beforeMs + this.position * 1000);
+  totalMs = $derived(this.chapters.reduce((sum, c) => sum + c.durationMs, 0));
+  chapter = $derived<PlayerChapter | undefined>(this.chapters[this.current]);
 
-  get totalMs(): number {
-    return this.chapters.reduce((sum, c) => sum + c.durationMs, 0);
-  }
-
-  get chapter(): PlayerChapter | undefined {
-    return this.chapters[this.current];
+  /** Seconds in a chapter: the element's own figure once it knows it, the estimate before. */
+  #lengthOf(chapter: PlayerChapter): number {
+    const duration = this.#audio?.duration;
+    return duration != null && Number.isFinite(duration) ? duration : chapter.durationMs / 1000;
   }
 
   /** Called from the tap itself: the unlock has to happen before the first await. */
@@ -140,9 +139,7 @@ class ReportPlayer {
 
     // Inside the chapter that is already loaded: a plain seek.
     if (index === this.current && this.#urls.has(chapter.key) && audio.src === this.#urls.get(chapter.key)) {
-      const length = Number.isFinite(audio.duration) ? audio.duration : chapter.durationMs / 1000;
-      audio.currentTime = Math.min(at.fraction != null ? at.fraction * length : (at.seconds ?? 0), Math.max(0, length - 0.05));
-      this.position = audio.currentTime;
+      this.#seek(audio, chapter, at);
       if (audio.paused) void audio.play().catch((err) => this.#fail(err));
       return;
     }
@@ -163,10 +160,7 @@ class ReportPlayer {
         audio.addEventListener("error", () => reject(new Error("The audio could not be played.")), { once: true });
       });
       if (ticket !== this.#ticket) return;
-      const length = Number.isFinite(audio.duration) ? audio.duration : chapter.durationMs / 1000;
-      const start = at.fraction != null ? at.fraction * length : (at.seconds ?? 0);
-      audio.currentTime = Math.min(start, Math.max(0, length - 0.05));
-      this.position = audio.currentTime;
+      this.#seek(audio, chapter, at);
       await audio.play();
       this.buffering = false;
       this.#publish();
@@ -202,10 +196,17 @@ class ReportPlayer {
     if (this.#audio) this.#audio.playbackRate = this.speed;
   }
 
+  #seek(audio: HTMLAudioElement, chapter: PlayerChapter, at: { fraction?: number; seconds?: number }): void {
+    const length = this.#lengthOf(chapter);
+    const start = at.fraction != null ? at.fraction * length : (at.seconds ?? 0);
+    audio.currentTime = Math.min(start, Math.max(0, length - 0.05));
+    this.position = audio.currentTime;
+  }
+
   #skip(seconds: number): void {
     const chapter = this.chapter;
     if (!chapter) return;
-    const length = this.#audio && Number.isFinite(this.#audio.duration) ? this.#audio.duration : chapter.durationMs / 1000;
+    const length = this.#lengthOf(chapter);
     const target = this.position + seconds;
     if (target >= 0 && target < length) {
       void this.go(this.current, { seconds: target });

@@ -38,7 +38,7 @@
         ? { word: "Needs attention", dot: "bg-error-500" }
         : offline.syncing
           ? { word: "Syncing", dot: "bg-success-500 animate-pulse" }
-          : offline.queuedCount > 0
+          : offline.pending.length > 0
             ? { word: "Changes queued", dot: "bg-warning-500" }
             : offline.reachable === "checking"
               ? { word: "Checking", dot: "bg-surface-500 animate-pulse" }

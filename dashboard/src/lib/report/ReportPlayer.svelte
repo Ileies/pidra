@@ -17,7 +17,7 @@
   import SkipForward from "@lucide/svelte/icons/skip-forward";
   import X from "@lucide/svelte/icons/x";
   import Spinner from "#lib/components/Spinner.svelte";
-  import { reportPlayer as player } from "#lib/report/player.svelte.js";
+  import { reportPlayer as player, BACK_SECONDS, FORWARD_SECONDS } from "#lib/report/player.svelte.js";
 
   let listOpen = $state(false);
 
@@ -158,8 +158,8 @@
         <button type="button" class="{button} h-11 w-11" aria-label="Previous chapter" disabled={player.chapters.length === 0} onclick={() => player.previous()}>
           <SkipBack class="h-5 w-5" aria-hidden="true" />
         </button>
-        <button type="button" class="{button} h-11 w-11 text-xs font-semibold" aria-label="Back 15 seconds" disabled={player.chapters.length === 0} onclick={() => player.back()}>
-          <RotateCcw class="h-4 w-4" aria-hidden="true" />15
+        <button type="button" class="{button} h-11 w-11 text-xs font-semibold" aria-label="Back {BACK_SECONDS} seconds" disabled={player.chapters.length === 0} onclick={() => player.back()}>
+          <RotateCcw class="h-4 w-4" aria-hidden="true" />{BACK_SECONDS}
         </button>
         <button
           type="button"
@@ -176,8 +176,8 @@
             <Play class="h-6 w-6" aria-hidden="true" fill="currentColor" />
           {/if}
         </button>
-        <button type="button" class="{button} h-11 w-11 text-xs font-semibold" aria-label="Forward 30 seconds" disabled={player.chapters.length === 0} onclick={() => player.forward()}>
-          30<RotateCw class="h-4 w-4" aria-hidden="true" />
+        <button type="button" class="{button} h-11 w-11 text-xs font-semibold" aria-label="Forward {FORWARD_SECONDS} seconds" disabled={player.chapters.length === 0} onclick={() => player.forward()}>
+          {FORWARD_SECONDS}<RotateCw class="h-4 w-4" aria-hidden="true" />
         </button>
         <button type="button" class="{button} h-11 w-11" aria-label="Next chapter" disabled={player.chapters.length === 0} onclick={() => player.next()}>
           <SkipForward class="h-5 w-5" aria-hidden="true" />

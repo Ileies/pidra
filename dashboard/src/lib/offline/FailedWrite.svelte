@@ -1,7 +1,7 @@
 <script lang="ts">
   // A write the server refused for good, shown on its row and not only in the sync sheet.
   import { offline } from "./state.svelte.js";
-  import { INTENT_LABEL, intentSummary, type Intent } from "./outbox.js";
+  import { INTENT_LABEL, intentSummary, retryFailed, type Intent } from "./outbox.js";
 
   interface Props {
     intent: Intent;
@@ -21,7 +21,7 @@
   <div class="flex gap-2">
     <button
       type="button"
-      onclick={() => offline.retryFailed(intent.id)}
+      onclick={() => retryFailed(intent.id)}
       class="btn btn-solid px-2 py-0.5"
     >Retry</button>
     <button

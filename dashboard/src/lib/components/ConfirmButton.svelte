@@ -7,6 +7,7 @@
    * phone. Here the armed state stacks full-width below `sm` (M-3) and every control is a real
    * target.
    */
+  import Trash from "@lucide/svelte/icons/trash";
   import { enhance } from "$app/forms";
 
   interface Props {
@@ -94,7 +95,7 @@
     aria-label={label}
     class="tap inline-flex items-center justify-center text-surface-500 hover:text-error-400 transition-colors"
   >
-    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>
+    <Trash class="h-3.5 w-3.5" />
   </button>
 {:else if !armed}
   <button

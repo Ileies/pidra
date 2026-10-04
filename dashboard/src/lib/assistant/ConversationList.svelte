@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Check from "@lucide/svelte/icons/check";
+  import PenLine from "@lucide/svelte/icons/pen-line";
+  import X from "@lucide/svelte/icons/x";
   import { enhance } from "$app/forms";
   import Badge from "#lib/components/Badge.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
@@ -122,10 +125,10 @@
               aria-label="Conversation title"
             />
             <button type="submit" class="tap text-primary-400 hover:text-primary-300 shrink-0" title="Save" aria-label="Save title">
-              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+              <Check class="h-4 w-4" />
             </button>
             <button type="button" onclick={cancelRename} class="tap text-surface-400 hover:text-surface-200 shrink-0" title="Cancel" aria-label="Cancel">
-              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
+              <X class="h-4 w-4" />
             </button>
           </form>
         {:else}
@@ -153,7 +156,7 @@
               aria-label="Rename conversation"
               class="tap text-surface-500 hover:text-surface-200"
             >
-              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+              <PenLine class="h-3.5 w-3.5" />
             </button>
             <ConfirmButton
               label="Delete"

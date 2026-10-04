@@ -13,6 +13,9 @@
    * with the reason, and a tap that loses the connection says whether it may have gone through.
    * A second tap on one that did is harmless: the bridge answers "done" instead of adding again.
    */
+  import Calendar from "@lucide/svelte/icons/calendar";
+  import Check from "@lucide/svelte/icons/check";
+  import Plus from "@lucide/svelte/icons/plus";
   import { errMessage } from "$pipeline/util/text";
   import Spinner from "#lib/components/Spinner.svelte";
   import { fmtDay, fmtSpan } from "#lib/format.js";
@@ -112,16 +115,14 @@
 </script>
 
 {#snippet icon(kind: ActionPreview["kind"])}
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 h-4 w-4 shrink-0 text-primary-400" aria-hidden="true">
-    {#if kind === "add_event" || kind === "update_event"}
-      <rect x="3" y="4" width="14" height="13" rx="1.5" />
-      <path d="M3 8h14M7 2.5v3M13 2.5v3" />
-    {:else if kind === "add_todo"}
-      <path d="M10 4.5v11M4.5 10h11" />
-    {:else}
-      <path d="M4.5 10.5l3.5 3.5 7.5-8" />
-    {/if}
-  </svg>
+  {@const cls = "mt-0.5 h-4 w-4 shrink-0 text-primary-400"}
+  {#if kind === "add_event" || kind === "update_event"}
+    <Calendar class={cls} strokeWidth={1.6} />
+  {:else if kind === "add_todo"}
+    <Plus class={cls} strokeWidth={1.6} />
+  {:else}
+    <Check class={cls} strokeWidth={1.6} />
+  {/if}
 {/snippet}
 
 {#if shown.length > 0}
@@ -146,7 +147,7 @@
         <div class="flex shrink-0 items-center gap-2 pl-6 sm:pl-0">
           {#if action.status === "done"}
             <span class="inline-flex items-center gap-1 rounded bg-success-950 px-2 py-1 text-xs text-success-400">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8" /></svg>
+              <Check class="h-3 w-3" />
               {meta.done}
             </span>
           {:else if action.status === "queued"}

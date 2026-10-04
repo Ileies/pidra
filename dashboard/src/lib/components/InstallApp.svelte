@@ -5,6 +5,9 @@
    * one, and "Open the app" only where an installed app is both detectable and reachable from a tab.
    * The wording avoids "PWA" on purpose.
    */
+  import Check from "@lucide/svelte/icons/check";
+  import Download from "@lucide/svelte/icons/download";
+  import ExternalLink from "@lucide/svelte/icons/external-link";
   import { onMount } from "svelte";
   import Card from "#lib/components/Card.svelte";
   import { pwa } from "#lib/pwa.svelte.js";
@@ -63,9 +66,7 @@
           <span
             class="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-success-600 text-surface-50 ring-2 ring-surface-900"
           >
-            <svg viewBox="0 0 16 16" class="size-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3.5 8.5l3 3 6-7" />
-            </svg>
+            <Check class="size-3" strokeWidth={2.5} />
           </span>
         {/if}
       </div>
@@ -78,17 +79,13 @@
     {#if !pwa.inApp}
       {#if !installed}
         <button type="button" onclick={install} disabled={busy || checking || !pwa.canPrompt} class={button}>
-          <svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M10 3v10m0 0l-4-4m4 4l4-4M4 16h12" />
-          </svg>
+          <Download class="size-4" strokeWidth={1.8} />
           {busy ? "Installing..." : "Install"}
         </button>
       {:else if pwa.desktopChromium}
         <a href="/" target="_blank" rel="noopener" class={button}>
           Open the app
-          <svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M8 4H5a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M12 4h4v4m0-4l-7 7" />
-          </svg>
+          <ExternalLink class="size-4" strokeWidth={1.8} />
         </a>
       {/if}
     {/if}

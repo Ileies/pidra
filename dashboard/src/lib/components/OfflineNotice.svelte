@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WifiOff from "@lucide/svelte/icons/wifi-off";
   /**
    * A page that needs the connection, offline: live operational state -
    * a pending approval queue, a running pipeline, an SSE chat with a model - where a cached copy
@@ -17,9 +18,7 @@
 </script>
 
 <div class="mx-auto max-w-md px-4 py-16 flex flex-col items-center gap-3 text-center">
-  <svg viewBox="0 0 24 24" class="h-10 w-10 text-surface-500" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5.5 13.5a9 9 0 0 1 4-2.3M18.5 13.5a9 9 0 0 0-2.7-1.9M12 20h.01" />
-  </svg>
+  <WifiOff class="h-10 w-10 text-surface-500" strokeWidth={1.5} />
   <h1 class="text-lg font-semibold text-surface-100">{label} needs the connection</h1>
   <p class="text-sm text-surface-400 max-w-prose">{reason}</p>
   <p class="text-xs text-surface-500">It opens by itself once the connection is back.</p>

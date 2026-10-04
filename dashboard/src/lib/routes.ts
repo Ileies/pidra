@@ -63,7 +63,7 @@ export interface RouteDef {
   hidden?: boolean;
 }
 
-const ICON = {
+export const ICON = {
   report: "M4 4h16v16H4zM8 9h8M8 13h8M8 17h5",
   sources: "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
   entities: "M12 3v4M12 17v4M5.5 7.5l2.8 2.8M15.7 13.7l2.8 2.8M3 12h4M17 12h4M5.5 16.5l2.8-2.8M15.7 10.3l2.8-2.8M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",

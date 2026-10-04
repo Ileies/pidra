@@ -1,4 +1,7 @@
 <script lang="ts">
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import Check from "@lucide/svelte/icons/check";
+  import Copy from "@lucide/svelte/icons/copy";
   import { tick } from "svelte";
   import { assistant, type UiMessage } from "#lib/assistant/state.svelte.js";
   import ToolChip from "#lib/assistant/ToolChip.svelte";
@@ -6,6 +9,7 @@
   import Spinner from "#lib/components/Spinner.svelte";
   import { renderMarkdown } from "#lib/markdown.js";
   import { fmtTime } from "#lib/format.js";
+  import { ICON } from "#lib/routes.js";
 
   interface Props {
     /** The widget hides its own transcript scroller inside a fixed panel; /chat does not. */
@@ -20,11 +24,6 @@
 
   const hints = $derived(assistant.info?.hints ?? []);
   const notice = $derived(assistant.info?.notice ?? null);
-
-  // The chat-bubble mark used as the assistant's avatar, lifted from the launcher button so the
-  // two read as one identity.
-  const ASSISTANT_MARK =
-    "M21 11.5a8.4 8.4 0 0 1-9 8.3 9 9 0 0 1-2.8-.4L3 21l1.6-4.8A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.3 8.4 8.4 0 0 1 8.4 8.3z";
 
   // Stick to the bottom while a turn streams in.
   $effect(() => {
@@ -126,7 +125,7 @@
             aria-hidden="true"
           >
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 text-primary-400" fill="none" stroke="currentColor" stroke-width="1.6">
-              <path d={ASSISTANT_MARK} />
+              <path d={ICON.chat} />
             </svg>
           </span>
         {/if}
@@ -158,9 +157,9 @@
                   class="tap absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full border border-surface-700 bg-surface-950 text-surface-400 opacity-0 group-hover/msg:opacity-100 focus-visible:opacity-100 hover:text-surface-100 transition-opacity"
                 >
                   {#if copiedId === message.id}
-                    <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                    <Check class="h-3 w-3" />
                   {:else}
-                    <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                    <Copy class="h-3 w-3" />
                   {/if}
                 </button>
               {/if}
@@ -224,7 +223,7 @@
           title="Send"
           class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-primary-600 text-primary-50 hover:bg-primary-500 transition-colors disabled:bg-surface-800 disabled:text-surface-500 disabled:cursor-not-allowed"
         >
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+          <ArrowUp class="h-4 w-4" />
         </button>
       {/if}
     </div>

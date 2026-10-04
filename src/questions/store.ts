@@ -208,13 +208,15 @@ function sourcesOf(candidates: Candidate[]): QuestionSource[] {
 }
 
 /** Only the method the outcome log needs, so it takes either `db` or a transaction inside it. */
-type DbLike = Pick<typeof db, "insert">;
+type DbLike = Pick<typeof db, "transaction">;
 
 /**
  * Appends one row to the outcome log. Never throws: a logging failure must not lose the answer,
- * merge or resolve it is explaining, only be missing from the log of it. Always awaited, though -
- * inside `applyPlan`'s transaction, a fire-and-forget insert would run concurrently with the next
- * statement on the same connection.
+ * merge or resolve it is explaining, only be missing from the log of it. The insert runs in its
+ * own (nested) transaction, a savepoint when `exec` is already a transaction: a failed statement
+ * otherwise aborts the whole outer transaction, so swallowing the error would not save the
+ * plan, only turn the next statement's error into a confusing one. Always awaited, though -
+ * a fire-and-forget insert would run concurrently with the next statement on the same connection.
  */
 async function logEvent(
   exec: DbLike,
@@ -224,7 +226,7 @@ async function logEvent(
   detail?: Record<string, unknown>,
 ): Promise<void> {
   try {
-    await exec.insert(questionEvents).values({ questionId, event, reason, detail: detail ?? null });
+    await exec.transaction((t) => t.insert(questionEvents).values({ questionId, event, reason, detail: detail ?? null }));
   } catch (err) {
     console.error(`[questions] Failed to log ${event} for ${questionId}:`, err);
   }

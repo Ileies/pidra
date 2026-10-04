@@ -274,8 +274,8 @@ export async function addContact(input: NewContact): Promise<{ id: string; appli
  */
 export async function revertCorrection(id: string): Promise<string> {
   const [row] = await db.select().from(contextCorrections).where(eq(contextCorrections.id, id)).limit(1);
-  if (!row) throw new CorrectionError(`no correction with id ${id}`);
-  if (row.status !== "active") throw new CorrectionError(`correction ${id} is already ${row.status}`);
+  if (!row) throw new CorrectionError(`no correction with id ${id}`, 409);
+  if (row.status !== "active") throw new CorrectionError(`correction ${id} is already ${row.status}`, 409);
 
   let restored = "";
   const prev = row.previousState;

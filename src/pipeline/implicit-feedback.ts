@@ -1,15 +1,7 @@
 import { google } from "googleapis";
+import { googleAuth } from "../ingest/google-client";
 import { db, extractions, rawItems, feedbackEvents, pipelineRuns } from "../db";
 import { eq, and, sql } from "drizzle-orm";
-
-function createAuthClient() {
-  const auth = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  );
-  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-  return auth;
-}
 
 function extractKeywords(json: unknown): string[] {
   if (!json || typeof json !== "object") return [];
@@ -67,7 +59,7 @@ export async function runImplicitFeedback(runDate: string): Promise<void> {
     .where(eq(feedbackEvents.eventType, "downstream_action"));
   const alreadyFed = new Set(existing.map((r) => r.extractionId));
 
-  const auth = createAuthClient();
+  const auth = googleAuth();
 
   // Fetch recently updated calendar events (since today's pipeline run)
   const calTexts: string[] = [];

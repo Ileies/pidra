@@ -2,7 +2,7 @@ import type Imap from "imap";
 import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
 import { db, ingestDrops, rawItems, rawItemExists, sourceQuality } from "../db";
-import { classifyEmail, isBulkMail } from "./sources";
+import { classifyEmail, isBulkMail, senderAddress } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
 import { findUnsubscribeLink } from "./unsubscribe";
@@ -70,7 +70,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string, 
     const from = parsed.from?.text ?? "";
     const subject = parsed.subject ?? "";
 
-    const senderEmail = ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase();
+    const senderEmail = senderAddress(from);
 
     /**
      * Records why a mail was thrown away, so `/[date]/triage` can show it. Without this, a mail

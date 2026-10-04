@@ -43,6 +43,11 @@ export function isBulkMail({ listUnsubscribe, listId, precedence }: BulkHeaders)
   return typeof precedence === "string" && ["bulk", "list"].includes(precedence.trim().toLowerCase());
 }
 
+/** The bare lower-case address of a `Name <addr>` or plain-address From header. */
+export function senderAddress(from: string): string {
+  return ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase().trim();
+}
+
 /**
  * Decides whether a sender is a newsletter or a person.
  *
@@ -57,7 +62,7 @@ export function classifyEmail(
   bulk = false,
 ): { sourceType: "newsletter" | "personal_email"; sourceName: string | null } {
 
-  const senderEmail = ((from.match(/<([^>]+)>/) ?? [])[1] ?? from).toLowerCase().trim();
+  const senderEmail = senderAddress(from);
   const senderDomain = senderEmail.split("@")[1] ?? "";
   const senderName = (from.match(/^([^<]+)</) ?? [])[1]?.trim() ?? "";
 

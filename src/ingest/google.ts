@@ -1,5 +1,6 @@
 import { errMessage } from "../util/text";
 import { google, type calendar_v3 } from "googleapis";
+import { googleAuth } from "./google-client";
 import { db, rawItems, rawItemExists } from "../db";
 import { isLocalDate, timeZoneOrUtc, zonedToIso, DAY_MS } from "../util/time";
 
@@ -23,17 +24,8 @@ export interface TodoItem {
   status: string;
 }
 
-function createAuthClient() {
-  const auth = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  );
-  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-  return auth;
-}
-
 export async function getCalendarClient() {
-  return google.calendar({ version: "v3", auth: createAuthClient() });
+  return google.calendar({ version: "v3", auth: googleAuth() });
 }
 
 let primaryZone: Promise<string> | undefined;
@@ -56,7 +48,7 @@ export function calendarTimeZone(): Promise<string> {
 }
 
 export async function getTasksClient() {
-  return google.tasks({ version: "v1", auth: createAuthClient() });
+  return google.tasks({ version: "v1", auth: googleAuth() });
 }
 
 /**
@@ -212,7 +204,7 @@ export async function listCalendarEvents(
 }
 
 export async function ingestGoogleCalendar(runDate: string): Promise<number> {
-  const auth = createAuthClient();
+  const auth = googleAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
   const now = new Date();
@@ -266,7 +258,7 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
 }
 
 export async function ingestGoogleTasks(runDate: string): Promise<number> {
-  const auth = createAuthClient();
+  const auth = googleAuth();
   const tasks = google.tasks({ version: "v1", auth });
 
   const listsResponse = await tasks.tasklists.list({ maxResults: 20 });

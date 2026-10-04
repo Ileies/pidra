@@ -1,32 +1,27 @@
 <script lang="ts">
-  import Page from "#lib/components/Page.svelte";
+  import LegalPage from "#lib/components/LegalPage.svelte";
+  import LegalSection from "#lib/components/LegalSection.svelte";
 </script>
 
-<Page title="Privacy Policy" size="legal" class="space-y-7 text-sm leading-7 text-surface-300">
-  <header class="space-y-3">
-    <h1 class="text-2xl font-bold text-surface-50">Privacy Policy</h1>
-    <p>Effective September 25, 2026</p>
-    <p>
-      PIDRA is a personal information assistant. Its purpose is to collect, connect, analyze, and
-      retain information from the sources its operator connects, then use that information to
-      produce briefings, context, search results, reminders, and assistant responses. This can
-      involve substantial amounts of personal and sensitive information about the user and other
-      people mentioned in the connected sources.
-    </p>
-  </header>
+<LegalPage title="Privacy Policy" effective="September 25, 2026">
+  {#snippet intro()}
+    PIDRA is a personal information assistant. Its purpose is to collect, connect, analyze, and
+    retain information from the sources its operator connects, then use that information to
+    produce briefings, context, search results, reminders, and assistant responses. This can
+    involve substantial amounts of personal and sensitive information about the user and other
+    people mentioned in the connected sources.
+  {/snippet}
 
-  <section class="space-y-2">
-    <h2 class="text-lg font-semibold text-surface-50">Who operates PIDRA</h2>
+  <LegalSection title="Who operates PIDRA">
     <p>
       PIDRA is a privately operated application. The person who configured your access and
       connected the data sources is the operator and the contact for questions, access requests,
       and deletion requests. If you do not know who that is, do not connect an account or provide
       data until the operator identifies themselves to you.
     </p>
-  </section>
+  </LegalSection>
 
-  <section class="space-y-2">
-    <h2 class="text-lg font-semibold text-surface-50">Data we process</h2>
+  <LegalSection title="Data we process">
     <p>Depending on what the operator has connected and enabled, PIDRA may process:</p>
     <ul class="list-disc space-y-1 pl-5">
       <li>Email messages and metadata from configured mailboxes, including senders, recipients, subjects, dates, and message bodies.</li>
@@ -42,10 +37,9 @@
       contained in a user's connected sources. The amount processed can grow as a source receives
       new data or the operator enables another documented integration.
     </p>
-  </section>
+  </LegalSection>
 
-  <section class="space-y-2">
-    <h2 class="text-lg font-semibold text-surface-50">Google data and permissions</h2>
+  <LegalSection title="Google data and permissions">
     <p>
       With Google authorization, PIDRA reads calendar events and task lists to prepare briefings,
       track commitments, and answer user requests. At the user's request, its tools can create
@@ -60,10 +54,9 @@
       of information received from Google APIs follows the Google API Services User Data Policy,
       including its Limited Use requirements.
     </p>
-  </section>
+  </LegalSection>
 
-  <section class="space-y-2">
-    <h2 class="text-lg font-semibold text-surface-50">How data is used and shared</h2>
+  <LegalSection title="How data is used and shared">
     <p>
       PIDRA uses connected information to ingest and organize material, generate daily reports and
       long-term context, search and retrieve records, personalize responses, detect errors, keep
@@ -86,10 +79,9 @@
       every other source is free of secrets; users should avoid connecting sources containing
       information they do not want processed.
     </p>
-  </section>
+  </LegalSection>
 
-  <section class="space-y-2">
-    <h2 class="text-lg font-semibold text-surface-50">Retention and control</h2>
+  <LegalSection title="Retention and control">
     <p>
       PIDRA keeps source records, derived context, reports, corrections, and logs for continuity
       and auditability. There is no single automatic deletion period for all categories. Removing
@@ -105,17 +97,16 @@
       available. Using PIDRA does not waive them. Some records may need to be retained where
       required or permitted by law.
     </p>
-  </section>
+  </LegalSection>
 
-  <section class="space-y-2">
-    <h2 class="text-lg font-semibold text-surface-50">Changes to this policy</h2>
+  <LegalSection title="Changes to this policy">
     <p>
       The operator may update this policy as PIDRA develops. A new integration, recipient, or
       materially different use of Google data requires an updated disclosure and, where required,
       renewed authorization or consent before that use begins. The effective date above changes
       when this policy is updated.
     </p>
-  </section>
+  </LegalSection>
 
   <p class="border-t border-surface-700 pt-5">See also <a class="text-primary-300 underline" href="/terms">Terms of Service</a>.</p>
-</Page>
+</LegalPage>

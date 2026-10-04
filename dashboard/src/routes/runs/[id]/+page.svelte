@@ -4,6 +4,11 @@
   import Card from "#lib/components/Card.svelte";
   import StatCard from "#lib/components/StatCard.svelte";
   import ErrorCard from "#lib/components/ErrorCard.svelte";
+  import Disclosure from "#lib/components/Disclosure.svelte";
+  import Legend from "#lib/components/Legend.svelte";
+  import CostShareBar from "#lib/components/CostShareBar.svelte";
+  import UsageTable from "#lib/components/UsageTable.svelte";
+  import TraceBar, { pct } from "#lib/components/TraceBar.svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtMs, fmtTime } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
@@ -17,7 +22,9 @@
     stepTotals,
     TimeScale,
     waitWindow,
+    type GroupTotal,
     type SpanNode,
+    type StepTotal,
   } from "#lib/runTrace.js";
   import type { PageData } from "./$types";
 
@@ -32,7 +39,8 @@
   let compressWait = $state(true);
   const scale = $derived(new TimeScale(tree.totalMs, compressWait ? wait : null));
 
-  const activeMs = $derived(Math.max(0, (data.run.durationMs ?? tree.totalMs) - (waitSpan?.lengthMs ?? 0)));
+  const runMs = $derived(data.run.durationMs ?? tree.totalMs);
+  const activeMs = $derived(Math.max(0, runMs - (waitSpan?.lengthMs ?? 0)));
 
   const groups = $derived(groupTotals(tree));
   const present = $derived(new Set(groups.map((entry) => entry.group)));
@@ -76,15 +84,26 @@
 
   let openRow = $state<string | null>(null);
 
-  function pct(value: number): string {
-    return `${(value * 100).toFixed(3)}%`;
-  }
+  const phaseRows = $derived(groupWeights.filter((entry) => entry.group !== "wait"));
+  const cost = (value: number | null) => (PRICING_CONFIGURED ? fmtCost(value) : "-");
 
-  function barStyle(node: SpanNode): string {
-    const left = scale.at(node.offsetMs);
-    const right = scale.at(node.offsetMs + node.lengthMs);
-    return `left:${pct(left)};width:max(3px, ${pct(Math.max(0, right - left))});background:${groupInfo(node.group).color}`;
-  }
+  const phaseColumns = [
+    { header: "Calls", value: (entry: GroupTotal) => fmtNum(entry.aiCalls) },
+    { header: "Tokens in", value: (entry: GroupTotal) => fmtNum(entry.tokensIn) },
+    { header: "Tokens out", value: (entry: GroupTotal) => fmtNum(entry.tokensOut) },
+    { header: "Searches", value: (entry: GroupTotal) => fmtNum(entry.searchCalls) },
+    { header: "Time", value: (entry: GroupTotal) => fmtMs(entry.wallMs) },
+    { header: "Cost", value: (entry: GroupTotal & { weight: number }) => cost(entry.weight) },
+  ];
+
+  const stepColumns = [
+    { header: "Calls", value: (entry: StepTotal) => fmtNum(entry.aiCalls) },
+    { header: "Tokens in", value: (entry: StepTotal) => fmtNum(entry.tokensIn) },
+    { header: "Tokens out", value: (entry: StepTotal) => fmtNum(entry.tokensOut) },
+    { header: "Searches", value: (entry: StepTotal) => fmtNum(entry.searchCalls) },
+    { header: "Flex retries", value: (entry: StepTotal) => fmtNum(entry.flexRetries) },
+    { header: "Cost", value: (entry: StepTotal) => cost(costUsd(entry.tokensIn, entry.tokensOut)) },
+  ];
 
   function rowTitle(node: SpanNode): string {
     return `${stepLabel(node.step)}${node.attempt > 1 ? ` (attempt ${node.attempt})` : ""}: ${fmtMs(node.lengthMs)}, starts at +${fmtMs(node.offsetMs)}`;
@@ -108,6 +127,10 @@
     });
   });
 </script>
+
+{#snippet swatch(color: string)}
+  <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1.5 align-middle" style="background:{color}"></span>
+{/snippet}
 
 <Page title={`Run ${data.run.runDate}`} size="app" class="flex flex-col gap-5">
   <div class="flex flex-col gap-2">
@@ -145,10 +168,10 @@
 
   {#if waitSpan}
     {@const outcome = waitSpan.detail?.outcome}
-    <div class="rounded-lg border border-warning-800 bg-warning-950 px-4 py-3 flex flex-col gap-1">
+    <Card tone="warning" class="px-4 py-3 flex flex-col gap-1">
       <div class="text-sm text-warning-400 font-medium">
         {fmtDuration(waitSpan.lengthMs)} of this run was spent waiting for answers
-        ({Math.round((waitSpan.lengthMs / Math.max(1, data.run.durationMs ?? tree.totalMs)) * 100)}% of the total)
+        ({Math.round((waitSpan.lengthMs / Math.max(1, runMs)) * 100)}% of the total)
       </div>
       <p class="text-xs text-surface-300 max-w-prose">
         Section 2 holds until the questions this run raised are answered, or the
@@ -160,7 +183,7 @@
           All {waitSpan.detail?.questions} question(s) were answered.
         {/if}
       </p>
-    </div>
+    </Card>
   {/if}
 
   {#if failed || degraded}
@@ -189,14 +212,7 @@
         {/if}
       </div>
 
-      <ul class="flex flex-wrap gap-x-4 gap-y-1" aria-label="Legend">
-        {#each legend as group (group.id)}
-          <li class="flex items-center gap-1.5 text-xs text-surface-300">
-            <span class="inline-block w-3 h-3 rounded-sm" style="background:{group.color}"></span>
-            {group.label}
-          </li>
-        {/each}
-      </ul>
+      <Legend items={legend} />
 
       {#if compressWait && scale.compressed}
         <p class="text-xs text-surface-400">
@@ -216,36 +232,14 @@
 
       <ul class="flex flex-col gap-1">
         {#each tree.spans as node (node.id)}
-          {@const isOpen = openRow === node.id}
-          {@const entries = detailEntries(node)}
           <li class="min-w-0">
-            <button
-              type="button"
-              aria-expanded={isOpen}
+            <Disclosure
+              open={openRow === node.id}
+              ontoggle={(open) => (openRow = open ? node.id : null)}
               title={rowTitle(node)}
-              onclick={() => (openRow = isOpen ? null : node.id)}
-              class="w-full text-left flex flex-col gap-1 rounded px-1 py-1 hover:bg-surface-800 min-w-0"
+              class="flex flex-col gap-1 rounded px-1 py-1 hover:bg-surface-800 min-w-0"
             >
-              <span class="flex items-baseline gap-2 text-xs min-w-0" style="padding-left:{Math.min(node.depth - 1, 4) * 0.75}rem">
-                <span class="text-surface-200 truncate min-w-0">{stepLabel(node.step)}</span>
-                {#if node.attempt > 1}
-                  <span class="text-surface-400 shrink-0">attempt {node.attempt}</span>
-                {/if}
-                {#if node.status === "failed"}
-                  <span class="text-error-400 shrink-0">failed</span>
-                {:else if node.status === "running"}
-                  <span class="text-primary-400 shrink-0">unfinished</span>
-                {/if}
-                <span class="ml-auto text-surface-400 tabular-nums shrink-0">{fmtMs(node.lengthMs)}</span>
-              </span>
-              <span class="relative block h-2.5 rounded bg-surface-800 overflow-hidden">
-                <span
-                  class="absolute top-0 h-full rounded {node.status === 'failed' ? 'outline outline-2 -outline-offset-2 outline-error-500' : ''}"
-                  style={barStyle(node)}
-                ></span>
-              </span>
-            </button>
-            {#if isOpen}
+              {#snippet header()}<TraceBar {node} {scale} />{/snippet}
               <dl class="mt-1 mb-2 ml-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs text-surface-300">
                 <dt class="text-surface-400">Starts</dt>
                 <dd class="tabular-nums">+{fmtMs(node.offsetMs)}</dd>
@@ -262,12 +256,12 @@
                   <dt class="text-surface-400">Flex retries</dt>
                   <dd class="tabular-nums">{fmtNum(node.total.flexRetries)}</dd>
                 {/if}
-                {#each entries as [key, value] (key)}
+                {#each detailEntries(node) as [key, value] (key)}
                   <dt class="text-surface-400">{key}</dt>
                   <dd class="break-words">{value}</dd>
                 {/each}
               </dl>
-            {/if}
+            </Disclosure>
           </li>
         {/each}
       </ul>
@@ -291,93 +285,45 @@
           Brave searches have no token cost and are counted in the table.
         </p>
 
-        <div class="flex h-3 w-full overflow-hidden rounded" role="img" aria-label="Cost share by phase">
-          {#each groupWeights.filter((entry) => entry.weight > 0) as entry (entry.group)}
-            <span
-              class="h-full first:rounded-l last:rounded-r min-w-[3px]"
-              style="width:{(entry.weight / weightSum) * 100}%;background:{groupInfo(entry.group).color};margin-right:2px"
-              title="{groupInfo(entry.group).label}: {PRICING_CONFIGURED ? fmtCost(entry.weight) : `${fmtNum(entry.weight)} tokens`}"
-            ></span>
-          {/each}
-        </div>
+        <CostShareBar entries={groupWeights} />
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs tabular-nums">
-            <caption class="sr-only">Usage and cost per phase</caption>
-            <thead class="text-surface-400 text-left">
-              <tr>
-                <th scope="col" class="font-normal pb-1 pr-3">Phase</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Calls</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Tokens in</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Tokens out</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Searches</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Time</th>
-                <th scope="col" class="font-normal pb-1 text-right">Cost</th>
-              </tr>
-            </thead>
-            <tbody class="text-surface-200">
-              {#each groupWeights.filter((entry) => entry.group !== "wait") as entry (entry.group)}
-                <tr class="border-t border-surface-800">
-                  <th scope="row" class="font-normal text-left py-1.5 pr-3 whitespace-nowrap">
-                    <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1.5 align-middle" style="background:{groupInfo(entry.group).color}"></span>
-                    {groupInfo(entry.group).label}
-                  </th>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.aiCalls)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.tokensIn)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.tokensOut)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.searchCalls)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtMs(entry.wallMs)}</td>
-                  <td class="py-1.5 text-right">{PRICING_CONFIGURED ? fmtCost(entry.weight) : "-"}</td>
-                </tr>
-              {/each}
-            </tbody>
-            <tfoot class="text-surface-50">
-              <tr class="border-t border-surface-600">
-                <th scope="row" class="font-medium text-left py-1.5 pr-3">Total</th>
-                <td class="py-1.5 pr-3 text-right">{fmtNum(stepSum.aiCalls)}</td>
-                <td class="py-1.5 pr-3 text-right">{fmtNum(stepSum.tokensIn)}</td>
-                <td class="py-1.5 pr-3 text-right">{fmtNum(stepSum.tokensOut)}</td>
-                <td class="py-1.5 pr-3 text-right">{fmtNum(stepSum.searchCalls)}</td>
-                <td class="py-1.5 pr-3 text-right">{fmtMs(data.run.durationMs ?? tree.totalMs)}</td>
-                <td class="py-1.5 text-right">{PRICING_CONFIGURED ? fmtCost(totalCost) : "-"}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <UsageTable
+          caption="Usage and cost per phase"
+          first="Phase"
+          columns={phaseColumns}
+          rows={phaseRows}
+          key={(entry) => entry.group}
+          total={{
+            label: "Total",
+            values: [
+              fmtNum(stepSum.aiCalls),
+              fmtNum(stepSum.tokensIn),
+              fmtNum(stepSum.tokensOut),
+              fmtNum(stepSum.searchCalls),
+              fmtMs(runMs),
+              cost(totalCost),
+            ],
+          }}
+        >
+          {#snippet rowHeader(entry)}
+            {@render swatch(groupInfo(entry.group).color)}
+            {groupInfo(entry.group).label}
+          {/snippet}
+        </UsageTable>
 
         <h3 class="text-xs font-semibold text-surface-200 mt-1">By step</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs tabular-nums">
-            <caption class="sr-only">Usage and cost per step, most expensive first</caption>
-            <thead class="text-surface-400 text-left">
-              <tr>
-                <th scope="col" class="font-normal pb-1 pr-3">Step</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Calls</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Tokens in</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Tokens out</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Searches</th>
-                <th scope="col" class="font-normal pb-1 pr-3 text-right">Flex retries</th>
-                <th scope="col" class="font-normal pb-1 text-right">Cost</th>
-              </tr>
-            </thead>
-            <tbody class="text-surface-200">
-              {#each steps as entry (entry.step)}
-                <tr class="border-t border-surface-800">
-                  <th scope="row" class="font-normal text-left py-1.5 pr-3 whitespace-nowrap">
-                    <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1.5 align-middle" style="background:{groupInfo(entry.group).color}"></span>
-                    {stepLabel(entry.step)}{#if entry.attempts > 1}<span class="text-surface-400"> x{entry.attempts}</span>{/if}
-                  </th>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.aiCalls)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.tokensIn)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.tokensOut)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.searchCalls)}</td>
-                  <td class="py-1.5 pr-3 text-right">{fmtNum(entry.flexRetries)}</td>
-                  <td class="py-1.5 text-right">{PRICING_CONFIGURED ? fmtCost(costUsd(entry.tokensIn, entry.tokensOut)) : "-"}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+        <UsageTable
+          caption="Usage and cost per step, most expensive first"
+          first="Step"
+          columns={stepColumns}
+          rows={steps}
+          key={(entry) => entry.step}
+        >
+          {#snippet rowHeader(entry)}
+            {@render swatch(groupInfo(entry.group).color)}
+            {stepLabel(entry.step)}{#if entry.attempts > 1}<span class="text-surface-400"> x{entry.attempts}</span>{/if}
+          {/snippet}
+        </UsageTable>
       {/if}
     </Card>
   {/if}

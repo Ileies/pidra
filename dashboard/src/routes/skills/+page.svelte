@@ -11,6 +11,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";
   import Switch from "#lib/components/Switch.svelte";
+  import JsonBlock from "#lib/components/JsonBlock.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
@@ -72,7 +73,7 @@
             </div>
 
             {#if execution.parameters && Object.keys(execution.parameters).length > 0}
-              <pre class="text-xs text-surface-200 bg-surface-950 border border-surface-800 rounded px-3 py-2 overflow-x-auto">{JSON.stringify(execution.parameters, null, 2)}</pre>
+              <JsonBlock value={execution.parameters} />
             {/if}
 
             <form method="POST" action="?/resolve" use:enhance class="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -146,21 +147,13 @@
 
             <form method="POST" action="?/update" use:enhance class="shrink-0">
               <input type="hidden" name="skillName" value={skill.name} />
-              <label
-                class="tap inline-flex items-center justify-center cursor-pointer"
+              <Switch
+                name="enabled"
+                checked={skill.enabled}
+                autosubmit
+                label="{skill.enabled ? 'Disable' : 'Enable'} {skill.name}"
                 title={skill.enabled ? "Enabled - click to disable" : "Disabled - click to enable"}
-              >
-                <input
-                  type="checkbox"
-                  name="enabled"
-                  value="true"
-                  checked={skill.enabled}
-                  onchange={(e) => e.currentTarget.form?.requestSubmit()}
-                  class="sr-only peer"
-                  aria-label="{skill.enabled ? 'Disable' : 'Enable'} {skill.name}"
-                />
-                <Switch checked={skill.enabled} />
-              </label>
+              />
             </form>
           </Card>
         {/each}

@@ -60,68 +60,51 @@ export async function runImplicitFeedback(runDate: string): Promise<void> {
   const alreadyFed = new Set(existing.map((r) => r.extractionId));
 
   const auth = googleAuth();
+  const since = updatedMin.toISOString();
 
-  // Fetch recently updated calendar events (since today's pipeline run)
-  const calTexts: string[] = [];
-  try {
-    const calendar = google.calendar({ version: "v3", auth });
-    const res = await calendar.events.list({
-      calendarId: "primary",
-      updatedMin: updatedMin.toISOString(),
-      maxResults: 50,
-      singleEvents: true,
-    });
-    for (const ev of res.data.items ?? []) {
-      calTexts.push([ev.summary, ev.description].filter(Boolean).join(" ").toLowerCase());
-    }
-  } catch (err) {
-    console.warn("[ImplicitFeedback] Calendar fetch failed:", err);
-  }
-
-  // Fetch recently updated tasks (since today's pipeline run)
-  const todoTexts: string[] = [];
-  try {
-    const tasks = google.tasks({ version: "v1", auth });
-    const lists = (await tasks.tasklists.list({ maxResults: 20 })).data.items ?? [];
-    for (const list of lists) {
-      if (!list.id) continue;
-      const resp = await tasks.tasks.list({
-        tasklist: list.id,
-        updatedMin: updatedMin.toISOString(),
-        showCompleted: false,
-        maxResults: 100,
+  // What was added since today's pipeline run. A failed fetch is a warning, not the end of the other.
+  const [calTexts, todoTexts] = await Promise.all([
+    (async () => {
+      const res = await google.calendar({ version: "v3", auth }).events.list({
+        calendarId: "primary",
+        updatedMin: since,
+        maxResults: 50,
+        singleEvents: true,
       });
-      for (const task of resp.data.items ?? []) {
-        todoTexts.push([task.title, task.notes].filter(Boolean).join(" ").toLowerCase());
+      return (res.data.items ?? []).map((ev) => [ev.summary, ev.description].filter(Boolean).join(" ").toLowerCase());
+    })().catch((err) => {
+      console.warn("[ImplicitFeedback] Calendar fetch failed:", err);
+      return [] as string[];
+    }),
+    (async () => {
+      const tasks = google.tasks({ version: "v1", auth });
+      const texts: string[] = [];
+      for (const list of (await tasks.tasklists.list({ maxResults: 20 })).data.items ?? []) {
+        if (!list.id) continue;
+        const resp = await tasks.tasks.list({ tasklist: list.id, updatedMin: since, showCompleted: false, maxResults: 100 });
+        for (const task of resp.data.items ?? []) texts.push([task.title, task.notes].filter(Boolean).join(" ").toLowerCase());
       }
-    }
-  } catch (err) {
-    console.warn("[ImplicitFeedback] Tasks fetch failed:", err);
-  }
+      return texts;
+    })().catch((err) => {
+      console.warn("[ImplicitFeedback] Tasks fetch failed:", err);
+      return [] as string[];
+    }),
+  ]);
 
   if (calTexts.length === 0 && todoTexts.length === 0) {
     console.log("[ImplicitFeedback] No new calendar events or tasks found");
     return;
   }
 
+  // The first source an item matches decides its signal: a calendar event (5) outranks a to-do (4).
+  const sources: [string[], number][] = [[calTexts, 5], [todoTexts, 4]];
   let written = 0;
   for (const { id, keywords } of items) {
     if (alreadyFed.has(id)) continue;
-
-    // Calendar match → signal 5
-    const calMatch = calTexts.some((text) => keywords.some((k) => text.includes(k)));
-    if (calMatch) {
-      await db.insert(feedbackEvents).values({ extractionId: id, eventType: "downstream_action", signalValue: 5 });
-      written++;
-      continue;
-    }
-
-    // Todo match → signal 4
-    const todoMatch = todoTexts.some((text) => keywords.some((k) => text.includes(k)));
-    if (todoMatch) {
-      await db.insert(feedbackEvents).values({ extractionId: id, eventType: "downstream_action", signalValue: 4 });
-      written++;
-    }
+    const match = sources.find(([texts]) => texts.some((text) => keywords.some((k) => text.includes(k))));
+    if (!match) continue;
+    await db.insert(feedbackEvents).values({ extractionId: id, eventType: "downstream_action", signalValue: match[1] });
+    written++;
   }
 
   console.log(`[ImplicitFeedback] Wrote ${written} downstream_action event(s) from ${calTexts.length} cal / ${todoTexts.length} task entries`);

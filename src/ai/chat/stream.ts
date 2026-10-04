@@ -29,6 +29,60 @@ export type TurnEvent =
   | { type: "done"; reply: string; toolCalls: ChatToolCall[]; touched: string[] }
   | { type: "error"; message: string };
 
+type TurnContext = ReturnType<typeof normaliseContext>;
+
+/** The conversation a turn belongs to: the one named, which must exist, or a new one titled from the message. */
+async function openConversation(conversationId: string | undefined, text: string, ctx: TurnContext, origin: string): Promise<string> {
+  if (conversationId) {
+    const [existing] = await db.select({ id: chatConversations.id }).from(chatConversations).where(eq(chatConversations.id, conversationId)).limit(1);
+    if (!existing) throw new Error(`no conversation ${conversationId}`);
+    return conversationId;
+  }
+  const [created] = await db
+    .insert(chatConversations)
+    .values({ title: text.slice(0, 80), surface: ctx.surface, origin })
+    .returning({ id: chatConversations.id });
+  return created.id;
+}
+
+/**
+ * One tool call of the model's: parsed, executed through `executeSkill` (which owns the gating and
+ * the audit log), and reported as events as it goes. Returns what to feed back to the model and
+ * what to record on the turn.
+ */
+async function* runToolCall(
+  call: { callId: string; name: string; argumentsJson?: string | null },
+  ctx: TurnContext,
+  conversationId: string,
+  touched: Set<string>,
+): AsyncGenerator<TurnEvent, { output: string; record: ChatToolCall }> {
+  let args: Record<string, unknown>;
+  try {
+    args = call.argumentsJson ? JSON.parse(call.argumentsJson) : {};
+  } catch {
+    const message = `arguments were not valid JSON: ${call.argumentsJson}`;
+    yield { type: "tool_result", name: call.name, status: "failed", message };
+    return { output: message, record: { call_id: call.callId, name: call.name, arguments: {}, result: message, status: "failed" } };
+  }
+
+  yield { type: "tool_call", name: call.name, arguments: args };
+
+  const executed = await executeSkill(call.name, args, "chat", {
+    surface: ctx.surface,
+    conversationId,
+    timeZone: ctx.timeZone,
+  });
+  if (executed.status === "executed") {
+    for (const store of SKILL_TOUCHES[call.name] ?? []) touched.add(store);
+  }
+
+  yield { type: "tool_result", name: call.name, status: executed.status, message: executed.message };
+  return {
+    output: `${executed.status}: ${executed.message}`.slice(0, MAX_TOOL_RESULT_CHARS),
+    record: { call_id: call.callId, name: call.name, arguments: args, result: executed.message, status: executed.status },
+  };
+}
+
 /**
  * One user turn, emitted as events so the widget can show tool calls as they execute instead of
  * a spinner. The model call itself is not token-streamed: on the flex tier the wait is dominated
@@ -44,18 +98,7 @@ export async function* streamMessage(
   if (!text) throw new Error("message is required");
 
   const ctx = normaliseContext(contextInput);
-
-  let id = conversationId;
-  if (id) {
-    const [existing] = await db.select({ id: chatConversations.id }).from(chatConversations).where(eq(chatConversations.id, id)).limit(1);
-    if (!existing) throw new Error(`no conversation ${id}`);
-  } else {
-    const [created] = await db
-      .insert(chatConversations)
-      .values({ title: text.slice(0, 80), surface: ctx.surface, origin })
-      .returning({ id: chatConversations.id });
-    id = created.id;
-  }
+  const id = await openConversation(conversationId, text, ctx, origin);
   yield { type: "conversation", id };
 
   const history = await buildHistory(id);
@@ -88,37 +131,9 @@ export async function* streamMessage(
       input.push(...result.output);
 
       for (const call of result.functionCalls) {
-        let args: Record<string, unknown> = {};
-
-        try {
-          args = call.argumentsJson ? JSON.parse(call.argumentsJson) : {};
-        } catch {
-          const message = `arguments were not valid JSON: ${call.argumentsJson}`;
-          input.push({ type: "function_call_output", call_id: call.callId, output: message });
-          toolCalls.push({ call_id: call.callId, name: call.name, arguments: {}, result: message, status: "failed" });
-          yield { type: "tool_result", name: call.name, status: "failed", message };
-          continue;
-        }
-
-        yield { type: "tool_call", name: call.name, arguments: args };
-
-        const executed = await executeSkill(call.name, args, "chat", {
-          surface: ctx.surface,
-          conversationId: id,
-          timeZone: ctx.timeZone,
-        });
-
-        if (executed.status === "executed") {
-          for (const store of SKILL_TOUCHES[call.name] ?? []) touched.add(store);
-        }
-
-        input.push({
-          type: "function_call_output",
-          call_id: call.callId,
-          output: `${executed.status}: ${executed.message}`.slice(0, MAX_TOOL_RESULT_CHARS),
-        });
-        toolCalls.push({ call_id: call.callId, name: call.name, arguments: args, result: executed.message, status: executed.status });
-        yield { type: "tool_result", name: call.name, status: executed.status, message: executed.message };
+        const { output, record } = yield* runToolCall(call, ctx, id, touched);
+        input.push({ type: "function_call_output", call_id: call.callId, output });
+        toolCalls.push(record);
       }
 
       if (round === MAX_TOOL_ROUNDS) {

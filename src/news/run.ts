@@ -14,6 +14,7 @@
  * news from those hours - the same trade the morning schedule makes anyway.
  */
 
+import { addDays } from "../util/time";
 import { errMessage } from "../util/text";
 import { and, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { db, extractions, notes, rawItems } from "../db";
@@ -71,12 +72,6 @@ export const EMPTY_NEWS_DESK: NewsDeskOutcome = {
 
 /** How many days of what the reader was already told each desk is shown, and dedup compares against. */
 const REPORTED_LOOKBACK_DAYS = 3;
-
-function daysBefore(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().split("T")[0];
-}
 
 interface DeskInputs {
   window: NewsWindow;
@@ -217,7 +212,7 @@ async function recentlyReported(runDate: string): Promise<ReportedStory[]> {
     .where(and(
       eq(rawItems.sourceType, NEWS_SOURCE_TYPE),
       eq(extractions.includedInReport, true),
-      gte(extractions.runDate, daysBefore(runDate, REPORTED_LOOKBACK_DAYS)),
+      gte(extractions.runDate, addDays(runDate, -REPORTED_LOOKBACK_DAYS)),
       lt(extractions.runDate, runDate),
     ));
 

@@ -1,3 +1,4 @@
+import { utcDay } from "../util/time";
 import { errMessage } from "../util/text";
 import { eq } from "drizzle-orm";
 import { db, pipelineRuns } from "../db";
@@ -59,7 +60,7 @@ function topStory(news: string): string | null {
 }
 
 export async function runPipeline(runDate?: string): Promise<string> {
-  const date = runDate ?? new Date().toISOString().split("T")[0];
+  const date = runDate ?? utcDay();
   console.log(`\n=== PIDRA Pipeline - ${date} ===\n`);
 
   const start = Date.now();

@@ -12,6 +12,7 @@
  * so on a machine off the LAN it needs the tunnel from `CLAUDE.md`'s DB access notes.
  */
 
+import { utcDay } from "../src/util/time";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, notes } from "../src/db";
 import { activePrompt } from "../src/ai/active-prompts";
@@ -22,7 +23,7 @@ import { editorPayload, finishNewsSection, type NewsItem } from "../src/news/for
 import { decideGate, GATE_REASON_TEXT } from "../src/pipeline/gate";
 
 const args = process.argv.slice(2);
-const date = args.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? new Date().toISOString().split("T")[0];
+const date = args.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? utcDay();
 
 const outcome = await runNewsDesk(date, { dryRun: true });
 

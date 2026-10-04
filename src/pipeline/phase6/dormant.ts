@@ -1,8 +1,9 @@
+import { daysAgo } from "../../util/time";
 import { db, entities } from "../../db";
 import { eq, and, inArray, sql as drizzleSql } from "drizzle-orm";
 
 export async function markDormantEntities(runDate: string): Promise<void> {
-  const threshold = new Date(Date.now() - 14 * 86400_000).toISOString().split("T")[0];
+  const threshold = daysAgo(14);
 
   const result = await db
     .update(entities)

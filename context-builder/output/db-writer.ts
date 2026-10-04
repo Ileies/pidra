@@ -1,3 +1,4 @@
+import { utcDay } from "../../src/util/time";
 import { db, contacts, entities, entityMentions } from "../../src/db";
 import { sql as drizzleSql } from "drizzle-orm";
 import { seedHarvestedNotes } from "../../src/notes/store";
@@ -139,7 +140,7 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
 
   if (stats.size === 0) return;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = utcDay();
 
   for (const batch of chunk([...stats.values()], BATCH_SIZE)) {
     // Existing rows belong to the daily pipeline, which owns the live count from here on - only

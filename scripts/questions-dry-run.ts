@@ -13,11 +13,12 @@
  * document, so on a machine off the LAN it needs the tunnel from CLAUDE.md.
  */
 
+import { utcDay } from "../src/util/time";
 import { reconcileQueue } from "../src/questions/reconcile";
 import { applyPlan, listOpen } from "../src/questions/store";
 
 const apply = process.argv.includes("--apply");
-const today = new Date().toISOString().split("T")[0]!;
+const today = utcDay();
 
 const open = new Map((await listOpen()).map((q) => [q.id, q]));
 const { plan, tokensIn, tokensOut } = await reconcileQueue([], today);

@@ -4,7 +4,7 @@ import { db, skillExecutions } from "../db";
 import { getSkill, type SkillContext } from "./loader";
 import { getEffectiveSkill } from "./overrides";
 import { isSkillAllowed, SURFACES, type Surface } from "../ai/surfaces";
-import { timeZoneOrUtc } from "../util/time";
+import { timeZoneOrUtc, utcDay } from "../util/time";
 
 export type ExecutionStatus = "executed" | "failed" | "rejected" | "pending_confirmation" | "unknown_skill";
 
@@ -52,7 +52,7 @@ export async function executeSkill(
   const effective = await getEffectiveSkill(skillName);
   const riskLevel = effective?.risk_level ?? skill.risk_level;
 
-  const runDate = options.runDate ?? new Date().toISOString().split("T")[0];
+  const runDate = options.runDate ?? utcDay();
   const [execRow] = await db
     .insert(skillExecutions)
     .values({ runDate, skillName, parameters, status: "pending", triggeredBy })

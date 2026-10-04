@@ -15,6 +15,7 @@
  *   bun run src/job.ts context-builder
  */
 
+import { utcDay } from "./util/time";
 import { runPipeline } from "./pipeline/run";
 import { runImplicitFeedback } from "./pipeline/implicit-feedback";
 import { runWeeklySourceScoring } from "./pipeline/weekly-source-scoring";
@@ -24,7 +25,7 @@ import { pruneEntityGraph } from "./pipeline/entity-pruning";
 import { pruneDeletedNotes } from "./notes/store";
 import { runContextBuilder } from "../context-builder/run";
 
-const today = () => new Date().toISOString().split("T")[0]!;
+const today = () => utcDay();
 
 const JOBS: Record<string, (date: string) => Promise<unknown>> = {
   "pipeline": (date) => runPipeline(date),

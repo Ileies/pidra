@@ -1,3 +1,4 @@
+import { daysAgo } from "../util/time";
 import { db, entities } from "../db";
 import { and, eq, sql as drizzleSql } from "drizzle-orm";
 
@@ -5,8 +6,8 @@ import { and, eq, sql as drizzleSql } from "drizzle-orm";
 // Permanently delete archived entities absent for 180+ days with mention_count <= 2.
 export async function pruneEntityGraph(): Promise<void> {
   const today = new Date();
-  const threshold60 = new Date(today.getTime() - 60 * 86400_000).toISOString().split("T")[0];
-  const threshold180 = new Date(today.getTime() - 180 * 86400_000).toISOString().split("T")[0];
+  const threshold60 = daysAgo(60, today);
+  const threshold180 = daysAgo(180, today);
 
   // Archive: dormant, not-important entities not seen in 60+ days.
   //

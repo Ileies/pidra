@@ -1,13 +1,13 @@
 import type { calendar_v3 } from "googleapis";
 import type { Skill } from "../src/skills/loader";
 import { boolParam, emailList, eventTime, getCalendarClient, intParam, reminderOverrides, sendUpdatesParam } from "../src/ingest/google";
-import { addDays, isLocalDate } from "../src/util/time";
+import { addDays, isLocalDate, DAY_MS } from "../src/util/time";
 
 const VISIBILITIES = ["default", "public", "private", "confidential"];
 
 /** Whole days between two `YYYY-MM-DD` dates. */
 function daysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 
 /**

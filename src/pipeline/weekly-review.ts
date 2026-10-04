@@ -1,3 +1,4 @@
+import { utcDay, daysAgo } from "../util/time";
 import { db, dailyReports, activeTopics } from "../db";
 import { eq, desc, gte } from "drizzle-orm";
 import { synthesize } from "../ai/openai";
@@ -36,8 +37,8 @@ Return ONLY a JSON array of strings: ["insight1", "insight2", ...]`;
  * the next pipeline run.
  */
 export async function runWeeklyReview(): Promise<void> {
-  const today = new Date().toISOString().split("T")[0]!;
-  const weekStart = new Date(Date.now() - 6 * 86400_000).toISOString().split("T")[0];
+  const today = utcDay();
+  const weekStart = daysAgo(6);
 
   // Gather week context for generating good questions
   const recentReports = await db

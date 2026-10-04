@@ -1,3 +1,4 @@
+import { daysAgo, addDays } from "../util/time";
 import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes } from "../db";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, avg } from "drizzle-orm";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
@@ -25,7 +26,7 @@ export interface WeeklyAnalytics {
 }
 
 export async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytics> {
-  const weekEnd = new Date(new Date(weekStart).getTime() + 6 * 86400_000).toISOString().split("T")[0];
+  const weekEnd = addDays(weekStart, 6);
 
   const reports = await db
     .select()
@@ -142,7 +143,7 @@ export async function runWeeklyMetaRun(): Promise<void> {
   // Compute analytics for the week that just ended (Mon–Sun)
   const dayOfWeek = today.getUTCDay(); // 0=Sun
   const daysBack = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart = new Date(today.getTime() - (daysBack + 7) * 86400_000).toISOString().split("T")[0];
+  const weekStart = daysAgo(daysBack + 7, today);
 
   console.log(`[meta-run] Computing weekly analytics for week of ${weekStart}`);
 

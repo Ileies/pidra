@@ -1,3 +1,4 @@
+import { addDays } from "../util/time";
 import { inArray } from "drizzle-orm";
 import { activeTopics, db } from "../db";
 
@@ -41,16 +42,10 @@ export function isMoreValuable(candidateImportance: string, incumbent: RankedTop
   return rankTopicImportance(candidateImportance) > rankTopicImportance(incumbent.importance);
 }
 
-function daysBefore(date: string, days: number): string {
-  const day = new Date(`${date}T00:00:00Z`);
-  day.setUTCDate(day.getUTCDate() - days);
-  return day.toISOString().slice(0, 10);
-}
-
 /** Status changes only follow the last actual story update, never a dashboard visit. */
 export function agedTopicStatus(status: string | null, lastUpdated: string, runDate: string): "dormant" | "archived" | null {
-  if (status === "active" && lastUpdated <= daysBefore(runDate, TOPIC_DORMANT_DAYS)) return "dormant";
-  if (status === "dormant" && lastUpdated <= daysBefore(runDate, TOPIC_ARCHIVE_DAYS)) return "archived";
+  if (status === "active" && lastUpdated <= addDays(runDate, -TOPIC_DORMANT_DAYS)) return "dormant";
+  if (status === "dormant" && lastUpdated <= addDays(runDate, -TOPIC_ARCHIVE_DAYS)) return "archived";
   return null;
 }
 

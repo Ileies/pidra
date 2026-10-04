@@ -1,3 +1,4 @@
+import { DAY_MS } from "../util/time";
 import { errMessage } from "../util/text";
 import Parser from "rss-parser";
 import { eq } from "drizzle-orm";
@@ -91,7 +92,7 @@ export async function ingestRssFeeds(runDate: string, feeds: RssFeed[]): Promise
   // Global message ID deduplication makes a longer window safe and recovers short outages.
   const configured = Number(process.env.RSS_LOOKBACK_DAYS ?? 14);
   const lookbackDays = Number.isInteger(configured) && configured > 0 ? configured : 14;
-  const since = new Date(Date.now() - lookbackDays * 86_400_000);
+  const since = new Date(Date.now() - lookbackDays * DAY_MS);
 
   const results = await Promise.allSettled(feeds.map((feed) => ingestFeed(feed, since, runDate)));
   let count = 0;

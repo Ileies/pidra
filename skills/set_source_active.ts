@@ -1,3 +1,4 @@
+import { utcDay } from "../src/util/time";
 import { eq } from "drizzle-orm";
 import type { Skill } from "../src/skills/loader";
 import { db, sourceQuality } from "../src/db";
@@ -63,7 +64,7 @@ const skill: Skill = {
       return `Dry run: source "${name}" is currently ${now}; it would be ${active ? "enabled" : "disabled"}${!active && reason ? ` (${reason})` : ""}. Nothing changed.`;
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = utcDay();
     await db
       .update(sourceQuality)
       .set({

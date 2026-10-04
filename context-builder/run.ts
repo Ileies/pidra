@@ -1,3 +1,4 @@
+import { utcDay } from "../src/util/time";
 import { loadConfig } from "./config";
 import {
   saveCheckpoint,
@@ -107,7 +108,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   const memoryWatchdog = startMemoryWatchdog();
   const config = await loadConfig();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = utcDay();
   const runId = `cb-${today}-${Date.now()}`;
 
   // --full/--update explicitly ask for a fresh start - don't silently resume into them.

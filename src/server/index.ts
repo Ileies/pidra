@@ -1,3 +1,4 @@
+import { utcDay } from "../util/time";
 import { errMessage } from "../util/text";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
@@ -169,7 +170,7 @@ app.post("/webhook/sms", async (c) => {
 });
 
 app.post("/api/pipeline/run", async (c) => {
-  const date = new Date().toISOString().split("T")[0];
+  const date = utcDay();
   runPipeline(date).catch(console.error);
   return c.json({ status: "started", date });
 });

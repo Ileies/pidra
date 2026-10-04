@@ -6,6 +6,8 @@
  */
 const UTC = "UTC";
 
+export const DAY_MS = 86_400_000;
+
 const LOCAL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -79,7 +81,12 @@ export function zonedToIso(value: string, timeZone: string): string | null {
 export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().split("T")[0];
+  return utcDay(d);
+}
+
+/** The UTC day `days` before now (or before `from`), as `YYYY-MM-DD`. */
+export function daysAgo(days: number, from: Date = new Date()): string {
+  return utcDay(new Date(from.getTime() - days * DAY_MS));
 }
 
 /** The calendar day an instant falls on in `timeZone` (UTC by default), as `YYYY-MM-DD`. */

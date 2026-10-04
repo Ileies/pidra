@@ -1,3 +1,4 @@
+import { daysAgo } from "../../util/time";
 import { db, extractions, rawItems, sourceDailyScores, sourceQuality } from "../../db";
 import { eq, and, gte, sql as drizzleSql } from "drizzle-orm";
 
@@ -54,7 +55,7 @@ export async function writeSourceDailyScores(runDate: string, refsUsable: boolea
       });
 
     // Recompute rolling 30-day composite for this source
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+    const thirtyDaysAgo = daysAgo(30);
     const window = await db
       .select({ compositeScore: sourceDailyScores.compositeScore, itemsReceived: sourceDailyScores.itemsReceived })
       .from(sourceDailyScores)

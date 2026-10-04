@@ -10,6 +10,7 @@
  * change, no extra model call, and it produces nothing on a day where every recurring entity is
  * already well understood.
  */
+import { daysAgo } from "../util/time";
 import { and, eq, inArray, or, isNull, sql as drizzleSql } from "drizzle-orm";
 import { db, entities } from "../db";
 import type { CandidateInput } from "../questions/reconcile";
@@ -19,7 +20,7 @@ const MIN_MENTIONS = 3;
 const MIN_AGE_DAYS = 10;
 
 export async function lowConfidenceEntityCandidates(today: string): Promise<CandidateInput[]> {
-  const threshold = new Date(Date.now() - MIN_AGE_DAYS * 86400_000).toISOString().split("T")[0];
+  const threshold = daysAgo(MIN_AGE_DAYS);
 
   const rows = await db
     .select({ id: entities.id, name: entities.name, mentionCount: entities.mentionCount, firstSeen: entities.firstSeen })

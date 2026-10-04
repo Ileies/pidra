@@ -1,3 +1,4 @@
+import { addDays } from "../util/time";
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
 import { eq, and, or, gte, isNull, inArray } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
@@ -52,9 +53,7 @@ function prioritiseTodos(items: TodoItem[], runDate: string): TodoItem[] {
   const horizonDays = parseInt(process.env.OPEN_TASKS_HORIZON_DAYS ?? "14");
   const maxItems = parseInt(process.env.OPEN_TASKS_MAX_ITEMS ?? "40");
 
-  const horizon = new Date(`${runDate}T00:00:00Z`);
-  horizon.setUTCDate(horizon.getUTCDate() + horizonDays);
-  const horizonStr = horizon.toISOString().split("T")[0];
+  const horizonStr = addDays(runDate, horizonDays);
 
   const rank = (t: TodoItem): number => {
     if (!t.due) return 2;                    // undated backlog: keep, but after anything dated soon

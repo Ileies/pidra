@@ -1,3 +1,4 @@
+import { daysAgo, DAY_MS } from "../util/time";
 import { braveSearch, type BraveResult } from "./brave";
 import { extractJson } from "../ai/openai";
 import { db, notes, entities } from "../db";
@@ -40,7 +41,7 @@ export async function runSlot1(
 // own (nothing ever set `importance = 'high'` before the Watch control existed), so the slot had
 // no candidate ever, in production, since launch.
 export async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
-  const tenDaysAgo = new Date(Date.now() - 10 * 86400_000).toISOString().split("T")[0];
+  const tenDaysAgo = daysAgo(10);
 
   const watched = await db
     .select({ name: entities.name, lastMentioned: entities.lastMentioned, lastWatchSearch: entities.lastWatchSearch })
@@ -80,7 +81,7 @@ export async function runSlot3(runDate: string): Promise<WebSearchResult | null>
 
   // Rotate by day-of-year index
   const now = new Date();
-  const dayOfYear = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400_000);
+  const dayOfYear = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / DAY_MS);
   const target = searchTargets[dayOfYear % searchTargets.length].content;
   const query = `"${target}"`;
 

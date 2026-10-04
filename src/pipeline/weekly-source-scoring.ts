@@ -1,3 +1,4 @@
+import { utcDay, daysAgo } from "../util/time";
 import { db, sourceQuality, sourceDailyScores } from "../db";
 import { eq, gte, and, sql as drizzleSql } from "drizzle-orm";
 
@@ -8,9 +9,9 @@ function computeTrustScore(composite30d: number): number {
 }
 
 export async function runWeeklySourceScoring(): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
-  const day7ago = new Date(Date.now() - 7 * 86400_000).toISOString().split("T")[0];
-  const day30ago = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+  const today = utcDay();
+  const day7ago = daysAgo(7);
+  const day30ago = daysAgo(30);
 
   const allSources = await db.select().from(sourceQuality);
   console.log(`[WeeklyScoring] Processing ${allSources.length} source(s)`);

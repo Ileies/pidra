@@ -18,6 +18,7 @@
  * conflict with, into a candidate - the same split `entity-questions.ts` makes between a model
  * decision made elsewhere and a mechanical, no-quota read of its result.
  */
+import { daysAgo } from "../util/time";
 import { and, eq, or, isNull, sql as drizzleSql } from "drizzle-orm";
 import { contacts, db, extractions, rawItems } from "../db";
 import type { CandidateInput } from "../questions/reconcile";
@@ -26,7 +27,7 @@ import { askedExtractionIds } from "../questions/store";
 const MIN_AGE_DAYS = 10;
 
 export async function staleContextCandidates(runDate: string): Promise<CandidateInput[]> {
-  const threshold = new Date(Date.now() - MIN_AGE_DAYS * 86400_000).toISOString().split("T")[0];
+  const threshold = daysAgo(MIN_AGE_DAYS);
 
   const rows = await db
     .select({

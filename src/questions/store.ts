@@ -16,6 +16,7 @@
  * merged loses every earlier reason the moment the next thing happens to it. The log is what lets
  * the reconcile step's merge/resolve/drop calls be judged against real history instead of guessed.
  */
+import { utcDay } from "../util/time";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { contacts, db, questionEvents, questions, type QuestionRevision, type QuestionSource } from "../db";
 import { activePrompt } from "../ai/active-prompts";
@@ -122,7 +123,7 @@ export async function createChatQuestion(
     throw new QuestionError("conflict", `There are already ${MAX_OPEN_CHAT_QUESTIONS} open questions from the assistant; ask the user to answer some first`);
   }
 
-  const today = new Date().toISOString().split("T")[0]!;
+  const today = utcDay();
   const [row] = await db
     .insert(questions)
     .values({ kind: "chat", question: wording, sources: [], firstAsked: today, lastAsked: today })

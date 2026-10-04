@@ -1,7 +1,7 @@
 import { errMessage } from "../util/text";
 import { google, type calendar_v3 } from "googleapis";
 import { db, rawItems, rawItemExists } from "../db";
-import { isLocalDate, timeZoneOrUtc, zonedToIso } from "../util/time";
+import { isLocalDate, timeZoneOrUtc, zonedToIso, DAY_MS } from "../util/time";
 
 export interface CalendarEvent {
   id: string;
@@ -216,7 +216,7 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   const calendar = google.calendar({ version: "v3", auth });
 
   const now = new Date();
-  const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const sevenDaysLater = new Date(now.getTime() + 7 * DAY_MS);
 
   const response = await calendar.events.list({
     calendarId: "primary",

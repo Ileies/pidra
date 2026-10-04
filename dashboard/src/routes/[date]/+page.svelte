@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { setPageContext } from '#lib/assistant/state.svelte.js';
 	import Page from '#lib/components/Page.svelte';
 	import StatBar from '#lib/components/StatBar.svelte';
-	import ErrorCard from '#lib/components/ErrorCard.svelte';
-	import Spinner from '#lib/components/Spinner.svelte';
 	import Badge from '#lib/components/Badge.svelte';
 	import DayNav from '#lib/report/DayNav.svelte';
 	import EntryGroup from '#lib/report/EntryGroup.svelte';
@@ -18,21 +15,16 @@
 	import { reportPlayer } from '#lib/report/player.svelte.js';
 	import Play from '@lucide/svelte/icons/play';
 	import SectionNav from '#lib/report/SectionNav.svelte';
-	import { jumpToSection } from '#lib/report/jump.js';
-	import {
-		ACTION_META,
-		URGENCY_META,
-		type NavTarget,
-		type QuickAction
-	} from '#lib/report/types.js';
-	import type { RenderedEntry } from '#lib/server/reports.js';
-	import { fmtCost, fmtDate, fmtNum } from '#lib/format.js';
+	import NoReportState from '#lib/report/NoReportState.svelte';
+	import ReportSidebar from '#lib/report/ReportSidebar.svelte';
+	import { buildReportDigest } from '#lib/report/digest.js';
+	import { usePipelinePoll } from '#lib/report/usePipelinePoll.svelte.js';
+	import { useReadReceipt } from '#lib/report/useReadReceipt.svelte.js';
+	import { URGENCY_META } from '#lib/report/types.js';
+	import { domainTargets, placeActions, runStats, sectionTargets } from '#lib/report/view.js';
+	import { fmtCost, fmtNum } from '#lib/format.js';
 	import { costUsd, PRICING_CONFIGURED, PRICING_HINT } from '#lib/pricing.js';
 	import { toastFormResult } from '#lib/toast.svelte.js';
-	import { netJson } from '#lib/offline/net.js';
-	import { poll } from '#lib/offline/poll.js';
-	import { sync } from '#lib/offline/sync.js';
-	import { navBadges } from '#lib/navBadges.svelte.js';
 	import { offline } from '#lib/offline/state.svelte.js';
 	import type { PageData, ActionData } from './$types';
 
@@ -67,34 +59,15 @@
 		setPageContext({
 			surface: 'report',
 			route: `/${data.date}`,
-			digest: [
-				`Daily briefing for ${data.date}${data.date === data.today ? ' (today)' : ''}.`,
-				data.report
-					? `${data.report.itemsIncluded ?? 0} of ${data.report.itemCount ?? 0} items in the report, ${data.report.itemsFiltered ?? 0} filtered out.`
-					: 'There is no report for this day yet.',
-				newsGroups.length > 0
-					? `Its News section covers ${newsGroups.map((g) => g.group).join(', ')}.`
-					: '',
-				data.pipelineRun ? `Last run: ${data.pipelineRun.status}.` : '',
-				// So the assistant does not reason about a briefing as if it were complete when it is not.
-				data.ingestFailures.length > 0
-					? `Ingest was incomplete: ${data.ingestFailures
-							.map((f) => `${f.source} (${f.kind})`)
-							.join(
-								', '
-							)} never delivered, so anything from them is missing from this briefing.`
-					: '',
-				openActions.length > 0
-					? `The report offers quick-action buttons the user can tap: ${openActions
-							.map(
-								(a) =>
-									`${ACTION_META[a.preview.kind].verb} "${a.preview.title}"`
-							)
-							.join(', ')}.`
-					: ''
-			]
-				.filter(Boolean)
-				.join(' ')
+			digest: buildReportDigest({
+				date: data.date,
+				today: data.today,
+				report: data.report,
+				newsGroups,
+				pipelineStatus: data.pipelineRun?.status ?? null,
+				ingestFailures: data.ingestFailures,
+				openActions
+			})
 		});
 	});
 
@@ -106,152 +79,37 @@
 		ratings = { ...ratings, [extractionId]: eventType };
 	}
 
-	// --- stats ---
-
 	const cost = $derived(costUsd(data.report?.tokensIn, data.report?.tokensOut));
-	const costTitle = $derived(
-		PRICING_CONFIGURED ? `Run cost: ${fmtCost(cost)}` : PRICING_HINT
-	);
-
 	const stats = $derived(
-		data.report
-			? [
-					{ label: 'ingested', value: fmtNum(data.report.itemCount) },
-					{ label: 'included', value: fmtNum(data.report.itemsIncluded) },
-					{
-						label: 'tokens in',
-						value: fmtNum(data.report.tokensIn),
-						title: costTitle
-					},
-					{
-						label: 'tokens out',
-						value: fmtNum(data.report.tokensOut),
-						title: costTitle
-					},
-					...(data.report.aiCalls != null
-						? [{ label: 'AI calls', value: fmtNum(data.report.aiCalls) }]
-						: []),
-					...(data.report.webSearchesRun
-						? [
-								{
-									label: 'web searches',
-									value: fmtNum(data.report.webSearchesRun)
-								}
-							]
-						: []),
-					...(cost != null ? [{ label: 'cost', value: fmtCost(cost) }] : [])
-				]
-			: []
+		runStats(
+			data.report,
+			cost,
+			PRICING_CONFIGURED ? `Run cost: ${fmtCost(cost)}` : PRICING_HINT
+		)
 	);
-
-	// --- section order and navigation (C3, C6) ---
 
 	const personalEntries = $derived(
-		data.structured?.personal.reduce(
-			(sum, group) => sum + group.entries.length,
-			0
-		) ?? 0
+		data.structured?.personal.reduce((sum, group) => sum + group.entries.length, 0) ?? 0
 	);
-
-	// --- quick actions ---
-
-	/**
-	 * Each action sits under the first personal entry that cites one of its mails, so the button is
-	 * next to the text that explains it. One the report never mentions (an automated booking
-	 * confirmation the gate kept out of Section 2, or a mail Section 2 left out) goes in its own
-	 * block at the end of the section, with the agent's one line on what the mail asked.
-	 */
-	const placement = $derived.by(() => {
-		const entries =
-			data.structured?.personal.flatMap((group) => group.entries) ?? [];
-		const byEntry = new Map<RenderedEntry, QuickAction[]>();
-		const unplaced: QuickAction[] = [];
-		for (const action of data.actions) {
-			const entry = entries.find((e) =>
-				e.refIds.some((id) => action.sourceIds.includes(id))
-			);
-			if (entry) byEntry.set(entry, [...(byEntry.get(entry) ?? []), action]);
-			else unplaced.push(action);
-		}
-		return { byEntry, unplaced };
-	});
-
+	const placement = $derived(placeActions(data.structured, data.actions));
 	const openActions = $derived(
 		data.actions.filter((a) => a.status === 'proposed' || a.status === 'failed')
 	);
-
 	// `?? []`: a report mirrored before the News section existed has no `news` at all.
 	const newsGroups = $derived(data.structured?.news ?? []);
-
-	// In reading order: the News groups come before the briefing's domains on the page.
-	const domainTargets = $derived<NavTarget[]>([
-		...newsGroups.map((group, index) => ({
-			id: `news-${index}`,
-			label: group.group
-		})),
-		...(data.structured?.intel ?? []).map((group, index) => ({
-			id: `domain-${index}`,
-			label: group.domain
-		}))
-	]);
-
-	const sectionTargets = $derived<NavTarget[]>(
-		[
-			personalEntries > 0 || placement.unplaced.length > 0
-				? { id: 'personal', label: 'Personal' }
-				: null,
-			newsGroups.length > 0 ? { id: 'news', label: 'News' } : null,
-			(data.structured?.intel.length ?? 0) > 0
-				? { id: 'intel', label: 'Briefing' }
-				: null
-		].filter((target): target is NavTarget => target !== null)
+	const domains = $derived(domainTargets(data.structured));
+	const sections = $derived(
+		sectionTargets(data.structured, personalEntries > 0 || placement.unplaced.length > 0)
 	);
 
 	// --- live pipeline status (C7) ---
 
 	let triggering = $state(false);
-	let polling = $state(false);
-	let stopPoll: (() => void) | undefined;
-	let liveStatus = $state<string | null>(null);
-
-	/**
-	 * Replaces "reload the page in ~5 min". /context-builder in this same codebase already polled
-	 * and drew progress bars; the report just told the reader to come back later.
-	 */
-	function startPolling() {
-		if (stopPoll) return;
-		polling = true;
-		stopPoll = poll(async () => {
-			const body = await netJson<{
-				hasReport: boolean;
-				run: { status: string } | null;
-			}>(`/api/pipeline/status?date=${data.date}`);
-			liveStatus = body.run?.status ?? null;
-
-			if (body.hasReport || body.run?.status === 'failed') {
-				stopPolling();
-				// The report reaches this page through the mirror like any other; the sync re-runs the load.
-				await sync({ force: true });
-			}
-		}, 5000);
-	}
-
-	function stopPolling() {
-		stopPoll?.();
-		stopPoll = undefined;
-		polling = false;
-	}
-
-	$effect(() => {
-		if (
-			!data.report &&
-			(data.pipelineRun?.status === 'running' || triggering || form?.triggered)
-		)
-			startPolling();
-		else stopPolling();
-	});
-
-	onDestroy(stopPolling);
+	const pipeline = usePipelinePoll(() => ({
+		date: data.date,
+		enabled:
+			!data.report && (data.pipelineRun?.status === 'running' || triggering || !!form?.triggered)
+	}));
 
 	// The player belongs to one day's briefing: stepping to another day or leaving the page ends it.
 	$effect(() => {
@@ -259,32 +117,7 @@
 	});
 	onDestroy(() => reportPlayer.close());
 
-	// A report is acknowledged only once the reader reaches its actual end.
-	onMount(() => {
-		let marked = false;
-		let sending = false;
-		const checkBottom = async () => {
-			if (marked || sending || !data.report) return;
-			if (window.scrollY + window.innerHeight < document.documentElement.scrollHeight - 2) return;
-			sending = true;
-			try {
-				await netJson(`/api/notifications/report-read/${data.date}`, { method: 'POST' });
-				marked = true;
-				void navBadges.refresh();
-			} catch {
-				// Stay eligible for another attempt if the connection is unavailable.
-			} finally {
-				sending = false;
-			}
-		};
-		window.addEventListener('scroll', checkBottom, { passive: true });
-		window.addEventListener('resize', checkBottom);
-		void checkBottom();
-		return () => {
-			window.removeEventListener('scroll', checkBottom);
-			window.removeEventListener('resize', checkBottom);
-		};
-	});
+	useReadReceipt(() => ({ date: data.date, enabled: !!data.report }));
 </script>
 
 {#snippet statsBar()}
@@ -366,8 +199,8 @@
 				</div>
 			{/if}
 
-			{#if sectionTargets.length > 1}
-				<SectionNav sections={sectionTargets} domains={domainTargets} />
+			{#if sections.length > 1}
+				<SectionNav {sections} {domains} />
 			{/if}
 
 			<EntryHint />
@@ -482,157 +315,25 @@
 				{@html data.reportHtml}
 			</div>
 		{:else}
-			<div
-				class="flex flex-col items-center gap-5 pt-10 text-center text-surface-300"
-			>
-				{#if polling || data.pipelineRun?.status === 'running'}
-					<p class="text-primary-400 text-sm inline-flex items-center gap-2">
-						<Spinner label="Pipeline running" />
-						The pipeline is running{liveStatus && liveStatus !== 'running'
-							? ` (${liveStatus})`
-							: ''}. This page updates itself.
-					</p>
-				{:else if data.pipelineRun?.status === 'failed'}
-					<ErrorCard
-						step={data.pipelineRun.failedStep}
-						durationMs={data.pipelineRun.durationMs}
-						attempts={data.pipelineRun.stepErrors}
-					/>
-				{:else}
-					<p>No report for {fmtDate(data.date)}.</p>
-				{/if}
-
-				<!-- A run that failed or produced nothing is exactly when the reader wants to know what
-           did arrive, so the link is here too and not only on the stats bar. -->
-				<a
-					href="/{data.date}/triage"
-					class="text-xs text-primary-400 no-underline hover:text-primary-300"
-				>
-					See what was ingested on this day →
-				</a>
-
-				{#if !triggering && !polling && data.pipelineRun?.status !== 'running'}
-					<form
-						method="POST"
-						action="?/runPipeline"
-						use:enhance={() => {
-							triggering = true;
-							return async ({ update }) => {
-								await update();
-								triggering = false;
-							};
-						}}
-					>
-						<button
-							type="submit"
-							disabled={offline.isOffline}
-							class="btn btn-lg btn-primary"
-						>
-							{data.pipelineRun?.status === 'failed'
-								? 'Retry'
-								: 'Run pipeline now'}
-						</button>
-					</form>
-					{#if offline.isOffline}
-						<p class="text-xs text-surface-400">
-							Running the pipeline needs the connection.
-						</p>
-					{/if}
-				{/if}
-			</div>
+			<NoReportState
+				date={data.date}
+				pipelineRun={data.pipelineRun}
+				polling={pipeline.polling}
+				liveStatus={pipeline.liveStatus}
+				bind:triggering
+			/>
 		{/if}
 	</div>
 
 	{#if data.report}
-		<!-- The width the wide-desktop grid frees up, put to use instead of left as margin: the same
-         figures the (now `xl:hidden`) stats bar shows, the open quick actions collected in one
-         place, and a permanent copy of `SectionNav`'s domain dropdown. Sticky, so it stays in view
-         while the article scrolls past it. -->
-		<aside
-			class="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky xl:overflow-y-auto xl:overscroll-contain"
-			style="top: calc(var(--header-h) + 1.5rem); max-height: calc(100dvh - var(--header-h) - 3rem)"
-		>
-			<div
-				class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
-			>
-				<h2
-					class="text-xs font-semibold uppercase tracking-wider text-surface-400"
-				>
-					Run stats
-				</h2>
-				<dl class="grid grid-cols-2 gap-x-3 gap-y-1.5">
-					{#each stats as stat (stat.label)}
-						<div
-							class="flex items-baseline justify-between gap-3 text-sm"
-							title={stat.title}
-						>
-							<dt class="text-surface-400 truncate">{stat.label}</dt>
-							<dd class="font-semibold text-surface-50 tabular-nums shrink-0">
-								{stat.value}
-							</dd>
-						</div>
-					{/each}
-				</dl>
-				<a
-					href="/{data.date}/triage"
-					class="text-xs text-primary-400 no-underline hover:text-primary-300 mt-1"
-				>
-					What was left out? →
-				</a>
-			</div>
-
-			{#if openActions.length > 0}
-				<div
-					class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
-				>
-					<h2
-						class="text-xs font-semibold uppercase tracking-wider text-surface-400"
-					>
-						Open actions
-					</h2>
-					<ul class="flex flex-col gap-1.5 text-sm text-surface-300">
-						{#each openActions as action (action.id)}
-							<li>
-								{ACTION_META[action.preview.kind].verb}: {action.preview.title}
-							</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
-
-			{#if data.structured && sectionTargets.length > 1}
-				<SectionNav
-					variant="rail"
-					sections={sectionTargets}
-					domains={domainTargets}
-				/>
-			{/if}
-
-			{#if domainTargets.length > 0}
-				<div
-					class="flex flex-col gap-2 rounded-lg border border-surface-800 bg-surface-900 p-4"
-				>
-					<h2
-						class="text-xs font-semibold uppercase tracking-wider text-surface-400"
-					>
-						Jump to a story
-					</h2>
-					<ul class="flex flex-col gap-0.5">
-						{#each domainTargets as target (target.id)}
-							<li>
-								<button
-									type="button"
-									onclick={() => jumpToSection(target.id)}
-									class="w-full rounded px-2 py-1 text-left text-sm text-surface-300 hover:bg-surface-800 hover:text-primary-300 bg-transparent border-none"
-								>
-									{target.label}
-								</button>
-							</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
-		</aside>
+		<ReportSidebar
+			date={data.date}
+			{stats}
+			{openActions}
+			sectionTargets={sections}
+			domainTargets={domains}
+			structured={!!data.structured}
+		/>
 	{/if}
 
 	<ReportPlayer />

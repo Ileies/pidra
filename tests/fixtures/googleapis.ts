@@ -7,12 +7,22 @@ export const googleState = {
   /** Set to make `events.list` reject. */
   eventsError: null as Error | null,
   listCalls: [] as Record<string, unknown>[],
+  /** What `tasklists.list` returns. */
+  taskLists: [] as { id?: string; title?: string }[],
+  /** Task pages per tasklist id; page `n` is served for page token `p<n>` (none means page 0). */
+  taskPages: {} as Record<string, Record<string, unknown>[][]>,
+  taskListCalls: 0,
+  taskCalls: [] as Record<string, unknown>[],
 };
 
 export function resetGoogleState() {
   googleState.events = [];
   googleState.eventsError = null;
   googleState.listCalls = [];
+  googleState.taskLists = [];
+  googleState.taskPages = {};
+  googleState.taskListCalls = 0;
+  googleState.taskCalls = [];
 }
 
 class OAuth2 {
@@ -32,6 +42,21 @@ export const googleapisModule = {
       },
       calendars: { get: async () => ({ data: { timeZone: "Europe/Zurich" } }) },
     }),
-    tasks: () => ({}),
+    tasks: () => ({
+      tasklists: {
+        list: async () => {
+          googleState.taskListCalls++;
+          return { data: { items: googleState.taskLists } };
+        },
+      },
+      tasks: {
+        list: async (params: Record<string, unknown>) => {
+          googleState.taskCalls.push(params);
+          const pages = googleState.taskPages[String(params.tasklist)] ?? [];
+          const index = typeof params.pageToken === "string" ? Number(params.pageToken.slice(1)) : 0;
+          return { data: { items: pages[index] ?? [], nextPageToken: index + 1 < pages.length ? `p${index + 1}` : undefined } };
+        },
+      },
+    }),
   },
 };

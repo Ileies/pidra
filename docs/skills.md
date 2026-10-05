@@ -15,13 +15,7 @@ No `critical` skill exists yet.
 
 ## Registry
 
-| Risk | Skills |
-|---|---|
-| low | `write_note`, `update_note`, `delete_note`, `restore_note`, `list_notes`, `read_report`, `run_web_search`, `list_todo_items`, `add_todo_item`, `complete_todo_item`, `list_calendar_events`, `get_calendar_event`, `add_calendar_event`, `read_context`, `list_questions`, `create_question` |
-| medium | `revise_context`, `revert_context_revision`, `remove_context_item`, `add_contact`, `set_source_active`, `propose_prompt_version`, `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item`, `create_file`, `open_project_in_editor` |
-| high | `send_email` |
-
-29 skills. Only three are kept off the assistant, as `BRIDGE_ONLY_SKILLS` in `src/ai/surfaces.ts`, reachable through the bridge alone: `create_file`, `send_email`, `open_project_in_editor`. Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
+The skills themselves are the files in `skills/`, registered in `src/skills/loader.ts`; each declares its own risk level. Only `send_email` is `high`. Only three are kept off the assistant, as `BRIDGE_ONLY_SKILLS` in `src/ai/surfaces.ts`, reachable through the bridge alone: `create_file`, `send_email`, `open_project_in_editor`. Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
 
 ## Default state
 

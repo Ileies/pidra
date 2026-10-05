@@ -189,6 +189,15 @@ class OfflineState {
     return { ok: true };
   }
 
+  /** Logout: everything this device holds of the account goes, queued writes and failed ones
+   *  included. Unlike `clearMirror` it does not refuse, because the next login may be someone else. */
+  async clearAll(): Promise<void> {
+    for (const store of [...MIRROR_STORES, "meta", "outbox", "failed"] as const) {
+      await db.clear(store);
+    }
+    await this.refresh();
+  }
+
   toggleSheet(): void {
     this.sheetOpen = !this.sheetOpen;
   }

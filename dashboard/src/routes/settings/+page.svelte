@@ -71,6 +71,8 @@
     loggingOut = true;
     try {
       await netJson("/api/auth/logout", { method: "POST" });
+      // Only once the server has forgotten the session: a failed logout keeps the data.
+      await offline.clearAll().catch(() => {});
     } finally {
       await goto("/login", { invalidateAll: true });
     }

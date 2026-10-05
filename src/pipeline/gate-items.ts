@@ -81,7 +81,7 @@ export async function persistGate(items: ExtractionWithSource[], newsletterOrder
   for (let start = 0; start < items.length; start += PERSIST_CHUNK) {
     const rows = items.slice(start, start + PERSIST_CHUNK).map((item) => {
       const order = newsletterOrder.get(item.extraction.id) ?? null;
-      return sql`(${item.extraction.id}::uuid, ${item.gate.effectiveRelevance}::real, ${item.gate.passed}::boolean, ${item.gate.reason}::text, ${JSON.stringify(item.gate.detail)}::jsonb, ${order}::integer, ${handoffForOrder(order)}::text)`;
+      return sql`(${item.extraction.id}::uuid, ${item.gate.effectiveRelevance}::real, ${item.gate.passed}::boolean, ${item.gate.reason}::text, ${item.gate.detail}::jsonb, ${order}::integer, ${handoffForOrder(order)}::text)`;
     });
     await db.execute(sql`
       UPDATE extractions AS e SET

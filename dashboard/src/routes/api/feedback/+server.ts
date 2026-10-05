@@ -17,5 +17,7 @@ export const POST: RequestHandler = async ({ request }) => {
   if (signal !== "1" && signal !== "-1") return Response.json({ error: "Invalid signal" }, { status: 400 });
 
   const eventType = await rateExtraction(extractionId, signal);
+  // A 4xx parks the queued rating in the outbox's failed list; a 5xx would be retried first in line for good.
+  if (!eventType) return Response.json({ error: "Extraction not found" }, { status: 404 });
   return Response.json({ rated: extractionId, eventType });
 };

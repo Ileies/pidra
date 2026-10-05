@@ -1,11 +1,11 @@
 import type { RequestHandler } from "./$types";
 import { sql } from "#lib/server/postgres.js";
+import { readJson } from "#lib/server/form.js";
 
 // Web-push subscription registry (client: lib/push.svelte.ts). POST stores a browser's
 // PushSubscription JSON (idempotent per endpoint), DELETE removes it by `{ endpoint }`.
 export const POST: RequestHandler = async ({ request }) => {
-  const sub = await request.json();
-  const { endpoint, keys } = sub as { endpoint: string; keys: { p256dh: string; auth: string } };
+  const { endpoint, keys } = await readJson<{ endpoint: string; keys: { p256dh: string; auth: string } }>(request);
 
   if (!endpoint || !keys?.p256dh || !keys?.auth) {
     return Response.json({ error: "Invalid subscription" }, { status: 400 });
@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 export const DELETE: RequestHandler = async ({ request }) => {
-  const { endpoint } = await request.json() as { endpoint: string };
+  const { endpoint } = await readJson<{ endpoint: string }>(request);
 
   if (!endpoint) return Response.json({ error: "Missing endpoint" }, { status: 400 });
 

@@ -25,6 +25,8 @@ export const actions: Actions = {
     if (!extractionId || !UUID_RE.test(extractionId)) return fail(400, { error: "Invalid extraction id" });
     if (signal !== "1" && signal !== "-1") return fail(400, { error: "Invalid signal" });
 
-    return { rated: extractionId, eventType: await rateExtraction(extractionId, signal) };
+    const eventType = await rateExtraction(extractionId, signal);
+    if (!eventType) return fail(404, { error: "Extraction not found" });
+    return { rated: extractionId, eventType };
   },
 };

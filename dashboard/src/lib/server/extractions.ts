@@ -104,13 +104,21 @@ export async function loadExtractions(ids: string[], options: LoadOptions = {}):
   }));
 }
 
-/** Writes an explicit +/- rating. One rating per extraction: the previous one is replaced. */
-export async function rateExtraction(extractionId: string, signal: "1" | "-1"): Promise<string> {
+/**
+ * Writes an explicit +/- rating. One rating per extraction: the previous one is replaced. Returns
+ * null when the extraction no longer exists (re-extraction replaces rows, so a queued offline
+ * rating can outlive its target); callers answer 404, because a 5xx would jam the outbox.
+ */
+export async function rateExtraction(extractionId: string, signal: "1" | "-1"): Promise<string | null> {
   const db = sql();
   const eventType = signal === "1" ? "explicit_plus" : "explicit_minus";
 
   await db`DELETE FROM feedback_events WHERE extraction_id = ${extractionId} AND event_type IN ('explicit_plus', 'explicit_minus')`;
-  await db`INSERT INTO feedback_events (extraction_id, event_type, signal_value) VALUES (${extractionId}, ${eventType}, ${parseInt(signal, 10)})`;
-
+  try {
+    await db`INSERT INTO feedback_events (extraction_id, event_type, signal_value) VALUES (${extractionId}, ${eventType}, ${parseInt(signal, 10)})`;
+  } catch (err) {
+    if ((err as { code?: string }).code === "23503") return null;
+    throw err;
+  }
   return eventType;
 }

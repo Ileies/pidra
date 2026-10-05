@@ -1,15 +1,15 @@
 # TEST_PLAN - closing the test gap
 
-Status (2026-10-05): Phase 1 committed (`dcb8004`, `2c4be66`). Phase 2 written and passing but NOT yet committed (see "Progress and what is left" at the end). Phases 3 to 5 not started. Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
+Status (2026-10-05): Phases 1 and 2 (except 2.2) committed, Phase 4 harness committed, the stores and Phases 3 and 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
 
-Source: a coverage audit on 2026-10-05, after Phases 1 to 9 of `REFACTOR_PLAN.md` landed. Counts below were measured then: `bun test ./tests` runs 213 tests in 22 files, all passing.
+Source: a coverage audit on 2026-10-05. Counts below were measured then: `bun test ./tests` runs 213 tests in 22 files, all passing.
 
 ## Problem
 
 1. **The root tests are not part of `bun run check`.** `scripts/check.ts` runs `tsc`, `skill-writes`, `route-surfaces`, `file-size` and the dashboard check. Nothing runs `tests/`, and the `commit` skill trusts that check, so a regression in `gate.ts`, `news/validate` or any other tested module can be committed without a failure.
 2. **The root `test` script is broken.** `package.json` has `"test": "bun test"`. Since the workspace merge a bare `bun test` also discovers `dashboard/tests/`, which needs `--conditions=browser`: 59 failures and 3 errors. `bun test ./tests` is the working invocation (already noted in memory).
 3. **Coverage is thin where bugs are expensive.** Tested today: the pure and deterministic parts (gate, report JSON, news validate/format/config, topic lifecycle, retry, SMS auth, prompt variables, RSS, corrections, source signal). Untested: the stores, the pipeline phases, the skill gate, the Brave quota, the action proposal logic and all of `context-builder/`.
-4. **The refactor moved a lot of untested code.** Phases 1 to 9 split large files (`server/index.ts` into `server/routes/*`, `propose.ts` into `actions/propose/*`, `schema.ts` into `db/schema/*`) and were verified only by `tsc`, the dashboard check and the existing tests.
+4. **A refactor moved a lot of untested code.** It split large files (`server/index.ts` into `server/routes/*`, `propose.ts` into `actions/propose/*`, `schema.ts` into `db/schema/*`) and were verified only by `tsc`, the dashboard check and the existing tests.
 
 ## Goals and non-goals
 
@@ -31,17 +31,6 @@ Source: a coverage audit on 2026-10-05, after Phases 1 to 9 of `REFACTOR_PLAN.md
 - Risk tags: L low, M medium, H high.
 
 ---
-
-## Phase 1 - Make the existing suite count
-
-| ID | Change | Risk |
-|---|---|---|
-| 1.1 | Add a `unit tests` step to `scripts/check.ts` running `bun test ./tests`, next to `file-size`. It runs concurrently with the other steps, so wall time barely changes (the dashboard blackhole suite dominates) | L |
-| 1.2 | Change the root `package.json` `test` script to `bun test ./tests` so `bun run test` works. Leave the dashboard's own `test:components` alone | L |
-| 1.3 | Keep `--quick` runs including the new step: it takes under a second, so there is no reason to skip it | L |
-| 1.4 | Confirm the step fails the check when a test fails (break one assertion locally, run `bun run check:quick`, then revert) | L |
-
-Done when `bun run check` fails on a deliberately broken root test and passes on a clean tree.
 
 ## Phase 2 - Invariants that fail silently
 
@@ -122,7 +111,6 @@ Reports are final (a stored report cannot be rewritten), note edits create the e
 
 ## Order and commits
 
-1. Phase 1 (one commit for the step, one for the script fix).
 2. Phase 2, one commit per ID, starting with 2.1 and 2.4 (cheapest, highest value).
 3. Phase 3, one commit per ID.
 4. Phase 4 (Option A decided): first the harness (`scripts/lib/test-postgres.ts`, the `db tests` check step, `useTestDatabase()`, plus one smoke test proving a clone has all tables), as its own commit. Then one commit per store.
@@ -132,12 +120,11 @@ Reports are final (a stored report cannot be rewritten), note edits create the e
 
 - Phase 4: decided 2026-10-05, Option A (throwaway local Postgres inside `bun run check`).
 - 2.6: separate static guard, or fold it into the 2.5 test?
-- Whether `docs/` should get a short testing section (what runs in `check`, how to run the DB suite). `docs-committer` can add it when Phase 1 lands.
+- Whether `docs/` should get a short testing section (what runs in `check`, how to run the DB suite). `docs-committer` can add it.
 
 ## Verification
 
 - After each phase: `bun test ./tests` is green and fast, `bun run check` passes, and for every new invariant test the rule was broken once locally to confirm the test fails.
-- After Phase 1 the check output should show an `ok unit tests (<secs>s)` line.
 - No new test may depend on the clock, the network, the order of other tests or the load on the machine (see the blackhole flake note in memory).
 
 ---
@@ -148,7 +135,6 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 
 ### Done
 
-- **Phase 1:** committed. `unit tests` step in `scripts/check.ts`, root `test` script is `bun test ./tests`, `docs/operations.md` updated.
 - **Phase 2, all six items written and passing and committed:**
   - 2.1 `tests/long-term-context.test.ts` (`pickSections`, `loadLongTermContext` fallback past a patch document, legacy archive path).
   - 2.2 NOT done: the context-builder output verification in `context-builder/phases/synthesize.ts` is still untested (needs the verification predicate extracted into a pure function first, as its own commit).
@@ -159,15 +145,18 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
   - Mutation-checked: each invariant test fails when its rule is broken locally.
 - **Shared db mock:** `tests/fixtures/db.ts` (`dbModule`) mirrors the full export surface of `src/db`; all `mock.module("../src/db")` calls use it. Fixes an order-dependent failure (`Export named 'existingMessageIds' not found`) that `lookup + rss` already had.
 
+- **Phase 4 harness:** `scripts/lib/test-postgres.ts`, `scripts/check-db-tests.ts` (the `db tests` step, also `bun run test:db`), `tests-db/fixtures/database.ts` (`useTestDatabase()`) and `tests-db/harness.test.ts` (a clone has all 39 tables, clones are isolated, a CHECK constraint rejects a bad row). The step takes about 2.3 s. Lesson: a Bun SQL query is a lazy thenable, so `expect(query).rejects` hangs; await it inside an async function first.
+
 ### Bugs found and fixed on the way (committed)
 
 1. `src/skills/execute.ts`: the critical-skill rejection settled the audit row without a reason; it now goes through `reject()` like the other rejections.
 2. `dashboard/src/lib/offline/outbox.ts` `queue()`: the optimistic effect was applied before the intent was stored, so a snapshot pull landing in between overwrote it and `reapplyPending` could not re-assert it (a restored note snapped back into the trash). Now the intent is stored first. Regression test in `dashboard/tests/offline-outbox.test.ts`.
 3. `dashboard/src/lib/offline/intents.ts`: `report.read` apply and `patchReportsRating` did get-then-put of the whole report row, so a rating and a read receipt could overwrite each other. Both use `db.update` now. Regression test in `dashboard/tests/offline-intents.test.ts`.
 4. Blackhole harness (`dashboard/scripts/blackhole/proxy.ts`, `verify.ts`, `steps.ts`, `lane.ts`): the new `report.read` write was unknown to the harness (forwarded to a database-less server, so the lane never reached "Synced" and crashed). One shared exported `WRITE` regex now covers it, `EXPECTED_WRITES` lists the two receipts, and the first-launch step scrolls to the end of today's report and waits for its receipt so it no longer depends on timing.
+5. `dashboard/src/routes/notes` and `entities` `+page.svelte`: the pages read `page.url`, but a written filter lives in `page.shallow.url`, so a mirror reload (which hands `page.url` over again) read as an external navigation and reset the filter. This was the `/notes: restore a note from the trash` flake (3 of 5 full runs). Now `shownUrl()` reads `page.shallow?.url ?? page.url`. Pinned by `dashboard/scripts/blackhole/race.ts`, which forces the race in about 7 s and is part of the blackhole suite.
 
 ### Open
 
-- **Blackhole flake, not understood:** the step `/notes: restore a note from the trash` still fails in about 3 of 5 full runs on current main (the restored note stays in the trash view for more than 2.5 s, although its restore is delivered). It passed 7 of 7 on the older commit `0c05a18` with fix 2 applied, so something in the newer `report.read` work or its interplay is involved. Instrumented timings showed "restore tapped" in 1 s and then no "note gone". Next idea: log the mirror row and `data.notes` after the tap in the failing lane, and check `useReadReceipt` / `navBadges.refresh` / `flush` interplay with `invalidateMirror`.
+- **Blackhole under load:** with the machine busy (load average above 8) a `navigate while believed online` step can miss its 4000 ms budget by a few ms. Not a code defect; rerun when the machine is quiet.
 - **Commits:** everything above is committed and the temporary worktrees are gone. The standing rule stays: no test-work commit without a passing full `bun run check`. Do not stage other sessions' files.
-- **Then:** Phase 2.2, Phase 3 (3.1 to 3.7), Phase 4 (Option A decided, harness first), Phase 5.
+- **Then:** Phase 4 stores (one commit each: `notes/store.ts`, `questions/store.ts`, `actions/store.ts`, `news/store.ts`), Phase 2.2, Phase 3 (3.1 to 3.7), Phase 5.

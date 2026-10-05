@@ -142,9 +142,9 @@
     {#if showLatest}
       <a
         href="/"
-        class="btn btn-step btn-surface"
+        class="btn btn-step btn-surface min-w-16"
       >
-        <ChevronsRight class="h-5 w-5 shrink-0" aria-hidden="true" />
+        <ChevronsRight class="h-6 w-6 shrink-0" aria-hidden="true" />
         <span class="sr-only">Latest report</span>
       </a>
     {/if}

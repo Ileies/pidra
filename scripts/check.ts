@@ -27,6 +27,7 @@ const results = await Promise.all([
   step("tsc", () => q($`tsc --noEmit`)),
   step("skill-writes", () => q($`bun run scripts/check-skill-writes.ts`)),
   step("route-surfaces", () => q($`bun run scripts/check-route-surfaces.ts`)),
+  step("openai-rules", () => q($`bun run scripts/check-openai-rules.ts`)),
   step("file-size", () => q($`bun run scripts/check-file-size.ts`)),
   step("unit tests", () => q($`bun test ./tests`)),
   dashboard(),

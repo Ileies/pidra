@@ -83,7 +83,9 @@ Budgets include reading the body.
 - the queue survives a reopen;
 - each queued write lands exactly once and in order after reconnecting.
 
-A new page needs its path and expected text in `run.ts`; a new control needs an entry in `CONTROLS`.
+A new page needs its path and expected text in `helpers.ts`; a new control needs an entry in `CONTROLS` (and a queued write in `EXPECTED_WRITES`) in `steps.ts`.
+
+**Module layout:** `run.ts` is only the runner. `helpers.ts` holds paths, expected text, timing rules and page helpers (including `tap(locator, deadline, opts)`, the one way to click within a lane's deadline); `steps.ts` the per-route `CONTROLS` and `EXPECTED_WRITES`; `links.ts` `checkInternalLinks`; `verify.ts` `checkBudgets` and `checkDelivered`; `lane.ts` the lane table and `runLane`; `server.ts` the build, `startServer` and `chromePath`.
 
 **Layout lane** (`layout.ts`), online at 1024, 1280, 1366 and 1920 px against `LAYOUT_SNAPSHOT` (several rows per table, a report with every urgency, section and domain, a five-section context document). For every mirrored page it asserts from the DOM:
 - no error boundary and no horizontal scroll from the page or `<main>`;

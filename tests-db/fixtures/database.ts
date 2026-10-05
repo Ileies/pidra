@@ -19,7 +19,8 @@ export async function useTestDatabase(): Promise<TestDatabase> {
   assertThrowawayUrl(adminUrl);
 
   const name = `t_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
-  const admin = new SQL(adminUrl);
+  // Small pools: every test file is its own process and `src/db` brings a pool of ten as well.
+  const admin = new SQL(adminUrl, { max: 1 });
   await admin.unsafe(`create database ${name} template ${TEMPLATE}`);
 
   const url = new URL(adminUrl);
@@ -27,7 +28,7 @@ export async function useTestDatabase(): Promise<TestDatabase> {
   assertThrowawayUrl(url.href);
   // Overwritten, never read: Bun loads `.env`, whose DATABASE_URL is the production database.
   process.env.DATABASE_URL = url.href;
-  const sql = new SQL(url.href);
+  const sql = new SQL(url.href, { max: 2 });
 
   afterAll(async () => {
     await sql.close();

@@ -98,7 +98,7 @@ export async function startTestPostgres(): Promise<TestPostgres> {
 
   try {
     await $`${join(bin, "initdb")} -D ${data} -U test --auth=trust --no-sync --no-locale -E UTF8`.quiet();
-    const options = `-p ${port} -k ${sockets} -c listen_addresses=127.0.0.1 -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c shared_buffers=32MB -c max_connections=50`;
+    const options = `-p ${port} -k ${sockets} -c listen_addresses=127.0.0.1 -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c shared_buffers=32MB -c max_connections=400`;
     await $`${join(bin, "pg_ctl")} -D ${data} -l ${join(dir, "log")} -w -o ${options} start`.quiet();
     started = true;
 

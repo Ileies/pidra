@@ -29,8 +29,11 @@ function offsetMinutes(utcMs: number, timeZone: string): number {
   return Math.round((wall - utcMs) / 60_000);
 }
 
+/** A real calendar day: the runtime rolls 2026-02-31 over to March, so the date must survive a round trip. */
 export function isLocalDate(value: string): boolean {
-  return isDateKey(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  if (!isDateKey(value)) return false;
+  const ms = Date.parse(`${value}T00:00:00Z`);
+  return !Number.isNaN(ms) && new Date(ms).toISOString().startsWith(value);
 }
 
 /** Whether `value` is an IANA zone name this runtime knows ("Europe/Zurich", "UTC"). */
@@ -72,6 +75,8 @@ export function zonedToIso(value: string, timeZone: string): string | null {
   const [, y, mo, d, h, mi, s] = match.map(Number);
   const wall = Date.UTC(y, mo - 1, d, h, mi, s || 0);
   if (Number.isNaN(wall)) return null;
+  // Date.UTC rolls 02-31 and 25:00 over instead of failing, which would book the wrong day.
+  if (!new Date(wall).toISOString().startsWith(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}`)) return null;
   // Twice: the offset at the wall time read as UTC can be the wrong side of a DST switch.
   let utc = wall - offsetMinutes(wall, timeZone) * 60_000;
   utc = wall - offsetMinutes(utc, timeZone) * 60_000;

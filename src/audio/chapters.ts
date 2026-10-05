@@ -13,6 +13,18 @@
 import { createHash } from "node:crypto";
 import type { ReportJson, ReportEntry, Urgency } from "../pipeline/report-json";
 
+/**
+ * A run of a chapter's text: `id` names the report entry it speaks (see `entryId`), null for the
+ * spoken headings. `chars` includes the line break after it, so the segments sum to `text.length + 1`.
+ */
+export interface Segment {
+  id: string | null;
+  chars: number;
+}
+
+/** Page-side identity of an entry: the group kind and its indices in `ReportJson`. The dashboard builds the same string. */
+type EntryId = string;
+
 export interface Chapter {
   index: number;
   key: string;
@@ -23,6 +35,8 @@ export interface Chapter {
   /** Exactly what is sent to the voice, headings included. */
   text: string;
   words: number;
+  /** In reading order; the dashboard uses them to highlight the entry being spoken. */
+  segments: Segment[];
 }
 
 const URGENCY_TITLE: Record<Urgency, string> = {
@@ -85,18 +99,26 @@ function longDate(date: string): string {
   return parsed.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 }
 
-function entryLines(entries: ReportEntry[]): string[] {
-  return entries.map((entry) => speechText(entry.md)).filter((text) => text.length > 0);
+interface SpokenEntry {
+  id: EntryId;
+  text: string;
+}
+
+/** `kind` is "p", "n", "i" or "a" (personal, news, intel, also noted); `group` is -1 for the flat also-noted list. */
+function entryLines(kind: string, group: number, entries: ReportEntry[]): SpokenEntry[] {
+  return entries
+    .map((entry, index) => ({ id: group < 0 ? `${kind}:${index}` : `${kind}:${group}:${index}`, text: speechText(entry.md) }))
+    .filter((entry) => entry.text.length > 0);
 }
 
 /** Chapters in the order the page reads: personal, news, briefing, then the footnotes. */
 export function buildChapters(report: ReportJson): Chapter[] {
-  const raw: { section: string; title: string; entries: string[] }[] = [];
+  const raw: { section: string; title: string; entries: SpokenEntry[] }[] = [];
 
-  for (const group of report.personal) raw.push({ section: SECTION_PERSONAL, title: URGENCY_TITLE[group.urgency], entries: entryLines(group.entries) });
-  for (const group of report.news ?? []) raw.push({ section: SECTION_NEWS, title: group.group, entries: entryLines(group.entries) });
-  for (const group of report.intel) raw.push({ section: SECTION_INTEL, title: group.domain, entries: entryLines(group.entries) });
-  raw.push({ section: SECTION_ALSO_NOTED, title: SECTION_ALSO_NOTED, entries: entryLines(report.alsoNoted) });
+  report.personal.forEach((group, i) => raw.push({ section: SECTION_PERSONAL, title: URGENCY_TITLE[group.urgency], entries: entryLines("p", i, group.entries) }));
+  (report.news ?? []).forEach((group, i) => raw.push({ section: SECTION_NEWS, title: group.group, entries: entryLines("n", i, group.entries) }));
+  report.intel.forEach((group, i) => raw.push({ section: SECTION_INTEL, title: group.domain, entries: entryLines("i", i, group.entries) }));
+  raw.push({ section: SECTION_ALSO_NOTED, title: SECTION_ALSO_NOTED, entries: entryLines("a", -1, report.alsoNoted) });
 
   const chapters: Chapter[] = [];
   let lastSection = "";
@@ -108,7 +130,11 @@ export function buildChapters(report: ReportJson): Chapter[] {
     if (group.title !== group.section) intro.push(`${speechText(group.title).replace(/[.!?:;]$/, "")}.`);
     lastSection = group.section;
 
-    const text = [...intro, ...group.entries].join("\n");
+    const text = [...intro, ...group.entries.map((entry) => entry.text)].join("\n");
+    const segments: Segment[] = [
+      ...intro.map((line) => ({ id: null, chars: line.length + 1 })),
+      ...group.entries.map((entry) => ({ id: entry.id, chars: entry.text.length + 1 })),
+    ];
     chapters.push({
       index: chapters.length,
       key: createHash("sha256").update(text).digest("hex").slice(0, 16),
@@ -116,6 +142,7 @@ export function buildChapters(report: ReportJson): Chapter[] {
       title: group.title,
       text,
       words: text.split(/\s+/).filter(Boolean).length,
+      segments,
     });
   }
   return chapters;

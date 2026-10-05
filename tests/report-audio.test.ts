@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildChapters, chunkText, estimateDurationMs, mp3DurationMs, speechText } from "../src/audio/chapters";
+import { activeEntryId } from "../dashboard/src/lib/report/active-entry";
 import type { ReportJson } from "../src/pipeline/report-json";
 
 const report: ReportJson = {
@@ -71,8 +72,37 @@ describe("buildChapters", () => {
     expect(buildChapters(edited)[2].key).not.toBe(chapters[2].key);
   });
 
+  test("segments cover the whole text and name the entries by their place in the report", () => {
+    for (const chapter of chapters) {
+      expect(chapter.segments.reduce((sum, s) => sum + s.chars, 0)).toBe(chapter.text.length + 1);
+    }
+    expect(chapters[0].segments.map((s) => s.id)).toEqual([null, null, null, "p:0:0"]);
+    expect(chapters[1].segments.map((s) => s.id)).toEqual([null, null, "n:0:0"]);
+    // The blank second entry is skipped but keeps its index.
+    expect(chapters[2].segments.map((s) => s.id)).toEqual([null, null, "i:0:0"]);
+  });
+
   test("a report with no entries has no chapters", () => {
     expect(buildChapters({ ...report, personal: [], news: [], intel: [], alsoNoted: [] })).toEqual([]);
+  });
+});
+
+describe("activeEntryId", () => {
+  const segments = [
+    { id: null, chars: 20 },
+    { id: "p:0:0", chars: 94 },
+    { id: "p:0:1", chars: 94 },
+  ];
+
+  test("follows the position through the chapter by character share", () => {
+    expect(activeEntryId(segments, 0, 30)).toBeNull();
+    expect(activeEntryId(segments, 10, 30)).toBe("p:0:0");
+    expect(activeEntryId(segments, 25, 30)).toBe("p:0:1");
+  });
+
+  test("clamps a position past the end and copes with no segments", () => {
+    expect(activeEntryId(segments, 99, 30)).toBe("p:0:1");
+    expect(activeEntryId([], 5, 30)).toBeNull();
   });
 });
 

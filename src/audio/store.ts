@@ -15,7 +15,7 @@ import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { db, dailyReports, pipelineRuns, reportAudio } from "../db";
 import { speechCostUsd } from "./cost";
 import { speak, TTS_MODEL, TTS_VOICE } from "../ai/openai";
-import { buildChapters, chunkText, estimateDurationMs, mp3DurationMs, type Chapter } from "./chapters";
+import { buildChapters, chunkText, estimateDurationMs, mp3DurationMs, type Chapter, type Segment } from "./chapters";
 
 /** One speech request takes at most 2000 tokens; German runs near 3 characters a token. */
 const MAX_REQUEST_CHARS = 3500;
@@ -33,6 +33,7 @@ export interface ManifestChapter {
   section: string;
   title: string;
   words: number;
+  segments: Segment[];
   /** Exact once the chapter has been spoken, an estimate before. */
   durationMs: number;
   cached: boolean;
@@ -59,6 +60,7 @@ export async function audioManifest(date: string): Promise<{ voice: string; chap
       section: chapter.section,
       title: chapter.title,
       words: chapter.words,
+      segments: chapter.segments,
       durationMs: cached.get(chapter.key) ?? estimateDurationMs(chapter.text),
       cached: cached.has(chapter.key),
     })),

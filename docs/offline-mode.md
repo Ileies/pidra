@@ -14,7 +14,7 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 - **Schema version:** `DB_VERSION` is 5. The v5 upgrade adds an `entityId` index on `entityAppearances` (`repo.entity()` reads one entity's rows through `db.getAllBy`, not the whole store). The v4 upgrade drops the `rules` store (standing rules became notes) and deletes any queued or failed `rule.*` intent, which no longer has an endpoint and would otherwise jam the drain.
 - **Exclusions are enforced in the endpoint, not in a consumer:** no `raw_items.raw_content`, nothing from `chat_messages`, `skill_executions` or `push_subscriptions`, and `step_errors` only as the `ingestFailures` digest (source plus one fixed word).
 - **Rendered on the server:** the snapshot ships sanitised HTML, so `renderMarkdown()` stays out of the client bundle.
-- **Transfer:** a `304`, a delta against the client's ETag, or everything (`snapshotCache.ts`). A build the client has not seen replaces the mirror instead of merging into it.
+- **Transfer:** a `304`, a delta against the client's ETag, or everything (`snapshotCache.ts`). The table fingerprint is reused (and its in-flight query shared) for 5 s (`FINGERPRINT_TTL_MS`; a failed query is not cached), so a change reaches the mirror at most 5 s later. A build the client has not seen replaces the mirror instead of merging into it.
 
 ## Tiers
 

@@ -5,7 +5,9 @@
  * suite) instead of the sum. `--quick` / `-q` and `--verbose` / `-v` are forwarded to the
  * dashboard check; see `scripts/lib/check-runner.ts` for the output rules. `bun run deploy` and
  * the `commit` skill require the full run, not `--quick`. Steps: root tsc, check-skill-writes,
- * check-route-surfaces, check-file-size, then `dashboard/scripts/check.ts`.
+ * check-route-surfaces, check-openai-rules, check-file-size, unit tests (`tests/`), db tests
+ * (`tests-db/` against a throwaway local Postgres, `scripts/check-db-tests.ts`), then
+ * `dashboard/scripts/check.ts`.
  */
 import { $ } from "bun";
 import { q, quick, step, text, verbose, type Out } from "./lib/check-runner";
@@ -30,6 +32,7 @@ const results = await Promise.all([
   step("openai-rules", () => q($`bun run scripts/check-openai-rules.ts`)),
   step("file-size", () => q($`bun run scripts/check-file-size.ts`)),
   step("unit tests", () => q($`bun test ./tests`)),
+  step("db tests", () => q($`bun run scripts/check-db-tests.ts`)),
   dashboard(),
 ]);
 

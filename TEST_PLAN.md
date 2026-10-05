@@ -15,7 +15,7 @@ Source: a coverage audit on 2026-10-05, after Phases 1 to 9 of `REFACTOR_PLAN.md
 
 - Root tests gate every commit, with no flaky additions.
 - Tests pin the invariants that fail silently (see Phase 2), not line coverage for its own sake.
-- Tests stay fast: the whole root suite should stay well under 5 seconds, and use no network and no real database unless Phase 4 is explicitly approved.
+- Tests stay fast: the whole root suite should stay well under 5 seconds, and use no network and no real database. Real-database tests (Phase 4) live in their own folder `tests-db/` and run in a separate `check` step.
 - Non-goal: unit tests for LLM prompts or model output. That is judged against real mornings (see `docs/todo/now.md`).
 - Non-goal: a coverage percentage target.
 
@@ -74,15 +74,43 @@ These modules are already pure or nearly so, so tests need no database.
 
 Done when the listed modules have at least one passing and one failing-input test each.
 
-## Phase 4 - Stores against a real database (needs a decision)
+## Phase 4 - Stores against a real database (decided: Option A, 2026-10-05)
 
 `notes/store.ts`, `questions/store.ts`, `actions/store.ts` and `news/store.ts` hold the behavior that matters (notes as the mutable layer, reports are final, questions queue). Their logic is mostly SQL, so a mock proves little.
 
-- **Option A (recommended):** a throwaway Postgres per test run (a local `postgres` via the Nix dev shell, or a schema created per run on pronix under a separate database name). Tests apply `src/db/schema/` and run against it. Cost: setup work and a new check dependency, so keep this suite out of `bun run check` and run it with a separate `bun run test:db`.
-- **Option B:** extract the pure decision parts of each store (merge rules, status transitions) and test only those. Cheaper, covers less.
-- **Hard rule:** never point tests at the production database on pronix. The runner must refuse to start unless the connection string names a database ending in `_test`.
+**Decision:** a throwaway local Postgres, started and destroyed by the test run itself. It is part of `bun run check`, not a separate script. Option B (pure-function extraction only) is dropped; extract a pure function only where it makes a store easier to read, not as a testing substitute.
 
-Targets once a database is available: reports are final (a stored report cannot be rewritten), note edits create the expected history, a question transitions only along valid statuses, and the daily Brave quota row increments atomically.
+Measured on this machine (Postgres 17, 39 tables):
+
+| Step | Time |
+|---|---|
+| `initdb --no-sync` | 0.60 s |
+| start server | 0.12 s |
+| create DB + load DDL | 0.14 s |
+| stop | 0.10 s |
+| whole cycle | about 1 s |
+| per-test-file clone (`createdb -T`) | about 50 ms |
+| memory while idle | about 66 MB, 7 processes |
+
+So the step adds roughly 1.5 to 3 s to `check`, against about 70 s for blackhole. It also runs in `--quick`.
+
+### Design
+
+- **Instance:** `scripts/lib/test-postgres.ts` runs `initdb -D <tmp>/data -U test --auth=trust --no-sync -E UTF8`, then `pg_ctl start` with `-p <random free port> -k <short socket dir> -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c listen_addresses=127.0.0.1 -c shared_buffers=32MB -c max_connections=50`. The socket dir must be a short path such as `mktemp -d /tmp/pgs.XXXX`: a path under the scratchpad exceeds the 107-byte unix socket limit. Stop with `pg_ctl -m immediate` and delete the data dir in a `finally`, also on SIGINT.
+- **Schema:** `bun x drizzle-kit export --dialect postgresql --schema src/db/schema/index.ts --sql` (0.74 s), loaded through Bun's `SQL(...).unsafe(ddl)`. Do NOT use `drizzle-kit push` or the default config: `drizzle.config.ts` globs the whole schema directory including the re-exporting `index.ts`, so every table is seen twice and push exits 1. The exported DDL is generated each run, never committed, so it cannot drift from `src/db/schema/`. Load it into a template database `tpl`; each test file clones its own with `createdb -T tpl t_<name>` (about 50 ms).
+- **Binaries:** `initdb`, `pg_ctl` and `createdb` come from the dev shell or `nix shell nixpkgs#postgresql_17`; resolve them from `PATH` first, then via `nix`. `psql` is not installed and not needed (load DDL through Bun). If no Postgres can be found, the step prints one clear line saying how to get it and fails; it never silently skips, because a skipped check is a false green.
+- **Wiring:** a `db tests` step in `scripts/check.ts`, concurrent with the others. It starts the instance, exports `PIDRA_TEST_DATABASE_URL`, runs `bun test ./tests-db` and tears down. Real-DB tests live in their own folder (`tests-db/`), so `bun test ./tests` stays free of any database and stays at its 0.4 s. `package.json` gets `"test:db"` for running the step alone.
+- **Wiring in tests:** each file calls a helper `useTestDatabase()` (in `tests-db/fixtures/`) that clones a database from the template, sets `process.env.DATABASE_URL` to it BEFORE `src/db` is first imported (the module throws at import when unset), and drops the clone in `afterAll`. Use a dynamic `await import("../src/notes/store")` after that call.
+- **Hard rule:** never point tests at the production database on pronix. `useTestDatabase()` and the runner refuse to continue unless the host is `127.0.0.1` or a unix socket and the database name ends in `_test` or starts with `t_`. The clone names therefore all start with `t_`. A test run must also fail loudly if `DATABASE_URL` from `.env` is already set to anything else: the helper overwrites it, never reads it.
+
+### Targets
+
+Reports are final (a stored report cannot be rewritten), note edits create the expected revision history, a question transitions only along valid statuses, and the daily Brave quota row increments atomically (the `lt(calls, 30)` upsert, here against real SQL instead of the rendered-SQL inspection in `tests/brave.test.ts`). Also what the mocks cannot show: constraints (`user_settings_content_language_code`, `contacts_identifier_email_like`, `brave_daily_usage_calls_range`) actually reject bad rows, and `ON CONFLICT` paths behave.
+
+### Open questions for the implementer
+
+- `drizzle-kit export` must keep working on the pinned `1.0.0-rc` version; if it breaks on an upgrade, the `db tests` step fails at the export, which is the right place to notice.
+- Whether CI or the deploy host has Postgres binaries is unknown; today only the dev machine runs `check`.
 
 ## Phase 5 - Context builder and dashboard server side
 
@@ -97,12 +125,12 @@ Targets once a database is available: reports are final (a stored report cannot 
 1. Phase 1 (one commit for the step, one for the script fix).
 2. Phase 2, one commit per ID, starting with 2.1 and 2.4 (cheapest, highest value).
 3. Phase 3, one commit per ID.
-4. Phase 4 only after the owner picks Option A or B.
+4. Phase 4 (Option A decided): first the harness (`scripts/lib/test-postgres.ts`, the `db tests` check step, `useTestDatabase()`, plus one smoke test proving a clone has all tables), as its own commit. Then one commit per store.
 5. Phase 5 last.
 
 ## Owner decisions
 
-- Phase 4: Option A (real test database) or Option B (pure extraction only)?
+- Phase 4: decided 2026-10-05, Option A (throwaway local Postgres inside `bun run check`).
 - 2.6: separate static guard, or fold it into the 2.5 test?
 - Whether `docs/` should get a short testing section (what runs in `check`, how to run the DB suite). `docs-committer` can add it when Phase 1 lands.
 
@@ -121,7 +149,7 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 ### Done
 
 - **Phase 1:** committed. `unit tests` step in `scripts/check.ts`, root `test` script is `bun test ./tests`, `docs/operations.md` updated.
-- **Phase 2, all six items written and passing (uncommitted):**
+- **Phase 2, all six items written and passing and committed:**
   - 2.1 `tests/long-term-context.test.ts` (`pickSections`, `loadLongTermContext` fallback past a patch document, legacy archive path).
   - 2.2 NOT done: the context-builder output verification in `context-builder/phases/synthesize.ts` is still untested (needs the verification predicate extracted into a pure function first, as its own commit).
   - 2.3 `tests/brave.test.ts` (30/day cap with a strict `<`, UTC rollover, every retry reserves, fail closed, 429 wait).
@@ -131,7 +159,7 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
   - Mutation-checked: each invariant test fails when its rule is broken locally.
 - **Shared db mock:** `tests/fixtures/db.ts` (`dbModule`) mirrors the full export surface of `src/db`; all `mock.module("../src/db")` calls use it. Fixes an order-dependent failure (`Export named 'existingMessageIds' not found`) that `lookup + rss` already had.
 
-### Bugs found and fixed on the way (uncommitted)
+### Bugs found and fixed on the way (committed)
 
 1. `src/skills/execute.ts`: the critical-skill rejection settled the audit row without a reason; it now goes through `reject()` like the other rejections.
 2. `dashboard/src/lib/offline/outbox.ts` `queue()`: the optimistic effect was applied before the intent was stored, so a snapshot pull landing in between overwrote it and `reapplyPending` could not re-assert it (a restored note snapped back into the trash). Now the intent is stored first. Regression test in `dashboard/tests/offline-outbox.test.ts`.
@@ -141,6 +169,5 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 ### Open
 
 - **Blackhole flake, not understood:** the step `/notes: restore a note from the trash` still fails in about 3 of 5 full runs on current main (the restored note stays in the trash view for more than 2.5 s, although its restore is delivered). It passed 7 of 7 on the older commit `0c05a18` with fix 2 applied, so something in the newer `report.read` work or its interplay is involved. Instrumented timings showed "restore tapped" in 1 s and then no "note gone". Next idea: log the mirror row and `data.notes` after the tap in the failing lane, and check `useReadReceipt` / `navBadges.refresh` / `flush` interplay with `invalidateMirror`.
-- **Commit:** nothing of the above is committed. Needs a passing full `bun run check` first (the user's rule: no test-work commit without a full check), then thematic commits: (1) `tests/fixtures/db.ts` + the six re-pointed test files, (2) Phase 2 tests + `check-openai-rules.ts` + the `check.ts` step + the `execute.ts` fix, (3) outbox ordering fix + test, (4) `intents.ts` atomic update + test, (5) blackhole harness. Do not stage other sessions' files (`ReadProgress.svelte` was theirs).
-- **Cleanup:** two temporary worktrees exist under the scratchpad (`wt`, `wt2`); remove with `git worktree remove --force <path>` and `git worktree prune`.
-- **Then:** Phase 2.2, Phase 3 (3.1 to 3.7), Phase 4 (needs the owner's decision: real test database or pure-function extraction), Phase 5.
+- **Commits:** everything above is committed and the temporary worktrees are gone. The standing rule stays: no test-work commit without a passing full `bun run check`. Do not stage other sessions' files.
+- **Then:** Phase 2.2, Phase 3 (3.1 to 3.7), Phase 4 (Option A decided, harness first), Phase 5.

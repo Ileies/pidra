@@ -37,11 +37,11 @@ Output is kept short to save tokens: each step is buffered and a passing one pri
 
 `DATABASE_URL` points at `192.168.10.85`, reachable on the LAN only. From outside, tunnel first with `ssh -N -L 15432:127.0.0.1:5432 ros` and point `DATABASE_URL` at `127.0.0.1:15432`.
 
-`drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw. `migrations/` uses the drizzle-kit 1.0 layout, one folder per migration (`migrations/<timestamp>_<name>/migration.sql` plus `snapshot.json`); drizzle-kit 1.0 refuses the old flat `*.sql` + `meta/` layout. The ORM uses RQB v2: `src/db/relations.ts` exports a single `defineRelations(schema, ...)` result that `drizzle()` takes as `relations`.
+`drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw. `migrations/` holds two generations: `0000`-`0007` were converted to the drizzle-kit 1.0 layout (`migrations/<timestamp>_<name>/migration.sql` plus `snapshot.json`), and `0008` onwards are hand-written flat `NNNN_name.sql` files that drizzle-kit does not track. Number new ones after the highest `NNNN`. The ORM uses RQB v2: `src/db/relations.ts` exports a single `defineRelations(schema, ...)` result that `drizzle()` takes as `relations`.
 
-**Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap. Migration `0041_enabled_skills.sql` (the `enabled_skills` table) is the current case: `listEffectiveSkills` reads it on every chat turn, so apply it first.
+**Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap.
 
-Migration `0042_drop_questions_blocks_until.sql` (drops the unused `questions.blocks_until` column) is pending a manual apply by the owner. **Deploy the code first, then apply 0042**, the reverse of the additive rule above. No code reads or writes the column any more, but Drizzle's `db.select().from(questions)` and `.returning()` list every schema column by name, so the code already running on pronix still selects `blocks_until` and its question queries fail as soon as the column is gone.
+**Destructive migrations run the other way: deploy the code first, then drop.** Even when no code reads a column any more, Drizzle's `db.select().from(table)` and `.returning()` list every schema column by name, so the code already running on pronix still selects it and its queries fail as soon as the column is gone.
 
 ## Cron schedule (all `Europe/Berlin`)
 

@@ -13,8 +13,8 @@ export default defineConfig({
     sveltekit({
       adapter: adapter(),
       env: { dir: ".." },
-      // Registered by hand in app.html, not auto-registered: the /sw.js migration needs to
-      // unregister the old worker's registration before the new one takes over.
+      // Registered by hand in app.html, not auto-registered: the inline script costs no extra
+      // round trip, and its CSP hash is pinned in hooks.server.ts.
       serviceWorker: { register: false },
       // Root-relative asset paths, because the service worker serves one cached shell for every
       // mirrored path. With the default relative paths, a shell

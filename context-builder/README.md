@@ -7,7 +7,7 @@ It runs by hand for a full harvest, and by itself in update mode on the 1st of e
 ## Prerequisites
 
 - `OPENAI_API_KEY` in `.env`. `OPENAI_MODEL_EXTRACTION` and `OPENAI_MODEL_SYNTHESIS` select the models (default `gpt-6-luna`).
-- Database migrated (`migrations/`); the harvest tables are `context_builder_runs` and `context_builder_indexed_items`.
+- Harvest tables exist in the database (defined in `src/db/schema/`): `context_builder_runs` and `context_builder_indexed_items`.
 - Google OAuth credentials in `.env`, shared with the main pipeline.
 - `GITHUB_TOKEN` in `.env` (PAT with `repo` scope). Falls back to `gh auth token`; without either, GitHub contributes nothing.
 - `GKEEPAPI_MASTER_TOKEN` in `.env` (see below).

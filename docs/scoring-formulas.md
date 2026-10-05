@@ -33,7 +33,7 @@ Entities move through three stages, with the first running at the end of each pi
 - **Archived:** a dormant entity not mentioned for 60 days, unless `importance = high`.
 - **Deleted:** an archived entity absent for 180 days with `mention_count <= 2`. `entity_mentions` cascades on delete via FK.
 
-There is no relation graph (`entity_relations` was dropped in migration 0029: zero confirmed edges, zero evidence, never read by synthesis), so pruning only deals with the `entities` row itself.
+There is no relation graph (`entity_relations` was dropped: zero confirmed edges, zero evidence, never read by synthesis), so pruning only deals with the `entities` row itself.
 
 ## Topic lifecycle (`src/pipeline/topic-lifecycle.ts`)
 

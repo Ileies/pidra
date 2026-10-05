@@ -1,6 +1,6 @@
 # Newsletter sources
 
-The 32 newsletters curated for the daily pipeline, with the tier and rationale behind each pick. This is the curation record, not the live configuration: the live sender rules and RSS feeds are rows in `newsletter_sender_rules` and `rss_feeds`, edited at `/settings/newsletters` and loaded by `src/config/newsletter-sources.ts` and `src/config/rss-feeds.ts`. Migration `0027_newsletter_sources.sql` seeded them. The list was cut from 50 candidates; the 18 removed were redundant, in a format that parses badly, or low in signal per token.
+The 32 newsletters curated for the daily pipeline, with the tier and rationale behind each pick. This is the curation record, not the live configuration: the live sender rules and RSS feeds are rows in `newsletter_sender_rules` and `rss_feeds`, edited at `/settings/newsletters` and loaded by `src/config/newsletter-sources.ts` and `src/config/rss-feeds.ts`. They were seeded from this list. The list was cut from 50 candidates; the 18 removed were redundant, in a format that parses badly, or low in signal per token.
 
 Tiers: **S** essential daily reads, **A** high value, **B** niche but earns its place, **C** narrow but frontier-relevant.
 

@@ -22,7 +22,7 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/dashboard.md` - every route, what it does, and the UI conventions (page widths, formatting helpers, dark/light palette, phone-first testing)
 - `docs/offline-mode.md` - the mirror/outbox/service-worker architecture and the blackhole test suite
 - `docs/skills.md` - risk levels, the current skill registry, and how `executeSkill()` gates calls
-- `docs/operations.md` - deployment, DB access and manual migrations, the cron schedule, concurrency model, synthesis output parsing, and the retry/error-handling model
+- `docs/operations.md` - deployment, DB access and schema changes, the cron schedule, concurrency model, synthesis output parsing, and the retry/error-handling model
 - `docs/schema-notes.md` - shared configs (email accounts, RSS feeds, DB connection) and the key schema tables, with the `src/db/schema/` directory as the source of truth
 - `docs/prompt-tuning-context.md` - intelligence priorities, report format rules, newsletter processing tiers. Read before touching extraction/synthesis prompts
 - `docs/newsletter-sources.md` - all 32 newsletters with tier and selection rationale

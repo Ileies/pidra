@@ -45,7 +45,7 @@ Both Context Builder synthesis prompts share one `DOCUMENT_STRUCTURE` constant. 
 
 The harvested document, entities and contacts are read-only inputs to the daily pipeline; corrections go through `src/context/corrections.ts`. Standing rules are the exception: they are ordinary notes, a separate mutable layer (`docs/architecture-rules.md`). Seeding rules:
 
-- Contact seeds key on email address and preserve locked corrections. Corpus categories, action-required counts and email counts are set only on insert; migration `0025_contacts_corpus_metrics.sql` backfilled the first two for existing contacts.
+- Contact seeds key on email address and preserve locked corrections. Corpus categories, action-required counts and email counts are set only on insert; the first two were backfilled once for existing contacts.
 - Entity seeds preserve the daily pipeline's running mention counts.
 - Standing rules from Keep seed `personal` notes through `seedRuleNotes` and `seedHarvestedNotes` (`src/notes/store.ts`), keyed by `notes.source_key = keep_rule_<note_id>`. An existing key is never overwritten or resurrected (a trashed or edited rule stays as it is); only an untouched live note follows a changed Keep note.
 

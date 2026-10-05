@@ -1,1 +1,0 @@
-ALTER TABLE "entity_relations" ADD CONSTRAINT "entity_relations_from_to_type" UNIQUE("from_id","to_id","relation_type");

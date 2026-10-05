@@ -33,15 +33,15 @@ Output is kept short to save tokens: each step is buffered and a passing one pri
 
 `bun run check --quick` (`-q`, or `bun run check:quick` in either `package.json`) skips only that suite. Use it while iterating on a change that cannot touch routing, offline behavior or rendering. The `commit` skill and a plain `bun run deploy` both require the full run.
 
-## DB access and migrations
+## DB access and schema changes
 
 `DATABASE_URL` points at `192.168.10.85`, reachable on the LAN only. From outside, tunnel first with `ssh -N -L 15432:127.0.0.1:5432 ros` and point `DATABASE_URL` at `127.0.0.1:15432`.
 
-`drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw. `migrations/` holds two generations: `0000`-`0007` were converted to the drizzle-kit 1.0 layout (`migrations/<timestamp>_<name>/migration.sql` plus `snapshot.json`), and `0008` onwards are hand-written flat `NNNN_name.sql` files that drizzle-kit does not track. Number new ones after the highest `NNNN`. The ORM uses RQB v2: `src/db/relations.ts` exports a single `defineRelations(schema, ...)` result that `drizzle()` takes as `relations`.
+There is no `migrations/` directory: the owner has one database and every past change is already applied to it. The Drizzle schema under `src/db/schema/` is the source of truth. `drizzle-kit migrate` hangs in this environment, so **apply schema changes raw** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. The ORM uses RQB v2: `src/db/relations.ts` exports a single `defineRelations(schema, ...)` result that `drizzle()` takes as `relations`.
 
-**Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap.
+**Apply a schema change before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap.
 
-**Destructive migrations run the other way: deploy the code first, then drop.** Even when no code reads a column any more, Drizzle's `db.select().from(table)` and `.returning()` list every schema column by name, so the code already running on pronix still selects it and its queries fail as soon as the column is gone.
+**Destructive changes run the other way: deploy the code first, then drop.** Even when no code reads a column any more, Drizzle's `db.select().from(table)` and `.returning()` list every schema column by name, so the code already running on pronix still selects it and its queries fail as soon as the column is gone.
 
 ## Cron schedule (all `Europe/Berlin`)
 
@@ -67,7 +67,7 @@ Each is a `pidra-<job>` systemd timer on pronix, defined in `hosts/pronix/pidra.
 
 ## Spoken report
 
-The report page's Play button speaks a chapter on its first request and caches it in `report_audio` (migration `0040_report_audio.sql`, applied raw like every migration; apply it before deploying the code that reads it). Optional env: `OPENAI_MODEL_TTS` (default `gpt-4o-mini-tts`) and `OPENAI_TTS_VOICE` (default `cedar`). Changing the model or voice speaks the day again, since the cache key includes `model:voice`. A long chapter's text chunks are spoken 3 at a time (`SPEAK_CONCURRENCY`) to cut first-play latency.
+The report page's Play button speaks a chapter on its first request and caches it in `report_audio` (table already applied). Optional env: `OPENAI_MODEL_TTS` (default `gpt-4o-mini-tts`) and `OPENAI_TTS_VOICE` (default `cedar`). Changing the model or voice speaks the day again, since the cache key includes `model:voice`. A long chapter's text chunks are spoken 3 at a time (`SPEAK_CONCURRENCY`) to cut first-play latency.
 
 - **Cost**, measured for 2026-10-02: the spoken text is 1,611 tokens, 7,777 characters and about 9 minutes of audio (the raw markdown is 4,405 tokens, mostly refs UUIDs). A fully played report costs about $0.001 in input and $0.13 in audio output (`gpt-4o-mini-tts`, about $0.015 per minute), and each chapter is paid once.
 - **Size:** the output is MPEG-2 Layer 3, 128 kbit/s CBR, 24 kHz, about 14 characters of text per second of speech, so about 9.6 MB per fully cached report in Postgres. Rows older than 30 days are deleted whenever a chapter is generated, except the day just spoken. There is no job for it.

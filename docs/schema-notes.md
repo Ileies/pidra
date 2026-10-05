@@ -37,7 +37,7 @@ Each table has one writer module; don't add a second writer. Tables described be
 - `active_topics`: running story summaries, giving continuity across days.
 - `brave_daily_usage`: atomic shared count of actual Brave API attempts per UTC day, capped at 30.
 - `report_actions`: the quick actions a report offers, with state `proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code that threw a proposal out.
-- `report_audio`: the spoken report, one MP3 (`audio`, bytea) per chapter, primary key (`report_date`, `chapter_key`, `variant`). `chapter_key` hashes the chapter's spoken text; `variant` is `model:voice`, so changing either speaks again instead of serving stale audio. Also `duration_ms` (exact, from the MP3 frames) and `chars`. Written only by `src/audio/store.ts`, never touches `daily_reports`; migration `0040_report_audio.sql`. About 9.6 MB per fully cached report; rows older than 30 days are dropped when a chapter is generated, the day just spoken excepted.
+- `report_audio`: the spoken report, one MP3 (`audio`, bytea) per chapter, primary key (`report_date`, `chapter_key`, `variant`). `chapter_key` hashes the chapter's spoken text; `variant` is `model:voice`, so changing either speaks again instead of serving stale audio. Also `duration_ms` (exact, from the MP3 frames) and `chars`. Written only by `src/audio/store.ts`, never touches `daily_reports`. About 9.6 MB per fully cached report; rows older than 30 days are dropped when a chapter is generated, the day just spoken excepted.
 
 ## Questions
 
@@ -55,7 +55,7 @@ Each table has one writer module; don't add a second writer. Tables described be
 
 ## Context and corrections
 
-- `standing_context`: gone, dropped by migration `0039_drop_standing_context.sql`. Its rows were copied into `notes` by `0038_notes_absorb_standing_context.sql`. Older `context_corrections` rows may still carry `target_kind = 'standing_context'`.
+- `standing_context`: gone, dropped after its rows were copied into `notes`. Older `context_corrections` rows may still carry `target_kind = 'standing_context'`.
 - `context_builder_runs` / `context_builder_indexed_items`: Context Builder run history (including the harvested document itself, on `document`) and per-item index state used for delta detection on re-runs.
 - `context_corrections`: append-only correction layer over the harvested context; injected into both synthesis prompts and authoritative over them.
 - `notes`: user and system notes, scoped `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`, optional `expires_at` (live through that day; readers skip expired notes). `created_by`/`updated_by` can be `harvest`. `source_key` (unique where set) is the identity of a note the Context Builder seeded from Keep (`keep_rule_<note id>`); such a row is never purged from the trash, so a deleted rule is not seeded back.

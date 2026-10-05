@@ -17,7 +17,7 @@
   import IngestWarning from "#lib/report/IngestWarning.svelte";
   import TriageCard from "#lib/report/TriageCard.svelte";
   import { fmtDate } from "#lib/format.js";
-  import type { Outcome } from "#lib/server/triage.js";
+  import type { Outcome } from "#lib/triage/types.js";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

@@ -6,7 +6,8 @@
    * Offline, a page that needs the connection stays tappable (it opens OfflineNotice in the same
    * frame) but says so, and no longer preloads on hover or touch.
    */
-  import { needsConnection, type RouteDef } from "#lib/routes.js";
+  import { needsConnection } from "#lib/offline/onlineOnly.js";
+  import type { RouteDef } from "#lib/routes.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { navBadges } from "#lib/navBadges.svelte.js";
   import CountBadge from "#lib/components/CountBadge.svelte";

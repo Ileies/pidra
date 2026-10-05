@@ -1,7 +1,7 @@
 import type { Handle } from "@sveltejs/kit/hooks";
 import { building, dev } from "$app/env";
 import { installShutdownHandlers } from "#lib/server/shutdown.js";
-import { MIRRORED_ROUTES } from "#lib/routes.js";
+import { MIRRORED_ROUTES } from "#lib/offline/tiers.js";
 import { SESSION_COOKIE, validateSession } from "#lib/server/auth.js";
 
 // SvelteKit imports this module once, when the server starts, which is the only place in the

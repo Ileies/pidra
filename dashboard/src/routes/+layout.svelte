@@ -16,7 +16,7 @@
   import { navBadges } from "#lib/navBadges.svelte.js";
   import { navigating } from "$app/state";
   import { beforeNavigate } from "$app/navigation";
-  import { MIRRORED_ROUTES } from "#lib/routes.js";
+  import { MIRRORED_ROUTES } from "#lib/offline/tiers.js";
   import { navOrigin } from "#lib/navOrigin.svelte.js";
   import { startClient } from "#lib/startClient.js";
 

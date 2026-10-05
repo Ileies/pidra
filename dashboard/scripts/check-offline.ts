@@ -8,7 +8,7 @@
  *    else in code that runs in the browser is a request that can hang for the OS connect timeout
  *    in the blackhole case, which is how the Questions tap of 2026-09-25 spun for minutes.
  * 2. **Every page is in exactly one offline tier** (`MIRRORED_ROUTES`,
- *    `STATIC_OFFLINE_ROUTES`, or `ONLINE_ONLY` in `src/lib/routes.ts`). A mirrored page has
+ *    `STATIC_OFFLINE_ROUTES` in `src/lib/offline/tiers.ts`, or `ONLINE_ONLY` in `src/lib/offline/onlineOnly.ts`). A mirrored page has
  *    `ssr = false` and a load that never waits on the network; a static offline page is
  *    prerendered into the service worker precache.
  *
@@ -17,7 +17,8 @@
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { MIRRORED_ROUTES, STATIC_OFFLINE_ROUTES, ONLINE_ONLY } from "../src/lib/routes.ts";
+import { MIRRORED_ROUTES, STATIC_OFFLINE_ROUTES } from "../src/lib/offline/tiers.ts";
+import { ONLINE_ONLY } from "../src/lib/offline/onlineOnly.ts";
 
 const ROOT = join(import.meta.dir, "..", "src");
 const ROUTES_DIR = join(ROOT, "routes");
@@ -46,6 +47,7 @@ const SERVER_ONLY = [
   /^hooks\.server\.ts$/,
   // The worker has its own budgets and never runs `net.ts`: it is a separate global scope.
   /^service-worker\.ts$/,
+  /^sw\//,
 ];
 const ALLOWED = new Set(["lib/offline/net.ts"]);
 const BARE_FETCH = /(^|[^\w$.])fetch\s*\(|\b(window|globalThis|self)\.fetch\s*\(/;
@@ -77,7 +79,7 @@ for (const dir of [...new Set(pageDirs)].sort()) {
   const onlineOnly = id in ONLINE_ONLY;
 
   if (Number(mirrored) + Number(staticOffline) + Number(onlineOnly) !== 1) {
-    errors.push(`${id}: must be in exactly one offline tier (src/lib/routes.ts)`);
+    errors.push(`${id}: must be in exactly one offline tier (src/lib/offline/tiers.ts, onlineOnly.ts)`);
   }
   if (staticOffline) {
     const universal = join(dir, "+page.ts");
@@ -110,7 +112,7 @@ for (const dir of [...new Set(pageDirs)].sort()) {
 for (const id of [...MIRRORED_ROUTES, ...STATIC_OFFLINE_ROUTES, ...Object.keys(ONLINE_ONLY)]) {
   const dir = id === "/" ? ROUTES_DIR : join(ROUTES_DIR, ...id.slice(1).split("/"));
   if (!existsSync(join(dir, "+page.svelte")) && !existsSync(join(dir, "+page.ts"))) {
-    errors.push(`${id}: listed in src/lib/routes.ts but no such page exists`);
+    errors.push(`${id}: listed in src/lib/offline/tiers.ts or onlineOnly.ts but no such page exists`);
   }
 }
 

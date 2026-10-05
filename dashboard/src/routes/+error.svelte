@@ -16,7 +16,8 @@
   import Page from "#lib/components/Page.svelte";
   import OfflineNotice from "#lib/components/OfflineNotice.svelte";
   import { offline } from "#lib/offline/state.svelte.js";
-  import { onlineOnlyFor, routeFor } from "#lib/routes.js";
+  import { routeFor } from "#lib/routes.js";
+  import { onlineOnlyFor } from "#lib/offline/onlineOnly.js";
 
   const isOffline = $derived(page.error?.offline === true);
   const notice = $derived(

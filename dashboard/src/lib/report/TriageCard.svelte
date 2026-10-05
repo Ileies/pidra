@@ -11,7 +11,7 @@
   import Card from "#lib/components/Card.svelte";
   import { fmtDateTimeShort, fmtScore } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
-  import type { Outcome, TriageExtraction, TriageItem } from "#lib/server/triage.js";
+  import type { Outcome, TriageExtraction, TriageItem } from "#lib/triage/types.js";
 
   interface Props {
     item: TriageItem;

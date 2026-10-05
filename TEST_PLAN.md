@@ -1,6 +1,6 @@
 # TEST_PLAN - closing the test gap
 
-Status (2026-10-05): Phases 1 and 2 committed, Phase 4 (harness and the four stores) committed, Phases 3 and 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
+Status (2026-10-06): Phases 1 and 2 committed, Phase 4 (harness and the four stores) committed, Phase 3 partly done (3.1, 3.2, 3.3, the SYSTEM-block half of 3.4 and 3.7 committed; 3.5, 3.6 and the Phase 5 half of 3.4 open), Phase 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
 
 Source: a coverage audit on 2026-10-05. Counts below were measured then: `bun test ./tests` runs 213 tests in 22 files, all passing.
 
@@ -155,13 +155,15 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 3. `dashboard/src/lib/offline/intents.ts`: `report.read` apply and `patchReportsRating` did get-then-put of the whole report row, so a rating and a read receipt could overwrite each other. Both use `db.update` now. Regression test in `dashboard/tests/offline-intents.test.ts`.
 4. Blackhole harness (`dashboard/scripts/blackhole/proxy.ts`, `verify.ts`, `steps.ts`, `lane.ts`): the new `report.read` write was unknown to the harness (forwarded to a database-less server, so the lane never reached "Synced" and crashed). One shared exported `WRITE` regex now covers it, `EXPECTED_WRITES` lists the two receipts, and the first-launch step scrolls to the end of today's report and waits for its receipt so it no longer depends on timing.
 5. `dashboard/src/routes/notes` and `entities` `+page.svelte`: the pages read `page.url`, but a written filter lives in `page.shallow.url`, so a mirror reload (which hands `page.url` over again) read as an external navigation and reset the filter. This was the `/notes: restore a note from the trash` flake (3 of 5 full runs). Now `shownUrl()` reads `page.shallow?.url ?? page.url`. Pinned by `dashboard/scripts/blackhole/race.ts`, which forces the race in about 7 s and is part of the blackhole suite.
+6. `src/util/time.ts`: `isLocalDate("2026-02-31")` was true (JavaScriptCore rolls it to March 3) and `zonedToIso` accepted `02-30` or `25:00` the same way, so a model-proposed quick action could be offered for the wrong day. Both now require a round trip. Tests in `tests/time.test.ts`.
+7. `src/pipeline/phase6/system-block.ts`: claimed invalid SYSTEM-block entries were skipped but a new topic without headline/domain, a new entity without a name, or a non-list field aborted the block (and Section 2 after it); a JSON block that was not an object was accepted. Now every list goes through `records()` and bad entries are skipped. Tests in `tests-db/system-block.test.ts`.
 
 ### Open
 
 - **Blackhole under load:** with the machine busy (load average above 8) a `navigate while believed online` step can miss its 4000 ms budget by a few ms. Not a code defect; rerun when the machine is quiet.
 - **Commits:** everything above is committed and the temporary worktrees are gone. The standing rule stays: no test-work commit without a passing full `bun run check`. Do not stage other sessions' files.
 - **Then, in this order:**
-  1. Phase 3 (3.1 to 3.7): `actions/propose/matching.ts` and `check.ts`, `questions/reconcile.ts`, phase 4/5 parsing, `news/research.ts` + `run.ts`, `ingest/google.ts` + `imap.ts`, `ai/surfaces.ts`.
+  1. Phase 3, what is left: 3.5 `news/research.ts` + `run.ts` (desk assembly, discard/failure reporting), 3.6 `ingest/google.ts` + `imap.ts` (reuse `tests/fixtures/googleapis.ts`; extend it with a tasks client), and the Phase 5 half of 3.4 (`phase5-synthesis.ts` payload builders, `phase4-questiongate.ts` candidate selection). Done: 3.1 `tests/actions-matching.test.ts`, 3.2 `tests/actions-check.test.ts`, 3.3 `tests/question-plan.test.ts` (the pure logic was split into `src/questions/plan.ts`) plus `tests-db/reconcile-queue.test.ts`, 3.4 SYSTEM block, 3.7 `tests/surfaces.test.ts`. Lesson: partial `mock.module` mocks of `ai/openai` and `ai/active-prompts` in one root test leak into later files that import the real ones, so a module that imports them is easiest to test by splitting its pure logic out.
   2. Phase 4 leftovers worth a `tests-db` file: schema constraints rejecting bad rows (`user_settings_content_language_code`, `contacts_identifier_email_like`), the Brave quota upsert (`lt(calls, 30)`) against real SQL, `apply-plan.ts` (the pipeline's guarded `status = 'open'` writes), and `context-builder/output/db-writer.ts` idempotence (Phase 5.1).
   3. Phase 5: context-builder tests and the dashboard server-route tests (69 files).
   Each store test file can reuse the pattern in `tests-db/*-store.test.ts`: `useTestDatabase()` first, dynamic imports after, `truncate` in `beforeEach`, `mock.module` only for the model, network and skill gate.

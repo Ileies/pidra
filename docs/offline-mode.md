@@ -39,7 +39,7 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 **One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`, `report.read`; `intents.ts`), never into the mirror directly.
 
-- An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*`, `/api/feedback` and `/api/notifications/report-read/[date]`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`).
+- An intent is stored in the outbox first, then applied to the mirror optimistically (a snapshot pull landing in between re-asserts queued intents, so the write cannot be undone), and flushed in order to `/api/notes/*`, `/api/feedback` and `/api/notifications/report-read/[date]`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`). A read stamp and a rating patch the mirror's report row with `db.update`, one transaction per row, so two intents on the same report cannot overwrite each other.
 - Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rating that replaces the previous one, a read stamp that keeps the earliest time (the mirror is stamped once, so the Read chip celebrates only on the transition to read).
 - A transport failure retries; a 4xx moves the intent to `failed`, shown on the row it belongs to (`FailedWrite`).
 - A queued note edit whose row moved on the server still lands and is flagged, since `note_revisions` keeps both versions.
@@ -83,7 +83,7 @@ Budgets include reading the body.
 - the queue survives a reopen;
 - each queued write lands exactly once and in order after reconnecting.
 
-A new page needs its path and expected text in `helpers.ts`; a new control needs an entry in `CONTROLS` (and a queued write in `EXPECTED_WRITES`) in `steps.ts`.
+A new page needs its path and expected text in `helpers.ts`; a new control needs an entry in `CONTROLS` (and a queued write in `EXPECTED_WRITES`) in `steps.ts`. `EXPECTED_WRITES` includes the `report.read` receipts of today's and yesterday's report: the proxy recognises the endpoint through the `WRITE` regex exported from `proxy.ts` (`verify.ts` imports it), and the first-launch step scrolls to the end of today's report online and waits for its receipt.
 
 **Module layout:** `run.ts` is only the runner. `helpers.ts` holds paths, expected text, timing rules and page helpers (including `tap(locator, deadline, opts)`, the one way to click within a lane's deadline); `steps.ts` the per-route `CONTROLS` and `EXPECTED_WRITES`; `links.ts` `checkInternalLinks`; `verify.ts` `checkBudgets` and `checkDelivered`; `lane.ts` the lane table and `runLane`; `server.ts` the build, `startServer` and `chromePath`.
 

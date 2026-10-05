@@ -25,7 +25,11 @@ It refuses rather than improvises: an uncommitted tree (unless `--force`), commi
 
 ## The check
 
-`bun run check` runs the root checks (`tsc`, `check-skill-writes.ts`, `check-route-surfaces.ts`, `check-file-size.ts` as the `file-size` step, and the root tests as the `unit tests` step) and the dashboard's check concurrently. Both `scripts/check.ts` and `dashboard/scripts/check.ts` share one runner, `scripts/lib/check-runner.ts` (buffering, `--quick`/`--verbose` parsing, warning detection).
+`bun run check` runs the root checks (`tsc`, `check-skill-writes.ts`, `check-route-surfaces.ts`, `check-openai-rules.ts` as the `openai-rules` step, `check-file-size.ts` as the `file-size` step, and the root tests as the `unit tests` step) and the dashboard's check concurrently. Both `scripts/check.ts` and `dashboard/scripts/check.ts` share one runner, `scripts/lib/check-runner.ts` (buffering, `--quick`/`--verbose` parsing, warning detection).
+
+The `openai-rules` step is a static guard for the OpenAI API rules in `CLAUDE.md`. It fails when anything outside `src/ai/openai.ts` constructs an OpenAI client, imports the `openai` package at runtime or calls the Responses, Chat or audio endpoints directly; when OpenAI's hosted `web_search` tool appears anywhere; when `openai.ts` sends `temperature`, `max_tokens` or `max_completion_tokens`; or when `store: false` or `service_tier: "flex"` disappears from `openai.ts`.
+
+Root tests that mock `src/db` use `dbModule` from `tests/fixtures/db.ts`: Bun fixes a module's export names at its first `mock.module`, so every mock of `src/db` must offer all its exports.
 
 The `file-size` step fails a tracked `.ts` file over 350 lines or a `.svelte` file over 250. The `EXCEPTIONS` table in `scripts/check-file-size.ts` gives a justified file its own ceiling at its current size (the blackhole `fixture.ts`, `src/notes/store.ts`, `runTrace.ts`, and the `[date]` and `runs/[id]` pages); it also fails when an excepted file no longer exists. Lower or delete an entry when the file shrinks, and prefer splitting a file to adding one. The dashboard side ends with the offline blackhole suite, which dominates wall time (~65-70 s against well under 4 s for everything else).
 

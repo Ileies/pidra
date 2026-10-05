@@ -5,8 +5,8 @@ import type { CheckpointState } from "./checkpoint";
 
 let intervalId: Timer | null = null;
 let currentState: CheckpointState | null = null;
-let sonnetTokensIn = 0;
-let sonnetTokensOut = 0;
+let tokensInTotal = 0;
+let tokensOutTotal = 0;
 let startTime = Date.now();
 
 /**
@@ -48,12 +48,12 @@ export function resumeProgress(state: CheckpointState): void {
 }
 
 export function addSonnetTokens(tokIn: number, tokOut: number): void {
-  sonnetTokensIn += tokIn;
-  sonnetTokensOut += tokOut;
+  tokensInTotal += tokIn;
+  tokensOutTotal += tokOut;
 }
 
-export function getSonnetTokens(): { tokensIn: number; tokensOut: number } {
-  return { tokensIn: sonnetTokensIn, tokensOut: sonnetTokensOut };
+export function getTokens(): { tokensIn: number; tokensOut: number } {
+  return { tokensIn: tokensInTotal, tokensOut: tokensOutTotal };
 }
 
 export function stopProgress(): void {
@@ -99,7 +99,7 @@ function costEstimate(): string | null {
   const rateIn = Number(process.env.AI_COST_PER_MTOK_IN ?? process.env.PUBLIC_MODEL_PRICE_IN_PER_MTOK);
   const rateOut = Number(process.env.AI_COST_PER_MTOK_OUT ?? process.env.PUBLIC_MODEL_PRICE_OUT_PER_MTOK);
   if (!Number.isFinite(rateIn) || !Number.isFinite(rateOut)) return null;
-  return ((sonnetTokensIn / 1_000_000) * rateIn + (sonnetTokensOut / 1_000_000) * rateOut).toFixed(3);
+  return ((tokensInTotal / 1_000_000) * rateIn + (tokensOutTotal / 1_000_000) * rateOut).toFixed(3);
 }
 
 function elapsedStr(): string {
@@ -132,7 +132,7 @@ function renderLine(): void {
       phase("github", p.github),
       `synthesis ${p.synthesis.done ? "done" : "-"}`,
       `db-seed ${p.dbSeed.done ? "done" : "-"}`,
-    ].join("  ")}  |  ${sonnetTokensIn} in / ${sonnetTokensOut} out` +
+    ].join("  ")}  |  ${tokensInTotal} in / ${tokensOutTotal} out` +
     (cost === null ? "" : ` (~$${cost})`);
 
   if (line === lastLine) return;
@@ -181,6 +181,6 @@ function renderScreen(): void {
   process.stdout.write(`  ${seedColor}DB Seed     \x1B[0m ${p.dbSeed.done ? "done" : "…"}\n`);
 
   const costStr = costEst === null ? "cost unset" : `~$${costEst}`;
-  process.stdout.write(`\n  OpenAI: ${sonnetTokensIn.toLocaleString()} in / ${sonnetTokensOut.toLocaleString()} out (${costStr})\n`);
+  process.stdout.write(`\n  OpenAI: ${tokensInTotal.toLocaleString()} in / ${tokensOutTotal.toLocaleString()} out (${costStr})\n`);
   process.stdout.write("\x1B[?25h"); // show cursor momentarily for render
 }

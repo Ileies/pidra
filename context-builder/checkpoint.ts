@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 export interface CheckpointState {
   runId: string;
-  mode: "full" | "update" | "resume";
+  mode: "full" | "update";
   startedAt: string;
   phases: {
     email: { total: number; processed: number; skipped: number; done: boolean };
@@ -32,7 +32,7 @@ export async function clearCheckpoint(): Promise<void> {
   } catch {}
 }
 
-export function makeInitialCheckpoint(runId: string, mode: "full" | "update" | "resume"): CheckpointState {
+export function makeInitialCheckpoint(runId: string, mode: "full" | "update"): CheckpointState {
   return {
     runId,
     mode,

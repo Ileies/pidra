@@ -6,7 +6,7 @@ import { utcDay } from "../src/util/time";
 import { loadConfig } from "./config";
 import { saveCheckpoint, makeInitialCheckpoint } from "./checkpoint";
 import { loadErrors, getErrors } from "./errors";
-import { startProgress, updateProgress, pauseProgress, resumeProgress, getSonnetTokens } from "./progress";
+import { startProgress, pauseProgress, resumeProgress, getTokens } from "./progress";
 import { startMemoryWatchdog, setWatchdogRunId, setWatchdogState } from "./watchdog";
 import { printInventory } from "./inventory";
 import {
@@ -119,7 +119,7 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   // Snapshot to .checkpoint.json every 2s for external progress readers. Write-only: resume
   // state comes from the DB row, never from this file.
   const checkpointFlush = dryRun ? null : setInterval(() => {
-    const tokens = getSonnetTokens();
+    const tokens = getTokens();
     state.openaiTokensIn = tokens.tokensIn;
     state.openaiTokensOut = tokens.tokensOut;
     void saveCheckpoint(state);

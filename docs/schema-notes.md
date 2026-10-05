@@ -32,7 +32,7 @@ Each table has one writer module; don't add a second writer. Tables described be
 - `extractions`: the extraction stage's structured output per item, with effective relevance, the Phase 3 gate verdict (`gate_passed`, `gate_reason`, `gate_detail`) and the Section 1 handoff (`synthesis_handoff`, `synthesis_order`). A news story carries its checks in `extracted_json.validation`.
 - `ingest_drops`: mail the IMAP ingest discarded before it became a `raw_items` row, with the rule that discarded it.
 - `daily_reports`: one row per report date: the markdown (`full_report`, the source of truth), its parsed form (`report_json`, nullable by design), summary, counts and token/search figures.
-- `pipeline_runs`: one row per run (`running | completed | failed`), with `failed_step` and `step_errors` (JSONB array of `StepAttemptError`).
+- `pipeline_runs`: one row per run (`running | completed | failed`), with `failed_step` and `step_errors` (JSONB array of `StepAttemptError`). `audio_cost_usd` (double, default 0) is the estimated cost of speaking that date's report, kept apart from the run cost.
 - `pipeline_run_steps`: span tree per run (`parent_id`, `step`, `attempt`, timing, own tokens, AI calls, searches, flex retries, `detail` JSONB), written by `src/util/trace.ts`. Absent for runs before 2026-10-01; deleted with the run.
 - `active_topics`: running story summaries, giving continuity across days.
 - `brave_daily_usage`: atomic shared count of actual Brave API attempts per UTC day, capped at 30.

@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * One registry entry as a link, in the four shapes the app shows it in: a header icon, a tile in
-   * the desktop More menu, a bottom-bar tab and a row in the mobile More sheet. The badge, the
-   * offline "needs the connection" state and the preload switch are the same in all four.
+   * One registry entry as a link, in the three shapes the app shows it in: a header icon, a tile in
+   * the desktop More menu and the mobile More sheet, and a bottom-bar tab. The badge, the
+   * offline "needs the connection" state and the preload switch are the same in all three.
    * Offline, a page that needs the connection stays tappable (it opens OfflineNotice in the same
    * frame) but says so, and no longer preloads on hover or touch.
    */
@@ -15,7 +15,7 @@
   interface Props {
     entry: RouteDef;
     current: boolean;
-    variant: "icon" | "tile" | "tab" | "row";
+    variant: "icon" | "tile" | "tab";
     onclick?: () => void;
   }
 
@@ -47,14 +47,6 @@
       unavailable: "text-surface-400",
       idle: "text-surface-400",
       svg: "h-5 w-5",
-      stroke: 1.6,
-    },
-    row: {
-      base: "tap flex items-center gap-3 rounded-lg border px-4 py-3 no-underline text-sm transition-colors",
-      current: "border-primary-800 bg-primary-950 text-primary-300",
-      unavailable: "border-dashed border-surface-700 bg-surface-950 text-surface-400 hover:bg-surface-800",
-      idle: "border-surface-700 bg-surface-950 text-surface-200 hover:bg-surface-800",
-      svg: "h-5 w-5 shrink-0",
       stroke: 1.6,
     },
   } as const;
@@ -98,13 +90,5 @@
   {:else if variant === "tab"}
     {entry.label}
     <CountBadge count={badge} class="absolute top-1 left-1/2 ml-1" />
-  {:else}
-    <span class="flex-1">{entry.label}</span>
-    {#if unavailable}
-      <span class="text-xs text-surface-400">Needs the connection</span>
-    {:else if badge > 0}
-      <CountBadge count={badge} />
-      <span class="sr-only">{badge} waiting for you</span>
-    {/if}
   {/if}
 </a>

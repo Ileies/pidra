@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * The mobile bottom bar and its More sheet. Destinations are the `tab` entries of `ROUTES`
+   * The mobile bottom bar and its More sheet (a 3-column grid of the same tiles as the desktop
+   * More menu, so every destination is visible without scrolling). Destinations are the `tab` entries of `ROUTES`
    * (Report, Notes, Chat) plus More, each a full-height target (44px minimum). Chat being a tab
    * is why the floating assistant launcher is hidden on phones.
    *
@@ -47,13 +48,17 @@
     aria-modal="true"
     class="fixed inset-x-0 bottom-0 z-50 lg:hidden max-h-[80dvh] overflow-y-auto
            rounded-t-2xl border-t border-surface-700 bg-surface-900
-           px-4 pt-3 pb-[calc(1rem+var(--safe-b))] flex flex-col gap-2 shadow-2xl"
+           px-3 pt-3 pb-[calc(1rem+var(--safe-b))] shadow-2xl"
   >
-    <div class="mx-auto mb-1 h-1 w-10 rounded-full bg-surface-600" aria-hidden="true"></div>
+    <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-surface-600" aria-hidden="true"></div>
 
-    {#each sheetRoutes as entry (entry.href)}
-      <NavLink {entry} variant="row" current={current?.href === entry.href} />
-    {/each}
+    <ul class="grid grid-cols-3 gap-1">
+      {#each sheetRoutes as entry (entry.href)}
+        <li class="min-w-0">
+          <NavLink {entry} variant="tile" current={current?.href === entry.href} />
+        </li>
+      {/each}
+    </ul>
   </div>
 {/if}
 

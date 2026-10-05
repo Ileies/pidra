@@ -4,7 +4,6 @@ Open security work, ordered by impact; every entry was re-checked against the co
 
 ## Immediate: close bypasses
 
-- **[BUG] Bridge execution:** `POST /skills/execute` calls `executeSkill()` without a surface, bypassing the per-page allowlist. Remove it if no caller needs it, or give manual execution its own authenticated, constrained policy. Preserve the existing audit and risk checks.
 - **[BUG] Notes proxy:** `dashboard/src/routes/api/notes/[...path]/+server.ts` builds the bridge URL from a catch-all path. Replace it with explicit allowed bridge routes and methods, and test encoded and nested paths so a dashboard session cannot steer it to another bridge endpoint.
 - **[BUG] Outbound mail:** The merged `send_email` skill ships disabled, queues each call for confirmation and uses an empty-by-default recipient allowlist for system-account sends. Configured-account sends still accept any recipient. Give that path an explicit recipient allowlist with an empty default, require TLS for outbound SMTP, and add a per-day outbound cap enforced at execution time.
 

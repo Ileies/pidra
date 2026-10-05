@@ -1,6 +1,6 @@
 # TEST_PLAN - closing the test gap
 
-Status (2026-10-05): Phases 1 and 2 (except 2.2) committed, Phase 4 harness committed, the stores and Phases 3 and 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
+Status (2026-10-05): Phases 1 and 2 (except 2.2) committed, Phase 4 (harness and the four stores) committed, Phases 3 and 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
 
 Source: a coverage audit on 2026-10-05. Counts below were measured then: `bun test ./tests` runs 213 tests in 22 files, all passing.
 
@@ -145,7 +145,8 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
   - Mutation-checked: each invariant test fails when its rule is broken locally.
 - **Shared db mock:** `tests/fixtures/db.ts` (`dbModule`) mirrors the full export surface of `src/db`; all `mock.module("../src/db")` calls use it. Fixes an order-dependent failure (`Export named 'existingMessageIds' not found`) that `lookup + rss` already had.
 
-- **Phase 4 harness:** `scripts/lib/test-postgres.ts`, `scripts/check-db-tests.ts` (the `db tests` step, also `bun run test:db`), `tests-db/fixtures/database.ts` (`useTestDatabase()`) and `tests-db/harness.test.ts` (a clone has all 39 tables, clones are isolated, a CHECK constraint rejects a bad row). The step takes about 2.3 s. Lesson: a Bun SQL query is a lazy thenable, so `expect(query).rejects` hangs; await it inside an async function first.
+- **Phase 4 harness:** `scripts/lib/test-postgres.ts`, `scripts/check-db-tests.ts` (the `db tests` step, also `bun run test:db`), `tests-db/fixtures/database.ts` (`useTestDatabase()`) and `tests-db/harness.test.ts` (a clone has all 39 tables, clones are isolated, a CHECK constraint rejects a bad row). The step takes about 2.3 s. Lessons: a Bun SQL query is a lazy thenable, so `expect(query).rejects` hangs (await it inside an async function first); `src/db` reads `DATABASE_URL` once at import, so the runner runs each `tests-db` file in its own `bun test` process in parallel (a shared process kept later files on the first file's dropped database); a 60 s per-file watchdog kills a hung file, and the runner kills its children on SIGINT/SIGTERM.
+- **Phase 4 stores, all four committed, each mutation-checked, no store bugs found:** `tests-db/notes-store.test.ts` (24 tests: history on every mutation, soft delete, Keep seeding, trash purge), `questions-store.test.ts` (19: status transitions, events, chat cap, contact learning with only the model call mocked), `actions-store.test.ts` (13: the double-tap claim, stale claims, re-run replaces only unresolved rows; mocks `executeSkill` and the zone lookup), `news-store.test.ts` (13: whole-or-nothing desk persist, reuse of stored desks, what the reader was told, priorities). The `db tests` step runs 69 tests in about 2.5 s.
 
 ### Bugs found and fixed on the way (committed)
 
@@ -159,4 +160,9 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 
 - **Blackhole under load:** with the machine busy (load average above 8) a `navigate while believed online` step can miss its 4000 ms budget by a few ms. Not a code defect; rerun when the machine is quiet.
 - **Commits:** everything above is committed and the temporary worktrees are gone. The standing rule stays: no test-work commit without a passing full `bun run check`. Do not stage other sessions' files.
-- **Then:** Phase 4 stores (one commit each: `notes/store.ts`, `questions/store.ts`, `actions/store.ts`, `news/store.ts`), Phase 2.2, Phase 3 (3.1 to 3.7), Phase 5.
+- **Then, in this order:**
+  1. Phase 2.2: extract the verification predicate in `context-builder/phases/synthesize.ts` into a pure function (its own commit), then test it.
+  2. Phase 3 (3.1 to 3.7): `actions/propose/matching.ts` and `check.ts`, `questions/reconcile.ts`, phase 4/5 parsing, `news/research.ts` + `run.ts`, `ingest/google.ts` + `imap.ts`, `ai/surfaces.ts`.
+  3. Phase 4 leftovers worth a `tests-db` file: schema constraints rejecting bad rows (`user_settings_content_language_code`, `contacts_identifier_email_like`), the Brave quota upsert (`lt(calls, 30)`) against real SQL, `apply-plan.ts` (the pipeline's guarded `status = 'open'` writes), and `context-builder/output/db-writer.ts` idempotence (Phase 5.1).
+  4. Phase 5: context-builder tests and the dashboard server-route tests (69 files).
+  Each store test file can reuse the pattern in `tests-db/*-store.test.ts`: `useTestDatabase()` first, dynamic imports after, `truncate` in `beforeEach`, `mock.module` only for the model, network and skill gate.

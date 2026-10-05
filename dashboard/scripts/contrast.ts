@@ -1,85 +1,27 @@
 /**
  * WCAG 2.1 contrast checker for the dashboard palette, in both modes.
  *
- * The app is dark by default and light (or OS-driven) by a per-device choice in Settings. Each
- * ramp stop in `src/app.css` is a `light-dark(light, dark)` pair; the two palettes below must
- * match them. Run this after any palette edit:
+ * The ramps are read from the `--color-*: light-dark(light, dark)` declarations in
+ * `src/app.css`, so the check can never drift from the stylesheet. Run it after any palette edit:
  *
  *   bun run scripts/contrast.ts
  *
  * The pairs below are the ones that actually occur in the UI, checked once per mode. Exit code 1
  * if a text pair drops below 4.5:1, so it can be wired into a check step.
  */
+import { readFileSync } from "node:fs";
 
 type Palette = Record<string, string>;
 
-const DARK: Palette = {
-  "surface-50": "#f0f2f5",
-  "surface-100": "#e8eaef",
-  "surface-200": "#d4d6db",
-  "surface-300": "#b8bac0",
-  "surface-400": "#8b8f9a",
-  "surface-500": "#6b7280",
-  "surface-600": "#4a4f5a",
-  "surface-700": "#2a2d33",
-  "surface-800": "#22252a",
-  "surface-900": "#1a1c1f",
-  "surface-950": "#111214",
-  "primary-100": "#d5e3fd",
-  "primary-300": "#8bb4fa",
-  "primary-400": "#4f8ef7",
-  "primary-500": "#4080f0",
-  "primary-700": "#2755aa",
-  "primary-800": "#24467f",
-  "primary-900": "#1e3a6e",
-  "primary-950": "#162d58",
-  "success-300": "#6fc79c",
-  "success-400": "#5abb8f",
-  "success-500": "#4caf82",
-  "success-950": "#0f2a1e",
-  "warning-300": "#eec050",
-  "warning-400": "#e9b036",
-  "warning-500": "#e0a020",
-  "warning-950": "#2a1e00",
-  "error-300": "#ee8888",
-  "error-400": "#e96e6e",
-  "error-500": "#e05555",
-  "error-950": "#2a1010",
-};
-
-const LIGHT: Palette = {
-  "surface-50": "#111214",
-  "surface-100": "#1a1c1f",
-  "surface-200": "#2a2d33",
-  "surface-300": "#3a3e46",
-  "surface-400": "#4a4f5a",
-  "surface-500": "#6b7280",
-  "surface-600": "#b8bac0",
-  "surface-700": "#d4d6db",
-  "surface-800": "#e8eaef",
-  "surface-900": "#ffffff",
-  "surface-950": "#f0f2f5",
-  "primary-100": "#162d58",
-  "primary-300": "#24467f",
-  "primary-400": "#2755aa",
-  "primary-500": "#3068d0",
-  "primary-700": "#8bb4fa",
-  "primary-800": "#abc7fb",
-  "primary-900": "#d5e3fd",
-  "primary-950": "#eaf1fe",
-  "success-300": "#2a6048",
-  "success-400": "#2f6f52",
-  "success-500": "#2f7a57",
-  "success-950": "#e9f7f0",
-  "warning-300": "#7a550f",
-  "warning-400": "#8f6414",
-  "warning-500": "#996a12",
-  "warning-950": "#fdf5e3",
-  "error-300": "#942f2f",
-  "error-400": "#a83535",
-  "error-500": "#c03e3e",
-  "error-950": "#fdecec",
-};
+const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
+const LIGHT: Palette = {};
+const DARK: Palette = {};
+for (const [, name, light, dark] of css.matchAll(
+  /--color-([a-z]+-\d+):\s*light-dark\(\s*(#[0-9a-f]{6})\s*,\s*(#[0-9a-f]{6})\s*\)/gi,
+)) {
+  LIGHT[name] = light;
+  DARK[name] = dark;
+}
 
 /**
  * [foreground, background, role]. Text is held to 4.5:1 (WCAG 1.4.3). A `control:` pair is the
@@ -114,6 +56,12 @@ const PAIRS: [string, string, string][] = [
   ["surface-700", "surface-900", "decorative: card separator"],
   ["surface-600", "surface-900", "decorative: disabled control"],
 ];
+
+const missing = PAIRS.flatMap(([fg, bg]) => [fg, bg]).filter((name) => !DARK[name]);
+if (missing.length > 0) {
+  console.error(`app.css has no light-dark() ramp stop for: ${[...new Set(missing)].join(", ")}`);
+  process.exit(1);
+}
 
 const THRESHOLD = (role: string) =>
   role.startsWith("decorative:") ? 0 : role.startsWith("control:") ? 3 : 4.5;

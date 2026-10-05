@@ -1,12 +1,7 @@
 import { utcDay, daysAgo } from "../util/time";
 import { db, sourceQuality, sourceDailyScores } from "../db";
 import { eq, gte, sql as drizzleSql } from "drizzle-orm";
-
-// trustScore = clamp(0.5, 2.0, compositeScore30d / 5)
-// 5/10 → 1.0 (neutral), 10/10 → 2.0 (best), 0/10 → 0.5 (worst)
-function computeTrustScore(composite30d: number): number {
-  return Math.min(2.0, Math.max(0.5, composite30d / 5));
-}
+import { trustComposite, trustFromComposite } from "./source-signal";
 
 export async function runWeeklySourceScoring(): Promise<void> {
   const today = utcDay();
@@ -34,14 +29,14 @@ export async function runWeeklySourceScoring(): Promise<void> {
   await Promise.all(allSources.map(async (source) => {
     if (source.compositeScore30d == null) return;
 
-    const trustScore = computeTrustScore(source.compositeScore30d);
-
     // Compute 7-day composite to determine trend direction
     const recent7d = bySource.get(source.sourceName) ?? [];
     const totalWeight7d = recent7d.reduce((s, r) => s + (r.itemsReceived ?? 1), 0);
     const avg7d = totalWeight7d > 0
       ? recent7d.reduce((s, r) => s + (r.compositeScore ?? 0) * (r.itemsReceived ?? 1), 0) / totalWeight7d
       : null;
+
+    const trustScore = trustFromComposite(trustComposite(source.compositeScore30d, avg7d, totalWeight7d));
 
     let qualityTrend = source.qualityTrend ?? "stable";
     let lastQualityShift = source.lastQualityShift;

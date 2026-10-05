@@ -6,6 +6,7 @@ import {
   NEWS_ABROAD_THRESHOLD,
   NEWS_THRESHOLD,
   NEWSLETTER_THRESHOLD,
+  trustMultiplier,
   type GateInput,
   type GateReason,
 } from "../src/pipeline/gate";
@@ -107,7 +108,16 @@ describe("decideGate: newsletters", () => {
 
   test("trust scales the score across the line in both directions", () => {
     expect(newsletter({ relevanceScore: 2, trustScore: 1.5 }).passed).toBe(true);
-    expect(newsletter({ relevanceScore: 4, trustScore: 0.5 }).passed).toBe(false);
+    expect(newsletter({ relevanceScore: 3, trustScore: 0.5 }).passed).toBe(false);
+  });
+
+  test("a distrusted source cannot sink an item rated 4 or higher", () => {
+    expect(newsletter({ relevanceScore: 4, trustScore: 0.5 })).toMatchObject({ passed: true, effectiveRelevance: 4 });
+    expect(newsletter({ relevanceScore: 3.9, trustScore: 0.5 }).passed).toBe(false);
+    // Trust still lifts a strong item, it just never pulls one below its own score.
+    expect(newsletter({ relevanceScore: 4, trustScore: 1.5 }).effectiveRelevance).toBe(6);
+    expect(trustMultiplier(5, 0.6)).toBe(1);
+    expect(trustMultiplier(2, 0.6)).toBe(0.6);
   });
 
   test("corroboration can lift a score of 2.7 over the line", () => {

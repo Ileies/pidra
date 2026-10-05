@@ -1,6 +1,8 @@
 import { daysAgo } from "../../util/time";
 import { db, extractions, rawItems, sourceDailyScores, sourceQuality } from "../../db";
 import { eq, and, gte, sql as drizzleSql } from "drizzle-orm";
+import { NEWSLETTER_THRESHOLD } from "../gate";
+import { countsAsIncluded, dailyComposite, neutralRelevance } from "../source-signal";
 
 const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
 
@@ -10,7 +12,8 @@ export async function writeSourceDailyScores(runDate: string, refsUsable: boolea
     .select({
       sourceName: rawItems.sourceName,
       relevanceScore: extractions.relevanceScore,
-      effectiveRelevance: extractions.effectiveRelevance,
+      gateReason: extractions.gateReason,
+      gateDetail: extractions.gateDetail,
       includedInReport: extractions.includedInReport,
     })
     .from(extractions)
@@ -23,28 +26,30 @@ export async function writeSourceDailyScores(runDate: string, refsUsable: boolea
     console.warn("[Phase 6] No resolvable report refs - include rate falls back to relevance >= 3");
   }
 
-  // Group by sourceName
-  const bySource = new Map<string, { relevances: number[]; effectives: number[]; included: number }>();
+  // Group by sourceName. Everything here is read at neutral trust (see pipeline/source-signal.ts),
+  // so a source is judged by what it sends and not by what the gate already did to it.
+  const bySource = new Map<string, { relevances: number[]; neutrals: number[]; included: number }>();
   for (const row of rows) {
     if (!row.sourceName) continue;
-    const entry = bySource.get(row.sourceName) ?? { relevances: [], effectives: [], included: 0 };
-    if (row.relevanceScore != null) entry.relevances.push(row.relevanceScore);
-    if (row.effectiveRelevance != null) entry.effectives.push(row.effectiveRelevance);
-    const included = refsUsable ? row.includedInReport === true : (row.effectiveRelevance ?? 0) >= 3;
+    const entry = bySource.get(row.sourceName) ?? { relevances: [], neutrals: [], included: 0 };
+    if (row.relevanceScore != null) {
+      entry.relevances.push(row.relevanceScore);
+      entry.neutrals.push(neutralRelevance(row));
+    }
+    const included = refsUsable ? countsAsIncluded(row) : neutralRelevance(row) >= NEWSLETTER_THRESHOLD;
     if (included) entry.included += 1;
     bySource.set(row.sourceName, entry);
   }
 
-  for (const [sourceName, { relevances, effectives, included }] of bySource) {
+  for (const [sourceName, { relevances, neutrals, included }] of bySource) {
     const itemsReceived = relevances.length;
     if (itemsReceived === 0) continue;
 
     const avgRelevance = avg(relevances);
-    const avgEffectiveRelevance = effectives.length ? avg(effectives) : avgRelevance;
+    const avgEffectiveRelevance = avg(neutrals);
     const itemsIncluded = included;
     const includeRate = itemsIncluded / itemsReceived;
-    // composite 0–10: quality-weighted (7pts) + breadth signal (3pts)
-    const compositeScore = Math.min(10, (avgEffectiveRelevance / 5) * 7 + includeRate * 3);
+    const compositeScore = dailyComposite(avgEffectiveRelevance, includeRate);
 
     await db
       .insert(sourceDailyScores)

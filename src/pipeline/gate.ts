@@ -120,9 +120,21 @@ export function corroborationBonus(sourceCount: number): number {
   return 0;
 }
 
+/**
+ * Items scoring this high are never pulled below their own score by a low-trust source. Trust is
+ * a prior about a source, and an item the extraction rated 4 or 5 is direct evidence about itself:
+ * a doubted source can still be right, and if it never gets heard it can never earn trust back.
+ */
+export const TRUST_PROOF_SCORE = 4;
+
+/** The multiplier the gate applies: a distrusted source cannot sink a strong item, a trusted one still lifts it. */
+export function trustMultiplier(relevanceScore: number | null, trustScore: number): number {
+  return (relevanceScore ?? 0) >= TRUST_PROOF_SCORE ? Math.max(1, trustScore) : trustScore;
+}
+
 export function decideGate(input: GateInput): GateDecision {
   const bonus = corroborationBonus(input.sourceCount);
-  const effectiveRelevance = (input.relevanceScore ?? 0) * input.trustScore + bonus;
+  const effectiveRelevance = (input.relevanceScore ?? 0) * trustMultiplier(input.relevanceScore, input.trustScore) + bonus;
 
   const json = input.extractedJson ?? {};
   const emailCategory = typeof json.email_category === "string" ? json.email_category : undefined;

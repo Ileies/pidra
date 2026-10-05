@@ -3,18 +3,14 @@ import { db, contextCorrections, contacts, entities } from "../db";
 import { and, desc, eq, sql } from "drizzle-orm";
 
 /**
- * The correction layer over the harvested long-term context.
- *
- * The governing rule: harvested information is never overwritten, only adjusted and
- * complemented. The context document the Context Builder wrote is therefore never rewritten
- * here - corrections live in their own table and are injected alongside the harvest, with the
- * daily prompts told the correction wins. (The standing rules it found in Keep are not covered:
- * they are notes, and `src/notes/store.ts` handles their history.)
- *
- * Structured rows (`entities`, `contacts`) are the one place a write does reach the harvested
- * row, because `phase3-context` and Section 2 read those rows directly and would otherwise keep
- * serving the wrong value. Even there the write is a field-level merge, the pre-merge row is
- * snapshotted into `previous_state`, and the row is locked against re-seeding.
+ * The only writer of `context_corrections`: the correction layer over the harvested long-term context
+ * (harvested-context immutability, docs/architecture-rules.md). The context document is never
+ * rewritten; corrections are injected beside it (`formatForPrompt`) and the prompts say they win.
+ * Exception: `entities`/`contacts` rows are read directly by phase3-context and Section 2, so a
+ * correction field-merges into the row, snapshots it into `previous_state` and sets `locked`
+ * (re-seeds skip locked rows). Keep rules are notes (src/notes/store.ts), not covered here.
+ * Callers: the revise_context / revert_context_revision / remove_context_item / add_contact skills.
+ * Throws `CorrectionError` (HttpError; 409 for revert state conflicts).
  */
 
 export const TARGET_KINDS = ["document", "entity", "contact"] as const;

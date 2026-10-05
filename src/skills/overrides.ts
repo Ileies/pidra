@@ -3,6 +3,9 @@ import { eq } from "drizzle-orm";
 import { db, disabledSkills, enabledSkills } from "../db";
 import { getSkill, listSkills, type Skill } from "./loader";
 
+// Owner on/off switches for skills (/skills page). Two tables: `disabled_skills` (row = off, for
+// default-on skills) and `enabled_skills` (row = on, for `default_enabled: false` skills).
+// `executeSkill` reads `getEffectiveSkill`.
 export class SkillToggleError extends HttpError {}
 
 /** The code-defined skill plus whether it is switched on, per its default and the owner's toggle on /skills. */

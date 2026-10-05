@@ -1,16 +1,10 @@
 /**
- * The single writer for `report_actions`.
- *
- * Two parties write the table and neither may undo the other. The pipeline inserts proposals,
- * and a re-run of the same date replaces only the rows nobody has acted on. The reader resolves
- * them from the report: a tap runs the skill, a dismissal hides the button. A done or dismissed
- * row survives every re-run, and a new proposal for the same thing is discarded against it
- * instead of reappearing the next time the pipeline runs that day.
- *
- * A tap goes through `executeSkill()` like every other skill call, so the audit log, the enabled
- * switch on /skills and the risk tiers all apply. No surface is passed: surfaces bound what the
- * chat may reach for, while a row's skill is always one of `SKILL_FOR`, fixed in code. It is
- * attributed to the user: the model proposed it, but the reader pressed it.
+ * The single writer for `report_actions` (status values: src/db/schema/pipeline.ts).
+ * The pipeline calls `saveProposals`; the dashboard calls `runAction`/`dismissAction`/`restoreAction`.
+ * Neither may undo the other: a re-run replaces only unresolved rows (`REPLACEABLE`), and a new
+ * proposal matching a done/dismissed row is discarded as `already_handled`.
+ * A tap goes through `executeSkill()` (audit log, /skills switch, risk tiers apply), with no surface
+ * (the skill is always one of `SKILL_FOR`) and `actor: "user"`. Errors: `ActionError` (404/409).
  */
 import { HttpError } from "../util/errors";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";

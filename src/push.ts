@@ -3,17 +3,14 @@ import { inArray } from "drizzle-orm";
 import { db, pushSubscriptions } from "./db";
 
 /**
- * VAPID contact, handed to the push service so it can reach the operator about a misbehaving
- * sender. It is configuration, not a constant: it is a personal address, and the privacy rule in
- * CLAUDE.md keeps those out of the source. `mailto:` or an `https://` URL, both are valid.
+ * Web Push sender (reads `push_subscriptions`; the dashboard writes them). Callers: the pipeline end
+ * (success/failure), the question flow. Payload shape is consumed by the dashboard service worker.
  */
+
+/** VAPID contact: env config, not a constant, because it is a personal address (`mailto:` or https URL). */
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:pidra@localhost";
 
-/**
- * Push is optional. Without keys the pipeline still has to run to completion, so a missing pair
- * disables notifications with a warning instead of throwing at import time and taking down every
- * caller of this module - the bridge included.
- */
+/** Push is optional: missing keys warn instead of throwing at import, so the pipeline and bridge still run. */
 const PUSH_CONFIGURED = Boolean(process.env.PUBLIC_VAPID_KEY && process.env.VAPID_PRIVATE_KEY);
 
 if (PUSH_CONFIGURED) {
@@ -55,14 +52,10 @@ async function deliver(payload: string): Promise<void> {
 }
 
 /**
- * `failedSources` are the ingest sources that dropped out of an otherwise successful run, named as
- * `phase1` recorded them (`calendar`, `tasks`, `imap:<user>`).
- *
- * They belong on the success notification rather than on a second push. A run that loses Calendar
- * still writes a briefing, so `sendFailureNotification` never fires and the morning looks entirely
- * normal - which is how an expired Google token stayed invisible for four runs on 2026-09-12. The
- * degradation has to travel on the notification that does get sent, because it is the only one the
- * owner sees. Two pushes on one morning would be worse: the second is the one that gets swiped.
+ * The briefing-ready push. `failedSources` are ingest sources that dropped out of an otherwise
+ * successful run, as `phase1` named them (`calendar`, `tasks`, `imap:<user>`). They ride on this
+ * notification instead of a second push: a run that loses Calendar still succeeds, so the failure
+ * push never fires and a degraded morning would look normal.
  */
 export async function sendPushNotifications(
   date: string,
@@ -70,9 +63,7 @@ export async function sendPushNotifications(
   failedSources: string[] = [],
 ): Promise<void> {
   const body = summary?.slice(0, 120) ?? "Today's briefing is ready.";
-  // Named rather than counted while the list is short: "calendar, tasks missing" is something the
-  // owner can act on from the lock screen, where "2 sources missing" means opening the dashboard
-  // to find out which. Past three it stops fitting, so it degrades to the count.
+  // Named up to three (actionable from the lock screen), then counted.
   const degraded =
     failedSources.length === 0
       ? null
@@ -93,13 +84,9 @@ export async function sendPushNotifications(
 }
 
 /**
- * A second push on the same morning, deliberately - the reasoning above is why `sendPushNotifications`
- * folds a degraded source into the one notification it sends rather than a second: a missing source is
- * a lesser version of the same briefing. A new question is not a lesser version of anything; it is new
- * state the reader has not seen, on its own page, and burying it in the briefing body would make it as
- * easy to miss as the sources that already ride there silently would if there were more of them. `kind`
- * in the payload gives it its own notification tag (`questions-<date>`), so it cannot replace, or be
- * replaced by, the briefing push for the same date.
+ * A deliberate second push on the same morning: new questions are new state on their own page, not a
+ * degraded briefing. `kind: "questions"` gives it its own notification tag (`questions-<date>`) so it
+ * neither replaces nor is replaced by the briefing push.
  */
 export async function sendNewQuestionsNotification(date: string, count: number): Promise<void> {
   await deliver(
@@ -117,14 +104,9 @@ export async function sendNewQuestionsNotification(date: string, count: number):
 }
 
 /**
- * The failure counterpart, and the reason it exists: the success notification is sent at the very
- * end of `runPipeline`, so every failure mode used to be silent. Waking up to no notification is
- * indistinguishable from waking up before the run finished, which is the worst of both - the run
- * that died at phase 6 on 2026-09-11 went unnoticed until the table was read by hand.
- *
- * This is not a violation of "never send emails for system events" (CLAUDE.md): it goes to the
- * dashboard's own PWA, not to an inbox, and it carries no detail beyond the failed step - the
- * error log lives on `/runs`, which is where the notification points.
+ * Failure push: the success push is sent at the very end of `runPipeline`, so without this a dead run
+ * is indistinguishable from a run still in progress. Dashboard PWA only (docs/architecture-rules.md:
+ * dashboard-only notifications); carries just the failed step, details are on `/runs`.
  */
 export async function sendFailureNotification(date: string, step: string): Promise<void> {
   await deliver(

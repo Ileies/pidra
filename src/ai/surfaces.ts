@@ -1,29 +1,11 @@
 /**
- * Surfaces: what the assistant is allowed to do on the page the user is looking at.
- *
- * The floating assistant is reachable from every dashboard page, so "which skills exist" is the
- * wrong question - the right one is "which skills belong on *this* page". Each route maps to a
- * surface with a declared skill set, a prompt fragment describing the page and its editing model,
- * and the example sentences the widget shows before the first message.
- *
- * Two properties this file is responsible for:
- *
- * - **Reports are final.** No surface can edit a report. On `report` the assistant reads the
- *   briefing and acts elsewhere - a note for tomorrow, a todo, a context correction - because
- *   editing yesterday's text would fix nothing anyway.
- * - **Unknown routes fail closed** to `global`, which touches nothing structural (a proposed
- *   prompt version is inactive until the owner approves it). A page added later is safe by default
- *   and gets capabilities on purpose.
- *
- * `send_email`, `create_file` and `open_project_in_editor` are deliberately on no
- * surface: the widget is a content editor, not a way to mail someone or pop open an editor on the
- * host by accident. They stay bridge-only and manual (`BRIDGE_ONLY_SKILLS`).
- *
- * Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` is on all of them: the
- * calendar, the task list, notes writing, reading and searching are not tied to a page, so "I
- * can't do that here" must never be the answer to them. `scripts/check-route-surfaces.ts` fails the
- * build when a registered skill is on no surface and not listed as bridge-only, or when an
- * everywhere skill is missing from a surface.
+ * Surfaces: per-page skill allowlist, prompt fragment and widget hints for the floating assistant.
+ * Used by src/ai/chat (tool list, system prompt) and served to the dashboard widget.
+ * Invariants (docs/architecture-rules.md): no surface edits a report; unknown routes fall back to
+ * `global`; BRIDGE_ONLY_SKILLS are on no surface; EVERYWHERE_SKILLS are on all.
+ * `scripts/check-route-surfaces.ts` imports this file (and parses dashboard/src/lib/routes.ts as text)
+ * and fails the build when a registered skill is on no surface and not bridge-only, an everywhere
+ * skill is missing, or a dashboard route declares an unknown surface. Add a route there too.
  */
 
 export const SURFACES_LIST = [

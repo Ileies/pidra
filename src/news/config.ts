@@ -1,12 +1,10 @@
 /**
  * The news desks: what each one covers, and the configuration that turns them on.
  *
- * Why desks exist at all. The newsletters are slow news by design (essays, research, analysis),
- * and none of the 32 is a general news source: nothing covers the world's front page, the
- * reader's own city, or what people around them are talking about. On a weekend they deliver
- * almost nothing. So the briefing could run for weeks without mentioning a war, an election or a
- * fire down the street, while the reader relies on it as their only news. Separate desks with
- * fixed Brave query budgets cover these mandates systematically.
+ * Desks exist because none of the 32 newsletters covers general news (world front page, the
+ * reader's city, talk of the day); see docs/architecture-rules.md for the News section rules.
+ * Consumed by `run.ts`, `research.ts`, `format.ts` and `pipeline/gate.ts`. Env knobs read here:
+ * NEWS_DESKS, NEWS_HOME_COUNTRY / _CITY / _REGION, NEWS_ALSO_COUNTRIES.
  *
  * Pure on purpose, so the configuration is testable without a database or an API key.
  */
@@ -57,7 +55,11 @@ export const DESKS: readonly Desk[] = [
  */
 export const NEWS_CAPS = { top: 6, home: 4, alsoCountry: 2, perField: 4, fields: 8, talk: 3, serendipity: 1 } as const;
 
-/** 27 desk requests plus up to three Section 1 search slots make a full run's 30. */
+/**
+ * Brave requests per desk as `[first round (news search), follow-up round (context search)]`, see
+ * `research.ts`. 27 desk requests plus up to three Section 1 search slots make a full run's 30
+ * (the shared daily quota in `brave_daily_usage`, `src/search/brave.ts`).
+ */
 export const SEARCH_BUDGET: Record<DeskId, readonly [number, number]> = {
   world: [4, 2], home: [3, 2], beat: [3, 3], field: [2, 2], talk: [2, 1], serendipity: [1, 2],
 };

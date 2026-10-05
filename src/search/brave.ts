@@ -1,3 +1,7 @@
+// The only Brave Search client (never OpenAI's hosted web_search, see CLAUDE.md). Used by the news
+// desks (`news/research.ts`), Section 1 slots (`search/slots.ts`), /api/deepen and `run_web_search`.
+// Every actual HTTP request, retries included, first reserves one of DAILY_LIMIT calls for the UTC
+// day in `brave_daily_usage`; a spent quota throws and is not retried (fails closed).
 import { db, braveDailyUsage } from "../db";
 import { lt, sql } from "drizzle-orm";
 import { retry } from "../util/retry";
@@ -96,6 +100,7 @@ async function braveRequest(url: URL, onAttempt?: () => void): Promise<Response>
   );
 }
 
+/** `kind` defaults to "web"; `freshness` defaults to past day ("pd"), pass "any" for none, or a `YYYY-MM-DDtoYYYY-MM-DD` range. */
 export async function braveSearch(query: string, count = 5, options: BraveSearchOptions = {}): Promise<BraveSearchResponse> {
   const kind = options.kind ?? "web";
   const url = new URL(`${BASE_URL}/${kind}/search`);

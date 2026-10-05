@@ -18,12 +18,9 @@ export function senderAddress(from: string): string {
 }
 
 /**
- * Decides whether a sender is a newsletter or a person.
- *
- * The source mappings are configuration, not code: they live in
- * `newsletter_sender_rules`, edited from `/settings/newsletters`. A sender no rule matches is still
- * a newsletter when `bulk` is set (the mail carries list headers), so a newly subscribed
- * newsletter reaches the newsletter path before anyone has written its rule.
+ * Newsletter or person? Mappings come from `newsletter_sender_rules` (edited on
+ * `/settings/newsletters`). Precedence: exact address, longest matching domain, `bulk` (list headers,
+ * so a new newsletter works before its rule exists), else `personal_email`. Used by ingest/imap.ts.
  */
 export function classifyEmail(
   from: string,

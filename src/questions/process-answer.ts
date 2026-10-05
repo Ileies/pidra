@@ -1,14 +1,8 @@
 /**
- * Acts on an answered question.
- *
- * An answer used to be kept and read back later (`recentAnswers()`, contact teaching). Now the
- * assistant also reads it and acts: it runs one chat turn on the `questions` surface, which has the
- * edit skills for contacts, entities, the context, notes, todos and sources. Going through the chat
- * loop rather than a second one means every change is an ordinary skill call - risk gating,
- * surface policy, `skill_executions` audit, reversible corrections - and the whole exchange is a
- * conversation on /chat.
- *
- * Weekly-review answers are left to `absorbReviewAnswers`, which turns them into notes.
+ * Acts on an answered question by running one chat turn on the `questions` surface (src/ai/surfaces.ts),
+ * so every change is an ordinary gated, audited skill call. Writes the result to
+ * `questions.answer_status/answer_outcome/answer_conversation_id`. `review` questions are skipped:
+ * `absorbReviewAnswers` turns those into notes.
  */
 import { errMessage, squash } from "../util/text";
 import { sendMessage } from "../ai/chat";
@@ -36,11 +30,7 @@ function describe(question: Question, reason: string | null): string {
   return lines.join("\n");
 }
 
-/**
- * Safe to fire and forget: the outcome, or the failure, is recorded on the question, which is
- * where /questions/closed shows it. A bridge that dies mid-turn leaves `running`, and the same
- * page offers to run it again.
- */
+/** Never throws; safe to fire and forget. Outcome or failure lands on the question. A bridge that dies mid-turn leaves `answer_status = running`, and /questions/closed offers a rerun. */
 export async function processAnswer(id: string): Promise<void> {
   let question: Question;
   try {

@@ -41,6 +41,13 @@ function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Bu
   });
 }
 
+/**
+ * Phase 1 IMAP ingest for one account: fetches the last `IMAP_LOOKBACK_DAYS` (default 1) of mail into
+ * `raw_items` (`message_id` dedupes) and logs discarded mails to `ingest_drops`. News accounts are
+ * classified newsletter vs personal by ./sources.ts; the first mail of each newsletter source also
+ * fills `source_quality.unsubscribe_url`. `checkedUnsubscribeSources` is shared across accounts and
+ * mutated. Returns how many items were stored. Connection errors throw.
+ */
 export async function ingestImapAccount(account: EmailAccount, runDate: string, newsletterConfig: NewsletterConfig, rssSourceNames: Set<string>, checkedUnsubscribeSources: Set<string>): Promise<number> {
   console.log(`[Ingest/IMAP] [${account.user}] Connecting to ${account.host}...`);
 
@@ -79,11 +86,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string, 
 
       const senderEmail = senderAddress(from);
 
-      /**
-       * Records why a mail was thrown away, so `/[date]/triage` can show it. Without this, a mail
-       * discarded here is indistinguishable from one that never arrived - which is the single
-       * hardest case to diagnose, because the reader knows perfectly well that it was sent.
-       */
+      // Records why a mail was thrown away, so `/[date]/triage` can tell it from one that never arrived.
       const drop = (reason: DropReason, sourceType?: string, sourceName?: string | null) => {
         drops.push({
           runDate,

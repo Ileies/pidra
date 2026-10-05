@@ -3,6 +3,9 @@ import { listCalendarEvents, type CalendarEvent } from "../../ingest/google";
 import { addDays, isLocalDate, localDay, zonedToIso } from "../../util/time";
 import type { Proposal } from "./types";
 
+// Time and similarity helpers for quick actions. Conventions: an all-day `When` holds dates with the
+// LAST day inclusive in `end`; the calendar skills want the exclusive next day (see `skillTimes`).
+
 /** An instant as the wall clock in `zone` reads it: "2026-09-30T14:00". */
 export function wallClock(iso: string, zone: string): string {
   return new Date(iso).toLocaleString("sv-SE", { timeZone: zone }).slice(0, 16).replace(" ", "T");

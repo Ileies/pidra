@@ -5,9 +5,8 @@ import {
 } from "../../notes/store";
 import { bodyOf } from "../http";
 
-// Writes go through `src/notes/store.ts` so the UI and the note skills share one code path and
-// one revision trail. The dashboard reads notes straight from Postgres, so the page still renders
-// when this bridge is down; only editing needs it.
+// Writes go through `src/notes/store.ts` (shared revision trail). The dashboard reads notes straight
+// from Postgres, so only editing needs this bridge.
 
 /** The dashboard is the only caller, and it is the user acting. */
 const USER: Actor = { by: "user" };
@@ -43,9 +42,8 @@ notes.patch("/api/notes/:id", async (c) => {
   if (body.scope !== undefined) patch.scope = body.scope;
   if ("expires_at" in body) patch.expiresAt = body.expires_at ?? null;
 
-  // Read before write, not atomic with it - acceptable for one user. `base_updated_at` only
-  // ever arrives from the offline outbox; a live UI edit never sends it,
-  // so `_conflict` is always false for those and costs nothing extra.
+  // `base_updated_at` only arrives from the offline outbox; `_conflict` (the row moved meanwhile) is
+  // false for live edits. The edit is applied either way (last write wins); the flag is informational.
   const conflict = "base_updated_at" in body
     ? await wasUpdatedSince(c.req.param("id"), body.base_updated_at ?? null)
     : false;

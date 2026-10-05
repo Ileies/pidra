@@ -1,3 +1,6 @@
+// Phase 3: assembles the `ContextPayload` that every Phase 4/5 step reads. Runs the relevance gate
+// (`gate-items.ts`, persists the verdicts on `extractions`), the Section 1 web-search slots, and
+// loads notes, contacts, entities, calendar, todos and the long-term context. Called by `run.ts`.
 import { parseJsonRows } from "../util/json";
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
 import { eq, and, or, gte, isNull, inArray } from "drizzle-orm";

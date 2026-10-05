@@ -59,10 +59,10 @@ async function runSkill(skill: Skill, parameters: Record<string, unknown>, ctx: 
 }
 
 /**
- * The single path every skill call takes, whether it comes from the REST bridge, the pipeline or
- * the chat. Risk gating, the surface policy and the `skill_executions` audit log live here so a
- * second caller cannot accidentally bypass any of them. The audit row is written before any gate,
- * so a rejected call is still on record.
+ * The single path every skill call takes (REST bridge, pipeline, chat); gating lives here so no
+ * caller can bypass it (docs/skills.md). Order matters: audit row (`pending`) first, then disabled,
+ * surface, risk gates, so a rejected call is still on record. Never throws for a skill failure:
+ * see `ExecutionOutcome.status` (`high` risk parks the row as `pending` for `resolvePendingSkill`).
  */
 export async function executeSkill(
   skillName: string,
@@ -82,13 +82,10 @@ export async function executeSkill(
     .values({ runDate, skillName, parameters, status: "pending", triggeredBy })
     .returning({ id: skillExecutions.id });
 
-  // Disabled from /skills. Checked before anything else - a skill an operator turned off must
-  // not run just because it's otherwise low-risk and surface-allowed.
+  // Disabled from /skills: checked first, whatever the risk level.
   if (effective && !effective.enabled) return reject(execRow.id, `${skillName} is disabled`);
 
-  // The surface policy is checked before the risk level: a skill that does not belong on the page
-  // must not run even if it is harmless elsewhere. The rejection is logged rather than swallowed,
-  // so a policy that is too tight shows up on /skills instead of as silent weirdness.
+  // Surface policy before risk level; the rejection is logged so a too-tight policy shows on /skills.
   if (options.surface && !isSkillAllowed(options.surface, skillName)) {
     return reject(execRow.id, `${skillName} is not available on the ${options.surface} page (allowed there: ${SURFACES[options.surface].skills.join(", ")})`);
   }
@@ -126,11 +123,9 @@ export async function executeSkill(
 }
 
 /**
- * Runs or rejects a queued high-risk call (`executeSkill` parks a `high` skill as a `pending` row).
- *
- * Everything is re-checked at confirmation time rather than trusted from when the call was made:
- * the skill may have been disabled, or raised to `critical`, in between. A confirmation is an
- * approval of *this* call, not a standing permission.
+ * Runs or rejects a queued high-risk call (a `pending` `skill_executions` row). Disabled and
+ * critical are re-checked at confirmation time; the surface check is not repeated. Not idempotent:
+ * a row that is no longer `pending` is answered with `rejected`.
  */
 export async function resolvePendingSkill(
   executionId: string,

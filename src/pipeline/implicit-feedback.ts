@@ -1,3 +1,6 @@
+// The `feedback` job (src/job.ts, runs after the pipeline): a newsletter item whose keywords appear in
+// a calendar event or task created since the day's run counts as acted on. Writes `feedback_events`
+// rows of type `downstream_action` (signalValue 5 calendar, 4 task), at most one per extraction ever.
 import { google } from "googleapis";
 import { googleAuth } from "../ingest/google-client";
 import { db, extractions, rawItems, feedbackEvents, pipelineRuns } from "../db";
@@ -38,7 +41,6 @@ export async function runImplicitFeedback(runDate: string): Promise<void> {
     .where(eq(pipelineRuns.runDate, runDate));
   const updatedMin = new Date(run?.startedAt ?? `${runDate}T00:00:00Z`);
 
-  // Load today's newsletter extractions
   const rows = await db
     .select({ id: extractions.id, extractedJson: extractions.extractedJson })
     .from(extractions)
@@ -47,12 +49,11 @@ export async function runImplicitFeedback(runDate: string): Promise<void> {
 
   if (rows.length === 0) return;
 
-  // Build keyword list per extraction, skip items with no keywords
   const items = rows
     .map((r) => ({ id: r.id, keywords: extractKeywords(r.extractedJson) }))
     .filter((r) => r.keywords.length > 0);
 
-  // Skip extractions that already have a downstream_action event
+  // Makes the job idempotent: an extraction gets its downstream_action event once, on any day.
   const existing = await db
     .select({ extractionId: feedbackEvents.extractionId })
     .from(feedbackEvents)

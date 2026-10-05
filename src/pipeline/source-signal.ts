@@ -1,12 +1,12 @@
 /**
  * What a newsletter source's daily score and trust are built from.
  *
- * Trust used to be fed by numbers the gate had already multiplied by trust (`effective_relevance`)
- * and by `included_in_report`, which an item can only reach by clearing that same gate. A source
- * that fell under the bar therefore scored lower for it, which lowered its trust further, and
- * nothing it did afterwards could pull it out: a feed that once carried only headlines stayed at
- * the 0.5 floor after it switched to full posts. These helpers read the source's own content
- * instead, so trust follows what a source sends and not what the gate did to it last week.
+ * Used by `phase6/source-scoring.ts` and `weekly-source-scoring.ts` (formulas: docs/scoring-formulas.md).
+ *
+ * Deliberately built from the item's own score (`neutralRelevance`), never from `effective_relevance`
+ * or bare `included_in_report`: both already include the gate's trust multiplier, so a source under
+ * the bar would score lower, lose trust, and never recover (a feedback loop). Trust must follow what
+ * a source sends, not what the gate did to it.
  */
 
 import { NEWSLETTER_THRESHOLD } from "./gate";

@@ -1,15 +1,8 @@
 /**
- * `{{tag}}` substitution for prompt text.
- *
- * A tag is replaced with a value the code chose, never with text a user or the model supplied:
- * the `language` value is the English name of an allowlisted code (`src/config/languages.ts`).
- * Substitution is one pass over the template with a replacer function, so a value is never
- * scanned for further tags and `$&`-style patterns in it mean nothing. An unknown tag is left as
- * written and logged, so a typo in an approved prompt version is visible instead of silently
- * sending `{{langauge}}` to the model.
- *
- * Pure, so prompt text can be rendered anywhere. Loading the values from the settings table is
- * `loadPromptVars` in `src/settings/store.ts`.
+ * `{{tag}}` substitution for prompt text. Values are code-chosen only (`language` is the English
+ * name of an allowlisted code, src/config/languages.ts). One pass with a replacer function, so
+ * values are never rescanned. An unknown tag is left in place and logged (catches typos in approved
+ * prompt versions). Pure; values are loaded by `loadPromptVars` in src/settings/store.ts.
  */
 
 export interface PromptVars {

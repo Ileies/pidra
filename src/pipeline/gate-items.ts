@@ -1,3 +1,6 @@
+// Phase 3 glue around `gate.ts`: `gateExtractions` computes a verdict per extraction (trust and
+// corroboration inputs), `persistGate` writes the gate_* and synthesis_* columns of `extractions`.
+// Called by `phase3-context.ts`.
 import { db, type extractions } from "../db";
 import { sql } from "drizzle-orm";
 import { decideGate, type GateDecision } from "./gate";

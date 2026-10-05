@@ -22,10 +22,9 @@ function sourcesOf(candidates: Candidate[]): QuestionSource[] {
 }
 
 /**
- * Applies a plan in one transaction. Returns the ids of the open questions that took one of this
- * run's candidates: those are what the run's Section 2 waits for. Every write is guarded on
- * `status = 'open'`, so a question answered while the reconcile call was still thinking keeps its
- * answer and its wording.
+ * Applies a plan in one transaction (the pipeline's writer of `questions`; the reader's is store.ts).
+ * Returns the ids of open questions that took one of this run's candidates (what Section 2 waits
+ * for). Every write is guarded on `status = 'open'`, so a question answered meanwhile is untouched.
  */
 export async function applyPlan(plan: QueuePlan, today: string): Promise<string[]> {
   return db.transaction(async (tx) => {

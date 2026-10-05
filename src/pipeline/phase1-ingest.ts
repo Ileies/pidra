@@ -25,18 +25,13 @@ export interface IngestResult {
 }
 
 /**
- * Ingestion, source by source, where no single source can take down the others.
+ * Phase 1: ingestion, source by source (IMAP accounts, RSS, Google Calendar, Google Tasks), writing
+ * `raw_items` through `src/ingest/*`. Called by `run.ts`.
  *
- * The IMAP accounts were already settled individually, but RSS, Calendar and Tasks sat as bare
- * members of the same `Promise.all`, so any one of them rejecting rejected the whole thing and
- * failed the step - and `withRetry` then failed the run. That is what happened on 2026-09-12: the
- * Google refresh token had been revoked, `invalid_grant` came back in milliseconds, and a dead
- * calendar took the newsletters and the mail down with it. Nine seconds, no briefing, even though
- * every mailbox had connected and 24 feeds were mid-poll.
- *
- * A morning briefing is worth more partial than absent, so a failing source is now logged, counted
- * as zero and reported upward. The step throws only when *every* source failed, which is a real
- * outage (no network, no database) rather than one expired credential.
+ * No single source can take down the others (a revoked Google token once killed the whole run on
+ * 2026-09-12): a failing source is logged, counted as zero and returned in `failures`, which
+ * `run.ts` records in `step_errors`. The step throws only when *every* source failed, which is a
+ * real outage rather than one expired credential.
  */
 export async function runPhase1(runDate: string): Promise<IngestResult> {
   console.log(`[Phase 1] Starting ingestion for ${runDate}`);

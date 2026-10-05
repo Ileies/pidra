@@ -1,3 +1,6 @@
+// Loads the Context Builder's harvest document (`context_builder_runs.document`) and splits it by
+// `# N.` heading for the daily prompts. Used by phase3, news/run.ts, questions/reconcile.ts and
+// context/lookup.ts; `pickSections`/`readDocument` are also imported by context-builder/.
 import { errMessage } from "../util/text";
 import { db, contextBuilderRuns } from "../db";
 import { eq, desc } from "drizzle-orm";
@@ -26,13 +29,14 @@ export interface LongTermContext {
   problem: string | null;
 }
 
-// Which top-level sections of the context document go to which synthesis call. The document is
-// written by synthesizeFullContext with headings "# 1. Identity & Relationships" ... "# 5.".
-// Splitting it means each call carries only what it can actually act on, rather than the whole
-// ~11k-token document twice a day. Override with a comma-separated list of section numbers.
 /** How far back to look for a document that parses, before giving up and running without one. */
 const CANDIDATE_RUNS = 5;
 
+// Which top-level sections of the context document go to which synthesis call. The document is
+// written by the Context Builder with headings "# 1. Identity & Relationships" ... "# 5." (an
+// interface, see CLAUDE.md). Splitting it means each call carries only what it can actually act on,
+// rather than the whole ~11k-token document twice a day. Override with a comma-separated list of
+// section numbers.
 const INTEL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_INTEL ?? "3,5";
 const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2,4";
 const INTEREST_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_NEWS ?? "3";
@@ -42,16 +46,12 @@ const INTEREST_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_NEWS ?? "3";
  * `context_builder_runs.output_path` is an absolute path recorded by whichever machine ran the
  * Context Builder.
  *
- * The harvest itself now lives in `context_builder_runs.document`, so this is only a fallback for
- * rows written before that column existed - every reader tries `document` first. Back when the
- * path was the only record, the cross-machine mismatch (workstation runs wrote `/home/<user>/...`,
- * the server reads out of `/var/www/pidra`) meant every production briefing logged "long-term
- * context unavailable" and synthesised with `context doc 0 chars`. That is why the stored path is
- * treated as a hint, not an address: if it does not resolve, the file is looked up by name under
- * this machine's own output directory.
+ * Only a fallback for rows written before `context_builder_runs.document` existed - every reader
+ * tries `document` first. The stored path is a hint, not an address (a workstation run records
+ * `/home/<user>/...`, the server reads from `/var/www/pidra`): if it does not resolve, the file is
+ * looked up by name under this machine's own output directory. Throws when neither exists.
  *
- * Exported because the Context Builder's update mode reads the same fallback to find the document
- * it is patching, for the same legacy rows.
+ * Exported because the Context Builder's update mode uses the same fallback for the same legacy rows.
  */
 export async function readDocument(outputPath: string): Promise<string> {
   try {
@@ -66,6 +66,7 @@ export async function readDocument(outputPath: string): Promise<string> {
   }
 }
 
+/** `spec` is a comma-separated list of section numbers ("1,2,4"). Returns "" when nothing matches. */
 export function pickSections(doc: string, spec: string): string {
   const wanted = new Set(
     spec.split(",").map((s) => s.trim()).filter(Boolean),

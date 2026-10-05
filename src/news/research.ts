@@ -1,4 +1,9 @@
-/** Brave-backed research for one news desk. Search calls are budgeted here, not by the model. */
+/**
+ * Brave-backed research for one news desk, called by `run.ts`. Search calls are budgeted here
+ * (`SEARCH_BUDGET` in config.ts), not by the model: plan queries (model) -> Brave news search ->
+ * plan follow-ups -> Brave context search -> final structured answer. Writes nothing to the DB;
+ * spend is counted in `Usage` and every Brave request also reserves quota in `src/search/brave.ts`.
+ */
 
 import { errMessage, squash } from "../util/text";
 import { extractJson, EXTRACTION_MODEL } from "../ai/openai";
@@ -98,6 +103,8 @@ interface ResearchContext {
   usage: Usage;
 }
 
+// Used when the model proposes too few usable queries. Reader-derived text is only included when it
+// passes `safeTopic`, since whatever reaches a query leaves the machine (see deskPayload in run.ts).
 function fallbackQueries(desk: Desk, payload: Record<string, unknown>): string[] {
   const home = payload.home as { city?: string; country?: string; also_countries?: string[] } | undefined;
   const place = [home?.city, home?.country].filter(Boolean).join(" ") || "local";
@@ -117,6 +124,8 @@ function fallbackQueries(desk: Desk, payload: Record<string, unknown>): string[]
   return terms[desk.id];
 }
 
+// Sanitises the model's queries (drops first-person/email wording, URLs, operators; `site:` only for
+// beat/field), dedups against `prior`, then tops up from `fallback`. Throws if `count` cannot be filled.
 function completeQueries(proposed: string[], count: number, prior: string[], fallback: string[], allowSite: boolean): string[] {
   const seen = new Set(prior.map((q) => q.toLowerCase()));
   const result: string[] = [];

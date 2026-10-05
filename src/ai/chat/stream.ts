@@ -9,8 +9,10 @@ import { skillTools, SKILL_TOUCHES } from "./tools";
 import { buildHistory, MAX_TOOL_RESULT_CHARS } from "./history";
 import { persistAssistantTurn } from "./persist";
 
-// Enough for read → write → read-back on several facts in one turn, with a hard stop so a model
-// that loops on a failing tool cannot run up a bill.
+// The assistant turn loop: converse -> run tool calls via executeSkill (surface-gated) -> repeat.
+// Writes `chat_conversations` / `chat_messages` (via persist.ts); streamed by src/server/routes/chat.ts.
+
+// Hard stop so a model looping on a failing tool cannot run up a bill.
 const MAX_TOOL_ROUNDS = 8;
 
 export interface ChatTurn {

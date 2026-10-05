@@ -4,6 +4,11 @@ import { googleAuth } from "./google-client";
 import { db, rawItems, rawItemExists } from "../db";
 import { timeZoneOrUtc, DAY_MS } from "../util/time";
 
+/**
+ * Google Calendar and Tasks: ingest (Phase 1, as `raw_items` snapshots) plus the API helpers the
+ * calendar/todo skills in skills/ and the quick actions share. Auth comes from ./google-client.
+ * `start`/`end` are ISO instants, or a bare `YYYY-MM-DD` when `is_all_day`.
+ */
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -52,13 +57,9 @@ export function getTasksClient() {
 }
 
 /**
- * The list that system-created tasks land in when the caller names none. "To-Do Now" is the
- * list the owner actually checks daily (decided 2026-09-10); system items come from email
- * deadlines and are time-sensitive, so the project backlog is the wrong place for them.
- *
- * Configured as a list *title*, not an id: list ids are opaque per-account strings, so
- * hardcoding one would be meaningless in any other account, and the only portable id the API
- * offers is `@default`, which is whatever list happens to be first.
+ * The list system-created tasks land in when the caller names none ("To-Do Now", the one the owner
+ * checks daily). Configured as a *title*, not an id: ids are opaque per account and `@default` is
+ * just whichever list is first.
  */
 function defaultTaskListTitle(): string {
   return process.env.GOOGLE_TASKS_DEFAULT_LIST?.trim() || "To-Do Now";
@@ -81,10 +82,8 @@ async function taskListIdByTitle(title: string): Promise<string | null> {
 }
 
 /**
- * Turn whatever a caller supplied into a tasklist id. Accepts a title as readily as an id,
- * because the assistant knows the lists by name and never by id. An unknown value is passed
- * through unchanged so a real id still works, and a missing default falls back to `@default`
- * rather than failing the write.
+ * Turns a title or id into a tasklist id (the assistant only knows titles). An unknown value passes
+ * through unchanged so a real id works; a missing default list falls back to `@default`, never throws.
  */
 export async function resolveTaskList(requested?: string | null): Promise<string> {
   const wanted = requested?.trim();
@@ -136,10 +135,9 @@ export async function listCalendarEvents(
 }
 
 /**
- * A snapshot, not an append log: the key carries no run date, so an event or task still open is
- * refreshed in place instead of costing a fresh row every morning (a task per day was 171 rows, ~62k
- * a year, and nothing reads a past day's snapshot). One that completes or drops out of the window
- * simply stops being refreshed and falls out of Phase 3's `run_date = today` read on its own.
+ * A snapshot, not an append log: `message_id` (`calendar:<id>` / `todo:<id>`) has no run date, so an
+ * open item is refreshed in place (`run_date` moves to today). One that completes or leaves the
+ * window stops being refreshed and drops out of Phase 3's `run_date = today` read on its own.
  */
 async function upsertSnapshot(
   runDate: string,
@@ -156,6 +154,7 @@ async function upsertSnapshot(
     .onConflictDoUpdate({ target: rawItems.messageId, set: { runDate, rawContent, receivedAt: receivedAt ?? null } });
 }
 
+/** Snapshots the next 7 days of primary-calendar events (max 50). Returns how many were stored. */
 export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   const calendar = getCalendarClient();
 
@@ -185,6 +184,7 @@ export async function ingestGoogleCalendar(runDate: string): Promise<number> {
   return stored;
 }
 
+/** Snapshots every open task across all lists. Returns how many were stored. */
 export async function ingestGoogleTasks(runDate: string): Promise<number> {
   const tasks = getTasksClient();
 

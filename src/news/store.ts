@@ -64,6 +64,7 @@ function storedWindow(rawContent: string | null): NewsWindow | null {
   }
 }
 
+/** `received_at` (= the window end) of the newest earlier desk delivery; null on the very first run. */
 export async function lastScanEnd(runDate: string): Promise<Date | null> {
   const [row] = await db
     .select({ end: max(rawItems.receivedAt) })
@@ -92,7 +93,10 @@ export async function recentlyReported(runDate: string): Promise<ReportedStory[]
   });
 }
 
-/** The reader's own ranking of what they follow, from the intel notes. Expired ones are skipped. */
+/**
+ * The contents of the live `intel` notes (expired and deleted ones skipped). Callers treat index 0
+ * as the first priority, but there is no `orderBy` here, so the order is whatever Postgres returns.
+ */
 export async function priorities(runDate: string): Promise<string[]> {
   const rows = await db
     .select({ content: notes.content })

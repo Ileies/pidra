@@ -1,18 +1,11 @@
 /**
  * Step timing for a pipeline run, written to `pipeline_run_steps` and drawn on `/runs/[id]`.
  *
- * A span is one measured stretch of work. `traceRun` opens the root span of a run; `span` opens a
- * child of whatever span is current, found through `AsyncLocalStorage` so parallel branches
- * (Section 1 beside the question gate, six news desks side by side) each nest under the right
- * parent without anything being passed down. Outside a run both are a plain call: the weekly jobs
- * share `withRetry` and the OpenAI client and pay nothing for it.
- *
- * Model calls, search requests and flex backoffs report to the current span through
- * `recordUsage`, `recordAiCall`, `recordSearch` and `recordFlexRetry`. They are stored as the
- * span's own values; the dashboard sums descendants, so a parent never double-counts.
- *
- * Measurement must never cost a briefing: every database write here is swallowed, and a failed
- * insert only means a missing bar.
+ * `traceRun` opens the root span; `span` opens a child of the current span (found via
+ * `AsyncLocalStorage`, so parallel branches nest correctly). Outside a run both are a plain call.
+ * Called by `recordUsage`/`recordAiCall`/`recordFlexRetry` from ai/openai.ts and `recordSearch`
+ * from the Brave client. Counters are the span's own values (the dashboard sums descendants).
+ * Measurement must never cost a briefing: every DB write here is swallowed.
  */
 import { errMessage } from "./text";
 import { AsyncLocalStorage } from "node:async_hooks";

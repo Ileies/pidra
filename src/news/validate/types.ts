@@ -38,8 +38,10 @@ export interface NewsValidation {
 }
 
 /**
- * A story as stored on its extraction row. `key_claim` holds the summary, the field newsletter
+ * A story as stored on its extraction row (`extractions.extracted_json` where the raw item has
+ * `source_type = 'web_news'`). `key_claim` holds the summary, the field newsletter
  * items use, so the cards, triage and "More on this" read a news story without a special case.
+ * `sources` has the unverified URLs filtered out (see `toExtraction`).
  */
 export interface NewsExtraction {
   desk: DeskId;
@@ -57,6 +59,7 @@ export interface NewsExtraction {
   validation: NewsValidation;
 }
 
+/** A story as the model returns it: sources are only ids into the search results, see `resolveStorySources`. */
 export type CitedStory = Omit<DeskStory, "sources"> & { sources: { id: string; publisher: string }[] };
 
 /** The model selects source ids; code supplies the exact Brave URL and title. */

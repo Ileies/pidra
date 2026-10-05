@@ -1,16 +1,9 @@
 /**
- * The reader-facing writer of `questions` (`apply-plan.ts` is the pipeline's).
- *
- * Two parties write the queue and neither may undo the other. The pipeline adds, rephrases,
- * merges and closes open questions through `applyPlan`, which the reconcile call decides
- * (`reconcile.ts`); the reader answers, dismisses and reopens them from `/questions`, through the
- * bridge. Every pipeline write is guarded on `status = 'open'`, so a question answered while the
- * reconcile call was still thinking keeps its answer and its wording.
- *
- * Nothing is deleted. A closed question keeps its status and the reason, and a rephrased one keeps
- * each earlier wording on `history`, so the page can say what changed and a wrong close can be
- * reopened. Every write also appends to `question_events` (`events.ts`), the append-only outcome
- * log that lets the reconcile step's merge/resolve/drop calls be judged against real history.
+ * The reader-facing writer of `questions` (`apply-plan.ts` is the pipeline's), reached from the
+ * dashboard's /questions routes and the assistant skills. Errors are `QuestionError` (404/400/409).
+ * Neither writer may undo the other: every pipeline write is guarded on `status = 'open'`, so an
+ * answer given while reconcile was running survives. Nothing is deleted; every write appends to
+ * `question_events` (`events.ts`). Status values: see src/db/schema/questions.ts.
  */
 import { HttpError } from "../util/errors";
 import { utcDay } from "../util/time";

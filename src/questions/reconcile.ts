@@ -1,24 +1,12 @@
 /**
- * Keeps the question queue short and free of repeats.
- *
- * The queue is standing: a question waits until the reader answers it, whenever that is. So every
- * run and every weekly review adds to the same list, and without this step the list would repeat
- * itself - the classifier asks about an unknown sender every morning the sender writes, and the
- * weekly review asks nearly the same three things each Sunday. One `extractJson()` call (prompt
- * section `questions`) sees the open questions, the new candidates and what the system already
- * knows, and decides per question: keep, rephrase (more general, or with the new detail, so one
- * answer settles both), merge into another, or close because the context has settled it; and per
- * candidate: attach to an open question, ask it new, or drop it because the answer is known.
- *
- * The model proposes, code decides, the same split as the quick actions:
- * - It sees short ids ("q1", "c1", "n1") and code maps them back; a decision naming an id that
- *   maps to nothing falls back to the safe choice.
- * - It fails open. A candidate the model skipped, dropped without a reason, or attached to
- *   something unusable is asked as it stands; an open question it skipped is kept. The worst a bad
- *   answer can do is leave a duplicate, never lose a question.
- * - Every close carries its reason onto the row, so `/questions` can say why a question went.
- * If the call itself fails, `mechanicalPlan` still attaches a candidate to an open question about
- * the same single sender, so a dead API does not bring the repeats back.
+ * Keeps the standing question queue free of repeats: one `extractJson()` call (prompt section
+ * `questions`) turns the open questions plus new candidates into a `QueuePlan`, which
+ * `apply-plan.ts` writes. Reads `questions`, `notes`, `contacts` and the long-term context.
+ * Model proposes, code decides (same split as quick actions):
+ * - The model sees short ids ("q1", "c1", "n1"); an id that maps to nothing falls back to the safe choice.
+ * - Fails open: a skipped/reasonless/unusable decision means the candidate is asked as it stands and
+ *   an open question is kept. Worst case is a duplicate, never a lost question.
+ * - Every close carries its reason onto the row. If the call itself fails, `mechanicalPlan` is the fallback.
  */
 import { squash } from "../util/text";
 import { and, inArray, isNull } from "drizzle-orm";
@@ -34,13 +22,7 @@ const MAX_QUESTION_CHARS = 400;
 const MAX_REASON_CHARS = 300;
 /** How far back answers count as "the reader already said this". */
 const ANSWER_MEMORY_DAYS = 30;
-/**
- * Caps how many brand-new questions one run can add to the standing queue. Without this, a run
- * with many unplaced candidates (e.g. several low-confidence entities crossing threshold on the
- * same day) can dump a double-digit pile on the reader at once (11 in one night, 2026-10-01).
- * Uncreated candidates are simply left out of this run's plan, not resolved or dropped, so they
- * are reconsidered on the next run rather than permanently suppressed.
- */
+/** Cap on brand-new questions per run (11 landed in one night on 2026-10-01). Excess candidates stay out of the plan, so the next run reconsiders them. */
 const MAX_NEW_QUESTIONS_PER_RUN = 3;
 
 interface ModelAnswer {
@@ -116,11 +98,7 @@ export function emptyPlan(): QueuePlan {
   return { rewrites: [], resolves: [], merges: [], attaches: [], created: [], dropped: [] };
 }
 
-/**
- * Enforces `MAX_NEW_QUESTIONS_PER_RUN`. The excess groups are dropped from the plan entirely
- * (not marked resolved/dropped), so their candidates are untouched and reappear as candidates on
- * the next run instead of being permanently suppressed.
- */
+/** Enforces `MAX_NEW_QUESTIONS_PER_RUN`; excess groups vanish from the plan (not dropped), so they reappear next run. */
 export function capCreated(plan: QueuePlan, max = MAX_NEW_QUESTIONS_PER_RUN): QueuePlan {
   return plan.created.length <= max ? plan : { ...plan, created: plan.created.slice(0, max) };
 }

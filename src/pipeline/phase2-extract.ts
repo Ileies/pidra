@@ -1,3 +1,7 @@
+// Phase 2: extraction. Turns today's `raw_items` (newsletter, personal_email, sms) into
+// `extractions` rows via `extractJson` (stage one of the two-stage split, docs/architecture-rules.md).
+// Called by `run.ts`; the rows are judged next by `gate.ts` in Phase 3. Idempotent per raw item, and
+// aborts the run when more than half of the items fail.
 import { squash } from "../util/text";
 import { contacts, db, extractions, notes, rawItems, sourceQuality } from "../db";
 import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
@@ -17,7 +21,7 @@ const CONTACT_NOTE_CHARS = 300;
 
 // The only source types `extractItem` has a branch for. Todos and calendar events are read
 // straight out of `raw_items` by Phase 3, so they never need a model call, and a news desk
-// delivery (`web_news`) arrives with its extraction rows already written by `src/news/desk.ts`.
+// delivery (`web_news`) arrives with its extraction rows already written by `src/news/store.ts`.
 // Keep this in sync with the branches in `extractItem`: anything missing here is silently never
 // extracted, anything extra pads the failure ratio below with guaranteed successes.
 const EXTRACTABLE_SOURCE_TYPES = new Set(["newsletter", "personal_email", "sms"]);

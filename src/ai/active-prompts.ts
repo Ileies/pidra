@@ -1,15 +1,9 @@
 /**
- * Resolves which prompt text a pipeline stage actually runs with.
- *
- * `prompt_versions` is an override layer, not the source of truth: the constants in `prompts.ts`
- * are the baseline every section falls back to, and an approved row in the table replaces the
- * baseline for that section until it is deactivated. So an empty table means "run the code",
- * which is the state the system starts in, and activating a version changes the next run
- * without a deploy.
- *
- * Deliberately not cached, and never resolved at import time: a run needs a handful of lookups,
- * while a cache or a module-level constant would mean an activation waits for the next process
- * restart - the exact failure this module exists to fix.
+ * Resolves which prompt text a stage runs with. `prompt_versions` is an override layer: the code
+ * baseline (src/ai/prompt-catalog.ts) is used unless a row is `active` for that section.
+ * Deliberately not cached nor resolved at import time, so an activation applies to the next run
+ * without a restart. `activePrompt` returns rendered text ({{tags}} filled); `resolveActivePrompts`
+ * stays raw. Ignores `prompt_versions.approved_at`: `active` is the only switch read here.
  */
 import { and, eq } from "drizzle-orm";
 import { db, promptVersions } from "../db";

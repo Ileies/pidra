@@ -1,5 +1,7 @@
 /**
- * The spoken report: the only writer of `report_audio`.
+ * The spoken report: the only writer of `report_audio`. Served by `src/server/routes/audio.ts`;
+ * chapters come from `daily_reports.report_json` via `chapters.ts`. The `variant` column is
+ * `<model>:<voice>` (`VARIANT` below), so changing either re-speaks.
  *
  * The caller names a date and a chapter key; the text always comes from the stored report, never
  * from the request, so the endpoint can only ever pay to speak text the pipeline produced. A

@@ -1,3 +1,6 @@
+// `active_topics` lifecycle rules (active -> dormant after 7 days -> archived after 30 without an
+// update, capacity of 15 active topics, revival shortlist). Pure helpers used by Phase 3
+// (`revivableTopics`), Phase 6 (`ageTopics`) and `phase6/system-block.ts` (capacity decisions).
 import { addDays } from "../util/time";
 import { inArray } from "drizzle-orm";
 import { activeTopics, db } from "../db";

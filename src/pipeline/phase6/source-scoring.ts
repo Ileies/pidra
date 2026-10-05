@@ -6,8 +6,12 @@ import { countsAsIncluded, dailyComposite, neutralRelevance } from "../source-si
 
 const avg = (nums: number[]) => nums.reduce((s, v) => s + v, 0) / nums.length;
 
+/**
+ * Newsletter sources only. Upserts today's `source_daily_scores` per source and refreshes
+ * `source_quality.composite_score_30d` (item-weighted); `trust_score` itself is set weekly by
+ * `weekly-source-scoring.ts`. `refsUsable` false means the report carried no resolvable refs.
+ */
 export async function writeSourceDailyScores(runDate: string, refsUsable: boolean): Promise<void> {
-  // Join extractions → raw_items for today, only newsletters with a sourceName
   const rows = await db
     .select({
       sourceName: rawItems.sourceName,

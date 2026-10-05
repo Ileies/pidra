@@ -1,4 +1,8 @@
-/** A compact, local snapshot of the decisions behind one completed briefing. */
+/**
+ * Pure classification of what became of one candidate item in a completed briefing, for the Jev
+ * baseline (`scripts/jev-baseline.ts`). Reads the gate and handoff verdicts persisted on
+ * `extractions` (`gate_passed`, `synthesis_handoff`, `included_in_report`); touches no DB itself.
+ */
 export type CandidateOutcome =
   | "not_extracted"
   | "extraction_failed"

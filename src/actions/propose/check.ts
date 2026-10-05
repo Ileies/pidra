@@ -5,6 +5,8 @@ import type { Mail } from "./mails";
 import { eventsOn, firstDay, inCalendar, isPast, parseWhen, similar, skillTimes, whenOf } from "./matching";
 import type { ActionPreview, DiscardReason, ModelAction } from "./types";
 
+// Code-side validation of one model-proposed quick action (called from ./index.ts `decide`): returns
+// skill parameters plus a preview, or a `DiscardReason`. May call the Calendar API (via `eventsOn`).
 const LINK = /\b(?:https?:\/\/|www\.)\S+/gi;
 
 /**

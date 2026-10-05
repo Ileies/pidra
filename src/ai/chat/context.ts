@@ -3,6 +3,8 @@ import { SURFACES, resolveSurface, type Surface } from "../surfaces";
 import { renderPrompt, type PromptVars } from "../prompt-vars";
 import { timeZoneOrUtc } from "../../util/time";
 
+// Assistant system prompt: BASE_PROMPT + the surface fragment (../surfaces.ts) + the client's page
+// context. Client input is untrusted: capped, and rendered after template substitution.
 const BASE_PROMPT = `You are PIDRA's assistant, embedded in the user's own dashboard. You help them
 change the system's content: notes, the harvested long-term context, entities, todos and calendar
 entries. You act through skills, and the page the user is on decides which skills you have.

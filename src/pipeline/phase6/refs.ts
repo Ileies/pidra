@@ -2,9 +2,8 @@ import { db, extractions } from "../../db";
 import { eq } from "drizzle-orm";
 
 // Synthesis anchors each claim back to the extractions it came from with `<!--refs:id,id-->`,
-// which the dashboard turns into a "Mehr dazu" deep link. Nothing used to check that the ids
-// were real: on the first full run, 3 of 26 pointed at nothing (one mis-transcribed UUID, two
-// invented outright), so those links were dead on arrival.
+// which the dashboard turns into a "More on this" deep link. Models mis-transcribe or invent UUIDs
+// (3 of 26 on the first full run), so every id is checked against this run's extractions here.
 const REF_BLOCK_RE = /<!--refs:([^>]*)-->/g;
 
 /** Levenshtein distance test that bails out as soon as it is certain the limit is exceeded. */

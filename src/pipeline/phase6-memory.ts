@@ -1,3 +1,8 @@
+// Phase 6: writes the day's report and the memory derived from it, after all synthesis. Called by
+// `run.ts`. Order matters: refs are resolved first (they decide `included_in_report`), the report
+// row is written, then the Section 1/2 SYSTEM blocks, source scores, entities, appearances and
+// contact counts are updated from it. Re-runnable: `daily_reports` is upserted and
+// `included_in_report` is reset before it is set. Details: docs/operations.md.
 import { db, dailyReports, extractions } from "../db";
 import { eq, inArray } from "drizzle-orm";
 import type { SynthesisResult } from "./phase5-synthesis";
@@ -52,7 +57,6 @@ export async function runPhase6(
 
   const shortSummary = synthesis.section1.split("\n").slice(0, 5).join(" ").slice(0, 500);
 
-  // Write daily report
   await db.insert(dailyReports).values({
     reportDate: runDate,
     fullReport,
@@ -77,12 +81,12 @@ export async function runPhase6(
     },
   });
 
-  // Parse and apply Section 1 SYSTEM block
+  // The SYSTEM blocks are machine-readable HTML comments the model appends to each section
+  // (topic and entity updates); `report-json.ts` strips them from the displayed report.
   const s1System = parseSystemBlock<Section1System>(synthesis.section1);
   if (s1System) await applySection1SystemBlock(s1System, runDate);
   await ageTopics(runDate);
 
-  // Parse and apply Section 2 SYSTEM block
   const s2System = parseSystemBlock<Section2System>(synthesis.section2);
   if (s2System) await applySection2SystemBlock(s2System);
 

@@ -33,7 +33,11 @@ export async function skillTools(surface: Surface): Promise<FunctionTool[]> {
     }));
 }
 
-/** Which stores a turn wrote, so the dashboard knows whether the page it is on went stale. */
+/**
+ * Which stores a turn wrote, so the dashboard knows whether the page it is on went stale. Returned
+ * as `touched` in the chat events; a skill that writes but is missing here never invalidates a page.
+ * Keys are store names the dashboard matches on (keep in sync when adding a writing skill).
+ */
 export const SKILL_TOUCHES: Record<string, string[]> = {
   write_note: ["notes"],
   update_note: ["notes"],

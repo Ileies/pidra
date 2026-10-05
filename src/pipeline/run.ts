@@ -1,3 +1,7 @@
+// Daily pipeline orchestrator, called by src/job.ts ("pipeline"). Order: news desks (parallel with
+// phase 1-2) -> phase 3 context -> section 1 / news editor / quick actions / question gate (parallel)
+// -> section 2 -> phase 6 memory -> push. Writes `pipeline_runs`; step spans go to `pipeline_run_steps`.
+// Retry and failure model: docs/operations.md.
 import { utcDay } from "../util/time";
 import { errMessage } from "../util/text";
 import { eq } from "drizzle-orm";

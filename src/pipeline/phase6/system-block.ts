@@ -1,3 +1,7 @@
+// Applies the machine-readable `<!--SYSTEM {json}-->` block each synthesis section appends (Section 1:
+// topic and entity updates, skill suggestions; Section 2: new contacts, notes). Called by
+// `phase6-memory.ts`. The block is model output and untrusted: invalid entries are skipped, never
+// fatal. Writes `active_topics`, `entities`, `contacts`, notes and `skill_executions`.
 import { isUuid } from "../../util/ids";
 import { errMessage } from "../../util/text";
 import { db, activeTopics, entities, contacts } from "../../db";
@@ -41,6 +45,7 @@ export interface Section2System {
   notes_to_write?: { content: string; scope?: string }[];
 }
 
+/** Null when the block is absent or not valid JSON. Takes the first block only. */
 export function parseSystemBlock<T extends Section1System | Section2System>(text: string): T | null {
   const match = text.match(/<!--SYSTEM\s*([\s\S]*?)\s*-->/);
   if (!match) return null;

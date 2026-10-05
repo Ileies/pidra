@@ -1,20 +1,12 @@
 /**
- * The report's structured form.
+ * The report's structured form: a deterministic markdown parser (no model call), run by Phase 6
+ * (`phase6-memory.ts`) and stored in `daily_reports.report_json`. Read by the dashboard report page
+ * and by `audio/chapters.ts`.
  *
- * The dashboard used to render the briefing as one flat `{@html marked(full_report)}` blob and
- * guess at its shape from CSS. Its structure is not a guess: it is pinned by the synthesis
- * prompts in `../ai/prompts.ts`, which is why the parser lives next to them rather than in the
- * dashboard. Prompt drift is then a one-file fix in the pipeline instead of a silent break in
- * the UI.
- *
- * No second model call: Phase 5 asks for exactly the markdown it asks for today, and this parses
- * that output deterministically in Bun. No extra tokens, no prompt change, and no risk of
- * degrading the prose by also asking the model for JSON.
- *
- * `full_report` stays the source of truth and is never dropped. If this parser fails to find
- * both section headings it returns null, the column stays null, and the dashboard falls back to
- * rendering the markdown as before - a prompt drift degrades the layout instead of emptying the
- * page.
+ * The structure it expects (headings, `<!--refs:-->` anchors) is pinned by the synthesis prompts in
+ * `../ai/prompts/`, so prompt and parser must change together. `full_report` stays the source of
+ * truth: when either section heading is missing the parser returns null and the dashboard falls
+ * back to rendering the markdown.
  */
 
 /** 2 added `news`. A version-1 row simply has none, which reads the same as a day without news. */

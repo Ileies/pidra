@@ -1,14 +1,10 @@
 /**
  * Entities the extraction graph keeps citing but has never been able to place.
  *
- * `type`/`domain` are set once, at insert, and every later write to an existing entity is
- * explicitly barred from touching them (`phase6/entities.ts`) - they stay owned by whatever the
- * first newsletter's graph guessed, or by a `revise_context` correction. So a `domain` that is
- * still empty after several separate newsletters, spread over more than a few days, is not a
- * stale value or a rerun artifact: it is the model saying, every time, that it does not know what
- * this thing is. That is a mechanical, self-limiting signal of genuine uncertainty - no schema
- * change, no extra model call, and it produces nothing on a day where every recurring entity is
- * already well understood.
+ * Question candidates for the Phase 4 gate (`phase4-questiongate.ts`). `type`/`domain` are set once at
+ * insert and later writes never touch them (`phase6/entities.ts`), so a `domain` still empty after
+ * 3+ mentions over 10+ days means the model never knew what the entity is. Mechanical: no model
+ * call, and no output on a day where every recurring entity is understood.
  */
 import { daysAgo } from "../util/time";
 import { and, eq, inArray, or, isNull, sql as drizzleSql } from "drizzle-orm";

@@ -5,18 +5,13 @@ import { db, notes, noteRevisions } from "../db";
 import { addDays, utcDay } from "../util/time";
 
 /**
- * The only writer of `notes` and `note_revisions`.
- *
- * `notes` is the mutable working layer - the user's standing instructions plus whatever Phase 6
- * writes from the `<!--SYSTEM-->` block - so unlike the harvested long-term context it is edited
- * in place. What makes that safe is here rather than in the callers: every mutation appends the
- * pre-change state to `note_revisions`, and a delete first sets `deleted_at`. The dashboard's
- * write endpoints and the note skills both come through this module, so a UI edit and a chat edit
- * cannot behave differently or skip the history.
- *
- * Rules the Context Builder seeds from Keep are notes too (`seedHarvestedNotes`), so a rule is
- * edited, deleted and undone exactly like anything else here. The correction layer for the
- * harvested document, entities and contacts is `src/context/corrections.ts`.
+ * The only writer of `notes` and `note_revisions` (the mutable layer, see docs/architecture-rules.md).
+ * Callers: dashboard note routes (src/server/routes/notes.ts), note skills in skills/, the pipeline
+ * (Phase 6 `<!--SYSTEM-->` notes), the Context Builder (`seedHarvestedNotes`).
+ * Invariant: every mutation appends the pre-change state to `note_revisions` and a delete only sets
+ * `deleted_at`, so UI and chat edits cannot skip the history. Corrections to the harvested context
+ * live in src/context/corrections.ts instead.
+ * Errors are `NoteError` (HttpError: 404 for "not found", else 400).
  */
 
 export const NOTE_SCOPES = ["global", "intel", "personal", "contact", "search"] as const;
@@ -136,11 +131,9 @@ export async function getNote(id: string): Promise<Note | null> {
 }
 
 /**
- * `id` is optional and only ever client-supplied by the offline outbox: a
- * note created offline is given its id in the browser, before the write ever reaches here, so the
- * mirror and the eventual server row agree on identity from the start. `onConflictDoNothing`
- * makes replaying the same create safe if the first attempt's response never made it back - the
- * row from that first attempt is what a caller gets either way.
+ * `id` is only ever client-supplied by the offline outbox (docs/offline-mode.md), so the mirror and
+ * the server row share an identity. `onConflictDoNothing` makes replaying a create idempotent: the
+ * first attempt's row is returned either way.
  */
 export async function createNote(input: NoteWrite & { content: string; id?: string }, actor: Actor): Promise<Note> {
   const content = (input.content ?? "").trim();
@@ -211,9 +204,7 @@ export async function seedHarvestedNotes(items: { key: string; content: string }
   return { added: fresh.length, refreshed };
 }
 
-/** Whether `id`'s row has moved since `baseUpdatedAt` - what an offline edit was based on. Read
- *  and the later write are not atomic with each other, which is fine for a single-user system;
- *  see `updateNote`'s own not-found handling for the case where the row is gone entirely. */
+/** Whether the row moved since `baseUpdatedAt` (what an offline edit was based on); false if the row is gone. Not atomic with the later write, fine for a single user. */
 export async function wasUpdatedSince(id: string, baseUpdatedAt: string | null): Promise<boolean> {
   const note = await getNote(assertUuid(id));
   if (!note) return false;

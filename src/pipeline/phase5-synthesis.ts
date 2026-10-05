@@ -1,3 +1,7 @@
+// Phase 5: stage two of the extraction/synthesis split. Builds the JSON payloads for Section 1,
+// Section 2 and the News editor from the Phase 3 `ContextPayload` and calls `synthesize`; called by
+// `run.ts`. The prompts are the active versions (`activePrompt`), not imported constants. The
+// section outputs must keep the heading shape `report-json.ts` parses.
 import { activePrompt, type PromptSection } from "../ai/active-prompts";
 import { synthesize, type CallOptions } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
@@ -138,6 +142,7 @@ async function synthesizeSection(
   return result;
 }
 
+/** Side effect: marks the items sent (the first SECTION1_CAPACITY) with `extractions.synthesis_handoff = 'sent'`. */
 export async function runSection1(ctx: ContextPayload, runDate: string) {
   const selected = ctx.newsletterItems.slice(0, SECTION1_CAPACITY);
   const result = await synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate), BRIEFING_SECTION_OPTS);

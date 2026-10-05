@@ -3,6 +3,11 @@ import { db, sourceQuality, sourceDailyScores } from "../db";
 import { eq, gte, sql as drizzleSql } from "drizzle-orm";
 import { trustComposite, trustFromComposite } from "./source-signal";
 
+/**
+ * The `source-scoring` job (src/job.ts): recomputes `source_quality.trust_score` and `quality_trend`
+ * from `source_daily_scores` (30-day composite already on the row, 7-day recomputed here). Trust is
+ * read by the gate next morning (`gate-items.ts`). Formulas: docs/scoring-formulas.md.
+ */
 export async function runWeeklySourceScoring(): Promise<void> {
   const today = utcDay();
 

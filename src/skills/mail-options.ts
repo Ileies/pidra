@@ -1,6 +1,6 @@
 import type { SkillParam } from "./loader";
 
-/** Optional parameters for outbound mail. */
+/** Shared optional parameters, parsing and nodemailer fields for the outbound-mail skills (skills/send_email.ts). */
 export const MAIL_OPTION_PARAMS: Record<string, SkillParam> = {
   cc: { type: "string", required: false, description: "Copy recipients: email addresses separated by commas. Default: none" },
   bcc: { type: "string", required: false, description: "Blind copy recipients: email addresses separated by commas. Default: none" },

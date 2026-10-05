@@ -28,7 +28,13 @@ import updateNote from "../../skills/update_note";
 import updateTodoItem from "../../skills/update_todo_item";
 import writeNote from "../../skills/write_note";
 
-export type RiskLevel = "low" | "medium" | "high" | "critical";
+/**
+ * Skill registry and the skill types. Skills live in repo-root skills/*.ts and are registered by
+ * hand below (static imports, so `getSkill`/`listSkills` stay synchronous). A new skill must be added
+ * here AND placed on a surface or in BRIDGE_ONLY_SKILLS (src/ai/surfaces.ts), or `bun run check` fails.
+ * Execution always goes through `executeSkill` (execute.ts). See docs/skills.md.
+ */
+export type RiskLevel ="low" | "medium" | "high" | "critical";
 
 export interface SkillParam {
   type: "string" | "number" | "boolean";
@@ -55,6 +61,11 @@ export interface SkillContext {
 export interface Skill {
   name: string;
   description: string;
+  /**
+   * Gating in executeSkill: low/medium run (medium is logged), high parks as `pending` for owner
+   * confirmation, critical never runs. Only `low` skills may be run unattended by the pipeline
+   * (phase6/skill-suggestions.ts), so a skill that edits something the owner made is not `low`.
+   */
   risk_level: RiskLevel;
   /**
    * Whether the skill runs before anyone has touched its switch on /skills. Default true. A skill

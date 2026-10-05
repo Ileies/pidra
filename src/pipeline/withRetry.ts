@@ -18,6 +18,11 @@ export class StepError extends Error {
 
 const RETRY_DELAYS_MS = [2000, 5000];
 
+/**
+ * Runs a pipeline step as a trace span, up to `maxAttempts` times (2s then 5s apart). Every failed
+ * attempt is recorded; when all fail it throws `StepError`, whose `attempts` end up in
+ * `pipeline_runs.step_errors` (see run.ts). The step must be idempotent.
+ */
 export async function withRetry<T>(
   step: string,
   fn: () => Promise<T>,

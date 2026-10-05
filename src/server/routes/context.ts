@@ -4,14 +4,7 @@ import { bodyOf, uuidParam } from "../http";
 
 export const context = new Hono();
 
-/**
- * Record a correction directly, for the dashboard's own editing surfaces (D7).
- *
- * `/contacts` lets the owner fix a name or a relationship inline, and that has to behave exactly
- * as the `revise_context` skill does: the row merge is field-level, the pre-merge row is
- * snapshotted into `previous_state`, and the row is locked against a re-seed. So it goes through
- * `recordCorrection`, the single writer, rather than the dashboard reaching for the table.
- */
+/** Records a correction for the dashboard's own editing surfaces (e.g. /contacts inline edits): same path as the `revise_context` skill, via `recordCorrection`. */
 context.post("/api/context/corrections", async (c) => {
   const body = await bodyOf<{
     target_kind: string;

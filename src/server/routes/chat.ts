@@ -55,9 +55,7 @@ chat.post("/api/assistant/chat", async (c) => {
   if (invalid) return c.json({ error: invalid }, 400);
 
   return streamSSE(c, async (stream) => {
-    // A single model call on the flex tier can be quiet for minutes. The heartbeat keeps the
-    // connection from looking dead to anything between here and the browser; the client ignores
-    // frames with no known type.
+    // Flex-tier calls can be quiet for minutes; the heartbeat keeps the connection alive (the client ignores `ping`).
     const heartbeat = setInterval(() => {
       stream.writeSSE({ event: "ping", data: "{}" }).catch(() => {});
     }, 15_000);

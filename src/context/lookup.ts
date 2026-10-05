@@ -3,9 +3,10 @@ import { and, desc, eq, gte, lte, sql as drizzleSql, type SQL } from "drizzle-or
 import { loadLongTermContext } from "../pipeline/long-term-context";
 
 /**
- * Read side of the context revision loop: what the chat looks at before proposing a correction.
- * Keyword lookup against Postgres and the context document on disk - no vector store, per the
- * architecture rules.
+ * Read side of the context revision loop: what the assistant looks at before proposing a correction
+ * (used by the read_context and read_report skills). Keyword lookup over `entities`, `contacts`,
+ * `context_corrections`, `daily_reports` and the harvested document (via loadLongTermContext); no
+ * vector store (docs/architecture-rules.md).
  */
 
 export interface ContextHit {
@@ -80,19 +81,17 @@ export async function searchContext(query: string, kind?: string, opts: SearchOp
   const perKind = Math.min(Math.max(Math.trunc(opts.limit ?? MAX_PER_KIND), 1), 50);
   const excerptChars = Math.min(Math.max(Math.trunc(opts.excerptChars ?? EXCERPT_CHARS), 100), 5000);
 
-  // "list everything of this kind" - the review case, e.g. reading every contact through before
-  // correcting them. Without it the caller has to guess a word that happens to match.
+  // "*" or "all" lists everything of a kind (reviewing every contact before correcting them).
   const listAll = raw === "*" || raw === "all";
   const tokens = listAll ? [] : tokenize(raw);
 
   const want = (k: string) => !kind || kind === "all" || kind === k;
   const hits: ContextHit[] = [];
 
-  // Listing every block of the document is what `documentOutline` is for, so a bare "all" only
-  // enumerates the other kinds.
+  // A bare "all" skips the document (`documentOutline` lists its headings).
   if (want("document") && !listAll) {
     const ctx = await loadLongTermContext();
-    // Both halves, joined: the split is a daily-prompt concern, not a lookup concern.
+    // Both halves joined: the split is a daily-prompt concern.
     hits.push(...searchDocument([ctx.personalSections, ctx.intelSections].filter(Boolean).join("\n\n"), tokens, perKind, excerptChars));
   }
 

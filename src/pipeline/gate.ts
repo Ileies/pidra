@@ -2,22 +2,14 @@
  * The Phase 3 relevance gate: which extracted items clear the relevance bar, and why the rest
  * do not. Section 1 then applies its separate 30-item capacity.
  *
- * This decision used to live as two anonymous `.filter()` calls at the bottom of
- * `phase3-context.ts`, and it left no trace anywhere. An item that dropped out here was simply
- * absent from the report, indistinguishable from one that was never ingested, one whose
- * extraction failed, and one that synthesis saw and chose not to write about. When an important
- * mail did not appear in the briefing of 2026-09-12 there was nothing to look at: the only
- * persisted verdict was `included_in_report`, which Phase 6 sets from the report's own refs and
- * which is therefore false for all four of those cases at once.
+ * Pure: called by `gate-items.ts` (Phase 3, persists `extractions.gate_passed/gate_reason/gate_detail`)
+ * and by `news/run.ts` (duplicate marking). `/[date]/triage` reads the persisted verdicts back, and
+ * `GateDetail` is the type of the `gate_detail` JSON column (src/db/schema/pipeline.ts).
+ * Formulas: docs/scoring-formulas.md.
  *
- * So the gate is a function with named outcomes now, and Phase 3 writes its verdict per
- * extraction (`gate_passed`, `gate_reason`, `gate_detail`). `/[date]/triage` reads them back.
- *
- * It stays pure on purpose: the same function decided the live run and, once, reconstructed the
- * verdict for every row written before these columns existed, so the history the view shows is the
- * real rule rather than a second implementation of it. Those reconstructed rows are marked
- * `recordedBy: "backfill"` rather than `"phase3"`, since the one input that reconstruction cannot
- * recover is that morning's actual source-trust score.
+ * Purity matters: the same function once reconstructed verdicts for rows written before the gate
+ * columns existed. Those rows carry `recordedBy: "backfill"`, because the one input that cannot be
+ * recovered is that morning's actual source-trust score.
  */
 
 import type { NewsValidation } from "../news/validate";
@@ -132,6 +124,7 @@ export function trustMultiplier(relevanceScore: number | null, trustScore: numbe
   return (relevanceScore ?? 0) >= TRUST_PROOF_SCORE ? Math.max(1, trustScore) : trustScore;
 }
 
+/** Never throws and does no I/O. `extractedJson` is the `extractions.extracted_json` shape of the source type. */
 export function decideGate(input: GateInput): GateDecision {
   const bonus = corroborationBonus(input.sourceCount);
   const effectiveRelevance = (input.relevanceScore ?? 0) * trustMultiplier(input.relevanceScore, input.trustScore) + bonus;
@@ -189,7 +182,7 @@ export function decideGate(input: GateInput): GateDecision {
   }
 
   if (input.sourceType === "web_news") {
-    // The checks ran when the desk answered (src/news/validate.ts), because they need what only
+    // The checks ran when the desk answered (src/news/validate/), because they need what only
     // that call had: the URLs its search returned. This names their outcome. Checks before the
     // score: a fabricated story that claims a 5 is still fabricated.
     const validation = (json.validation ?? {}) as Partial<NewsValidation>;

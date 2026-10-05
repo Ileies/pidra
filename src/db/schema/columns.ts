@@ -3,7 +3,8 @@ import { sql } from "drizzle-orm";
 // Not `jsonb` from pg-core: that one double-encodes on the Bun SQL driver. Same signature. See src/db/jsonb.ts.
 export { jsonb } from "../jsonb";
 
-export const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: "string" });
+// Shared column helpers. Timestamps and dates are `mode: "string"`: rows carry ISO / `YYYY-MM-DD` strings, never Date.
+export const timestamptz =(name: string) => timestamp(name, { withTimezone: true, mode: "string" });
 export const dateStr = (name: string) => date(name, { mode: "string" });
 
 export const pk = () => uuid("id").primaryKey().default(sql`gen_random_uuid()`);

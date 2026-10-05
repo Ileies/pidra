@@ -1,13 +1,8 @@
 /**
- * The languages a user can pick, as a closed allowlist.
- *
- * The database stores a language *code* from these tables and nothing else. The prompts get the
- * English *name* from here, never the stored text, so a value that reached the table by any other
- * route (a crafted request, a manual edit) cannot become instructions to the model: an unknown
- * code resolves to the default, it is never interpolated. Pure module, no imports, so the
- * dashboard's server code, its settings page and the pipeline all read the same list.
- *
- * Right-to-left languages are left out on purpose: the report renderer has no `dir` handling yet.
+ * The languages a user can pick, as a closed allowlist (`user_settings` stores only the code).
+ * Prompts get the English *name* from here, never stored text, so an unknown code resolves to the
+ * default and cannot become model instructions. Pure module with no imports: shared by the
+ * dashboard and the pipeline. Right-to-left languages are left out: the report renderer has no `dir` handling.
  */
 
 export const DEFAULT_LANGUAGE = "en";

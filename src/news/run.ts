@@ -1,6 +1,6 @@
 /**
  * The news desk run: every enabled desk researches the window in parallel, each answer is checked
- * (`validate.ts`), and every story is stored as an extraction under one `raw_items` delivery per
+ * (`validate/`), and every story is stored as an extraction under one `raw_items` delivery per
  * desk - `source_type = 'web_news'`, `source_name = 'news:<desk>'` (`store.ts`).
  *
  * Stored like any other source on purpose. From there the rest of the chain applies unchanged:

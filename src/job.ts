@@ -27,6 +27,8 @@ import { runContextBuilder } from "../context-builder/run";
 
 const today = () => utcDay();
 
+// Job names are the argument of the systemd units; renaming one means changing the nixos flake too.
+// `date` is passed to every job but only `pipeline` and `feedback` use it.
 const JOBS: Record<string, (date: string) => Promise<unknown>> = {
   "pipeline": (date) => runPipeline(date),
   "feedback": (date) => runImplicitFeedback(date),

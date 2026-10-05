@@ -11,19 +11,19 @@ import { retry } from "../util/retry";
 import { stripControlChars } from "../util/text";
 import { recordAiCall, recordFlexRetry, recordUsage } from "../util/trace";
 
+/**
+ * The single OpenAI client (CLAUDE.md "OpenAI API rules"): `extractJson` (strict-schema JSON),
+ * `synthesize` (free text), `converse` (one tool-calling turn) and `speak` (TTS). Throws at import
+ * when OPENAI_API_KEY is unset. Token usage is reported to util/trace.ts and the optional `onUsage`.
+ */
 if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export { EXTRACTION_MODEL, SYNTHESIS_MODEL };
 
-// With reasoning enabled, gpt-6-luna rejects `temperature`; `max_tokens` is unsupported.
-// Use strict JSON schemas plus low reasoning effort instead; the output cap is `max_output_tokens`
-// on the Responses API and `max_completion_tokens` on Chat Completions.
-
-// Flex processing trades latency for ~50% lower cost; 429s mean "no flex capacity right now",
-// not a real failure, so retry with backoff instead of counting it against callers. Transient
-// 5xx and connection resets get the same treatment - a several-hundred-item run will hit them.
+// Flex 429 means "no flex capacity right now", not a failure; 5xx and connection resets are
+// retried the same way (a several-hundred-item run hits them).
 const FLEX_RETRY_DELAYS_MS = [2000, 8000, 20000];
 
 function isRetryable(err: unknown): boolean {
@@ -91,6 +91,11 @@ export interface ExtractOptions extends CallOptions {
   schema?: { name: string; schema: Record<string, unknown> };
 }
 
+/**
+ * Low-effort JSON extraction on the extraction model. Returns the parsed object (cast, not validated).
+ * Throws on an empty response or when the output is still `incomplete` after the retry with a 4x cap.
+ * Default `maxOutputTokens` 2000, reasoning effort "low".
+ */
 export async function extractJson<T>(
   systemPrompt: string,
   userContent: string,
@@ -103,11 +108,9 @@ export async function extractJson<T>(
   const input = `Return JSON only.\n\n${stripControlChars(userContent)}`;
   const baseCap = opts.maxOutputTokens ?? 2000;
 
-  // Structured outputs does NOT enforce `maxItems`, so the model can occasionally run away
-  // generating an array - observed emitting 4000 tokens for a note whose correct answer was
-  // 325 characters, then failing as `incomplete`. It is sporadic rather than input-dependent:
-  // the identical request succeeds on a retry. So retry once with a much larger ceiling, which
-  // both absorbs a genuinely long answer and re-rolls a runaway.
+  // Structured outputs does NOT enforce `maxItems`, so the model sporadically runs away on an array
+  // and ends `incomplete`; an identical retry succeeds. Retry once with a 4x ceiling, which absorbs
+  // a genuinely long answer and re-rolls a runaway.
   const caps = [baseCap, baseCap * 4];
   let lastReason = "unknown";
 
@@ -122,8 +125,7 @@ export async function extractJson<T>(
       text: { format },
     }, opts.onUsage);
 
-    // A truncated response can still be JSON-shaped, so check status explicitly rather than
-    // letting JSON.parse fail with a confusing message.
+    // A truncated response can still be JSON-shaped, so check status before parsing.
     if (response.status === "incomplete") {
       lastReason = response.incomplete_details?.reason ?? "unknown";
       continue;
@@ -137,6 +139,7 @@ export async function extractJson<T>(
   throw new Error(`OpenAI extraction incomplete after ${caps.length} attempts: ${lastReason}`);
 }
 
+/** Free-text call on the synthesis model (default effort "medium", 4096 output tokens). Does not retry on `incomplete`. */
 export async function synthesize(
   systemPrompt: string,
   userContent: string,
@@ -193,12 +196,9 @@ export interface ConverseResult {
 }
 
 /**
- * One turn of a tool-calling conversation. The caller owns the loop: it executes the returned
- * `functionCalls`, appends their `function_call_output` items to the input and calls again.
- *
- * `store: false` means the API keeps nothing between turns, so the full item list - reasoning
- * items and function calls included - has to be replayed on every call. That is why `output` is
- * handed back verbatim rather than reduced to text.
+ * One turn of a tool-calling conversation (used by src/ai/chat). The caller owns the loop: execute
+ * `functionCalls`, append `function_call_output` items and call again. With `store: false` the full
+ * item list (reasoning items included) must be replayed each turn, hence `output` is returned verbatim.
  */
 export async function converse(
   systemPrompt: string,

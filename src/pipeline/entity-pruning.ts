@@ -2,8 +2,9 @@ import { daysAgo } from "../util/time";
 import { db, entities } from "../db";
 import { and, eq, sql as drizzleSql } from "drizzle-orm";
 
-// Archive low-importance entities dormant for 60+ days.
-// Permanently delete archived entities absent for 180+ days with mention_count <= 2.
+// The `prune` job (src/job.ts, with `pruneDeletedNotes`). Archives non-high-importance entities
+// dormant for 60+ days; permanently deletes archived ones absent for 180+ days with mention_count <= 2.
+// Thresholds: docs/scoring-formulas.md.
 export async function pruneEntityGraph(): Promise<void> {
   const today = new Date();
   const threshold60 = daysAgo(60, today);

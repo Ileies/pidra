@@ -1,31 +1,18 @@
 /**
- * Quick actions: the one-tap buttons the report offers beside a personal item.
- *
- * A separate model call, not a field of the Section 2 synthesis. Section 2 is asked to write,
- * and a writer handed a "suggestions" field fills it; this call is asked one narrower question,
- * whether a mail is worth a button, and is told that the normal answer is no. Its prompt is the
- * `quick_actions` section (`QUICK_ACTIONS_PROMPT`), overridable by an active prompt version like any other.
- *
- * The model proposes, code decides, the same split as the news desks:
- * - It sees short ids ("m1", "c3", "t12"), never a UUID or a Google id, and code maps them back.
- *   An id that maps to nothing discards the action rather than guessing.
- * - Every date is parsed as a wall-clock time in the primary calendar's zone (`calendarTimeZone`)
- *   and turned into an instant here, so a server running in UTC cannot move an appointment by
- *   hours. The unattended run has no browser to ask.
- * - An event is checked against the calendar on its own day, not only against the seven days
- *   Phase 1 ingests, and a task against the whole open list rather than the 40 Section 2 gets.
- * - Hard caps: two per mail, `MAX_ACTIONS` per day.
- * What code throws out is still written, as `discarded` with the reason (`store.ts`), so tuning
- * the prompt can start from the table.
- *
- * What it reads: the day's personal mail and SMS that passed the gate, plus automated mail the gate
- * dropped as low urgency when the classifier flagged a calendar event or a to-do in it - a booking
- * confirmation is automated mail, and it is the case this feature exists for. It reads the mail text
- * itself, since the classification carries no times or places, and answers in strict JSON only,
- * which makes it an extraction-shaped call: no prose from it ever reaches the report.
- *
- * Layout: `types` (shapes and the model's schema), `mails` (what it reads), `matching` (time and
- * similarity helpers), `check` (validates one action), this file (the call and the caps).
+ * Quick actions (Phase 5): one separate extraction-shaped model call (prompt section `quick_actions`)
+ * that decides which of the day's personal mails deserve a one-tap button. Output is strict JSON,
+ * never prose in the report. Result is written by `src/actions/store.ts` into `report_actions`.
+ * Model proposes, code decides:
+ * - The model sees short ids ("m1", "c3", "t12"); an id that maps to nothing discards the action.
+ * - Dates are wall-clock in the primary calendar's zone (`calendarTimeZone`), converted to instants
+ *   here, so a UTC server cannot shift an appointment.
+ * - Events are checked against the calendar on their own day, tasks against the whole open list.
+ * - Caps: `MAX_PER_MAIL` per mail, `MAX_ACTIONS` per day. Thrown-out actions are still stored as
+ *   `discarded` with the reason, so prompt tuning can start from the table.
+ * Reads: personal mail and SMS that passed the gate, plus automated mail the gate dropped when the
+ * classifier flagged an event or to-do (booking confirmations).
+ * Layout: `types` (shapes, schema), `mails` (inputs), `matching` (time/similarity), `check` (validates
+ * one action), this file (the call and the caps).
  */
 import { activePrompt } from "../../ai/active-prompts";
 import { extractJson, usageTally } from "../../ai/openai";

@@ -1,3 +1,7 @@
+// Section 1's three web-search slots (topic deep-dive, watched entity, reputation monitor), run by
+// Phase 3 (`pipeline/phase3-context.ts`) via `runAllSlots`. Each slot costs one Brave call from the
+// shared daily quota (see brave.ts); slot 2 writes `entities.last_watch_search`. Slots 4 and 5 are
+// deliberately not built.
 import { daysAgo, DAY_MS } from "../util/time";
 import { braveSearch, type BraveResult } from "./brave";
 import { extractJson } from "../ai/openai";
@@ -36,10 +40,7 @@ async function runSlot1(
 }
 
 // Slot 2: watched entity monitor. Watching is the explicit "alert me on this" correction
-// (`importance = 'high'`, set from the entity detail page through the usual correction path);
-// this was previously also gated on `status = 'dormant'`, which no writer ever reached on its
-// own (nothing ever set `importance = 'high'` before the Watch control existed), so the slot had
-// no candidate ever, in production, since launch.
+// (`importance = 'high'`, set from the entity detail page through the usual correction path).
 async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
   const tenDaysAgo = daysAgo(10);
 
@@ -89,6 +90,7 @@ async function runSlot3(runDate: string): Promise<WebSearchResult | null> {
   return { slot: 3, query, target, results };
 }
 
+/** Never throws: a failed slot is logged and skipped, so the result has 0 to 3 entries. */
 export async function runAllSlots(
   topics: (typeof activeTopics.$inferSelect)[],
   runDate: string,

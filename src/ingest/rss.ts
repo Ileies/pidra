@@ -6,6 +6,9 @@ import { db, rawItems, existingMessageIds, rssFeeds } from "../db";
 import type { RssFeed } from "../config/rss-feeds";
 import { removeFooter, stripHtml } from "./html";
 
+// Phase 1 RSS ingest: polls the configured feeds (config/rss-feeds.ts, `rss_feeds` table) in
+// parallel into `raw_items` as `newsletter` rows keyed on the item guid/link; records fetch health
+// on `rss_feeds`. Failures are returned (`rss:<source>`), not thrown, so one feed cannot sink the run.
 const parser = new Parser({ timeout: 15000 });
 
 export interface RssIngestResult {
@@ -13,18 +16,12 @@ export interface RssIngestResult {
   failures: { source: string; error: string }[];
 }
 
-/**
- * Long enough for an essay's whole argument, short enough that a 120k-character post does not
- * cost 30k tokens twice (newsletter and entity extraction both read it). The mail path caps at
- * 6000, but a feed item is one article rather than a digest of many.
- */
+/** Body cap: an essay's argument fits, a 120k post does not cost 30k tokens twice. The mail path caps at 6000. */
 const RSS_BODY_CHARS = 16000;
 
 /**
- * The article itself where the feed carries it. Substack and most WordPress feeds put the full
- * post in `content:encoded` and only a teaser in `content`/`contentSnippet`, which is all this
- * used to read: on 2026-10-01 the stored bodies were 35-660 characters while the feeds carried up
- * to 125k, so extraction wrote items like "The newsletter examines X" from a title alone.
+ * The article itself where the feed carries it: Substack/WordPress put the full post in
+ * `content:encoded` and only a teaser in `content`/`contentSnippet`. Picks the longer of the two.
  */
 export function rssBody(item: Parser.Item): string {
   const encoded = (item as Parser.Item & { "content:encoded"?: unknown })["content:encoded"];
@@ -91,6 +88,7 @@ async function ingestFeed(feedConfig: RssFeed, since: Date, runDate: string): Pr
   }
 }
 
+/** Env `RSS_LOOKBACK_DAYS` (default 14) sets the window. */
 export async function ingestRssFeeds(runDate: string, feeds: RssFeed[]): Promise<RssIngestResult> {
   console.log(`[Ingest/RSS] Polling ${feeds.length} feeds`);
 

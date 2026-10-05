@@ -2,10 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, chatMessages } from "../../db";
 import type { ResponseInput } from "../openai";
 
-/**
- * Caps are generous on purpose: input tokens are cheap, and a follow-up question that makes the
- * model re-run a tool it already ran costs more than the tokens it would have replayed.
- */
+/** Caps are generous on purpose: re-running a tool costs more than replaying its tokens. */
 export const MAX_HISTORY_MESSAGES = 60;
 export const MAX_TOOL_RESULT_CHARS = 40_000;
 export const MAX_TOOL_LOG_CHARS = 400_000;

@@ -28,14 +28,10 @@ Focus on actionable insights, patterns, or preferences revealed by the answers. 
 Return ONLY a JSON array of strings: ["insight1", "insight2", ...]`;
 
 /**
- * Adds this week's reflection questions to the question queue and exits.
- *
- * It used to open a session and poll it for two hours, and the unit was gone long before that:
- * every session since 2026-09-20 stayed pending for good, and the one that was answered was
- * answered five days late, after the job had stopped listening. Now the questions go through the
- * same reconcile as the pipeline's, so last week's unanswered ones are rephrased, merged or closed
- * instead of piling up, and `absorbReviewAnswers` turns whatever the reader answers into notes on
- * the next pipeline run.
+ * The `review` job (src/job.ts): adds this week's reflection questions (kind "review") to the
+ * question queue and exits without waiting for answers. They go through the same reconcile as the
+ * pipeline's, so last week's unanswered ones are rephrased, merged or closed, and
+ * `absorbReviewAnswers` turns the reader's answers into notes on the next pipeline run.
  */
 export async function runWeeklyReview(): Promise<void> {
   const today = utcDay();

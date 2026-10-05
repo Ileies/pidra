@@ -19,6 +19,7 @@
 
 import { browser } from "$app/env";
 import { net, netJson } from "#lib/offline/net.js";
+import { activeEntryId, type Segment } from "#lib/report/active-entry.js";
 
 interface PlayerChapter {
   key: string;
@@ -26,6 +27,8 @@ interface PlayerChapter {
   title: string;
   /** Milliseconds. An estimate until the chapter has been spoken, exact after. */
   durationMs: number;
+  /** Reading order, for highlighting the entry being spoken. */
+  segments: Segment[];
 }
 
 /** Generating a long chapter takes a few seconds, not the 15 an ordinary tap is allowed. */
@@ -82,6 +85,11 @@ class ReportPlayer {
   elapsedMs = $derived(this.#beforeMs + this.position * 1000);
   totalMs = $derived(this.chapters.reduce((sum, c) => sum + c.durationMs, 0));
   chapter = $derived<PlayerChapter | undefined>(this.chapters[this.current]);
+
+  /** The report entry being spoken, or null during a heading. An estimate, see `active-entry.ts`. */
+  activeEntry = $derived<string | null>(
+    this.open && this.chapter ? activeEntryId(this.chapter.segments, this.position, this.chapter.durationMs / 1000) : null,
+  );
 
   /** Seconds in a chapter: the element's own figure once it knows it, the estimate before. */
   #lengthOf(chapter: PlayerChapter): number {

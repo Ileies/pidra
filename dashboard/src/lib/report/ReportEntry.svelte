@@ -8,6 +8,7 @@
   import { extractionsFor, type MirroredExtraction } from "#lib/offline/repo.js";
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
   import { markEntryHintSeen } from "#lib/report/entry-hint.svelte.js";
+  import { reportPlayer } from "#lib/report/player.svelte.js";
   import QuickActions from "#lib/report/QuickActions.svelte";
   import RateButtons from "#lib/report/RateButtons.svelte";
   import type { QuickAction } from "#lib/report/types.js";
@@ -22,11 +23,15 @@
     accent?: string;
     /** The quick actions for the mails this entry cites. The page assigns each to one entry. */
     actions?: QuickAction[];
+    /** `p:group:entry`, `n:group:entry`, `i:group:entry` or `a:entry`: the id the audio chapters (`src/audio/chapters.ts`) use for this entry. */
+    entryId?: string;
   }
 
-  let { entry, date, ratings, onRate, accent, actions = [] }: Props = $props();
+  let { entry, date, ratings, onRate, accent, actions = [], entryId }: Props = $props();
 
   let open = $state(false);
+  /** Being read aloud right now. The player's position is an estimate, so this follows it loosely. */
+  const speaking = $derived(entryId != null && reportPlayer.open && reportPlayer.date === date && reportPlayer.activeEntry === entryId);
   let items = $state<MirroredExtraction[] | null>(null);
 
   const href = $derived(`/${date}/detail/${entry.refIds.join(",")}`);
@@ -69,8 +74,9 @@
     tabindex={expandable ? 0 : undefined}
     onclick={expandable ? onSurfaceClick : undefined}
     onkeydown={expandable ? onSurfaceKeydown : undefined}
-    class="flex items-start gap-3 {expandable
-      ? '-mx-2 -my-1 px-2 py-1 rounded-md cursor-pointer transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-surface-900 active:bg-surface-800 focus-visible:ring-2 focus-visible:ring-primary-500'
+    aria-current={speaking ? "true" : undefined}
+    class="flex items-start gap-3 -mx-2 -my-1 px-2 py-1 rounded-md transition-colors {speaking ? 'bg-primary-950' : ''} {expandable
+      ? `cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] active:bg-surface-800 focus-visible:ring-2 focus-visible:ring-primary-500 ${speaking ? '' : 'hover:bg-surface-900'}`
       : ''}"
   >
     <div class="report-body min-w-0 flex-1 text-sm {expandable ? 'entry-prose' : ''}" data-open={open ? '' : undefined}>

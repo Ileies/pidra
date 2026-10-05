@@ -227,6 +227,7 @@
 							date={data.date}
 							{ratings}
 							{onRate}
+							entryId="p:{data.structured?.personal.indexOf(group)}:{index}"
 							accent={meta.accent}
 							actions={placement.byEntry.get(entry)}
 						/>
@@ -271,8 +272,14 @@
 							{group.domain}
 						</h3>
 					{/snippet}
-					{#snippet entry(entry)}
-						<ReportEntry {entry} date={data.date} {ratings} {onRate} />
+					{#snippet entry(entry, index, group)}
+						<ReportEntry
+							{entry}
+							date={data.date}
+							{ratings}
+							{onRate}
+							entryId="i:{data.structured?.intel.indexOf(group)}:{index}"
+						/>
 					{/snippet}
 				</EntryGroup>
 			{/if}
@@ -289,7 +296,7 @@
 						Also noted
 					</h2>
 					{#each data.structured.alsoNoted as entry, index (index)}
-						<ReportEntry {entry} date={data.date} {ratings} {onRate} />
+						<ReportEntry {entry} date={data.date} {ratings} {onRate} entryId="a:{index}" />
 					{/each}
 				</section>
 			{/if}

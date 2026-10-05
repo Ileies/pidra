@@ -44,7 +44,7 @@
       <div id="news-{index}" tabindex="-1" class="flex flex-col gap-3 scroll-mt-[calc(var(--header-h)+3.5rem)]">
         <h3 class="text-sm font-semibold uppercase tracking-wider text-surface-300">{group.group}</h3>
         {#each group.entries as entry, entryIndex (entryIndex)}
-          <ReportEntry {entry} {date} {ratings} {onRate} />
+          <ReportEntry {entry} {date} {ratings} {onRate} entryId="n:{index}:{entryIndex}" />
         {/each}
       </div>
     {/each}

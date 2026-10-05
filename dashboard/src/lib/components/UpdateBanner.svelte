@@ -28,7 +28,7 @@
       onclick={() => appUpdate.apply()}
       aria-label="Reload: a new version of PIDRA is ready"
       title="A new version of PIDRA is ready"
-      class="tap relative flex h-10 w-10 items-center justify-center rounded-lg border border-primary-700 bg-primary-900 text-primary-200 hover:bg-primary-800 md:h-auto md:w-auto md:rounded md:px-3 md:py-1"
+      class="btn btn-icon btn-primary relative h-10 w-10 md:h-auto md:w-auto md:rounded md:px-3 md:py-1"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5 md:hidden" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" />

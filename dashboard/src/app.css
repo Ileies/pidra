@@ -387,6 +387,13 @@
 @utility btn-bare {
   @apply rounded px-2;
 }
+/* Icon-only buttons: a rounded square or a circle with no padding; the caller sets `h-N w-N`. */
+@utility btn-icon {
+  @apply rounded-lg;
+}
+@utility btn-round {
+  @apply rounded-full;
+}
 @utility btn-primary {
   @apply border-primary-700 bg-primary-900 text-primary-200 hover:bg-primary-800;
 }
@@ -404,6 +411,14 @@
 /* No fill, no visible border: a dismiss, a history link, an inline action. */
 @utility btn-quiet {
   @apply border-transparent bg-transparent text-surface-400 hover:text-surface-100;
+}
+/* No border, lights up on hover: the player's transport controls. */
+@utility btn-flat {
+  @apply border-transparent bg-transparent text-surface-200 hover:bg-surface-800;
+}
+/* The filled accent control: the player's play button. */
+@utility btn-accent {
+  @apply border-primary-500 bg-primary-500 text-surface-950 hover:border-primary-400 hover:bg-primary-400;
 }
 @utility btn-quiet-danger {
   @apply border-transparent bg-transparent text-surface-400 hover:text-error-400;

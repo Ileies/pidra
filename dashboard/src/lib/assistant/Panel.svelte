@@ -204,7 +204,7 @@
           onclick={() => assistant.cancel()}
           aria-label="Stop"
           title="Stop"
-          class="tap shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-surface-800 border border-surface-600 text-surface-200 hover:bg-surface-700 transition-colors"
+          class="btn btn-round btn-solid h-9 w-9 shrink-0"
         >
           <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
         </button>

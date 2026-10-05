@@ -108,7 +108,7 @@
             aria-haspopup="true"
             aria-label={overflowTotal > 0 ? `More pages: ${overflowTotal} waiting for you` : "More pages"}
             onclick={() => (moreOpen = !moreOpen)}
-            class="tap relative flex h-10 w-10 items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-surface-300 hover:border-surface-500 hover:text-surface-100 transition-colors"
+            class="btn btn-icon btn-ghost relative h-10 w-10 bg-surface-950"
           >
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
               <path d="M5 5h.01M12 5h.01M19 5h.01M5 12h.01M12 12h.01M19 12h.01M5 19h.01M12 19h.01M19 19h.01" />

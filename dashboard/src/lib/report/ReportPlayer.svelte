@@ -43,8 +43,7 @@
     return out;
   });
 
-  const button =
-    "tap inline-flex items-center justify-center gap-1 rounded-full text-surface-200 bg-transparent border-none hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed";
+  const button = "btn btn-flat btn-round";
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -59,7 +58,7 @@
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="tap inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-none bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:opacity-60"
+          class="btn btn-accent btn-round h-10 w-10 shrink-0"
           aria-label={player.buffering ? "Preparing the audio" : player.playing ? "Pause" : "Play"}
           disabled={player.chapters.length === 0}
           onclick={() => player.toggle()}
@@ -166,7 +165,7 @@
         </button>
         <button
           type="button"
-          class="tap inline-flex h-12 w-12 items-center justify-center rounded-full border-none bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:opacity-60"
+          class="btn btn-accent btn-round h-12 w-12"
           aria-label={player.buffering ? "Preparing the audio" : player.playing ? "Pause" : "Play"}
           disabled={player.chapters.length === 0}
           onclick={() => player.toggle()}

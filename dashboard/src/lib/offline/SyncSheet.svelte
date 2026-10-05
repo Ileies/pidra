@@ -74,7 +74,7 @@
         type="button"
         onclick={() => offline.closeSheet()}
         aria-label="Close"
-        class="tap -mr-1.5 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-100"
+        class="btn btn-icon btn-quiet -mr-1.5 -mt-1 h-8 w-8 hover:bg-surface-800"
       >
         <X class="size-4" aria-hidden="true" />
       </button>

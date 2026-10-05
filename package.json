@@ -7,7 +7,7 @@
   "scripts": {
     "check": "bun run scripts/check.ts",
     "check:quick": "bun run scripts/check.ts --quick",
-    "test": "bun test",
+    "test": "bun test ./tests",
     "dev": "bun run src/index.ts",
     "run:pipeline": "bun run src/pipeline/run.ts",
     "job": "bun run src/job.ts",

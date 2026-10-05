@@ -42,6 +42,7 @@ export const load: PageLoad = async ({ params, depends }) => {
     // Newer dates sort first, so "next" (a later date) is the previous array entry.
     prevDate: sorted[index + 1] ?? null,
     nextDate: index > 0 ? sorted[index - 1] : null,
+    latestDate: sorted[0] ?? null,
     mirrorEmpty: empty,
   };
 };

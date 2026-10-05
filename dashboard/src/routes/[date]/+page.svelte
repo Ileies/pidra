@@ -155,6 +155,7 @@
 			today={data.today}
 			prevDate={data.prevDate}
 			nextDate={data.nextDate}
+			latestDate={data.latestDate}
 		/>
 
 		<!-- Above the "no report" state too: a dead source means the text below is incomplete. -->

@@ -11,15 +11,22 @@
   import { fmtDate } from "#lib/format.js";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import ChevronsRight from "@lucide/svelte/icons/chevrons-right";
 
   interface Props {
     date: string;
     today: string;
     prevDate: string | null;
     nextDate: string | null;
+    latestDate: string | null;
   }
 
-  let { date, today, prevDate, nextDate }: Props = $props();
+  let { date, today, prevDate, nextDate, latestDate }: Props = $props();
+
+  /** The jump to the newest report (`/`) shows only when the plain next-day arrow is not enough: 2+ days behind. */
+  const showLatest = $derived(
+    latestDate !== null && (Date.parse(latestDate) - Date.parse(date)) / 86_400_000 >= 2,
+  );
 
   let open = $state(false);
   let days = $state<ArchiveDay[] | null>(null);
@@ -116,18 +123,30 @@
     {/if}
   </div>
 
-  {#if nextDate}
-    <a
-      href="/{nextDate}"
-      class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
-    >
-      <span class="hidden xs:inline tabular-nums">{nextDate}</span>
-      <ChevronRight class="h-5 w-5 shrink-0" aria-hidden="true" />
-      <span class="sr-only">Next day, {nextDate}</span>
-    </a>
-  {:else}
-    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
-      <ChevronRight class="h-5 w-5" />
-    </span>
-  {/if}
+  <div class="flex items-center gap-2">
+    {#if nextDate}
+      <a
+        href="/{nextDate}"
+        class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
+      >
+        <span class="hidden xs:inline tabular-nums">{nextDate}</span>
+        <ChevronRight class="h-5 w-5 shrink-0" aria-hidden="true" />
+        <span class="sr-only">Next day, {nextDate}</span>
+      </a>
+    {:else}
+      <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
+        <ChevronRight class="h-5 w-5" />
+      </span>
+    {/if}
+
+    {#if showLatest}
+      <a
+        href="/"
+        class="tap flex items-center px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-surface-200 no-underline hover:bg-surface-800"
+      >
+        <ChevronsRight class="h-5 w-5 shrink-0" aria-hidden="true" />
+        <span class="sr-only">Latest report</span>
+      </a>
+    {/if}
+  </div>
 </nav>

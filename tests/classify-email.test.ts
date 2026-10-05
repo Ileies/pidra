@@ -50,3 +50,31 @@ describe("classifyEmail", () => {
     expect(classifyEmail("Other <news@known-letter.com>", config, true).sourceName).toBe("Known Letter");
   });
 });
+
+// mailparser folds every List-* header into one `list` entry; reading "list-id" or "list-unsubscribe"
+// directly is always undefined, which once left list mail undetected. Parsed for real, not hand-built.
+describe("listHeaders on a parsed mail", () => {
+  const parse = async (...headers: string[]) =>
+    (await import("mailparser")).simpleParser(["Message-ID: <a@example.com>", "From: A <a@example.com>", "Subject: s", ...headers, "", "body"].join("\r\n"));
+
+  test("List-Id and List-Unsubscribe are found, so the mail counts as bulk", async () => {
+    const { listHeaders } = await import("../src/ingest/sources");
+    for (const header of ["List-Id: <news.example.com>", "List-Unsubscribe: <mailto:u@example.com>"]) {
+      const parsed = await parse(header);
+      expect([header, isBulkMail(listHeaders(parsed.headers))]).toEqual([header, true]);
+    }
+  });
+
+  test("a mail without list headers is not bulk and has no unsubscribe url", async () => {
+    const { listHeaders } = await import("../src/ingest/sources");
+    const found = listHeaders((await parse()).headers);
+    expect(isBulkMail(found)).toBe(false);
+    expect(found.unsubscribeUrl).toBeNull();
+  });
+
+  test("the unsubscribe url is the https one, never the mailto", async () => {
+    const { listHeaders } = await import("../src/ingest/sources");
+    expect(listHeaders((await parse("List-Unsubscribe: <mailto:u@example.com>, <https://example.com/u?t=1>")).headers).unsubscribeUrl).toBe("https://example.com/u?t=1");
+    expect(listHeaders((await parse("List-Unsubscribe: <mailto:u@example.com>")).headers).unsubscribeUrl).toBeNull();
+  });
+});

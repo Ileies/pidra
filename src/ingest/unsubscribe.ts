@@ -1,5 +1,6 @@
 import type { simpleParser } from "mailparser";
 import { extractJson } from "../ai/openai";
+import { listHeaders } from "./sources";
 
 type ParsedMail = Awaited<ReturnType<typeof simpleParser>>;
 
@@ -14,13 +15,6 @@ const UNSUBSCRIBE_SCHEMA = {
 };
 
 const HTTP_URL = /^https?:\/\//i;
-
-function fromListUnsubscribeHeader(value: unknown): string | null {
-  const raw = typeof value === "string" ? value : "";
-  if (!raw) return null;
-  const urls = [...raw.matchAll(/<([^>]+)>/g)].map((m) => m[1]);
-  return urls.find((u) => HTTP_URL.test(u)) ?? null;
-}
 
 function fromBodyLink(html: string | undefined): string | null {
   if (!html) return null;
@@ -52,7 +46,7 @@ async function fromAiScan(html: string | undefined): Promise<string | null> {
  * per source (see `imap.ts`), so the AI fallback never runs on the hot ingest path repeatedly.
  */
 export async function findUnsubscribeLink(parsed: ParsedMail): Promise<string | null> {
-  const headerUrl = fromListUnsubscribeHeader(parsed.headers.get("list-unsubscribe"));
+  const headerUrl = listHeaders(parsed.headers).unsubscribeUrl;
   if (headerUrl) return headerUrl;
 
   const bodyUrl = fromBodyLink(parsed.html || undefined);

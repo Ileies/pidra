@@ -2,7 +2,7 @@ import type Imap from "imap";
 import { and, eq } from "drizzle-orm";
 import { simpleParser } from "mailparser";
 import { db, ingestDrops, rawItems, existingMessageIds, sourceQuality } from "../db";
-import { classifyEmail, isBulkMail, senderAddress } from "./sources";
+import { classifyEmail, isBulkMail, listHeaders, senderAddress } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
 import { findUnsubscribeLink } from "./unsubscribe";
@@ -118,8 +118,7 @@ export async function ingestImapAccount(account: EmailAccount, runDate: string, 
 
       const { sourceType, sourceName } = account.isNewsAccount
         ? classifyEmail(from, newsletterConfig, isBulkMail({
-            listUnsubscribe: parsed.headers.get("list-unsubscribe"),
-            listId: parsed.headers.get("list-id"),
+            ...listHeaders(parsed.headers),
             precedence: parsed.headers.get("precedence"),
           }))
         : { sourceType: "personal_email" as const, sourceName: senderEmail };

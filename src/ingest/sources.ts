@@ -6,6 +6,22 @@ export interface BulkHeaders {
   precedence?: unknown;
 }
 
+/**
+ * What mailparser makes of the `List-*` headers. It folds them all into one `list` entry
+ * (`{ unsubscribe: { url, mail }, id: { name } }`), so `headers.get("list-unsubscribe")` and
+ * `headers.get("list-id")` are always undefined; read them through here.
+ */
+export function listHeaders(headers: Map<string, unknown>): { listUnsubscribe: unknown; listId: unknown; unsubscribeUrl: string | null } {
+  const list = headers.get("list");
+  const fields = typeof list === "object" && list !== null ? (list as Record<string, unknown>) : {};
+  const url = (fields.unsubscribe as { url?: unknown } | undefined)?.url;
+  return {
+    listUnsubscribe: fields.unsubscribe,
+    listId: fields.id,
+    unsubscribeUrl: typeof url === "string" && /^https?:\/\//i.test(url) ? url : null,
+  };
+}
+
 /** True when the headers mark the mail as sent to a list rather than written to one person. */
 export function isBulkMail({ listUnsubscribe, listId, precedence }: BulkHeaders): boolean {
   if (listUnsubscribe || listId) return true;

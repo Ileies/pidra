@@ -3,7 +3,8 @@
    * Reading progress on `/[date]`: a thin bar above the header (slides in on first scroll) plus a "N min left" chip, which small screens replace with only the one-time reward at the bottom center. Purely
    * client-side; the persisted read state comes in as `read` (written by `useReadReceipt`). The end
    * only counts after a real scroll (`scrolled`), so a short report does not celebrate on load, and
-   * never for a report that is already read. The celebration never
+   * never for a report that is already read. The "Read" chip exists only during the one celebration;
+   * afterwards the bar and chip track the scroll position like for any unread report. The celebration never
    * blocks (pointer-events off, ends by itself); reduced motion is handled by the global rule in app.css.
    */
   import { untrack } from "svelte";
@@ -26,31 +27,27 @@
 
   let progress = $state(0);
   let words = $state(0);
-  let done = $state(false);
   let burst = $state(false);
   /** True once the reader has scrolled; the bar slides in then and the chip may show. */
   let started = $state(false);
   let isSmall = $state(false);
   let scrolled = false;
+  /** True once the celebration has played (or the report was already read on arrival). */
+  let celebrated = false;
 
   const minutesLeft = $derived(Math.ceil((words * (1 - progress)) / WORDS_PER_MINUTE));
   const label = $derived(
-    done ? "Read" : minutesLeft <= 0 ? "Almost done" : minutesLeft === 1 ? "1 min left" : `${minutesLeft} min left`
+    burst ? "Read" : minutesLeft <= 0 ? "Almost done" : minutesLeft === 1 ? "1 min left" : `${minutesLeft} min left`
   );
 
   function countWords(el: HTMLElement): number {
     return (el.innerText.match(/\S+/g) ?? []).length;
   }
 
-  // A sync from another device (or the receipt landing) turns the chip to its quiet "Read" state.
-  $effect(() => {
-    if (read) done = true;
-  });
-
   $effect(() => {
     void date;
     progress = 0;
-    done = untrack(() => read);
+    celebrated = untrack(() => read);
     burst = false;
     scrolled = false;
     started = false;
@@ -70,11 +67,9 @@
       const span = rect.height - window.innerHeight;
       progress = span <= 0 ? 0 : Math.min(1, Math.max(0, -rect.top / span));
       const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
-      if (done) progress = 1;
-      else if (scrolled && atEnd) {
-        done = true;
+      if (!celebrated && scrolled && atEnd) {
+        celebrated = true;
         burst = true;
-        progress = 1;
         setTimeout(() => (burst = false), 2200);
       }
     };
@@ -111,7 +106,7 @@
   >
     <div class="h-[3px] bg-surface-800">
       <div
-        class="h-full origin-left transition-colors duration-500 {done ? 'bg-success-400' : 'bg-primary-400'} {burst ? 'shimmer' : ''}"
+        class="h-full origin-left transition-colors duration-500 {burst ? 'bg-success-400' : 'bg-primary-400'} {burst ? 'shimmer' : ''}"
         style="width: {progress * 100}%"
       ></div>
     </div>
@@ -126,11 +121,11 @@
     >
       <span
         class="chip relative flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs tabular-nums
-          {done
-          ? `${burst ? 'pop ' : ''}border-success-700 bg-success-950 text-success-300`
+          {burst
+          ? 'pop border-success-700 bg-success-950 text-success-300'
           : 'border-surface-700 bg-surface-900/90 text-surface-300'}"
       >
-        {#if done}<Check class="h-3 w-3" aria-hidden="true" />{/if}
+        {#if burst}<Check class="h-3 w-3" aria-hidden="true" />{/if}
         {label}
         {#if burst}
           {#each Array(SPARKS) as _, i (i)}

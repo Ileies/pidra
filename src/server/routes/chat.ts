@@ -15,7 +15,7 @@ interface ChatRequest {
 }
 
 function chatRequestError(body: Partial<ChatRequest>): string | null {
-  if (!body.message?.trim()) return "message is required";
+  if (typeof body.message !== "string" || !body.message.trim()) return "message is required";
   if (body.conversation_id && !isUuid(body.conversation_id)) return "Invalid conversation_id";
   return null;
 }

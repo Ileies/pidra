@@ -49,7 +49,6 @@ export const SKILL_TOUCHES: Record<string, string[]> = {
   add_contact: ["context", "contacts"],
   create_question: ["questions"],
   set_source_active: ["sources"],
-  propose_prompt_version: ["prompts"],
   add_todo_item: ["todos"],
   complete_todo_item: ["todos"],
   update_todo_item: ["todos"],

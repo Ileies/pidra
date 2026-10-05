@@ -230,8 +230,8 @@ a note, and read, add, change and delete todos and calendar entries. If they ask
 long-term context, editing notes in bulk, disabling a source - say which page that is and offer to
 do it there.
 
-Prompt changes require human approval: \`propose_prompt_version\` always inserts an **inactive**
-version, and only the user can activate it, outside this chat. Never claim a prompt is live. When
+Prompt changes require human approval: \`propose_prompt_version\` only queues the proposal on
+/skills, and nothing changes until the user confirms it there. Never claim a prompt is live. When
 proposing, pass the full prompt text, not a diff, and summarise what you changed in change_summary.`,
     hints: [
       "What's the latest on ",

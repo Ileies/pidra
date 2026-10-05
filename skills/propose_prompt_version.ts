@@ -2,18 +2,22 @@ import { desc, eq } from "drizzle-orm";
 import type { Skill } from "../src/skills/loader";
 import { db, promptVersions } from "../src/db";
 import { PROMPT_SECTIONS } from "../src/ai/active-prompts";
+import { approvePromptVersion, createPromptVersion } from "../src/ai/prompt-store";
 
 /**
- * Prompt changes require human approval, so this only ever inserts an **inactive** version. The
- * user activates it on /prompts, which is the one place that flips `active`. Nothing here can
- * make a prompt live, by design.
+ * The approval IS the skill's confirmation. It is `high` risk, so `executeSkill` parks every call
+ * as `pending` on /skills with the full prompt text in its parameters; nothing is stored until the
+ * owner confirms there, and then this inserts the new version and activates it in one step
+ * (rejecting stores nothing). `expected_latest_version` is re-checked at confirm time, so a proposal
+ * queued before a newer version landed is refused rather than silently replacing it.
  */
 const skill: Skill = {
   name: "propose_prompt_version",
   description:
-    "Propose a new version of a pipeline prompt. It is stored as INACTIVE and only takes effect once the " +
-    "user activates it on /prompts - never claim a proposed prompt is live. Pass the full prompt text, not a diff.",
-  risk_level: "medium",
+    "Propose a new version of a pipeline prompt. The call is queued on /skills and only takes effect once the " +
+    "user confirms it there (that confirmation activates the version) - never claim a proposed prompt is live. " +
+    "Pass the full prompt text, not a diff.",
+  risk_level: "high",
   parameters: {
     section: { type: "string", required: true, description: `One of: ${PROMPT_SECTIONS.join(" | ")}` },
     prompt_text: { type: "string", required: true, description: "The complete new prompt text" },
@@ -23,7 +27,6 @@ const skill: Skill = {
       required: false,
       description: "Refuse unless the newest stored version of this section is this number (guards against overwriting a newer proposal). Default: no check; 0 means none exists yet",
     },
-    dry_run: { type: "boolean", required: false, description: "Validate and report the version number it would get, without storing anything. Default: false" },
   },
   execute: async (params) => {
     const section = String(params.section ?? "").trim();
@@ -36,38 +39,29 @@ const skill: Skill = {
       throw new Error("prompt_text must be the full prompt, not a fragment or a diff");
     }
 
-    const [latest] = await db
-      .select({ version: promptVersions.version })
-      .from(promptVersions)
-      .where(eq(promptVersions.section, section))
-      .orderBy(desc(promptVersions.version))
-      .limit(1);
-
     const expected = params.expected_latest_version;
     if (expected !== undefined && expected !== null && expected !== "") {
       const wanted = Number(expected);
       if (!Number.isInteger(wanted) || wanted < 0) throw new Error("expected_latest_version must be a whole number, 0 or more");
+      const [latest] = await db
+        .select({ version: promptVersions.version })
+        .from(promptVersions)
+        .where(eq(promptVersions.section, section))
+        .orderBy(desc(promptVersions.version))
+        .limit(1);
       if (wanted !== (latest?.version ?? 0)) {
         throw new Error(`${section} is at v${latest?.version ?? 0}, not v${wanted}. Read the newer version before proposing over it.`);
       }
     }
 
-    if (params.dry_run === true || String(params.dry_run).toLowerCase() === "true") {
-      return `Dry run: ${section} would become v${(latest?.version ?? 0) + 1} (${promptText.length} characters), stored as inactive. Nothing was stored.`;
-    }
+    const row = await createPromptVersion({
+      section,
+      promptText,
+      changeSummary: params.change_summary ? String(params.change_summary).trim() : null,
+    });
+    await approvePromptVersion(row.id);
 
-    const [row] = await db
-      .insert(promptVersions)
-      .values({
-        section,
-        promptText,
-        changeSummary: params.change_summary ? String(params.change_summary).trim() : null,
-        version: (latest?.version ?? 0) + 1,
-        active: false,
-      })
-      .returning({ id: promptVersions.id, version: promptVersions.version });
-
-    return `Proposed ${section} v${row.version} (id=${row.id}) as inactive. It changes nothing until you activate it on /prompts.`;
+    return `Activated ${section} v${row.version} (id=${row.id}). It applies from the next pipeline run.`;
   },
 };
 

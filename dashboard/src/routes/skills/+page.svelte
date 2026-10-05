@@ -10,7 +10,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";
   import Switch from "#lib/components/Switch.svelte";
-  import JsonBlock from "#lib/components/JsonBlock.svelte";
+  import ParamList from "#lib/components/ParamList.svelte";
   import EmptyState from "#lib/components/EmptyState.svelte";
   import { fmtDateTimeShort } from "#lib/format.js";
   import { toastFormResult } from "#lib/toast.svelte.js";
@@ -71,7 +71,7 @@
             </div>
 
             {#if execution.parameters && Object.keys(execution.parameters).length > 0}
-              <JsonBlock value={execution.parameters} />
+              <ParamList value={execution.parameters} />
             {/if}
 
             <form method="POST" action="?/resolve" use:enhance class="flex flex-col sm:flex-row sm:items-center gap-2">

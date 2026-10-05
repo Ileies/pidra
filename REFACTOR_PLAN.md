@@ -253,12 +253,12 @@ For going back over decisions. Details per item are in the phase status blocks a
 - **3.8** (auto-discover skills with `Bun.Glob`): skipped, the loader must stay synchronous and skills import `provenanceOf` from it (cycle). Adding a skill still means editing the file, the loader and `surfaces.ts` or `BRIDGE_ONLY_SKILLS`.
 - **1.16 `errorFrom`, 1.18 `urlFilter`/`enhanceWith`/`useFormToast`/`pageContext`**: skipped as wrappers that save a line or two.
 - **4.12 `SourceQualityRow` merge**, **5.1 `Button.svelte` wrapper**, **6.7 settings load function and `useAsync`**, **9.5 `tests/fixtures/db.ts`**: skipped (different shapes, utilities were enough, page is deliberately load-free, mocks genuinely differ).
-- **Owner decisions 3 and 4** (unused bridge endpoints, dashboard DB driver): never started, still waiting for a yes.
+- **Owner decision 3** (unused bridge endpoints): stale, the GET routes were already removed (`f0a8b0b`, `21ba7c9`); the remaining no-caller routes (`POST/DELETE /api/prompts*`, `POST /skills/execute`) stay as the documented manual API. **Owner decision 4** (dashboard on Drizzle): deferred, tracked in `docs/todo/later.md`.
 - **9.8 part:** TypeScript versions not aligned (`svelte-kit sync` crashes under TS 7).
 
 ### Done differently or only partly
 - **Line count goal missed in places:** Phase 3 net is about +180 lines (splitting adds imports and headers); Phase 5 is about -350, not -850; `[date]/+page.svelte` is 340 (target ~260); `routes.ts` 306 (must stay one text-parseable registry); `notes/store.ts` 367; `corrections.ts` did not shrink. Five files carry their own ceiling in `scripts/check-file-size.ts` `EXCEPTIONS`.
-- **2.1** also deleted the `SELF_EMAILS` env var, `PROMPT_VARIABLES` and `Skeleton.svelte` (asked first). **2.5:** only comments reworded, the assistant `prompts` surface text and `propose_prompt_version` untouched pending your decision on where prompt approval lives now that the page is gone.
+- **2.1** also deleted the `SELF_EMAILS` env var, `PROMPT_VARIABLES` and `Skeleton.svelte` (asked first). **2.5:** only comments reworded, the assistant surface text and `propose_prompt_version` were settled afterwards: the skill is now `high` risk, so a proposal parks on `/skills` and confirming it activates the version (the pending queue shows long parameters in a wrapping box, `ParamList.svelte`).
 - **3.12:** stopword list deliberately not shared with `implicit-feedback.ts`. **3.17:** only verified with `context-builder:dry`.
 - **5.x:** button variants were normalised (border, padding, hover colours moved by about a pixel); several tinted boxes, forms and details were not converted to `Card`; the launcher bubble, stop square, `Sparkline`, `SyncLogo` stay custom.
 - **7.1:** `useReadReceipt` is an effect helper, not an attachment; `search-hit-current` is still toggled on the DOM in `DocSearch`.

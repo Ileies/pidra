@@ -1,6 +1,7 @@
 // The `meta-run` job (src/job.ts): weekly analytics of the last Mon-Sun week, sent with the effective
 // prompts to the model, which proposes prompt changes. The proposal is only saved as a `global` note
-// (never applied; approval goes through /prompts, docs/architecture-rules.md).
+// (never applied; a prompt only changes through `propose_prompt_version`, confirmed on /skills,
+// see docs/architecture-rules.md).
 import { daysAgo, addDays } from "../util/time";
 import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes } from "../db";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, type SQL } from "drizzle-orm";

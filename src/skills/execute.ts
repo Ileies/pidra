@@ -91,12 +91,7 @@ export async function executeSkill(
   }
 
   if (riskLevel === "critical") {
-    await settle(execRow.id, "rejected");
-    return {
-      status: "rejected",
-      message: "critical skills require manual review and cannot be auto-executed",
-      executionId: execRow.id,
-    };
+    return reject(execRow.id, "critical skills require manual review and cannot be auto-executed");
   }
 
   if (riskLevel === "high") {

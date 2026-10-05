@@ -30,9 +30,11 @@ function feedUrl(value: string): string {
   let parsed: URL;
   try { parsed = new URL(value.trim()); }
   catch { throw new NewsletterSettingsError("Enter a valid HTTPS feed URL."); }
+  // `localhost.` is the same host as `localhost`, and the URL parser keeps the trailing dot.
+  const host = parsed.hostname.replace(/\.+$/, "");
   if (parsed.protocol !== "https:" || parsed.username || parsed.password ||
-      !parsed.hostname.includes(".") || isIP(parsed.hostname) ||
-      /(^|\.)(localhost|local|internal)$/.test(parsed.hostname)) {
+      !host.includes(".") || isIP(host) ||
+      /(^|\.)(localhost|local|internal)$/.test(host)) {
     throw new NewsletterSettingsError("Use a public HTTPS feed URL without credentials.");
   }
   return parsed.href;

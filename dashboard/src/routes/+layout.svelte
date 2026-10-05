@@ -12,6 +12,7 @@
   import Assistant from "#lib/assistant/Assistant.svelte";
   import { assistant } from "#lib/assistant/state.svelte.js";
   import ReportPlayer from "#lib/report/ReportPlayer.svelte";
+  import { reportPlayer } from "#lib/report/player.svelte.js";
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import FirstSync from "#lib/offline/FirstSync.svelte";
   import { navBadges } from "#lib/navBadges.svelte.js";
@@ -55,6 +56,11 @@
   });
 
   $effect(() => startClient(loggedIn));
+
+  // The player outlives route changes, but not the session: logging out ends the audio.
+  $effect(() => {
+    if (!loggedIn && reportPlayer.open) reportPlayer.close();
+  });
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.
   // `dvh`, not `vh`: mobile browser chrome makes 100vh taller than the visible area, which put

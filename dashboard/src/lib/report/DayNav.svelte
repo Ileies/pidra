@@ -144,7 +144,6 @@
         href="/"
         class="btn btn-step btn-surface"
       >
-        <span class="hidden xs:inline">Latest</span>
         <ChevronsRight class="h-5 w-5 shrink-0" aria-hidden="true" />
         <span class="sr-only">Latest report</span>
       </a>

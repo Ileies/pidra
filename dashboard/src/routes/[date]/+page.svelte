@@ -116,7 +116,7 @@
 			!data.report && (data.pipelineRun?.status === 'running' || triggering || !!form?.triggered)
 	}));
 
-	useReadReceipt(() => ({ date: data.date, enabled: !!data.report }));
+	useReadReceipt(() => ({ date: data.date, enabled: !!data.report && !data.readAt }));
 
 	let articleEl = $state<HTMLElement>();
 </script>
@@ -318,7 +318,7 @@
 	</div>
 
 	{#if data.report && data.structured}
-		<ReadProgress target={articleEl} date={data.date} />
+		<ReadProgress target={articleEl} date={data.date} read={!!data.readAt} />
 	{/if}
 
 	{#if data.report}

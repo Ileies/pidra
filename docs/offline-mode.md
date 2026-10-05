@@ -10,7 +10,7 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 **The mirror is a cache and the outbox is a queue, never a source of truth.**
 
-- **Store:** IndexedDB (`$lib/offline/db.ts`), filled only from `GET /api/offline/snapshot`. It holds the newest `MIRROR_DAYS = 60` (`#lib/server/snapshotCache.ts`) report dates with their open and done quick actions (never an action's error text), the extractions they cite, every note including the trash (standing rules are `personal` notes, so they arrive here), active corrections, the newest harvest document, entities, contacts (removed ones left out), topics, and the entity appearances inside the window.
+- **Store:** IndexedDB (`$lib/offline/db.ts`), filled only from `GET /api/offline/snapshot`. It holds the newest `MIRROR_DAYS = 60` (`#lib/server/snapshotCache.ts`) report dates with their open and done quick actions (never an action's error text), each report's read state (`readAt`, from `notification_reads`), the extractions they cite, every note including the trash (standing rules are `personal` notes, so they arrive here), active corrections, the newest harvest document, entities, contacts (removed ones left out), topics, and the entity appearances inside the window.
 - **Schema version:** `DB_VERSION` is 5. The v5 upgrade adds an `entityId` index on `entityAppearances` (`repo.entity()` reads one entity's rows through `db.getAllBy`, not the whole store). The v4 upgrade drops the `rules` store (standing rules became notes) and deletes any queued or failed `rule.*` intent, which no longer has an endpoint and would otherwise jam the drain.
 - **Exclusions are enforced in the endpoint, not in a consumer:** no `raw_items.raw_content`, nothing from `chat_messages`, `skill_executions` or `push_subscriptions`, and `step_errors` only as the `ingestFailures` digest (source plus one fixed word).
 - **Rendered on the server:** the snapshot ships sanitised HTML, so `renderMarkdown()` stays out of the client bundle.
@@ -37,10 +37,10 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 ## Writes
 
-**One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`; `intents.ts`), never into the mirror directly.
+**One writer each way.** A page reads through `repo` and writes through `outbox` (`note.*`, `rate`, `report.read`; `intents.ts`), never into the mirror directly.
 
-- An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*` and `/api/feedback`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`).
-- Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rating that replaces the previous one.
+- An intent is applied to the mirror optimistically and flushed in order to `/api/notes/*`, `/api/feedback` and `/api/notifications/report-read/[date]`, which call the same helpers as the live paths (`src/notes/store.ts`, `rateExtraction()`).
+- Replays are idempotent: a client-generated note id with `ON CONFLICT DO NOTHING`, a rating that replaces the previous one, a read stamp that keeps the earliest time (the mirror is stamped once, so the Read chip celebrates only on the transition to read).
 - A transport failure retries; a 4xx moves the intent to `failed`, shown on the row it belongs to (`FailedWrite`).
 - A queued note edit whose row moved on the server still lands and is flagged, since `note_revisions` keeps both versions.
 - **Never queued:** corrections and contact edits, topic curation, quick actions, pipeline and Context Builder runs, deep dives, revision reverts, skill approvals, the chat and listening to a briefing (the report page's Play button is disabled offline; audio is fetched on demand, never mirrored, and the player downloads each chapter through `net()` with its own 120 s budget). Once the app knows it is offline they are disabled with the reason; a tap before that is answered "Not sent" with what was typed kept.

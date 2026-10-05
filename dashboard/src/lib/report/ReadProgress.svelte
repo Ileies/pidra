@@ -1,24 +1,25 @@
 <script lang="ts">
   /**
    * Reading progress on `/[date]`: a thin bar under the header plus a "N min left" chip. Purely
-   * client-side; independent of the read receipt (`useReadReceipt`). The end only counts after a
-   * real scroll (`scrolled`), so a short report does not celebrate on load. The celebration never
+   * client-side; the persisted read state comes in as `read` (written by `useReadReceipt`). The end
+   * only counts after a real scroll (`scrolled`), so a short report does not celebrate on load, and
+   * never for a report that is already read. The celebration never
    * blocks (pointer-events off, ends by itself); reduced motion is handled by the global rule in app.css.
    */
+  import { untrack } from "svelte";
   import Check from "@lucide/svelte/icons/check";
-
-  // Dates whose end was reached this session: the celebration plays once, a remount or effect re-run
-  // restores the quiet "Read" state instead of replaying it.
-  const finished = new Set<string>();
 
   interface Props {
     /** The element holding the report text. */
     target: HTMLElement | undefined;
     /** Changes with the report, which resets the celebration. */
     date: string;
+    /** The mirror's read state for this report (synced across devices). The celebration plays only
+     *  on the transition to read, never for a report that already is. */
+    read: boolean;
   }
 
-  let { target, date }: Props = $props();
+  let { target, date, read }: Props = $props();
 
   const WORDS_PER_MINUTE = 230;
   const SPARKS = 14;
@@ -38,10 +39,15 @@
     return (el.innerText.match(/\S+/g) ?? []).length;
   }
 
+  // A sync from another device (or the receipt landing) turns the chip to its quiet "Read" state.
+  $effect(() => {
+    if (read) done = true;
+  });
+
   $effect(() => {
     void date;
     progress = 0;
-    done = finished.has(date);
+    done = untrack(() => read);
     burst = false;
     scrolled = false;
     if (!target) return;
@@ -58,7 +64,6 @@
       const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
       if (done) progress = 1;
       else if (scrolled && atEnd) {
-        finished.add(date);
         done = true;
         burst = true;
         progress = 1;

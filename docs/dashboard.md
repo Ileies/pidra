@@ -6,7 +6,7 @@ SvelteKit app in `dashboard/`. Offline behavior (mirror, outbox, service worker)
 
 **Every page is declared once, in `dashboard/src/lib/routes.ts`.** The entry carries the nav label, assistant surface, group, icon, child route ids, `g`-key shortcut and the flags below. The navbar, the mobile tab bar and the assistant's client-side surface fallback all render from it, and `scripts/check-route-surfaces.ts` (part of the root `bun run check`) fails the build when an entry's surface disagrees with `src/ai/surfaces.ts`. Adding a page means adding one entry there and, if it needs more than the `global` surface, one line in `ROUTE_SURFACES`.
 
-Entry flags: `tab` (one of the mobile tab destinations: Report, Notes, Chat), `secondary` (folded into the desktop More menu), `headerIcon` (Settings), `hidden` (registered for its offline tier and surface but never rendered as a nav link; only reachable from a link inside another page, e.g. `/privacy`, `/terms`, `/setup` and the `/settings/*` subpages). The same file holds the offline tier lists (`MIRRORED_ROUTES`, `STATIC_OFFLINE_ROUTES`, `ONLINE_ONLY`).
+Entry flags: `tab` (one of the mobile tab destinations: Report, Notes, Chat), `secondary` (folded into the desktop More menu), `headerIcon` (Settings), `hidden` (registered for its offline tier and surface but never rendered as a nav link; only reachable from a link inside another page, e.g. `/privacy`, `/terms`, `/setup` and the `/settings/*` subpages). The offline tier lists (`MIRRORED_ROUTES`, `STATIC_OFFLINE_ROUTES`, `ONLINE_ONLY`) live in `dashboard/src/lib/offline/tiers.ts` and `onlineOnly.ts`, see `docs/offline-mode.md`.
 
 ## Routes
 

@@ -18,7 +18,7 @@ The failure it is built for is not a fast error. A weak signal, a captive portal
 
 ## Tiers
 
-**Every page is in exactly one tier**, declared in `dashboard/src/lib/routes.ts`:
+**Every page is in exactly one tier**, declared in `dashboard/src/lib/offline/tiers.ts` (`MIRRORED_ROUTES`, `STATIC_OFFLINE_ROUTES`, `isMirroredPath`) and `dashboard/src/lib/offline/onlineOnly.ts` (`ONLINE_ONLY`, `onlineOnlyFor`, `needsConnection`), not in the nav registry, so the service worker never pulls `routes.ts`:
 
 - `MIRRORED_ROUTES`: client-rendered with `ssr = false`, reading through `$lib/offline/repo.ts`.
 - `STATIC_OFFLINE_ROUTES`: prerendered and precached (`/privacy`, `/terms`).
@@ -65,7 +65,7 @@ Budgets include reading the body.
 
 ## Service worker
 
-`dashboard/src/service-worker.ts`:
+`dashboard/src/service-worker.ts` is a thin entry; the code is in `dashboard/src/sw/` (`shared.ts`, `cache.ts`, `sync.ts`, `push.ts`), built by SvelteKit through `$app/manifest`. `check-offline.ts` exempts `sw/` from the bare-`fetch` rule like the entry:
 
 - Precaches every build file per version and keeps the previous build's cache one generation longer (`GENERATIONS_KEPT`). A new version waits, and the navbar offers "Reload" rather than taking over mid-read.
 - Mirrored paths get the shell (the route-agnostic HTML of any mirrored route, marked `x-pidra-shell`) cache-first, online or not. Other navigations race the network against 3 s (`NAV_BUDGET_MS`), then boot the shell, whose load fails into `OfflineNotice`.
@@ -77,7 +77,7 @@ Budgets include reading the body.
 
 `bun run test:offline` in `dashboard/`, also the last (slowest) step of `bun run check` (about 65-70 s; skipped by `--quick`). Needs Chrome on `PATH` or in `PIDRA_CHROME`. It builds, runs the production server with no database behind it, and drives Chrome at 390x844 through a proxy (`proxy.ts`) per failure mode: blackhole, gated (nginx's 403), refused, and DevTools offline. A synthetic snapshot (`fixture.ts`) means nothing in the suite touches real data. `--only <mode|layout>` runs one lane.
 
-**Offline lanes**, for every page in `routes.ts`:
+**Offline lanes**, for every page in `lib/routes.ts`:
 - a designed state within 4 s after a tap made while the app still believes it is online, after a cold start, and after each primary control;
 - no request outlives its budget;
 - the queue survives a reopen;

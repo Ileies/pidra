@@ -1,14 +1,14 @@
 import { drizzle } from "drizzle-orm/bun-sql";
 import { eq, inArray } from "drizzle-orm";
 import * as schema from "./schema";
-import * as relations from "./relations";
+import { relations } from "./relations";
 
 // The Drizzle client (Bun SQL driver) and the re-exported schema (src/db/schema/*, source of truth
 // for tables; see docs/schema-notes.md). Throws at import when DATABASE_URL is unset.
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is not set");
 
-export const db = drizzle({ connection: connectionString, schema: { ...schema, ...relations } });
+export const db = drizzle({ connection: connectionString, relations });
 
 export * from "./schema";
 

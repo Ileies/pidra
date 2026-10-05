@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@typesafe-ai/sdk": "0.6.0",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^1.0.0-rc.5-5935859",
     "googleapis": "^171.4.0",
     "hono": "^4.12.19",
     "imap": "^0.8.19",
@@ -43,7 +43,7 @@
     "@types/node": "^25.9.0",
     "@types/nodemailer": "^8.0.0",
     "@types/web-push": "^3.6.4",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^1.0.0-rc.5-5935859",
     "typescript": "^7.0.2"
   }
 }

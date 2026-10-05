@@ -37,7 +37,7 @@ Output is kept short to save tokens: each step is buffered and a passing one pri
 
 `DATABASE_URL` points at `192.168.10.85`, reachable on the LAN only. From outside, tunnel first with `ssh -N -L 15432:127.0.0.1:5432 ros` and point `DATABASE_URL` at `127.0.0.1:15432`.
 
-`drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw.
+`drizzle-kit migrate` hangs in this environment. **Apply schema changes manually** with a temporary Bun script using `new SQL(DATABASE_URL)`, then delete the script. `migrations/` and the Drizzle schema stay in sync for reference, but the migration itself is applied raw. `migrations/` uses the drizzle-kit 1.0 layout, one folder per migration (`migrations/<timestamp>_<name>/migration.sql` plus `snapshot.json`); drizzle-kit 1.0 refuses the old flat `*.sql` + `meta/` layout. The ORM uses RQB v2: `src/db/relations.ts` exports a single `defineRelations(schema, ...)` result that `drizzle()` takes as `relations`.
 
 **Apply a migration before deploying code that reads it.** Code that reads a new table or column fails at run time, not at build time, so a deploy cannot catch the gap. Migration `0041_enabled_skills.sql` (the `enabled_skills` table) is the current case: `listEffectiveSkills` reads it on every chat turn, so apply it first.
 

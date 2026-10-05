@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as db from "../src/lib/offline/db.js";
 import * as outbox from "../src/lib/offline/outbox.js";
+import { pullSnapshot } from "../src/lib/offline/snapshot.js";
 import type { Intent } from "../src/lib/offline/intents.js";
-import { ids, intent, note, ok, queue, resetDb, status, stubFetch } from "./offline-helpers.js";
+import { ids, intent, note, ok, queue, resetDb, snapshot, status, stubFetch } from "./offline-helpers.js";
 import { invalidated } from "./mocks/app-navigation.js";
 import type { NoteRow } from "../src/lib/notes/api.js";
 
@@ -107,6 +108,37 @@ describe("writes", () => {
     await outbox.rate("e1", "1");
     expect(invalidated.at(-1)).toEqual(["mirror:extractions", "mirror:reports"]);
     await settle();
+  });
+
+  // `pullSnapshot` overwrites the mirror with server state and then re-asserts the queued intents,
+  // so a pull that lands while a write is being stored must find the intent already queued.
+  describe("a snapshot pull landing mid-write", () => {
+    for (const moment of ["just before", "just after"] as const) {
+      test(`${moment} the intent is queued does not undo the write`, async () => {
+        stubFetch(() => {
+          throw new TypeError("network down");
+        });
+        const stale = note("n1", { deleted_at: "2026-10-04T09:00:00.000Z" });
+        await db.put("notes", stale);
+        const realPut = db.put;
+        const pull = () => pullSnapshot(async () => ok(snapshot({ notes: [stale] }, { etag: "e2", version: "v1" })));
+        let pulled = false;
+        const put = spyOn(db, "put").mockImplementation((async (store: db.Store, value: db.Keyed) => {
+          if (store !== "outbox" || pulled) return realPut(store, value);
+          pulled = true;
+          if (moment === "just before") await pull();
+          await realPut(store, value);
+          if (moment === "just after") await pull();
+        }) as never);
+        try {
+          await outbox.restoreNote("n1");
+        } finally {
+          put.mockRestore();
+        }
+        expect(pulled).toBe(true);
+        expect((await db.get<NoteRow>("notes", "n1"))?.deleted_at).toBeNull();
+      });
+    }
   });
 });
 

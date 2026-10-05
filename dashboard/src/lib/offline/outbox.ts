@@ -65,8 +65,10 @@ async function enqueue<K extends IntentKind>(kind: K, payload: Payloads[K]): Pro
 }
 
 async function queue(intent: Intent): Promise<void> {
-  await applyOptimistic(intent);
+  // Queued first: a snapshot pull that lands in between re-asserts queued intents, and would
+  // otherwise overwrite the optimistic effect with pre-write server state.
   await db.put("outbox", intent);
+  await applyOptimistic(intent);
   notify();
   // Best effort; failures stay queued. Leftovers go to the worker via Background Sync.
   flush()

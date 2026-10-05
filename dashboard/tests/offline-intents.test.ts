@@ -76,6 +76,15 @@ describe("applyOptimistic", () => {
     expect(intentIsFor(intent("report.read", { date: "d1" }, 1), "rate", "d1")).toBe(false);
   });
 
+  test("a rating and a read receipt applied together on one report both survive", async () => {
+    await db.put("reports", asRow({ id: "d1", ratings: {}, readAt: null }));
+    await Promise.all([
+      applyOptimistic(intent("rate", { extractionId: "e1", signal: "1" }, 1)),
+      applyOptimistic(intent("report.read", { date: "d1" }, 2)),
+    ]);
+    expect(await db.get("reports", "d1")).toMatchObject({ ratings: { e1: "explicit_plus" }, readAt: "2026-10-04T10:00:02.000Z" });
+  });
+
   test("report.read for a report the mirror does not hold changes nothing", async () => {
     await applyOptimistic(intent("report.read", { date: "d9" }, 1));
     expect(await ids("reports")).toEqual([]);

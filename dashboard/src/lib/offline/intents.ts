@@ -121,8 +121,7 @@ const KINDS: { [K in IntentKind]: Handler<K> } = {
     stores: ["reports"],
     // Keeps the earliest time: a replay, or a second device, must not move it.
     apply: async ({ payload: p, createdAt }) => {
-      const report = await db.get<MirroredReport>("reports", p.date);
-      if (report && !report.readAt) await db.put("reports", { ...report, readAt: createdAt });
+      await db.update<MirroredReport>("reports", p.date, (report) => (report.readAt ? report : { ...report, readAt: createdAt }));
     },
     request: ({ payload: p }, send) => send(`/api/notifications/report-read/${p.date}`, { method: "POST" }),
   },
@@ -168,9 +167,11 @@ export const sortedOutbox = () => sortedIntents("outbox");
 
 async function patchReportsRating(extractionId: string, eventType: string): Promise<void> {
   const reports = await db.getAll<MirroredReport>("reports");
-  for (const report of reports) {
-    if (report.ratings[extractionId] === eventType) continue;
-    await db.put("reports", { ...report, ratings: { ...report.ratings, [extractionId]: eventType } });
+  for (const { id } of reports) {
+    // One transaction per row: another intent (a read receipt) may be patching the same report.
+    await db.update<MirroredReport>("reports", id, (report) =>
+      report.ratings[extractionId] === eventType ? report : { ...report, ratings: { ...report.ratings, [extractionId]: eventType } },
+    );
   }
 
   const extraction = await db.get<MirroredExtraction>("extractions", extractionId);

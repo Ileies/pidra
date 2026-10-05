@@ -1,12 +1,8 @@
 /**
- * The command palette's search while pronix is out of reach. Online the
- * palette asks `/api/search`, which ranks with Postgres `tsvector`; offline it asks this, which
- * matches plain text over what the mirror holds: reports, notes and entities. The
- * palette says which one answered, because the two do not find the same things - no stemming, no
- * ranking beyond a count, and only the mirrored window.
- *
- * A local index is not worth it at this size (60 reports, a few hundred other rows); the
- * semantic-search project in `docs/todo/later.md` is where that conversation belongs.
+ * The command palette's offline search. Online the palette asks `/api/search` (Postgres `tsvector`,
+ * `lib/server/search.ts`); offline it uses this plain-text scan of the mirrored reports, notes and
+ * entities (no stemming, ranking is a match count, only the mirrored window), and the palette says
+ * which one answered. No local index at this size; see docs/todo/later.md (semantic search).
  */
 
 import * as db from "./db.js";

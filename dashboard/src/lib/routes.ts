@@ -1,17 +1,10 @@
 /**
- * The route registry: one place that names every page.
- *
- * Before this file the app declared its routes three times with no shared source - `LINKS` in
- * `Navbar.svelte`, `ROUTE_SURFACES` in `assistant/pageContext.ts`, and `ROUTE_SURFACES` again in
- * the pipeline's `src/ai/surfaces.ts`. Adding a page meant remembering all three, and forgetting
- * the surface map silently fell back to `global`, which is a capability decision made by
- * omission rather than on purpose.
- *
- * Now: the navbar renders from here, the mobile tab bar and overflow sheet read the same list,
- * the assistant's client-side surface fallback derives from it, and the pipeline's map is checked
- * against it by `scripts/check-route-surfaces.ts` (part of the root `bun run check`).
- *
- * Adding a page means adding one entry.
+ * The route registry: one entry per page. Feeds the navbar, mobile tab bar and More sheet, and the
+ * assistant's client-side surface fallback (`surfaceForPath`). The pipeline's own surface map
+ * (`src/ai/surfaces.ts`) is checked against it by scripts/check-route-surfaces.ts, which parses
+ * `ROUTES` as text (keep each entry a plain object literal with `href` and `surface`). A missing
+ * entry silently means surface `global`, so add one for every new page. Offline tier of a page
+ * is separate: `lib/offline/tiers.ts` and `onlineOnly.ts`.
  */
 
 import type { Surface } from "#lib/assistant/pageContext.js";
@@ -83,10 +76,8 @@ export const ICON = {
 } as const;
 
 /**
- * Order is the nav order, and the order of the tiles in the More grid (three to a row, read left
- * to right): daily use (Questions, Chat, Sources), people and subjects (Contacts, Entities,
- * Topics), what the system knows and how it is tuned (Rules, Context, Feedback), then the
- * machinery (Skills, Prompts, Runs). The nav row draws no dividers between groups.
+ * Order is the nav order and the order of tiles in the More grid (three per row). The nav row draws
+ * no dividers between groups.
  */
 export const ROUTES: RouteDef[] = [
   {

@@ -18,19 +18,16 @@ import type { NoteRow } from "#lib/notes/api.js";
 import type { MirroredContextDoc } from "#lib/offline/repo.js";
 
 /**
- * Assembles the full offline snapshot. Assembly, not new SQL semantics: every query here reuses
- * the same server helpers the live pages call, so the mirror never renders a report, a harvest
- * document or a rule differently than the online path would.
+ * Assembles the full offline snapshot (`assemble()`, one array of rows per mirror store; cached and
+ * diffed by `snapshotCache.ts`, served by `/api/offline/snapshot`). Row types: lib/mirror/types.ts;
+ * the client mirror stores are `MIRROR_STORES` in `lib/offline/db.ts`, so a new store needs all
+ * three, plus the fingerprint in `snapshotCache.ts`. Every query reuses the helpers the live pages
+ * call, so the mirror never renders differently from the online path.
  *
- * Never in the payload: `raw_items.raw_content` (loadExtractions with withRawContent: false, same
- * as the inline expansion), and anything from chat_messages, skill_executions, push_subscriptions
- * or pipeline_runs.step_errors.
- *
- * The one thing derived from `step_errors` is `ingestFailures`, and it is not an exception to that
- * rule: `withoutDetail` reduces each Phase 1 failure to a source name and one of four fixed words
- * before it is put in the payload, so no error text crosses. It is derived here rather than in the
- * page because this is the choke point - the report page reads only the mirror, so a consumer
- * cannot reach past this to the raw column even if it tried.
+ * Never in the payload: `raw_items.raw_content` (`withRawContent: false`), chat_messages,
+ * skill_executions, push_subscriptions, or pipeline_runs.step_errors. The only thing derived from
+ * `step_errors` is `ingestFailures`, reduced by `withoutDetail` to a source name and a fixed kind, so
+ * no error text crosses. This is the choke point: the report page reads only the mirror.
  */
 
 async function buildReports(): Promise<{ reports: MirroredReport[]; extractionIds: string[] }> {
@@ -48,10 +45,8 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
       FROM daily_reports
       WHERE report_date::text = ANY(${dates})
     `,
-    // The newest run per date, and only that one. A date can carry several attempts, but the
-    // report on the page is what the last one produced, so its failures are the ones that explain
-    // what is and is not in the text. An earlier attempt that could not reach a mailbox the last
-    // one then read fine is history, and `/runs` is where history lives.
+    // Newest run per date only: the report is what the last attempt produced, so only its
+    // failures explain it (earlier attempts are history, shown on `/runs`).
     db`
       SELECT DISTINCT ON (run_date) run_date::text AS run_date, status, failed_step,
              started_at, completed_at, duration_ms, step_errors
@@ -157,9 +152,8 @@ function refIdsOf(report: MirroredReport): string[] {
   return report.structured ? entriesOf(report.structured).flatMap((e) => e.refIds) : [];
 }
 
-// The queries below name their columns as the mirror does (snake_case where the type is, camelCase
-// where it is), so a row goes into the snapshot as it came out. Defaults live in `coalesce`, which
-// is where a null becomes a value; a column that is nullable in the type is left null.
+// Queries below alias columns to match the mirror types (snake_case where the type is snake_case,
+// camelCase where camelCase) so rows go in as they come out; `coalesce` supplies defaults.
 
 async function buildNotes() {
   return sql()<NoteRow[]>`
@@ -195,12 +189,8 @@ async function buildContextCounts() {
   return counts;
 }
 
-// --- the reference tables ---
-//
-// Mirrored whole: 447 entities, 14 contacts and 84 topics came to well under 100 kB of row text
-// on 2026-09-25, and all of them move slowly. The fields the pages show, which here is nearly the
-// whole row. Appearances are the one set that grows per report day, so they are bounded to the
-// report window, like the extractions.
+// Reference tables are mirrored whole (well under 100 kB on 2026-09-25, slow-moving); appearances
+// grow per report day, so they are bounded to the report window like extractions.
 
 async function buildEntities() {
   return sql()<MirroredEntity[]>`
@@ -275,15 +265,12 @@ export async function assemble(): Promise<SnapshotStores> {
     doc: harvest.doc,
     docError: harvest.docError,
     skipped: harvest.skipped,
-    // Same rows as stores.corrections - the /context-builder page shows them alongside the
-    // harvest, so its mirror entry carries its own copy rather than the page having to reach
-    // into another store to reassemble what it needs.
+    // Same rows as the `corrections` store; the page reads one entry instead of two stores.
     corrections,
     counts,
   };
 
-  // `contextDoc` is a one-row store, so every store has the same shape and the cache can hash and
-  // diff them alike.
+  // `contextDoc` is a one-row store so every store is `Keyed[]` and diffs alike.
   return {
     reports,
     extractions,

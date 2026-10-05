@@ -1,9 +1,8 @@
 /**
- * How a page learns that the mirror changed under it. Every mirrored load
- * reads through `repo.ts`, which declares `depends(mirrorKey(store))` for each store it touched, and
- * the two writers of the mirror (`sync.ts`, `outbox.ts`) invalidate exactly the stores they
- * changed. So a background sync that brought a new note re-runs `/notes` and nothing else, and
- * never the root layout, which is what `refreshAll()` did.
+ * How a page learns that the mirror changed under it. `repo.ts` reads declare
+ * `depends(mirrorKey(store))` per store touched; the mirror writers (`sync.ts`, `outbox.ts`,
+ * `state.svelte.ts`) call `invalidateMirror` with exactly the stores they changed, so only those
+ * loads re-run.
  *
  * `mirror:status` is the one key that is not a store: it moves when the mirror goes from empty to
  * filled or back ("Clear offline data"), which is when the layout swaps between the first-sync

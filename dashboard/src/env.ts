@@ -1,10 +1,8 @@
 import { defineEnvVars } from '@sveltejs/kit/env';
 
 export const variables = defineEnvVars({
-	// The bridge is loopback-only and always local to whichever host runs the dashboard (CLAUDE.md,
-	// Skills). The default lives here, in the schema: a blanket `?? ''` once resolved an unset var to
-	// an empty string, so a fallback written at the call site never ran and every proxied write
-	// 502'd with an empty target URL.
+	// Loopback-only bridge. The default lives in the schema: a call-site `?? 'x'` fallback never ran
+	// because an unset var resolved to '' (empty target URL, every proxied write 502'd).
 	SKILLS_BRIDGE_URL: { schema: (input) => input ?? 'http://localhost:4000' },
 	DATABASE_URL: { schema: (input) => input ?? '' },
 	PUBLIC_MODEL_PRICE_IN_PER_MTOK: { public: true, schema: (input) => input ?? '' },

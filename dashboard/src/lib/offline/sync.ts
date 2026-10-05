@@ -1,19 +1,13 @@
 /**
- * Pulls the offline snapshot into the mirror. Always in the
- * background: nothing on screen waits for this, because a page reads the mirror and a finished sync
- * re-runs exactly the loads that read what changed (`deps.ts`).
+ * Page-side orchestration of one snapshot pull into the mirror (the pull itself is `snapshot.ts`,
+ * shared with the service worker). Always background: pages read the mirror and a finished sync
+ * re-runs exactly the loads that read what changed (`deps.ts`). Called by `repo.ts` on every read.
  *
- * - **Single-flight.** Every caller while a pull is running gets that pull's promise, so a cold
- *   start, a day step and a tap-preload no longer download the snapshot three times in parallel.
- * - **Throttled.** At most one pull a minute. `force` skips that for the moments a fresh copy is
- *   actually expected: "Sync now", app start, coming back to the foreground after a while, a write
- *   that went to the server directly. An empty mirror is always due.
- * - **Cheap when nothing moved.** A `304`, or a delta of the rows that changed; see `snapshot.ts`,
- *   which does the pull itself and which the service worker runs too.
- *
- * `flush()` runs first so a snapshot never overwrites a write with the pre-write state the server
- * had a moment ago, and the pull re-asserts anything that still could not flush on top of what it
- * brought back, rather than letting it look discarded until it lands.
+ * - Single-flight: callers during a pull share its promise.
+ * - Throttled to one pull per `MIN_INTERVAL_MS`; `force` skips that ("Sync now", app start,
+ *   foregrounding, a write that went to the server directly). An empty mirror is always due.
+ * - `outbox.flush()` runs first so a snapshot never overwrites a write with pre-write server state;
+ *   `pullSnapshot` re-asserts still-queued intents afterwards.
  */
 
 import * as outbox from "./outbox.js";
@@ -50,6 +44,7 @@ function emit(event: SyncEvent): void {
   for (const listener of listeners) listener(event);
 }
 
+/** Never throws: failures come back as a `SyncResult`. Invalidates the loads of changed stores. */
 export function sync(options: { force?: boolean } = {}): Promise<SyncResult> {
   inFlight ??= run(options.force ?? false).finally(() => {
     inFlight = null;
@@ -97,9 +92,8 @@ async function run(force: boolean): Promise<SyncResult> {
 }
 
 /**
- * Asks the browser not to evict the mirror and, more importantly, the outbox, which holds writes
- * that exist nowhere else. Once per session, after a sync proved the app is
- * in real use; an installed PWA is usually granted without a prompt.
+ * Asks the browser not to evict the mirror or, more importantly, the outbox (writes that exist
+ * nowhere else). Once per session, after a first successful pull.
  */
 async function persistStorage(): Promise<void> {
   try {

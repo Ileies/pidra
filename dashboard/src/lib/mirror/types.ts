@@ -1,7 +1,8 @@
 /**
- * The shapes the snapshot endpoint and the offline layer both name. Type-only on purpose: the
- * server builds these rows, the browser and the service worker store and read them, and a copy on
- * each side is how the two drift apart. Nothing here may import a value, so the worker can use it.
+ * Row and wire shapes shared by the snapshot builder (`lib/server/offline/snapshot.ts`) and the
+ * offline layer (`lib/offline/*`, service worker). One definition so the two sides cannot drift:
+ * changing a field means updating the builder query and any `repo.ts` reader. Type-only (the worker
+ * imports it), so nothing here may import a value.
  */
 
 import type { RenderedReport } from "#lib/server/reports.js";
@@ -54,11 +55,8 @@ export interface MirroredReport {
     completedAt: string | null;
     durationMs: number | null;
   } | null;
-  /**
-   * Which sources never delivered on the run behind this report - the warning above the briefing.
-   * Derived from `step_errors` at the snapshot endpoint and stripped to a source name and a kind
-   * there, so this carries the fact without carrying the error text the mirror must not hold.
-   */
+  /** Sources that never delivered on the run behind this report (the warning above the briefing).
+   *  Derived from `step_errors` server-side and stripped to source name and kind: no error text. */
   ingestFailures: IngestFailure[];
   structured: RenderedReport | null;
   reportHtml: string | null;

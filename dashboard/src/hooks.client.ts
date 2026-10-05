@@ -2,10 +2,10 @@ import type { ClientInit, HandleClientError } from "@sveltejs/kit/hooks";
 import { adoptWorkerHint, guardKitFetch, NetError, probe, statusOf } from "#lib/offline/net.js";
 
 /**
- * Runs before the first navigation (SvelteKit awaits it in `_start`), which is what makes it the
- * place for both: the fetch guard has to be installed before the root layout's load asks for
- * anything, and the worker's hint has to land before the first page decides between the network
- * and the mirror. The probe is started, not awaited - the loads already share it through `net()`.
+ * Runs before the first navigation. The fetch guard must be installed before the root layout's
+ * load fetches anything, and the worker's reachability hint must land before the first page
+ * chooses network or mirror. The probe is started, not awaited (loads share it via `net()`).
+ * See `lib/offline/net.ts`.
  */
 export const init: ClientInit = async () => {
   guardKitFetch();

@@ -1,14 +1,12 @@
 /**
- * The outbox's core, in the one form both the pages and the service worker
- * can run: what an intent is, what it does to the mirror, and how the queue is drained. It imports
- * nothing but `db.ts` and types, because the worker has no `window` and no SvelteKit router; the
- * transport is handed in. `outbox.ts` is the page's API on top of this, and the worker drains the
- * same queue on a push, a Background Sync or a periodic sync, so a write queued offline can
- * land with the app closed.
+ * The outbox's core, runnable by both pages and the service worker (`sw/sync.ts` drains the same
+ * queue on push/Background Sync): intent types, their optimistic effect on the mirror, and `drain`.
+ * Must not import `window`/SvelteKit code; the transport (`send`) is injected. `outbox.ts` is the
+ * page API on top. Reads/writes IndexedDB stores `outbox`, `failed`, `notes`, `reports`,
+ * `extractions`, `meta` (via `db.ts`). To add a write kind: extend `Payloads` and `KINDS`.
  *
- * One writer, `applyOptimistic`, used both when an intent is first queued and whenever it needs
- * to be re-asserted on top of fresh server data. It has to be idempotent for that reason: running
- * it twice for the same intent must produce the same mirror state as running it once.
+ * `applyOptimistic` runs when an intent is queued and again after every pull (`reapplyPending`), so
+ * it must be idempotent.
  */
 
 import { jsonInit } from "#lib/http.js";
@@ -27,7 +25,8 @@ export interface NotePatchPayload {
   expiresAt?: string | null;
 }
 
-/** What each kind of write carries. */
+/** What each kind of write carries. Intents are persisted as-is in IndexedDB, so a change to a
+ *  payload shape must stay readable for already-queued rows. */
 export interface Payloads {
   "note.create": { id: string; content: string; scope: string; expiresAt: string | null };
   "note.update": { id: string; patch: NotePatchPayload; baseUpdatedAt: string | null };
@@ -51,9 +50,7 @@ export type Intent = { [K in IntentKind]: IntentBase & { kind: K; payload: Paylo
 
 type Of<K extends IntentKind> = Extract<Intent, { kind: K }>;
 
-/** Everything one kind of write is, in one place: how it reads in the UI, which stores its optimistic
- *  effect writes (so exactly their loads re-run), what it does to the mirror, and the request that
- *  delivers it. */
+/** One kind of write: UI label, mirror stores it touches, optimistic effect, delivering request. */
 interface Handler<K extends IntentKind> {
   label: string;
   stores: MirrorStore[];
@@ -132,7 +129,6 @@ export function storesOf(kind: IntentKind): MirrorStore[] {
   return KINDS[kind].stores;
 }
 
-/** The row an intent is about: a note, or an extraction. */
 function intentTarget(intent: Intent): string {
   const p = intent.payload;
   return "extractionId" in p ? p.extractionId : p.id;
@@ -159,8 +155,6 @@ export async function sortedIntents(store: "outbox" | "failed"): Promise<Intent[
 
 export const sortedOutbox = () => sortedIntents("outbox");
 
-// --- optimistic mirror application ---
-
 async function patchReportsRating(extractionId: string, eventType: string): Promise<void> {
   const reports = await db.getAll<MirroredReport>("reports");
   for (const report of reports) {
@@ -177,18 +171,13 @@ async function patchReportsRating(extractionId: string, eventType: string): Prom
 export const applyOptimistic = (intent: Intent): Promise<void> => handlerOf(intent).apply(intent);
 
 /**
- * Re-runs every still-pending intent's optimistic effect on top of whatever a snapshot just
- * brought. A pull replaces mirror rows wholesale from the server's own state, which by definition
- * does not yet reflect an intent that has not flushed - without this, a queued note edit or an
- * unflushed rating would appear to be discarded the moment the app comes back online and syncs,
- * even though the outbox still holds it and will deliver it. Order matters here too, so this reads
- * the outbox the same way `drain()` does.
+ * Re-runs every still-pending intent's optimistic effect after a snapshot pull. A pull replaces
+ * mirror rows from server state, which does not yet include unflushed intents; without this a
+ * queued edit or rating would look discarded. Applies in `seq` order, like `drain()`.
  */
 export async function reapplyPending(): Promise<void> {
   for (const intent of await sortedOutbox()) await applyOptimistic(intent);
 }
-
-// --- drain ---
 
 /** Thrown for anything that will never succeed by retrying - a validation error, a 404 on a
  *  target that no longer exists. Distinct from a transport failure (offline, or the origin slow
@@ -238,14 +227,10 @@ export interface DrainResult {
 }
 
 /**
- * Drains the outbox in order, stopping at the first intent a transport failure could not
- * deliver - a later intent might depend on an earlier one (an edit on a note the same queue is
- * still trying to create), so skipping ahead would invert that. A terminal failure is different:
- * it will never succeed no matter how long it waits, so it is moved to `failed` (payload intact, so
- * the text can be recovered or re-filed) and the loop moves on rather than jamming everything
- * behind it forever.
- *
- * Under the `pidra-outbox` lock, so a page and the worker never send the same intent twice.
+ * Drains the outbox in `seq` order under the `pidra-outbox` lock (page and worker never double-send).
+ * A transport failure stops the loop: a later intent may depend on an earlier one (edit of a note
+ * still being created). A terminal failure (4xx) moves the intent to `failed` with payload intact
+ * and continues, so one bad write cannot jam the queue.
  */
 export function drain(send: Fetcher, options: DrainOptions = {}): Promise<DrainResult> {
   return db.withLock("pidra-outbox", async () => {

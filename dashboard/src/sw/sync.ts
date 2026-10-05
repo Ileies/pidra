@@ -1,11 +1,10 @@
 /**
- * **The worker syncs, too**. The 06:30 push pulls the snapshot while the notification is shown, so
- * the morning briefing is in the mirror before it is tapped, including on a phone that then goes
- * on a train and loses signal. Queued writes flush from here on Background Sync (`pidra-outbox`,
- * registered by `outbox.ts` when a write could not go out) and on the push, and a periodic sync
- * refreshes the mirror where the browser grants one. All of it is the same code the pages run
- * (`intents.ts`, `snapshot.ts`), under the same Web Locks, with this worker's own bounded
- * transport; an open page is told which stores changed and re-renders them.
+ * The worker's own sync: the morning push pulls the snapshot (so the briefing is in the mirror
+ * before it is tapped), Background Sync tag `pidra-outbox` (registered by `outbox.ts`) drains the
+ * queue, periodic sync tag `pidra-mirror` (registered by `state.svelte.ts`) refreshes the mirror.
+ * Runs the same `drain` (`intents.ts`) and `pullSnapshot` (`snapshot.ts`) as pages, under the same
+ * Web Locks, with a worker-local bounded transport. Open pages get `pidra:mirror-changed`
+ * (handled in `state.svelte.ts`).
  */
 
 import { self } from "$app/service-worker";
@@ -15,19 +14,17 @@ import { pullSnapshot } from "#lib/offline/snapshot.js";
 import type { MirrorStore } from "#lib/offline/db.js";
 import { reach } from "./shared.js";
 
-/**
- * Each request the worker's own sync makes. A push gives the worker little time (iOS is the tight
- * one), and a blackhole would otherwise hold it until the OS gives up; the full snapshot is 178 kB
- * compressed, well inside this over a working link.
- */
+/** Per request. A push gives the worker little time (iOS especially); the full snapshot is 178 kB
+ *  compressed, well inside this on a working link. */
 const SYNC_BUDGET_MS = 20_000;
+
+/** Thrown when the request never left the device; `drain` then does not count an attempt. */
+class NotSent extends Error {}
 
 /**
  * The worker's transport for `drain` and `pullSnapshot`: bounded, and a response without the
  * `x-pidra` stamp is someone else's, exactly as `net.ts` decides it in a page.
  */
-class NotSent extends Error {}
-
 async function syncFetch(input: string, init?: RequestInit): Promise<Response> {
   if (!self.navigator.onLine) throw new NotSent("offline");
   const controller = new AbortController();
@@ -46,8 +43,8 @@ async function syncFetch(input: string, init?: RequestInit): Promise<Response> {
   }
 }
 
-/** Tells every open page which stores changed, so it re-renders them (`state.svelte.ts`). A pull
- *  that changed nothing is still said: it moved `lastSyncedAt`, which the page shows. */
+/** Posts `pidra:mirror-changed` to every open page. A pull that changed nothing is still announced
+ *  (it moved `lastSyncedAt`). */
 async function announce(stores: MirrorStore[], outbox: boolean, pulled: boolean): Promise<void> {
   if (stores.length === 0 && !outbox && !pulled) return;
   const windows = await self.clients.matchAll({ type: "window" });
@@ -63,9 +60,9 @@ interface WorkerSyncResult {
 let syncing: Promise<WorkerSyncResult> | null = null;
 
 /**
- * Drain the outbox, then pull the snapshot, like `sync.ts` in a page. `pull: "if-flushed"` only
- * pulls when a write actually went out, which is all a Background Sync for the queue needs; the
- * page does its own pull when it is open.
+ * Drain the outbox, then pull the snapshot, like `lib/offline/sync.ts` in a page (but unthrottled).
+ * `"if-flushed"` pulls only when a write went out (enough for Background Sync). Single-flight;
+ * never rejects.
  */
 export function workerSync(pull: "always" | "if-flushed"): Promise<WorkerSyncResult> {
   syncing ??= (async () => {

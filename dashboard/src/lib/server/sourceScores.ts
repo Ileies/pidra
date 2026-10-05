@@ -1,6 +1,7 @@
 import { daysAgo } from "$pipeline/util/time";
 import { sql } from "#lib/server/postgres.js";
 
+// Read-only view of `source_daily_scores`, written by the pipeline (`/sources`, online-only).
 export interface DailyScore {
   sourceName: string;
   runDate: string;

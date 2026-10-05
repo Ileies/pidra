@@ -4,8 +4,7 @@ import type { LaneProxy, Tracked } from "./proxy.ts";
 import * as F from "./fixture.ts";
 import { EXPECTED_WRITES } from "./steps.ts";
 
-// --- the budgets every request is held to (`net.ts` BUDGET, the worker's constants) ---
-
+// Budgets mirror `src/lib/offline/net.ts` BUDGET and the service worker's constants; keep in sync.
 const WRITE = /^\/api\/(notes(\/[^/]+(\/restore)?)?|feedback)$/;
 
 function budgetFor(t: Tracked): number {
@@ -29,10 +28,10 @@ function budgetFor(t: Tracked): number {
  */
 const BROWSER_OWNED = new Set(["/service-worker.js", "/_app/env.js", "/manifest.webmanifest"]);
 
+/** Waits for every request swallowed after the cut to end or pass its budget, then throws if any outlived it. */
 export async function checkBudgets(proxy: LaneProxy): Promise<void> {
   const cutAt = performance.now();
   const watched = proxy.tracked.filter((t) => t.mode === "blackhole" && t.startedAt <= cutAt && !BROWSER_OWNED.has(t.path.split("?")[0]));
-  // Wait until every request has either ended or passed its budget.
   for (;;) {
     const now = performance.now();
     if (watched.every((t) => t.endedAt !== null || now - t.startedAt > budgetFor(t) + SLACK_MS)) break;
@@ -49,6 +48,7 @@ export async function checkBudgets(proxy: LaneProxy): Promise<void> {
   if (watched.length > 0) console.log(`  ${watched.length} swallowed requests, the longest ended after ${Math.round(longest)} ms`);
 }
 
+/** After reconnect: the proxy must have received exactly EXPECTED_WRITES (steps.ts), each once, with per-row ordering and the expected bodies. */
 export function checkDelivered(proxy: LaneProxy): void {
   const got = proxy.delivered.map((d) => `${d.method} ${d.path}`);
   const expected = EXPECTED_WRITES;

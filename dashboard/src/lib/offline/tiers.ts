@@ -4,14 +4,14 @@
  */
 
 /**
- * The offline tiers (CLAUDE.md, Offline mode), per SvelteKit route id rather than per nav entry:
- * `/[date]` reads the mirror while its child `/[date]/triage` is live, so the entry is the wrong
- * grain. `dashboard/scripts/check-offline.ts` fails the build when a page is in neither list, and
- * when a mirrored page still has a server load or is not `ssr = false`.
+ * The mirrored tier (docs/offline-mode.md), per SvelteKit route id, not per nav entry (`/[date]` is
+ * mirrored while its child `/[date]/triage` is live). The other tiers are `ONLINE_ONLY`
+ * (`onlineOnly.ts`) and `STATIC_OFFLINE_ROUTES`. scripts/check-offline.ts fails the build when a
+ * page is in no list, or a mirrored page has a server load or is not `ssr = false`.
  *
- * Mirrored routes are client-rendered, so the HTML the server returns for any of them is the same
- * route-agnostic shell. `hooks.server.ts` marks those responses and the service worker keeps the
- * newest one as the document it boots any path from when the network cannot answer.
+ * Mirrored routes are client-rendered, so the server returns one route-agnostic HTML shell for all
+ * of them; `hooks.server.ts` marks it and the service worker keeps the newest as the offline boot
+ * document.
  */
 export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/",

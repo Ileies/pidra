@@ -1,12 +1,8 @@
 <script lang="ts">
   /**
-   * The one screen that waits on the network: the mirror is empty,
-   * because this is the first launch on the device or "Clear offline data" just ran, so there is
-   * nothing local to show. The root layout renders it in place of a mirrored page whose load said
-   * `mirrorEmpty`; the sync that fills the mirror re-runs that load, and the page takes its place.
-   *
-   * A designed state rather than a blank loading bar, and an honest one when the download cannot
-   * happen: offline on a device that has never synced has no data at all, and says so.
+   * The one screen that waits on the network: the mirror is empty (first launch, or "Clear offline
+   * data"). The root layout renders it in place of a mirrored page whose load reported
+   * `mirrorEmpty`; the filling sync re-runs that load. Says so honestly when offline with no data.
    */
   import Page from "#lib/components/Page.svelte";
   import Spinner from "#lib/components/Spinner.svelte";

@@ -1,22 +1,16 @@
 /**
- * Precache, the shell and bounded navigations.
+ * Worker caching: precache, the shell, bounded navigations. Caches: `pidra-<version>` (assets),
+ * `pidra-shell-<version>` (one document), `pidra-meta` (generation list). Tiers: lib/offline/tiers.ts.
  *
- * **The shell, cache-first**. Mirrored routes are `ssr = false`, so the HTML the server returns for
- * any of them is the same route-agnostic document; `hooks.server.ts` marks it with `x-pidra-shell`.
- * A navigation to a mirrored path is answered from the cached shell straight away, online or not,
- * and the network only refreshes it in the background. Only a device with no shell yet goes to the
- * network first.
- *
- * **Everything else is bounded**. Offline is usually a blackhole, not an error, so a live page's
- * navigation races the network against `NAV_BUDGET_MS` and then boots the cached shell (its load
- * then fails into `OfflineNotice`), and an asset missing from the precache gets `ASSET_BUDGET_MS`.
- * `/api/**` and `__data.json` are not touched here: `$lib/offline/net.ts` bounds those in the page.
- * Server-rendered pages are deliberately not cached: an old copy of the approval queue served as if
- * it were current is a lie. Public legal pages are prerendered and precached separately.
- *
- * **Deploys do not break open pages**. A new worker installs and then waits: no automatic
- * `skipWaiting()`. The previous build's cache is kept one generation longer, and assets are looked
- * up across both, so a page still running the old build keeps finding its lazy chunks.
+ * - Shell, cache-first: mirrored routes are `ssr = false`, so the server returns one
+ *   route-agnostic HTML document (marked `x-pidra-shell` in `hooks.server.ts`). A navigation to a
+ *   mirrored path gets the cached shell at once, online or not; the network only refreshes it.
+ * - Everything else is bounded: offline is usually a blackhole, so a live page's navigation races
+ *   `NAV_BUDGET_MS` and then boots the shell (its load fails into `OfflineNotice`). Server-rendered
+ *   pages are deliberately never cached (a stale approval queue would read as current).
+ * - `/api/**` and `__data.json` are not handled here: `lib/offline/net.ts` bounds them in the page.
+ * - Deploys must not break open pages: no automatic `skipWaiting()`; the previous build's cache
+ *   is kept one extra generation and assets are looked up across both.
  */
 
 import { assets, immutable, prerendered } from "$app/manifest";
@@ -52,15 +46,13 @@ const PRECACHE = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    // The shell of this build first, fetched now while the network is known to be there (the
-    // worker script itself just came over it). Without this, the first launch after a deploy that
-    // happens offline would have no document for this version at all, although the mirror is full.
+    // This build's shell first, while the network is known to be up: otherwise a first launch
+    // after a deploy that happens offline has no document for this version despite a full mirror.
     fromNetwork(new Request(SHELL_SOURCE))
       .catch(() => {})
       .then(() => (self.registration.active ? undefined : sleep(FIRST_INSTALL_DELAY_MS)))
       .then(precache),
-    // No `skipWaiting()`: see the header. The very first install on a device has no page to break
-    // and activates at once anyway.
+    // No `skipWaiting()` (see header); the very first install activates at once anyway.
   );
 });
 
@@ -76,10 +68,9 @@ self.addEventListener("activate", (event) => {
 });
 
 /**
- * Every build file, a few at a time. A hashed `/_app/immutable/` file the previous build already
- * cached is the same bytes, so it is copied across instead of downloaded: a deploy fetches only
- * what it changed. One missing asset must not fail the whole install, which would leave the worker
- * stuck on the previous version forever.
+ * Every build file, a few at a time. Hashed `/_app/immutable/` files already cached by the previous
+ * build are copied, not downloaded. One missing asset must not fail the install (the worker would
+ * stay stuck on the previous version), so errors are swallowed and `cacheFirst` fetches on demand.
  */
 async function precache(): Promise<void> {
   const cache = await caches.open(CACHE);
@@ -129,11 +120,9 @@ async function fallbackDocument(): Promise<Response> {
 }
 
 /**
- * Same redirect the auth gate itself would have sent, reconstructed rather than read: an
- * opaque-redirect response carries no readable Location (the whole point of "opaque"), but a
- * mirrored path's server only ever answers with a redirect for this one reason. `navigate()` is a
- * real top-level navigation, so it re-enters `hooks.server.ts` and gets the live answer, cookie and
- * all - this is a best-effort push, not the source of truth.
+ * Sends open tabs to `/login`. The redirect target is reconstructed because an opaque redirect has
+ * no readable Location; a mirrored path only redirects for the auth gate. `navigate()` re-enters
+ * `hooks.server.ts`, so this is a best-effort push, not the source of truth.
  */
 async function forceReauth(pathname: string): Promise<void> {
   const target = `/login?redirect=${encodeURIComponent(pathname)}`;
@@ -147,13 +136,10 @@ async function navigation(event: FetchEvent): Promise<Response> {
   if (isMirroredPath(pathname)) {
     const shell = await cachedShell();
     if (shell) {
-      // Refreshed behind the page, bounded like everything else, so a blackhole cannot keep the
-      // worker alive until the OS gives up. A late or missing answer says nothing the page's own
-      // requests will not say sooner - except a session that expired since the shell was cached: the
-      // mirror answers from IndexedDB with no auth check of its own (by design, so a genuinely
-      // offline device keeps reading it), so the tab would otherwise sit on stale, possibly private
-      // report content until some unrelated request happened to surface a 401. An opaque redirect
-      // here is that gate firing, and the open tab is sent to `/login` directly instead of waiting.
+      // Refreshed behind the page, bounded. The mirror reads IndexedDB with no auth check (by
+      // design, for offline), so an expired session would otherwise keep showing private report
+      // content until some request hit a 401. An opaque redirect here is the auth gate firing:
+      // send the tab to `/login` directly.
       event.waitUntil(
         fromNetwork(event.request)
           .then((response) => {
@@ -168,15 +154,14 @@ async function navigation(event: FetchEvent): Promise<Response> {
   }
 
   if (reach.offline) {
-    // Still ask, in the background: a late answer refreshes the shell and clears the flag, so the
-    // next navigation goes to the network again without the page having to say so.
+    // Still ask in the background: a late answer clears the flag for the next navigation.
     event.waitUntil(fromNetwork(event.request).catch(() => {}));
     return fallbackDocument();
   }
 
   const network = fromNetwork(event.request);
-  // A navigation that outruns the page's budget keeps going up to its own (`send`); when it lands
-  // inside that, it still refreshes the shell.
+  // After `NAV_BUDGET_MS` the page boots the shell, but this request continues to its `send`
+  // budget and still refreshes the shell if it lands.
   event.waitUntil(network.catch(() => {}));
   return withBudget(network, NAV_BUDGET_MS).catch(() => {
     reach.offline = true;
@@ -186,11 +171,9 @@ async function navigation(event: FetchEvent): Promise<Response> {
 
 async function fromNetwork(request: Request): Promise<Response> {
   const response = await send(request, ASSET_BUDGET_MS);
-  // A manual-redirect navigation (the auth gate sending `/` to `/login`) comes back opaque by
-  // spec: no headers, so the stamp cannot be read. It is still `hooks.server.ts` answering - the
-  // request never left `self.location.origin` - and it must go straight back to the browser,
-  // which alone can turn it into a real navigation to the redirect target. Treating it as "someone
-  // else answered" was falling back to the no-shell-yet offline page on every logged-out visit.
+  // A manual-redirect navigation (auth gate sending `/` to `/login`) is opaque: no headers, so the
+  // stamp is unreadable. It is still the app answering and must go straight back to the browser;
+  // treating it as foreign showed the offline page on every logged-out visit.
   if (response.type === "opaqueredirect") {
     reach.offline = false;
     return response;
@@ -228,10 +211,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // The repository layer (`repo.ts`) decides what stale API data is acceptable, in one
-  // place that can reason about it, and `net.ts` bounds every such request. A worker that
-  // silently answers an API call from cache is exactly how a stale rating or a vanished note
-  // appears as a bug with no explanation.
+  // Never answer API data from cache: `repo.ts` owns staleness, `net.ts` bounds the request.
   if (url.pathname.startsWith("/api/") || url.pathname.endsWith("/__data.json")) return;
 
   if (url.pathname.startsWith("/_app/immutable/") || url.pathname.startsWith("/fonts/") || url.pathname.startsWith("/icons/")) {

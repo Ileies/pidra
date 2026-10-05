@@ -1,21 +1,17 @@
 /**
- * The service worker's entry: precache, the shell, bounded navigations and push, in `./sw/`
- * (`cache.ts`, `sync.ts`, `push.ts`). Replaces `static/sw.js`. SvelteKit wants the worker at this
- * path and bundles whatever it imports, so the split costs nothing at runtime.
+ * The service worker's entry (SvelteKit requires it at this path). The logic is in `./sw/`:
+ * `cache.ts` (precache, shell, bounded navigations), `sync.ts` (outbox drain + snapshot pull),
+ * `push.ts` (morning push); `shared.ts` holds the reachability flag and bounded fetch. This file
+ * only handles page messages: `pidra:reachability` (page -> worker), `pidra:reachability?`
+ * (reply on the MessagePort), `pidra:skip-waiting` (see `lib/offline/update.svelte.ts`).
  *
- * The precache list comes from `$app/manifest` (every build asset, static file and prerendered
- * page, keyed by the build version), because a hand-written list named no build output at all and
- * a cold offline start right after a deploy had no JS. `$service-worker` was removed in this
- * SvelteKit version (see node_modules/@sveltejs/kit/src/exports/vite/index.js:91): `immutable` /
- * `assets` / `prerendered` come from `$app/manifest`, `version` from `$app/env`, and `self` from
- * `$app/service-worker` is typed as `ServiceWorkerGlobalScope`.
+ * The precache list comes from `$app/manifest`, `version` from `$app/env` (`$service-worker` no
+ * longer exists in this SvelteKit version); `self` from `$app/service-worker` is typed as
+ * `ServiceWorkerGlobalScope`.
  *
- * **A response the app did not write is not the app.** `hooks.server.ts` stamps `x-pidra` on every
- * response; one without it (nginx's 403 from the public path when DNS answers the public address,
- * a captive portal) is treated like no answer at all instead of being shown as the document.
- *
- * Free of `$app/navigation` and of anything that needs a `window`: the worker is a separate global
- * scope (`scripts/check-offline.ts` exempts `sw/` from the bare-fetch rule for that reason).
+ * Must stay free of `$app/navigation` and anything needing a `window` (separate global scope;
+ * scripts/check-offline.ts exempts `sw/` from the bare-fetch rule). A response without the
+ * `x-pidra` stamp is treated as no answer. Overview: docs/offline-mode.md.
  */
 /// <reference no-default-lib="true"/>
 /// <reference lib="esnext" />

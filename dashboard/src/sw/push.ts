@@ -1,4 +1,4 @@
-/** The morning push and what a tap on it does. */
+/** The morning push (payload `{title, body, url, date, kind}` from the server) and what a tap on it does. */
 
 import { self } from "$app/service-worker";
 import { workerSync } from "./sync.js";

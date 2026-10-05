@@ -12,7 +12,8 @@
  *    `ssr = false` and a load that never waits on the network; a static offline page is
  *    prerendered into the service worker precache.
  *
- *   bun run scripts/check-offline.ts
+ * Static source scan, no browser (the browser-level proof is blackhole/run.ts). Run by
+ * dashboard/scripts/check.ts; also `bun run scripts/check-offline.ts` from dashboard/.
  */
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
@@ -94,9 +95,8 @@ for (const dir of [...new Set(pageDirs)].sort()) {
   if (!existsSync(universal) || !/export\s+const\s+ssr\s*=\s*false/.test(readFileSync(universal, "utf8"))) {
     errors.push(`${id}: mirrored but its +page.ts does not export ssr = false, so its HTML is not the route-agnostic shell`);
   }
-  // A mirrored load answers from the mirror and never waits on the network. `repo.ts`
-  // starts the background sync; a load that awaits one, or makes a request itself, is how a cold
-  // start sat behind two full snapshot pulls.
+  // A mirrored load answers from the mirror; `repo.ts` starts the background sync. A load that
+  // awaits a sync or makes a request itself once left a cold start behind two snapshot pulls.
   if (existsSync(universal)) {
     const source = stripComments(readFileSync(universal, "utf8"));
     if (/\bawait\s+(sync|pull)\s*\(|\b(net|netJson|fetch)\s*\(/.test(source)) {

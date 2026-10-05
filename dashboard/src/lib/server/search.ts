@@ -1,14 +1,8 @@
 /**
- * Search across the archive.
- *
- * Keyword only, against Postgres `tsvector` with GIN indexes and `ts_headline` for snippets.
- * Semantic search is parked deliberately, not rejected: it is planned as its own project, with
- * its preconditions and intended shape in `docs/todo/later.md`. It waits on the archive being
- * deep enough to generalise over, not on a decision.
- *
- * This function is the seam that keeps that a later addition rather than a rewrite: one
- * `search()` returning `{ id, kind, title, snippet, score, href }[]`, with the ranking strategy
- * behind the signature. The UI must never know which backend produced the ranking.
+ * Archive search for the command palette (`/api/search`; offline fallback: `lib/offline/search.ts`).
+ * Keyword only: Postgres `tsvector` with GIN indexes, `ts_headline` snippets. Semantic search is
+ * deliberately parked (docs/todo/later.md); `search()` is the seam, returning
+ * `{ id, kind, title, snippet, score, href }[]` so the UI never knows which backend ranked.
  */
 
 import { sql } from "#lib/server/postgres.js";

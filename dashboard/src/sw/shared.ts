@@ -1,6 +1,6 @@
 /**
- * What the worker's modules share: its belief about reachability and the bounded request.
- * Every request the worker makes is *aborted* at its budget, not just stopped being waited for.
+ * Shared by the worker's modules (`cache.ts`, `sync.ts`, `push.ts`): its reachability flag and the
+ * bounded request. Every worker request is *aborted* at its budget, not just no longer awaited.
  */
 
 export const ASSET_BUDGET_MS = 10_000;
@@ -17,12 +17,10 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
- * A request this worker makes, aborted when its budget runs out (found by `scripts/blackhole`).
- * `withBudget()` alone only stops *waiting*: the request itself kept its socket until the OS gave
- * up, 11 to 24 s in the suite, and over HTTP/1.1 a handful of those take the whole per-host
- * connection pool, so the page's own probe queued behind them and the app could not even tell it
- * was back online. The timer is never cleared: the abort also covers a body that stalls after the
- * headers, and aborting a request that already finished does nothing.
+ * A worker request, aborted when its budget runs out. `withBudget()` alone only stops waiting; the
+ * socket stayed open 11-24 s and a few of those exhaust the HTTP/1.1 per-host pool, so the page's
+ * own probe queued behind them (found by scripts/blackhole). The timer is deliberately never
+ * cleared: it also covers a body stalling after the headers, and aborting a finished request is a no-op.
  */
 export function send(request: Request, ms: number): Promise<Response> {
   const controller = new AbortController();

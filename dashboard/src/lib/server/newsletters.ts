@@ -1,6 +1,8 @@
 import { isIP } from "node:net";
 import { sql } from "#lib/server/postgres.js";
 
+// Writer for `rss_feeds` and `newsletter_sender_rules` (`/settings/newsletters[/rules]`, online-only);
+// the pipeline reads both on its next run.
 export class NewsletterSettingsError extends Error {}
 
 export interface FeedRow {

@@ -1,10 +1,8 @@
 /**
- * Deploys stop breaking open pages. The worker used to `skipWaiting()`
- * on install and delete the old build's cache on activate, which pulled the chunks out from under a
- * page still running the previous build: its next lazy route chunk missed the cache and 404'd
- * online or hung offline. Now a new worker installs and waits, this says so, and it takes over on
- * the reader's tap (then the page reloads into the new build) or on the next cold start, when no
- * page of the old build is left to break.
+ * Surfaces a waiting service worker (`ready`) and applies it on the reader's tap. The worker must
+ * not `skipWaiting()` on its own: replacing the cache under a page of the previous build 404s or
+ * hangs its next lazy chunk. It takes over on `apply()` (page reloads) or on the next cold start.
+ * Message contract with `service-worker.ts`: `pidra:skip-waiting`.
  */
 
 import { reachability } from "./net.js";

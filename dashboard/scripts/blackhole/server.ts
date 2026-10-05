@@ -3,6 +3,7 @@ import { $ } from "bun";
 import { join } from "node:path";
 import { ARTIFACTS, DASHBOARD } from "./helpers.ts";
 
+/** `PIDRA_CHROME`, else google-chrome, google-chrome-stable or chromium on PATH; exits the process when none exists. */
 export function chromePath(): string {
   const found = [process.env.PIDRA_CHROME, Bun.which("google-chrome"), Bun.which("google-chrome-stable"), Bun.which("chromium")].find(Boolean);
   if (!found) {
@@ -20,6 +21,7 @@ export async function build(): Promise<void> {
   }
 }
 
+/** Runs `build/index.js` on a random local port with the DB and skills bridge pointed at a closed port; resolves once /api/health answers. Needs `build()` first. */
 export async function startServer(): Promise<{ url: string; stop: () => void }> {
   const port = 20_000 + Math.floor(Math.random() * 20_000);
   const server = Bun.spawn(["bun", "build/index.js"], {

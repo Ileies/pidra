@@ -1,5 +1,6 @@
 import { sql } from "#lib/server/postgres.js";
 
+// Keys of the `notification_reads` table (dashboard-only notifications, docs/architecture-rules.md).
 export function reportNotificationKey(date: string): string {
   return `report:${date}`;
 }

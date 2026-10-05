@@ -1,10 +1,8 @@
 /**
  * Everything that arrived on one run date, and what the pipeline did with each of it.
  *
- * The report answers "what did the system decide to tell me". This answers the other question,
- * the one that has no other home: "here is a mail I know arrived - where did it go". Four
- * different fates are indistinguishable in the report itself, and three of them used to be
- * indistinguishable in the database too:
+ * Answers "here is a mail I know arrived - where did it go". Types: `lib/triage/types.ts`. Fates
+ * that the report itself cannot distinguish:
  *
  *   1. dropped by the IMAP ingest, before it was ever a row      → `ingest_drops`
  *   2. never extracted, because its source is switched off        → no extraction row
@@ -12,11 +10,8 @@
  *   4. passed the gate but fell outside Section 1 capacity        → synthesis handoff
  *   5. handed to synthesis, which chose not to write about it     → sent, not in the refs
  *
- * Only the last one leaves a trace in `included_in_report`, which is why that column alone could
- * never answer the question.
- *
- * Grouped by raw item rather than by extraction: one newsletter legitimately produces one row per
- * story, and seeing the delivery with its stories under it is what makes an empty one obvious.
+ * Only the last leaves a trace in `included_in_report`. Grouped by raw item, not extraction: a
+ * newsletter yields one row per story, and the delivery with its stories makes an empty one obvious.
  */
 
 import { sql } from "#lib/server/postgres.js";
@@ -133,9 +128,7 @@ export async function loadTriage(date: string): Promise<{ items: TriageItem[]; s
       WHERE run_date = ${date}
       ORDER BY received_at DESC NULLS LAST
     `,
-    // The newest run only, matching what the report page warns about. A date can carry several
-    // attempts, and an earlier one that could not reach a mailbox the last one then read fine is
-    // history rather than a gap in this list; `/runs` holds the history.
+    // Newest run only, matching the report page's warning; earlier attempts are history (`/runs`).
     db`SELECT step_errors FROM pipeline_runs WHERE run_date = ${date} ORDER BY started_at DESC LIMIT 1`,
   ]);
 

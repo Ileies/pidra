@@ -1,22 +1,13 @@
 /**
- * The header dot and the sync sheet's state. Reachability itself is decided in `net.ts`, by the
- * requests that actually go out: the first version decided it here from a separate `/api/health`
- * schedule, which is how a Questions tap could fail on a dead network while this still said
- * "online" (the field report of 2026-09-25). This class mirrors that verdict into runes for
- * the UI and owns the one thing `net.ts` cannot do from inside a request: find the way back.
+ * Rune state for the header dot and sync sheet (`offline` singleton, started once from the root
+ * layout, client only). Reachability itself is decided in `net.ts` by the requests that go out;
+ * this mirrors it into runes and owns the way back: while offline and visible it probes every 20 s
+ * (60 s after ten failures), never while hidden, and also on the `online` event and foregrounding.
  *
- * While offline and visible, it probes every 20 s, backing off to a minute after ten failures in a
- * row, and never while hidden. It also probes on the `online` event and whenever the app comes
- * back to the foreground. `navigator.onLine === false` is still a free, certain negative.
- *
- * It also owns when a sync is *forced* past the one-a-minute throttle in `sync.ts`: at
- * app start, and when the app comes back to the foreground after more than five minutes away.
- * Every other sync is the background one a page read starts, which the throttle absorbs.
- *
- * And it hears from the service worker, which syncs on its own (on the morning push, a
- * Background Sync, a periodic sync): when the worker changed the mirror or drained the queue, the
- * page on screen re-renders from the stores it names. The periodic sync is registered here, once,
- * where the browser grants it (Chrome for an installed app; nothing on iOS).
+ * Also owns when a sync is forced past `sync.ts`'s throttle (app start, foregrounding after more
+ * than five minutes) and listens for the service worker's `pidra:mirror-changed` message (the
+ * worker syncs on push/Background Sync/periodic sync; message sent by `sw/sync.ts`), re-rendering
+ * the named stores. Registers the periodic sync where the browser grants it (not iOS).
  */
 
 import { browser } from "$app/env";

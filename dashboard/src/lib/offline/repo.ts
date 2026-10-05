@@ -1,22 +1,15 @@
 /**
- * The read API the mirrored pages use. Local-first: every
- * read answers from the mirror at once and starts a background `sync()`, which is throttled and
- * single-flight, so no load ever waits on the network. When that sync changes a store, the loads
- * that read it re-run by themselves: each read takes the load's `depends` and registers the stores
- * it touched (`deps.ts`).
+ * The read API of the mirrored pages (reads IndexedDB via `db.ts`; row types in lib/mirror/types.ts,
+ * filled by `lib/server/offline/snapshot.ts`). Local-first: every read answers from the mirror at
+ * once and starts a throttled background `sync()`, so no load ever waits on the network. Each read
+ * takes the load's `depends` and registers the stores it touched (`deps.ts`), so a sync that
+ * changes a store re-runs exactly those loads.
  *
- * The first version awaited a full pull before every read, which made "local-first" local-last:
- * two full downloads in series on a cold start, one on every day step, preload and keystroke in the
- * notes search, and up to 32 s of timers before an offline start read the mirror at all.
+ * An empty mirror (first launch, after "Clear offline data") is the one case with nothing to show:
+ * loads report `mirrorEmpty()`, the root layout shows the first-sync state, and the filling sync
+ * re-runs the load. Freshness lives in `offline.lastSyncedAt`, not in read results.
  *
- * An empty mirror (first launch, or right after "Clear offline data") is the one case with nothing
- * to show. Loads still do not wait for it: they report `mirrorEmpty`, the root layout shows the
- * first-sync state in the page's place, and the sync that fills the mirror re-runs the load.
- *
- * Never written to directly by a page: a page calls `repo`, and mutates only through `outbox`. One
- * writer for the mirror, mirroring how `src/notes/store.ts` is the one writer for `notes` one layer
- * in. How fresh the data is lives in `offline.lastSyncedAt`, not in what a read returns, since every
- * read now comes from the same place.
+ * Pages never write the mirror directly: mutations go through `outbox.ts`.
  */
 
 import * as db from "./db.js";
@@ -78,8 +71,7 @@ export async function archive(depends: Depends): Promise<ArchiveDay[]> {
   return rows
     .map((r) => ({
       date: r.date,
-      // The stored summary is the first few lines of Section 1 verbatim, markdown and all. One
-      // trimmed line is what a picker row has space for.
+      // shortSummary is the first lines of Section 1 verbatim, markdown included.
       summary: (r.report?.shortSummary ?? "").replace(/[#*_`>]/g, "").replace(/\s+/g, " ").trim().slice(0, 120) || null,
       itemsIncluded: r.report?.itemsIncluded ?? null,
     }))
@@ -104,7 +96,7 @@ export interface MirroredExtraction {
 export async function extractionsFor(depends: Depends, ids: string[]): Promise<MirroredExtraction[]> {
   watch(depends, "extractions");
   const all = await Promise.all(ids.map((id) => db.get<MirroredExtraction>("extractions", id)));
-  // Same order as requested; the detail page does not depend on a sort beyond "the ones asked for".
+  // Request order; ids missing from the mirror are dropped.
   return all.filter((item): item is MirroredExtraction => !!item);
 }
 
@@ -169,10 +161,9 @@ export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> 
   return (await db.get<MirroredContextDoc>("contextDoc", "current")) ?? EMPTY_CONTEXT_DOC;
 }
 
-// --- the reference tables. Read-only here: their writes are corrections
-// and topic curation, which stay online-only, so the outbox never touches these stores. ---
+// Reference tables below are read-only here: corrections and topic curation are online-only.
 
-/** Most mentioned first, as the server-rendered table sorted them. */
+/** Most mentioned first. */
 export async function entities(depends: Depends): Promise<MirroredEntity[]> {
   watch(depends, "entities");
   const rows = await db.getAll<MirroredEntity>("entities");

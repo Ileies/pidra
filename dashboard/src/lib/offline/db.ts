@@ -1,23 +1,21 @@
 /**
- * Minimal IndexedDB wrapper for the offline mirror. No dependency: the
- * surface needed here - get, getAll, put, bulkPut, delete, bulkDelete, clear - is small enough
- * that a wrapper library would be more code to audit than to write.
+ * Dependency-free IndexedDB wrapper for the offline mirror (database `pidra-offline`), used by
+ * repo.ts (reads), sync.ts/snapshot.ts (`reconcile`), intents.ts/outbox.ts (writes) and the
+ * service worker (sw/sync.ts), so it must not import browser-only app code.
  *
- * Browser-only. Every store keys its records on a plain string `id` field, even where the natural
- * key is something else (a report's `id` is its date), so one generic implementation covers every
- * store rather than one per shape.
+ * Every store is keyed on a string `id` field, even where the natural key differs (a report's `id`
+ * is its date). Store row types: lib/mirror/types.ts. Store roles: docs/offline-mode.md.
  */
 
 import type { Keyed } from "#lib/mirror/types.js";
 
 const DB_NAME = "pidra-offline";
-/** 2: the reference tables (entities, relations, appearances, contacts, topics).
- *  3: the relation graph is gone (no confirmed edges, no evidence, never read by synthesis - see
- *  docs/scoring-formulas.md) - `entityRelations` is dropped on upgrade rather than left as dead,
- *  unsynced data. An upgrade otherwise only ever adds stores, so it keeps what is there.
- *  4: standing rules became notes - the `rules` store is dropped, along with any queued or failed
- *  `rule.*` writes, which no longer have an endpoint.
- *  5: `entityAppearances` gets an `entityId` index, so one entity's page reads its own rows. */
+/** Bump on any schema change and extend `onupgradeneeded`, which must stay idempotent for every
+ *  older version: an upgrade only adds stores/indexes and keeps existing rows, except where noted.
+ *  2: reference tables (entities, relations, appearances, contacts, topics).
+ *  3: `entityRelations` dropped (relation graph removed, see docs/scoring-formulas.md).
+ *  4: `rules` store dropped and queued/failed `rule.*` writes deleted (rules became notes).
+ *  5: `entityAppearances` gets an `entityId` index. */
 const DB_VERSION = 5;
 
 /** Secondary indexes, by store. Created on upgrade; `getAllBy` reads them. */
@@ -59,10 +57,9 @@ export function isMirrorStore(store: string): store is MirrorStore {
 }
 
 /**
- * Runs `fn` while holding the named Web Lock, so the pages and the service worker never apply a
- * snapshot or drain the outbox at the same time (the worker syncs on push).
- * Without the lock both could send the same queued write. Not re-entrant: nothing that holds a
- * lock may ask for the same one. Where the API is missing, it simply runs.
+ * Runs `fn` under a Web Lock so pages and the service worker never apply a snapshot or drain the
+ * outbox concurrently (else both could send one queued write). Not re-entrant. Without the Locks
+ * API it just runs.
  */
 export function withLock<T>(name: "pidra-outbox" | "pidra-snapshot", fn: () => Promise<T>): Promise<T> {
   const locks = (globalThis.navigator as Navigator | undefined)?.locks;
@@ -85,7 +82,6 @@ function openDb(): Promise<IDBDatabase> {
         const os = req.transaction!.objectStore(name);
         for (const field of fields) if (!os.indexNames.contains(field)) os.createIndex(field, field);
       }
-      // Dropped in version 3, kept here rather than left around unsynced.
       if (db.objectStoreNames.contains("entityRelations")) db.deleteObjectStore("entityRelations");
       if (db.objectStoreNames.contains("rules")) db.deleteObjectStore("rules");
       // A queued or failed rule write has nowhere to go any more; leaving it would jam the drain.
@@ -120,7 +116,6 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-/** Runs one request on `store` and resolves with its result. */
 async function run<R>(store: Store, mode: IDBTransactionMode, make: (os: IDBObjectStore) => IDBRequest<R>): Promise<R> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
@@ -130,7 +125,6 @@ async function run<R>(store: Store, mode: IDBTransactionMode, make: (os: IDBObje
   });
 }
 
-/** Runs several writes in one transaction; resolves when it commits. */
 async function runBatch(store: Store, write: (os: IDBObjectStore) => void): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
@@ -230,10 +224,9 @@ function sameRow(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Applies a snapshot to several stores in **one** transaction, so the
- * mirror is never half old and half new and the `meta` row that records the snapshot's ETag
- * commits only together with the rows it describes. Rows that did not change are not rewritten,
- * and the answer names the stores that actually did, which is what `sync.ts` invalidates.
+ * Applies a snapshot to several stores in **one** transaction: the mirror is never half old, and
+ * the `meta` ETag row commits only with the rows it describes. Unchanged rows are not rewritten;
+ * the result names the stores that changed, which `sync.ts` invalidates.
  *
  * Everything runs in request callbacks rather than awaits: an IndexedDB transaction commits itself
  * as soon as a turn passes with no request pending, so awaiting anything in between would end it.

@@ -1,13 +1,12 @@
 /**
- * The write path, as the pages see it. A page never writes the mirror
- * directly: it calls one of the functions below, which appends an intent, applies
- * its effect to the mirror optimistically, and tries to flush. `sync.ts` is the only other writer
- * of the mirror, and it calls `flush()` before every pull and `reapplyPending()` after, so a write
- * still queued when a pull lands is not clobbered by what the pull brings back.
+ * The write path as pages see it. A page never writes the mirror directly: it calls a function
+ * below, which appends an intent to the IndexedDB `outbox` store, applies its effect to the mirror
+ * optimistically and flushes in the background. `sync.ts` is the only other mirror writer; it
+ * calls `flush()` before each pull and `reapplyPending()` after.
  *
- * What an intent is and how the queue drains lives in `intents.ts`, which the service worker runs
- * too: a write that could not go out is handed to Background Sync where the browser has it,
- * so it can land with the app closed, and the worker drains the same queue on the morning push.
+ * Intent types and `drain` live in `intents.ts` (shared with the service worker, which drains the
+ * same queue on Background Sync or push). Offline-only writes here are limited to notes and ratings;
+ * everything else is online-only (see `onlineOnly.ts`).
  */
 
 import * as db from "./db.js";
@@ -22,9 +21,7 @@ import type { NoteRow } from "#lib/notes/api.js";
 export type { Intent, IntentKind } from "./intents.js";
 export { reapplyPending, INTENT_LABEL, intentIsFor, intentSummary } from "./intents.js";
 
-/** Monotonic within one tab session, which is all ordering needs to guarantee here: intents from
- *  the same tab flush in the order they were queued. Seeded from whatever is already queued so a
- *  reload does not restart the counter at 0 and reorder anything still pending. */
+/** `seq` orders the drain. Seeded from the queued rows so a reload does not restart at 0. */
 let seqCounter: number | null = null;
 
 async function nextSeq(): Promise<number> {
@@ -36,12 +33,8 @@ async function nextSeq(): Promise<number> {
   return seqCounter;
 }
 
-// --- status change notifications ---
-
-/** The header dot and the sync sheet read `pending()`/`failed()` on demand
- *  rather than owning outbox state themselves; this is how they know when to ask again. Plain
- *  callbacks, not a store of their own - `state.svelte.ts` is the one place that turns "something
- *  changed" into a re-render. */
+/** Plain callbacks telling the header dot and sync sheet to re-read `pending()`/`failed()`;
+ *  `state.svelte.ts` turns them into a re-render. */
 const listeners = new Set<() => void>();
 
 export function onChange(listener: () => void): () => void {
@@ -54,13 +47,9 @@ export function notify(): void {
   for (const listener of listeners) listener();
 }
 
-// --- enqueue ---
-
 /**
- * Resolves once the page shows the write: the optimistic effect is in
- * the mirror and the loads that read it have re-run from it. The flush that sends it runs behind,
- * so the network is never between the tap and the re-render - a page used to `refreshAll()` here,
- * which re-ran every load up to the root layout and, before that, a full snapshot pull with them.
+ * Resolves once the page shows the write (optimistic effect in the mirror, dependent loads re-run).
+ * The flush runs behind, so the network is never between the tap and the re-render.
  */
 async function enqueue<K extends IntentKind>(kind: K, payload: Payloads[K]): Promise<void> {
   await queue({
@@ -74,13 +63,11 @@ async function enqueue<K extends IntentKind>(kind: K, payload: Payloads[K]): Pro
   } as Intent);
 }
 
-/** Applies an intent to the mirror, queues it and sends it behind the caller. */
 async function queue(intent: Intent): Promise<void> {
   await applyOptimistic(intent);
   await db.put("outbox", intent);
   notify();
-  // Best effort; failures stay queued and the caller never waits on them. Whatever is still queued
-  // afterwards is handed to the worker, so it does not wait for the app to be opened again.
+  // Best effort; failures stay queued. Leftovers go to the worker via Background Sync.
   flush()
     .then(async () => {
       if ((await sortedOutbox()).length > 0) await requestBackgroundFlush();
@@ -126,9 +113,8 @@ export async function restoreNote(id: string): Promise<void> {
   await enqueue("note.restore", { id });
 }
 
-/** Collapses a queued rating for the same extraction ("collapse queued duplicates per
- *  extraction id") - a re-tap before the first tap has flushed replaces the queued intent rather
- *  than piling up a second one behind it. */
+/** A re-tap replaces any queued or failed rating for the same extraction instead of stacking.
+ *  `drain` tolerates this happening while the old rating's request is in flight. */
 export async function rate(extractionId: string, signal: "1" | "-1"): Promise<void> {
   for (const store of ["outbox", "failed"] as const) {
     for (const intent of await db.getAll<Intent>(store)) {
@@ -140,14 +126,11 @@ export async function rate(extractionId: string, signal: "1" | "-1"): Promise<vo
   await enqueue("rate", { extractionId, signal });
 }
 
-// --- flush ---
-
 let flushing: Promise<void> | null = null;
 
 /**
- * Drains the outbox through `net()` (see `drain` in `intents.ts` for the ordering rules). Safe to
- * call whenever: on its own it is a no-op with an empty queue, and concurrent calls (an enqueue, a
- * `visibilitychange`, a `sync()`) share one in-flight run rather than racing.
+ * Drains the outbox through `net()` (ordering rules: `drain` in `intents.ts`). Safe to call
+ * anytime: no-op on an empty queue, concurrent calls share one run. Never rejects for offline.
  */
 export function flush(): Promise<void> {
   flushing ??= drain((input, init) => net(input, init), {

@@ -1,10 +1,7 @@
 <script lang="ts">
   /**
-   * The app logo as the header's sync control. The two halves of the mark take their colours from
-   * the sync state, so one glance says how things stand, and tapping it opens the sync sheet for the
-   * detail (queued/failed lists, last-synced time). A sheet rather than a route on purpose:
-   * `routes.ts` and `src/ai/surfaces.ts` stay untouched and `check-route-surfaces.ts` has nothing
-   * new to verify.
+   * The app logo as the header's sync control: its two halves are coloured by sync state, and a tap
+   * opens `SyncSheet` (a sheet, not a route, so `routes.ts` needs no entry). States:
    *
    * - **Synced:** the brand greens.
    * - **Syncing:** a brighter green whose light half breathes while a pull is in flight.

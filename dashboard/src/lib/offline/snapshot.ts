@@ -1,18 +1,14 @@
 /**
- * One pull of `/api/offline/snapshot` into the mirror, in the form
- * both the pages (`sync.ts`) and the service worker (on push, on a periodic sync) can run. It
- * imports nothing but `db.ts` and `intents.ts`; the transport is handed in, and whatever should
- * re-render afterwards is the caller's business.
+ * One pull of `GET /api/offline/snapshot` into the mirror, runnable by pages (`sync.ts`) and the
+ * service worker (`sw/sync.ts`): imports only `db.ts` and `intents.ts`, the transport is injected,
+ * re-rendering is the caller's business. Body type: `SnapshotBody` in lib/mirror/types.ts; server
+ * side: `lib/server/offline/snapshot.ts` + `snapshotCache.ts`. Writes IndexedDB mirror stores and `meta`
+ * (`etag`, `mirrorVersion`, `lastSyncedAt`).
  *
- * The client sends the ETag of the snapshot it holds; the server answers `304`, or a delta of the
- * rows that changed since, or everything (`#lib/server/snapshotCache.ts`). Either body lists every
- * id per store, so a row the server no longer has is pruned without a tombstone list, and one
- * transaction applies it all (`db.reconcile`), skipping rows that are already identical. Anything
- * still queued is re-asserted on top afterwards (`reapplyPending`), so a pull never makes a
- * pending write look discarded.
- *
- * Under the `pidra-snapshot` lock, so a page and the worker never apply two snapshots at once.
- * The caller flushes the outbox first, outside this lock.
+ * Protocol: send the held ETag; the server answers 304, a delta, or full. Every body lists all ids
+ * per store, so rows the server dropped are pruned without tombstones. One `db.reconcile`
+ * transaction applies it, then `reapplyPending` re-asserts queued intents. Runs under the
+ * `pidra-snapshot` lock; the caller flushes the outbox first, outside it.
  */
 
 import * as db from "./db.js";
@@ -58,10 +54,9 @@ async function apply(body: SnapshotBody, heldEtag: string | null, heldVersion: s
     throw new Error("delta against a version this mirror does not hold");
   }
 
-  // A build the client has never seen replaces whatever it had cached rather than merging across
-  // a possible schema change. Such a body is always full: the version is part
-  // of the ETag, so no delta spans it. "outbox" and "failed" are never touched - they hold real
-  // queued writes, not mirrored server state.
+  // A new build version clears every mirror store instead of merging across a possible schema
+  // change. Such a body is always full (the version is part of the ETag). "outbox" and "failed"
+  // are never touched: they hold real queued writes.
   const newVersion = !!heldVersion && heldVersion !== body.version;
   const plans: db.StorePlan[] = MIRROR_STORES.map((store) => ({
     store,

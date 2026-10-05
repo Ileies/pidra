@@ -18,11 +18,9 @@ export class AuthError extends Error {}
 const SESSION_COOKIE = "pidra_session";
 /**
  * A companion to `SESSION_COOKIE`, deliberately not `httpOnly`: the root layout reads it
- * client-side to decide whether to render the navbar, so that decision never costs a server round
- * trip (CLAUDE.md, offline mode - "no load waits on the network" applies to every mirrored route,
- * which a `+layout.server.ts` would have violated for all of them at once). It carries no
- * authority - `hooks.server.ts` is still what gates every route - so a spoofed value only ever
- * shows a navbar the server would then refuse to serve behind.
+ * client-side to decide whether to render the navbar, so mirrored routes need no server load
+ * (docs/offline-mode.md). It carries no authority (`hooks.server.ts` gates every route); a spoofed
+ * value only shows a navbar.
  */
 const SESSION_UI_COOKIE = "pidra_ui";
 const PKV_COOKIE = "pidra_pkv";
@@ -64,11 +62,9 @@ const credentialColumns = () => sql()`
   device_label AS "deviceLabel", transports, created_at AS "createdAt", last_used_at AS "lastUsedAt"`;
 
 /**
- * Scoped to `rpID`: dev (`localhost`) and prod (`pidra.de`) share this table (same
- * `DATABASE_URL`), and a credential bound to one RP ID can never authenticate the other, so an
- * unscoped read would mix the two - `excludeCredentials` would list a credential Bitwarden has
- * never heard of for this origin, and `hasCredentials`/`findCredentialByCredentialId` would count
- * or match rows for a WebAuthn identity the current origin isn't allowed to touch.
+ * Scoped to `rpID`: dev (`localhost`) and prod (`pidra.de`) share this table (same `DATABASE_URL`)
+ * and a credential bound to one RP ID can never authenticate the other, so an unscoped read
+ * would mix them (`excludeCredentials`, `hasCredentials`, `findCredentialByCredentialId`).
  */
 export async function listCredentials(rpID: string): Promise<CredentialRow[]> {
   return sql()<CredentialRow[]>`

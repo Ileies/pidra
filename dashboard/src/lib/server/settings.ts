@@ -1,12 +1,10 @@
 /**
  * `user_settings` reads and writes for the language fields on `/settings`, the single writer.
  *
- * The request's values are untrusted: a request can carry anything in `contentLanguage`. Both are
- * checked against the allowlist in `src/config/languages.ts` before they touch SQL, and what is
- * stored is only ever the code. The pipeline resolves it through the same allowlist again before
- * it reaches a prompt (`src/settings/store.ts`), and the table's CHECKs refuse anything but a
- * two-letter code, so no one of the three layers is the only thing standing between a crafted
- * value and the model.
+ * Request values are untrusted: both are checked against the allowlist in
+ * `src/config/languages.ts` before touching SQL and only the code is stored. Defense in depth: the
+ * pipeline re-resolves it through the allowlist before a prompt (`src/settings/store.ts`) and the
+ * table's CHECKs refuse anything but a two-letter code.
  */
 
 import { sql } from "#lib/server/postgres.js";

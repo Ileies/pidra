@@ -1,11 +1,11 @@
 /**
  * The one client-side caller of `fetch`, and the owner of the app's
  * belief about whether pronix is reachable. `dashboard/scripts/check-offline.ts` fails the build
- * on a bare `fetch(` anywhere else in client code.
+ * on a bare `fetch(` anywhere else in client code. Reachability is read by `state.svelte.ts`
+ * (which keeps probing) and pushed to the service worker. Overview: docs/offline-mode.md.
  *
- * The failure this has to survive is not a fast error. A weak signal, a captive portal, or `pidra.de`
- * resolving but nothing behind it answering is a blackhole: nothing ever comes back, and a bare
- * `fetch` waits for the OS connect timeout, which on a phone is well past a minute. So:
+ * A blackhole (weak signal, captive portal, name resolves but nothing answers) never returns, and a
+ * bare `fetch` waits past a minute on a phone. So:
  *
  * - **Every request has a hard ceiling**, and its body is read inside it, so a caller's `.json()`
  *   cannot hang after the headers arrived either.
@@ -21,10 +21,8 @@
  *   every response it serves; one without it (a captive portal, someone else answering for the
  *   name) means pronix was not reached.
  *
- * SvelteKit's own `__data.json` and form-action requests cannot be handed a signal, so
- * `guardKitFetch()` routes exactly those two through here as well, and bounds its version check.
- * SvelteKit reads `window.fetch` at call time for precisely this purpose (`load_data` in
- * node_modules/@sveltejs/kit/src/runtime/client/client.js, and `enhance` in .../app/forms/client.js).
+ * SvelteKit's `__data.json` and form-action requests cannot be handed a signal, so `guardKitFetch()`
+ * replaces `window.fetch` (Kit reads it at call time) and routes exactly those two through here.
  */
 
 import { browser } from "$app/env";
@@ -179,6 +177,11 @@ export interface NetOptions {
   fetch?: Fetcher;
 }
 
+/**
+ * Bounded fetch. Browser: throws `NetError` (never a raw fetch error) unless the caller's own
+ * `init.signal` aborted, and returns a fully buffered body unless `options.stream`. Updates the
+ * shared reachability state as a side effect. Server: plain pass-through.
+ */
 export async function net(input: string | URL, init: RequestInit = {}, options: NetOptions = {}): Promise<Response> {
   if (!browser) return (options.fetch ?? fetch)(input, init);
   if (state === "offline") throw new NetError("offline", false);
@@ -238,11 +241,9 @@ export async function netJson<T>(input: string | URL, init: RequestInit = {}, op
   return parsed as T;
 }
 
-// --- SvelteKit's own requests ---
-
 const STATUS: Record<NetErrorKind, number> = { offline: 503, slow: 504, failed: 502 };
 
-/** The HTTP status a failed `net()` call surfaces as. */
+/** The HTTP status a failed `net()` call surfaces as (503 offline, 504 slow, 502 failed). */
 export const statusOf = (kind: NetErrorKind): number => STATUS[kind];
 
 /**
@@ -267,15 +268,10 @@ function formActionError(err: NetError): Response {
 }
 
 /**
- * SvelteKit's `updated.check()` (`$app/state`), which every navigation that ends at a status of 400
- * or more awaits before it renders (`client.js`, after `load_route`), to see whether a deploy
- * removed the chunk it needed. Over a blackhole that request never ends, so the error page -
- * `OfflineNotice` included - never appeared. Found in testing, 2026-09-25.
- *
- * Not through `net()`: `version.json` is a static file adapter-node serves before the hooks, so it
- * carries no `x-pidra` stamp and would read as "someone else answered". A plain bounded request
- * instead, never sent while known offline, and anything but an answer means "no update", which is
- * what `check()` does with a failed response anyway.
+ * Bounds SvelteKit's `updated.check()`, which every navigation ending at status >= 400 awaits
+ * before rendering; over a blackhole it never ended and the error page (`OfflineNotice`) never
+ * appeared. Not through `net()`: `version.json` is served by adapter-node before the hooks, so it
+ * has no `x-pidra` stamp and would read as "someone else answered". Any failure means "no update".
  */
 function versionCheck(input: RequestInfo | URL, init: RequestInit | undefined): Promise<Response> {
   if (state === "offline") return Promise.resolve(new Response(null, { status: 503 }));

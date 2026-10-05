@@ -1,11 +1,8 @@
 /**
- * A polling loop that cannot pile up. `setInterval` over a blackhole
- * starts a new request every tick while the earlier ones are still waiting; this schedules the
- * next tick only after the previous one settled, and pauses entirely while the page is hidden or
- * the app is offline, resuming by itself when either comes back.
- *
- * `tick` is expected to go through `net()`, so a single tick is bounded as well. Returns a stop
- * function for `onDestroy` or an effect's cleanup.
+ * A polling loop that cannot pile up (`setInterval` over a blackhole starts a request per tick):
+ * the next tick is scheduled only after the previous one settled, and the loop pauses while the page
+ * is hidden or the app is offline, resuming by itself. `tick` should go through `net()` so one tick
+ * is bounded. Returns a stop function for `onDestroy` or an effect cleanup.
  */
 
 import { onReachability, reachability } from "./net.js";

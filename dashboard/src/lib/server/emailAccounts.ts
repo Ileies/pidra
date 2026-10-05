@@ -1,12 +1,11 @@
 /**
- * `email_accounts` writes and reads for `/settings/email-accounts`, the single writer so the
- * page's form actions cannot drift from what the pipeline (`src/config/email-accounts.ts`) and
- * the Context Builder later read.
+ * `email_accounts` reads and writes for `/settings/email-accounts`; the single writer, so the form
+ * actions cannot drift from what the pipeline (`src/config/email-accounts.ts`) and the Context
+ * Builder read. Online-only (see `lib/offline/onlineOnly.ts`).
  *
- * Passwords are write-only here by design (asked for by the owner, 2026-09-28): a saved password
- * is never read back or rendered, only replaced. `listEmailAccounts` and `getEmailAccount`
- * therefore never select the `password` column at all - there is no decrypt function in
- * `./crypto.ts` for that reason, not just an unused one.
+ * Passwords are write-only by design (owner, 2026-09-28): never read back or rendered, only
+ * replaced. The list/get functions never select `password`, and `./crypto.ts` deliberately has no
+ * decrypt function.
  */
 
 import { sql } from "#lib/server/postgres.js";

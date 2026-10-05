@@ -1,17 +1,13 @@
 /**
- * What the triage page shows about one run date: the verdict codes, the item shapes and the rule
- * that folds the verdicts of a delivery's stories into one outcome. Types and a pure function
- * only, so the page and its cards can import them without reaching into `lib/server`. The query
- * that fills them is `#lib/server/triage.ts`.
+ * Triage page types (`/[date]/triage`, online-only) and `outcomeOf`, the pure rule folding a
+ * delivery's per-story verdicts into one outcome. Filled by `#lib/server/triage.ts`; kept free of
+ * `lib/server` imports so pages and cards can use it.
  */
 
 import type { IngestFailure } from "#lib/pipeline.js";
 
-/**
- * The gate's verdict codes. Declared here, not imported: the dashboard is a separate package that
- * talks to the pipeline through Postgres only. `src/pipeline/gate.ts` is where they are decided
- * and where the reasoning lives.
- */
+/** The gate's verdict codes. Copied, not imported: the dashboard talks to the pipeline only through
+ *  Postgres. Keep in sync with `src/pipeline/gate.ts`, where they are decided. */
 export type GateReason =
   | "passed"
   | "below_threshold"
@@ -112,14 +108,9 @@ export interface TriageSummary {
   extractions: number;
   /** True when at least one verdict was reconstructed rather than recorded by the run. */
   hasReconstructed: boolean;
-  /**
-   * Sources that never delivered on the run behind this date. The decisive case the item list
-   * cannot express: a mailbox that never answered has no items to show, so its mail is absent for
-   * the same reason it is absent from the report, and without this the page would quietly imply
-   * that nothing arrived there.
-   *
-   * Server-rendered and online-only, so unlike the report's copy these keep their `detail`.
-   */
+  /** Sources that never delivered on this date's run (a dead mailbox has no items to show, so
+   *  without this the page would imply nothing arrived). Online-only, so unlike the mirror's copy
+   *  these keep their `detail`. */
   ingestFailures: IngestFailure[];
 }
 

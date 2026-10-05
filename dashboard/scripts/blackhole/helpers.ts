@@ -25,8 +25,7 @@ export interface Result {
 
 export const results: Result[] = [];
 
-// --- which pages, at which paths ---
-
+/** Concrete URL per dynamic route id, built from fixture ids. */
 const PATHS: Record<string, string> = {
   "/[date]": `/${F.TODAY}`,
   "/[date]/detail/[ids]": `/${F.TODAY}/detail/${F.EXTRACTION.personal}`,
@@ -67,8 +66,6 @@ export function expectedText(id: string): string {
   return text;
 }
 
-// --- page helpers ---
-
 /** Text that means the app fell out of its designed states. */
 const UNDESIGNED = ["Internal Error", "Nothing stored on this device yet", "Downloading the offline copy", "This site can’t be reached"];
 
@@ -101,8 +98,8 @@ export function tap(locator: Locator, deadline: number, options: { position?: { 
 
 export const INDICATOR = (page: Page) => page.getByRole("button", { name: /^(Synced|Syncing|Offline|Checking)|queued|not saved/ });
 
+/** Client-side navigation exactly as a tap on a link gives it, to any path (injects and clicks an anchor). */
 export async function clickLink(page: Page, href: string): Promise<void> {
-  // A client-side navigation exactly as a tap on a link gives it, to any path.
   await page.evaluate((target) => {
     const a = document.createElement("a");
     a.href = target;

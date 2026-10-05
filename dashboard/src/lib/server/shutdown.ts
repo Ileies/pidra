@@ -1,17 +1,11 @@
 /**
  * Graceful shutdown for the long-lived streams adapter-node cannot close on its own.
  *
- * adapter-node does handle SIGTERM, so the old "ignores SIGTERM" reading was half the story: its
- * handler closes *idle* connections, waits for the rest, and only after `SHUTDOWN_TIMEOUT` calls
- * `closeAllConnections()`. The assistant's SSE proxy is neither idle nor short. It holds a client
- * connection open for the length of a turn and an outbound fetch to the skills bridge behind it,
- * and that fetch keeps the event loop alive even once the client socket is gone - so the process
- * sat there until systemd's default 90 s stop timeout SIGKILLed it, stalling every redeploy and
- * tearing down whatever was in flight.
- *
- * The fix is to close those streams ourselves the moment the signal arrives, with one `error`
- * frame the widget already knows how to render, and to backstop the exit for the case where
- * something still holds the loop. Ordering matters and is deliberate:
+ * adapter-node closes only *idle* connections on SIGTERM. The assistant's SSE proxy holds a client
+ * connection plus an outbound fetch to the skills bridge for a whole turn, which kept the loop
+ * alive until systemd SIGKILLed after 90 s. So registered streams are ended here at once with one
+ * `error` frame the widget renders, and the exit is backstopped. Installed from `hooks.server.ts`;
+ * streams register via `registerStream` (see below). Ordering is deliberate:
  *
  *   0 s   this handler ends every registered stream and aborts its upstream fetch
  *   3 s   EXIT_GRACE_MS - hard exit, unless the loop already drained and the process left earlier
@@ -56,9 +50,8 @@ export function registerStream(close: StreamCloser): () => void {
 }
 
 /**
- * Install the signal handlers. Called once from `hooks.server.ts`, which the server imports at
- * startup. adapter-node's handlers stay in place; these run alongside them and only do the part
- * adapter-node has no way to do, which is knowing that a stream is ours to end.
+ * Install the signal handlers (once, from `hooks.server.ts`). adapter-node's own handlers stay in
+ * place; these only end the streams adapter-node cannot know about.
  */
 export function installShutdownHandlers(): void {
   if (installed) return;

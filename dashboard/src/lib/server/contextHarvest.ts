@@ -12,15 +12,12 @@ const OUTPUT_DIR = resolve(process.cwd(), "..", CONTEXT_BUILDER_OUTPUT_DIR ?? "c
  * Reads a harvest document given the path recorded on its run row, and reports which file it
  * actually opened.
  *
- * Only used for rows written before `context_builder_runs.document` existed - every current row
- * carries the harvest in that column, which `loadHarvestDocument` reads directly. For those
- * legacy rows, `output_path` is an absolute path written by whichever machine ran the Context
- * Builder, so a plain `readFile` can fail on a different machine; the pipeline's own fallback
- * (`readDocument` in `src/pipeline/long-term-context.ts`) resolves against the process cwd, and
- * the dashboard's cwd is `dashboard/`, hence the same rule anchored on the project root instead.
- *
- * The resolved path comes back with the content because the page displays it, and displaying a
- * path that does not exist on this machine is how the mismatch stayed invisible in the first place.
+ * Legacy only: rows written before `context_builder_runs.document` existed; every current row
+ * carries the harvest in that column, which `loadHarvestDocument` reads directly. For legacy rows
+ * `output_path` is absolute on whichever machine ran the Context Builder, so it can fail here; the
+ * pipeline's fallback (`readDocument`, `src/pipeline/long-term-context.ts`) resolves against its
+ * cwd, so this anchors the same rule on the project root (the dashboard's cwd is `dashboard/`).
+ * The resolved path is returned because the page displays it.
  */
 async function readContextDocument(
   outputPath: string,
@@ -77,13 +74,12 @@ export interface HarvestRun {
 
 /**
  * The harvested context document, rendered, plus the standing rules and active corrections layered
- * over it. Shared between the live `/context-builder` page and the offline snapshot endpoint
- * so the two never render the harvest differently.
+ * over it. Shared by the live `/context-builder` page and the offline snapshot
+ * (`server/offline/snapshot.ts`) so they never render the harvest differently.
  *
- * The newest completed run is *not* always the right row to read - a run whose output is a delta
- * rather than a document is a fraction of it, not a newer version. So the newest run that produced
- * an actual document wins, and anything newer that was skipped is reported rather than quietly
- * passed over.
+ * The newest completed run is not always the right row: a delta run is a fraction of the document,
+ * not a newer version. The newest run that produced an actual document wins; newer skipped runs
+ * are reported in `skipped`.
  */
 export async function loadHarvestDocument(): Promise<{
   run: HarvestRun | null;

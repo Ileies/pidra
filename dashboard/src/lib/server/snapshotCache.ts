@@ -1,25 +1,19 @@
 /**
- * What makes an offline sync cheap. `/api/offline/snapshot` used to
- * assemble and send the whole 60-day window, 645 kB, on every pull. Three layers now sit in front
- * of that, each one cheaper than the next:
+ * Server-side cache for `/api/offline/snapshot` (assembly: `server/offline/snapshot.ts`; client:
+ * `lib/offline/snapshot.ts`; wire type `SnapshotBody` in lib/mirror/types.ts). Without it every pull
+ * would assemble and send the whole 60-day window (645 kB). Three layers, each cheaper than the next:
  *
  * 1. **The fingerprint.** One query that hashes, inside Postgres, every row the snapshot is made
- *    from. It decides whether the assembled snapshot held in this process is still the truth, so
- *    sixty `renderReport()` calls do not run on every request. Row hashes rather than
- *    `max(updated_at)`/`count`: `daily_reports` has no `updated_at`, a rating toggled off is a
- *    delete, and a pipeline run flipping to `failed` moves no timestamp this could key on. A
- *    fingerprint that misses a change serves a stale mirror; one that hashes the rows cannot.
- * 2. **The ETag.** A hash of the assembled rows themselves, so a match means the client already
- *    holds exactly this, and the answer is a `304` of a few hundred bytes.
- * 3. **The delta.** When the client's ETag is one this process built recently, the answer carries
- *    only the rows whose hash differs from that version, plus every id per store so a deletion
- *    still reaches the mirror. This replaces a `since=<timestamp>` delta, for the same reason as the
- *    fingerprint: a timestamp delta cannot see a change that moved no timestamp. A client whose
- *    ETag is not in the history (the process restarted, or a deploy changed the version) gets
- *    the full snapshot, which is always correct, only larger.
+ *    from; it decides whether the process's assembled snapshot is still valid. Row hashes, not
+ *    `max(updated_at)`/`count`: `daily_reports` has no `updated_at`, un-rating is a delete, and a
+ *    run flipping to `failed` moves no timestamp. A table feeding the snapshot MUST be added to
+ *    `computeFingerprint`, or the mirror goes stale.
+ * 2. **The ETag.** Hash of the assembled rows plus the build `version`; a match answers 304.
+ * 3. **The delta.** If the client's ETag is in `history`, send only rows whose hash changed plus
+ *    every id per store, so deletions propagate. Unknown ETag (restart, deploy) means a full
+ *    snapshot, always correct, only larger.
  *
- * Everything here is process memory: the current assembly and the row hashes of the last few
- * versions, a few hundred kB in all. Losing it costs one full pull, nothing else.
+ * All state is process memory; losing it costs one full pull.
  */
 
 import { createHash } from "node:crypto";
@@ -53,11 +47,8 @@ let current: { fingerprint: string; builtAt: number; built: Built } | null = nul
 let building: Promise<Built> | null = null;
 const history = new Map<string, RowHashes>();
 
-/**
- * How long a computed fingerprint answers for. The query md5s whole tables, and a phone's sync
- * fires several requests back to back (the pull, the worker's, a retry), so they share one run.
- * A change is at most this late reaching the mirror, which the next pull picks up.
- */
+/** How long a computed fingerprint answers for: the query md5s whole tables and one sync fires
+ *  several requests back to back (page, worker, retry). */
 const FINGERPRINT_TTL_MS = 5_000;
 
 let printed: { at: number; value: Promise<string> } | null = null;

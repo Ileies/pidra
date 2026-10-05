@@ -19,32 +19,123 @@ import type { NoteRow } from "#lib/notes/api.js";
 import type { MirroredExtraction } from "./repo.js";
 import type { Fetcher, MirroredReport } from "#lib/mirror/types.js";
 
-export type IntentKind =
-  | "note.create" | "note.update" | "note.delete" | "note.restore"
-  | "rate";
+/** `null` payloads for fields the caller left untouched: `content`/`scope` omitted means "leave
+ *  it", `expiresAt` present-but-null means "clear it" - the same convention `NoteWrite` uses. */
+export interface NotePatchPayload {
+  content?: string;
+  scope?: string;
+  expiresAt?: string | null;
+}
 
-export interface Intent {
+/** What each kind of write carries. */
+export interface Payloads {
+  "note.create": { id: string; content: string; scope: string; expiresAt: string | null };
+  "note.update": { id: string; patch: NotePatchPayload; baseUpdatedAt: string | null };
+  "note.delete": { id: string };
+  "note.restore": { id: string };
+  rate: { extractionId: string; signal: "1" | "-1" };
+}
+
+export type IntentKind = keyof Payloads;
+
+interface IntentBase {
   id: string;
   seq: number;
-  kind: IntentKind;
-  payload: Record<string, unknown>;
   createdAt: string;
   attempts: number;
   lastError: string | null;
 }
 
-export const INTENT_LABEL: Record<IntentKind, string> = {
-  "note.create": "New note",
-  "note.update": "Note edit",
-  "note.delete": "Note deleted",
-  "note.restore": "Note restored",
-  rate: "Rating",
+/** One queued write. Narrowing on `kind` narrows `payload`. */
+export type Intent = { [K in IntentKind]: IntentBase & { kind: K; payload: Payloads[K] } }[IntentKind];
+
+type Of<K extends IntentKind> = Extract<Intent, { kind: K }>;
+
+/** Everything one kind of write is, in one place: how it reads in the UI, which stores its optimistic
+ *  effect writes (so exactly their loads re-run), what it does to the mirror, and the request that
+ *  delivers it. */
+interface Handler<K extends IntentKind> {
+  label: string;
+  stores: MirrorStore[];
+  /** Idempotent: it runs when the intent is queued and again after every pull. */
+  apply(intent: Of<K>): Promise<void>;
+  request(intent: Of<K>, send: Fetcher): Promise<Response>;
+}
+
+async function patchNote(id: string, change: (note: NoteRow) => Partial<NoteRow>): Promise<void> {
+  const current = await db.get<NoteRow>("notes", id);
+  // Absent for a created-then-deleted-then-reapplied race; nothing to patch onto.
+  if (current) await db.put("notes", { ...current, ...change(current) });
+}
+
+const KINDS: { [K in IntentKind]: Handler<K> } = {
+  "note.create": {
+    label: "New note",
+    stores: ["notes"],
+    // A create is only ever re-applied (via reapplyPending) while still unflushed, so there is
+    // nothing server-side yet to merge with - the same object every time is correct.
+    apply: ({ payload: p, createdAt }) =>
+      db.put<NoteRow>("notes", {
+        id: p.id, content: p.content, scope: p.scope,
+        created_at: createdAt, updated_at: null, expires_at: p.expiresAt,
+        created_by: "user", updated_by: null, deleted_at: null, revision_count: 0,
+      }),
+    request: ({ payload: p }, send) =>
+      send("/api/notes", jsonInit("POST", { id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt })),
+  },
+  "note.update": {
+    label: "Note edit",
+    stores: ["notes"],
+    apply: ({ payload: { id, patch }, createdAt }) =>
+      patchNote(id, () => ({
+        ...(patch.content === undefined ? {} : { content: patch.content }),
+        ...(patch.scope === undefined ? {} : { scope: patch.scope }),
+        ...("expiresAt" in patch ? { expires_at: patch.expiresAt ?? null } : {}),
+        updated_at: createdAt,
+        updated_by: "user",
+      })),
+    request: ({ payload: p }, send) =>
+      send(`/api/notes/${p.id}`, jsonInit("PATCH", { ...p.patch, base_updated_at: p.baseUpdatedAt })),
+  },
+  "note.delete": {
+    label: "Note deleted",
+    stores: ["notes"],
+    apply: ({ payload, createdAt }) =>
+      patchNote(payload.id, () => ({ deleted_at: createdAt, updated_at: createdAt, updated_by: "user" })),
+    request: ({ payload }, send) => send(`/api/notes/${payload.id}`, { method: "DELETE" }),
+  },
+  "note.restore": {
+    label: "Note restored",
+    stores: ["notes"],
+    apply: ({ payload, createdAt }) =>
+      patchNote(payload.id, () => ({ deleted_at: null, updated_at: createdAt, updated_by: "user" })),
+    request: ({ payload }, send) => send(`/api/notes/${payload.id}/restore`, { method: "POST" }),
+  },
+  rate: {
+    label: "Rating",
+    stores: ["reports", "extractions"],
+    apply: ({ payload: p }) => patchReportsRating(p.extractionId, p.signal === "1" ? "explicit_plus" : "explicit_minus"),
+    request: ({ payload: p }, send) =>
+      send("/api/feedback", jsonInit("POST", { extraction_id: p.extractionId, signal: p.signal })),
+  },
 };
 
-/** The row an intent is about: a note (a queued create's temporary id) or an extraction. */
+/** The one place the kind-to-handler correlation is asserted, instead of in every switch. */
+const handlerOf = (intent: Intent) => KINDS[intent.kind] as Handler<IntentKind>;
+
+export const INTENT_LABEL = Object.fromEntries(
+  Object.entries(KINDS).map(([kind, handler]) => [kind, handler.label]),
+) as Record<IntentKind, string>;
+
+/** The mirror stores an intent's optimistic effect writes, so exactly their loads re-run. */
+export function storesOf(kind: IntentKind): MirrorStore[] {
+  return KINDS[kind].stores;
+}
+
+/** The row an intent is about: a note, or an extraction. */
 function intentTarget(intent: Intent): string {
-  const p = intent.payload as { id?: string; localId?: string; extractionId?: string };
-  return p.localId ?? p.id ?? p.extractionId ?? "";
+  const p = intent.payload;
+  return "extractionId" in p ? p.extractionId : p.id;
 }
 
 /** Whether an intent writes a row of this kind with this id, which is where its state is shown. */
@@ -55,18 +146,18 @@ export function intentIsFor(intent: Intent, row: "note" | "rate", id: string): b
 
 /** Enough of the payload to say what changed, for a write whose row is not on screen. */
 export function intentSummary(intent: Intent): string {
-  const p = intent.payload as Record<string, unknown>;
-  if (intent.kind === "note.create") return String(p.content ?? "").slice(0, 60);
+  if (intent.kind === "note.create") return intent.payload.content.slice(0, 60);
   const target = intentTarget(intent);
   return intent.kind === "rate" ? `extraction ${target.slice(0, 8)}…` : `${target.slice(0, 8)}…`;
 }
 
 export type { Fetcher };
 
-export async function sortedOutbox(): Promise<Intent[]> {
-  const all = await db.getAll<Intent>("outbox");
-  return all.sort((a, b) => a.seq - b.seq);
+export async function sortedIntents(store: "outbox" | "failed"): Promise<Intent[]> {
+  return (await db.getAll<Intent>(store)).sort((a, b) => a.seq - b.seq);
 }
+
+export const sortedOutbox = () => sortedIntents("outbox");
 
 // --- optimistic mirror application ---
 
@@ -83,61 +174,7 @@ async function patchReportsRating(extractionId: string, eventType: string): Prom
   }
 }
 
-/** `null` payloads for fields the caller left untouched: `content`/`scope` omitted means "leave
- *  it", `expiresAt` present-but-null means "clear it" - the same convention `NoteWrite` uses. */
-export interface NotePatchPayload {
-  content?: string;
-  scope?: string;
-  expiresAt?: string | null;
-}
-
-export async function applyOptimistic(intent: Intent): Promise<void> {
-  switch (intent.kind) {
-    case "note.create": {
-      const p = intent.payload as { id: string; content: string; scope: string; expiresAt: string | null };
-      // A create is only ever re-applied (via reapplyPending) while still unflushed, so there is
-      // nothing server-side yet to merge with - the same object every time is correct.
-      const note: NoteRow = {
-        id: p.id, content: p.content, scope: p.scope,
-        created_at: intent.createdAt, updated_at: null, expires_at: p.expiresAt,
-        created_by: "user", updated_by: null, deleted_at: null, revision_count: 0,
-      };
-      await db.put("notes", note);
-      return;
-    }
-    case "note.update": {
-      const p = intent.payload as { id: string; patch: NotePatchPayload };
-      const current = await db.get<NoteRow>("notes", p.id);
-      if (!current) return; // created-then-deleted-then-reapplied races; nothing to patch onto.
-      await db.put("notes", {
-        ...current,
-        ...(p.patch.content === undefined ? {} : { content: p.patch.content }),
-        ...(p.patch.scope === undefined ? {} : { scope: p.patch.scope }),
-        ...("expiresAt" in p.patch ? { expires_at: p.patch.expiresAt ?? null } : {}),
-        updated_at: intent.createdAt,
-        updated_by: "user",
-      });
-      return;
-    }
-    case "note.delete": {
-      const p = intent.payload as { id: string };
-      const current = await db.get<NoteRow>("notes", p.id);
-      if (current) await db.put("notes", { ...current, deleted_at: intent.createdAt, updated_at: intent.createdAt, updated_by: "user" });
-      return;
-    }
-    case "note.restore": {
-      const p = intent.payload as { id: string };
-      const current = await db.get<NoteRow>("notes", p.id);
-      if (current) await db.put("notes", { ...current, deleted_at: null, updated_at: intent.createdAt, updated_by: "user" });
-      return;
-    }
-    case "rate": {
-      const p = intent.payload as { extractionId: string; signal: "1" | "-1" };
-      await patchReportsRating(p.extractionId, p.signal === "1" ? "explicit_plus" : "explicit_minus");
-      return;
-    }
-  }
-}
+export const applyOptimistic = (intent: Intent): Promise<void> => handlerOf(intent).apply(intent);
 
 /**
  * Re-runs every still-pending intent's optimistic effect on top of whatever a snapshot just
@@ -151,11 +188,6 @@ export async function reapplyPending(): Promise<void> {
   for (const intent of await sortedOutbox()) await applyOptimistic(intent);
 }
 
-/** The mirror stores an intent's optimistic effect writes, so exactly their loads re-run. */
-export function storesOf(kind: IntentKind): MirrorStore[] {
-  return kind === "rate" ? ["reports", "extractions"] : ["notes"];
-}
-
 // --- drain ---
 
 /** Thrown for anything that will never succeed by retrying - a validation error, a 404 on a
@@ -163,33 +195,8 @@ export function storesOf(kind: IntentKind): MirrorStore[] {
  *  or unreachable), which is always retried. */
 class TerminalError extends Error {}
 
-function request(intent: Intent, send: Fetcher): Promise<Response> {
-  switch (intent.kind) {
-    case "note.create": {
-      const p = intent.payload as { id: string; content: string; scope: string; expiresAt: string | null };
-      return send("/api/notes", jsonInit("POST", { id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt }));
-    }
-    case "note.update": {
-      const p = intent.payload as { id: string; patch: NotePatchPayload; baseUpdatedAt: string | null };
-      return send(`/api/notes/${p.id}`, jsonInit("PATCH", { ...p.patch, base_updated_at: p.baseUpdatedAt }));
-    }
-    case "note.delete": {
-      const p = intent.payload as { id: string };
-      return send(`/api/notes/${p.id}`, { method: "DELETE" });
-    }
-    case "note.restore": {
-      const p = intent.payload as { id: string };
-      return send(`/api/notes/${p.id}/restore`, { method: "POST" });
-    }
-    case "rate": {
-      const p = intent.payload as { extractionId: string; signal: "1" | "-1" };
-      return send("/api/feedback", jsonInit("POST", { extraction_id: p.extractionId, signal: p.signal }));
-    }
-  }
-}
-
 async function deliver(intent: Intent, send: Fetcher): Promise<Response> {
-  const res = await request(intent, send);
+  const res = await handlerOf(intent).request(intent, send);
   if (res.ok) return res;
   if (res.status >= 400 && res.status < 500) {
     const body = await res.text().catch(() => "");
@@ -204,8 +211,7 @@ async function deliver(intent: Intent, send: Fetcher): Promise<Response> {
 async function markConflictIfFlagged(intent: Intent, res: Response): Promise<boolean> {
   if (intent.kind !== "note.update") return false;
   const body = (await res.json().catch(() => null)) as { _conflict?: boolean } | null;
-  const p = intent.payload as { id: string };
-  const current = await db.get<NoteRow>("notes", p.id);
+  const current = await db.get<NoteRow>("notes", intent.payload.id);
   // Written whenever it differs, not just on a conflict: a later edit that lands cleanly clears a
   // flag an earlier one left, rather than the note staying marked forever.
   if (current && !!current.conflicted !== !!body?._conflict) {

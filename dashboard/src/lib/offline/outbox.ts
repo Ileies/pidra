@@ -13,7 +13,10 @@
 import * as db from "./db.js";
 import { net, NetError } from "./net.js";
 import { invalidateMirror } from "./deps.js";
-import { applyOptimistic, drain, sortedOutbox, storesOf, type Intent, type IntentKind, type NotePatchPayload } from "./intents.js";
+import {
+  applyOptimistic, drain, sortedIntents, sortedOutbox, storesOf,
+  type Intent, type IntentKind, type NotePatchPayload, type Payloads,
+} from "./intents.js";
 import type { NoteRow } from "#lib/notes/api.js";
 
 export type { Intent, IntentKind } from "./intents.js";
@@ -59,8 +62,8 @@ export function notify(): void {
  * so the network is never between the tap and the re-render - a page used to `refreshAll()` here,
  * which re-ran every load up to the root layout and, before that, a full snapshot pull with them.
  */
-async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Promise<void> {
-  const intent: Intent = {
+async function enqueue<K extends IntentKind>(kind: K, payload: Payloads[K]): Promise<void> {
+  await queue({
     id: crypto.randomUUID(),
     seq: await nextSeq(),
     kind,
@@ -68,7 +71,11 @@ async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Prom
     createdAt: new Date().toISOString(),
     attempts: 0,
     lastError: null,
-  };
+  } as Intent);
+}
+
+/** Applies an intent to the mirror, queues it and sends it behind the caller. */
+async function queue(intent: Intent): Promise<void> {
   await applyOptimistic(intent);
   await db.put("outbox", intent);
   notify();
@@ -79,7 +86,7 @@ async function enqueue(kind: IntentKind, payload: Record<string, unknown>): Prom
       if ((await sortedOutbox()).length > 0) await requestBackgroundFlush();
     })
     .catch(() => {});
-  await invalidateMirror(storesOf(kind));
+  await invalidateMirror(storesOf(intent.kind));
 }
 
 /** Registration-side Background Sync, which lib.dom does not type. Chrome on Android has it;
@@ -159,9 +166,8 @@ export async function pending(): Promise<Intent[]> {
   return sortedOutbox();
 }
 
-export async function failed(): Promise<Intent[]> {
-  const all = await db.getAll<Intent>("failed");
-  return all.sort((a, b) => a.seq - b.seq);
+export function failed(): Promise<Intent[]> {
+  return sortedIntents("failed");
 }
 
 /** Re-queues a failed intent at the tail - not back in its original position, because whatever
@@ -171,12 +177,7 @@ export async function retryFailed(id: string): Promise<void> {
   const intent = await db.get<Intent>("failed", id);
   if (!intent) return;
   await db.del("failed", id);
-  const requeued = { ...intent, seq: await nextSeq(), attempts: 0, lastError: null };
-  await applyOptimistic(requeued);
-  await db.put("outbox", requeued);
-  notify();
-  flush().catch(() => {});
-  await invalidateMirror(storesOf(intent.kind));
+  await queue({ ...intent, seq: await nextSeq(), attempts: 0, lastError: null });
 }
 
 export async function discardFailed(id: string): Promise<void> {

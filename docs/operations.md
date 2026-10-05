@@ -25,13 +25,13 @@ It refuses rather than improvises: an uncommitted tree (unless `--force`), commi
 
 ## The check
 
-`bun run check` runs the root checks (`tsc`, `check-skill-writes.ts`, `check-route-surfaces.ts`, `check-file-size.ts` as the `file-size` step) and the dashboard's check concurrently. Both `scripts/check.ts` and `dashboard/scripts/check.ts` share one runner, `scripts/lib/check-runner.ts` (buffering, `--quick`/`--verbose` parsing, warning detection).
+`bun run check` runs the root checks (`tsc`, `check-skill-writes.ts`, `check-route-surfaces.ts`, `check-file-size.ts` as the `file-size` step, and the root tests as the `unit tests` step) and the dashboard's check concurrently. Both `scripts/check.ts` and `dashboard/scripts/check.ts` share one runner, `scripts/lib/check-runner.ts` (buffering, `--quick`/`--verbose` parsing, warning detection).
 
 The `file-size` step fails a tracked `.ts` file over 350 lines or a `.svelte` file over 250. The `EXCEPTIONS` table in `scripts/check-file-size.ts` gives a justified file its own ceiling at its current size (the blackhole `fixture.ts`, `src/notes/store.ts`, `runTrace.ts`, and the `[date]` and `runs/[id]` pages); it also fails when an excepted file no longer exists. Lower or delete an entry when the file shrinks, and prefer splitting a file to adding one. The dashboard side ends with the offline blackhole suite, which dominates wall time (~65-70 s against well under 4 s for everything else).
 
 Output is kept short to save tokens: each step is buffered and a passing one prints a single `ok <step> (<secs>s): <last output line>`. A failing step prints its full stdout/stderr under `=== <step> failed ===`, and a passing step that reports warnings (a nonzero count or a `Warn:` line) still prints its full output under `--- <step> warnings ---`, so warnings are never silenced. The run ends with `dashboard: all steps pass` and `check: root and dashboard both pass.`. `bun run check --verbose` (`-v`, forwarded to the dashboard check, combinable with `--quick`) disables buffering so every step streams its full output live.
 
-`bun run check --quick` (`-q`, or `bun run check:quick` in either `package.json`) skips only that suite. Use it while iterating on a change that cannot touch routing, offline behavior or rendering. The `commit` skill and a plain `bun run deploy` both require the full run.
+`bun run check --quick` (`-q`, or `bun run check:quick` in either `package.json`) skips only that suite; the root `unit tests` step (`bun test ./tests`, ~0.4 s) still runs. The root `test` script is the same `bun test ./tests` - a bare `bun test` also discovers `dashboard/tests`, which need `--conditions=browser` and fail without it. Use it while iterating on a change that cannot touch routing, offline behavior or rendering. The `commit` skill and a plain `bun run deploy` both require the full run.
 
 ## DB access and schema changes
 

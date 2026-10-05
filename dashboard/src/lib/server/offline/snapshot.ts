@@ -4,8 +4,9 @@ import { MIRROR_DAYS, type SnapshotStores } from "#lib/server/snapshotCache.js";
 import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/reports.js";
 import { loadExtractions } from "#lib/server/extractions.js";
 import { loadHarvestDocument } from "#lib/server/contextHarvest.js";
-import { ingestFailures, withoutDetail, type IngestFailure, type StepAttempt } from "#lib/pipeline.js";
-import type { ActionPreview, ActionStatus, QuickAction, ReportJson } from "#lib/report/types.js";
+import { ingestFailures, withoutDetail, type StepAttempt } from "#lib/pipeline.js";
+import { entriesOf, type ActionPreview, type ActionStatus, type QuickAction, type ReportJson } from "#lib/report/types.js";
+import type { MirroredReport } from "#lib/mirror/types.js";
 
 /**
  * Assembles the full offline snapshot. Assembly, not new SQL semantics: every query here reuses
@@ -22,36 +23,6 @@ import type { ActionPreview, ActionStatus, QuickAction, ReportJson } from "#lib/
  * page because this is the choke point - the report page reads only the mirror, so a consumer
  * cannot reach past this to the raw column even if it tried.
  */
-
-interface MirroredReport {
-  id: string; // == date
-  date: string;
-  report: {
-    shortSummary: string | null;
-    itemCount: number | null;
-    itemsIncluded: number | null;
-    itemsFiltered: number | null;
-    tokensIn: number | null;
-    tokensOut: number | null;
-    aiCalls: number | null;
-    webSearchesRun: number | null;
-    createdAt: string | null;
-  } | null;
-  pipelineRun: {
-    status: "running" | "completed" | "failed";
-    failedStep: string | null;
-    startedAt: string | null;
-    completedAt: string | null;
-    durationMs: number | null;
-  } | null;
-  /** Sources that never delivered on the run behind this report. Source and kind only. */
-  ingestFailures: IngestFailure[];
-  structured: ReturnType<typeof renderReport>["structured"];
-  reportHtml: string | null;
-  ratings: Record<string, string>;
-  /** The quick actions still on offer or already done. Dismissed and discarded ones stay home. */
-  actions: QuickAction[];
-}
 
 async function buildReports(): Promise<{ reports: MirroredReport[]; extractionIds: string[] }> {
   const db = sql();
@@ -174,15 +145,7 @@ async function attachRatings(reports: MirroredReport[]): Promise<void> {
 }
 
 function refIdsOf(report: MirroredReport): string[] {
-  if (report.structured) {
-    return [
-      ...report.structured.personal.flatMap((g) => g.entries.flatMap((e) => e.refIds)),
-      ...(report.structured.news ?? []).flatMap((g) => g.entries.flatMap((e) => e.refIds)),
-      ...report.structured.intel.flatMap((g) => g.entries.flatMap((e) => e.refIds)),
-      ...report.structured.alsoNoted.flatMap((e) => e.refIds),
-    ];
-  }
-  return [];
+  return report.structured ? entriesOf(report.structured).flatMap((e) => e.refIds) : [];
 }
 
 async function buildNotes() {

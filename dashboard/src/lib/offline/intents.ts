@@ -16,7 +16,8 @@ import { errMessage } from "$pipeline/util/text";
 import * as db from "./db.js";
 import type { MirrorStore } from "./db.js";
 import type { NoteRow } from "#lib/notes/api.js";
-import type { MirroredReport, MirroredExtraction } from "./repo.js";
+import type { MirroredExtraction } from "./repo.js";
+import type { Fetcher, MirroredReport } from "#lib/mirror/types.js";
 
 export type IntentKind =
   | "note.create" | "note.update" | "note.delete" | "note.restore"
@@ -60,8 +61,7 @@ export function intentSummary(intent: Intent): string {
   return intent.kind === "rate" ? `extraction ${target.slice(0, 8)}…` : `${target.slice(0, 8)}…`;
 }
 
-/** How a request goes out: `net()` in a page, a bounded `fetch` in the worker. */
-export type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
+export type { Fetcher };
 
 export async function sortedOutbox(): Promise<Intent[]> {
   const all = await db.getAll<Intent>("outbox");

@@ -12,6 +12,7 @@
 import * as db from "./db.js";
 import type { MirroredEntity, MirroredReport } from "./repo.js";
 import type { NoteRow } from "#lib/notes/api.js";
+import { entriesOf } from "#lib/report/types.js";
 
 export type OfflineHitKind = "report" | "note" | "entity";
 
@@ -70,14 +71,8 @@ function textOfReport(report: MirroredReport): string {
   const cached = reportText.get(report.id);
   if (cached?.key === key) return cached.text;
 
-  const s = report.structured;
-  const html = s
-    ? [
-        ...s.personal.flatMap((g) => g.entries),
-        ...(s.news ?? []).flatMap((g) => g.entries),
-        ...s.intel.flatMap((g) => g.entries),
-        ...s.alsoNoted,
-      ]
+  const html = report.structured
+    ? entriesOf(report.structured)
         .map((e) => e.html)
         .join("\n")
     : (report.reportHtml ?? "");

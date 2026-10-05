@@ -22,12 +22,10 @@
 import * as db from "./db.js";
 import { getLastSyncedAt, sync } from "./sync.js";
 import { mirrorKey, type MirrorKey, type MirrorStore } from "./deps.js";
-import type { RenderedReport } from "#lib/server/reports.js";
+import type { MirroredReport } from "#lib/mirror/types.js";
 import type { ExtractedJson } from "#lib/server/extractions.js";
 import type { HarvestDoc, HarvestRun } from "#lib/server/contextHarvest.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
-import type { IngestFailure, StepAttempt } from "#lib/pipeline.js";
-import type { QuickAction } from "#lib/report/types.js";
 
 /**
  * A load's `depends`, or null for a read from a component (the inline source expansion, the
@@ -45,42 +43,7 @@ export async function mirrorEmpty(): Promise<boolean> {
   return (await getLastSyncedAt()) === null;
 }
 
-export interface MirroredReport {
-  id: string;
-  date: string;
-  report: {
-    shortSummary: string | null;
-    itemCount: number | null;
-    itemsIncluded: number | null;
-    itemsFiltered: number | null;
-    tokensIn: number | null;
-    tokensOut: number | null;
-    aiCalls: number | null;
-    webSearchesRun: number | null;
-    createdAt: string | null;
-  } | null;
-  pipelineRun: {
-    status: "running" | "completed" | "failed";
-    failedStep: string | null;
-    /** Never mirrored (attempt stacks can quote raw source content), so this
-     *  is always empty offline. `ErrorCard`'s `attempts` prop already defaults to `[]`. */
-    stepErrors: StepAttempt[];
-    startedAt: string | null;
-    completedAt: string | null;
-    durationMs: number | null;
-  } | null;
-  /**
-   * Which sources never delivered on the run behind this report - the warning above the briefing.
-   * Derived from `step_errors` at the snapshot endpoint and stripped to a source name and a kind
-   * there, so this carries the fact without carrying the error text the mirror must not hold.
-   */
-  ingestFailures: IngestFailure[];
-  structured: RenderedReport | null;
-  reportHtml: string | null;
-  ratings: Record<string, string>;
-  /** The report's quick actions. Absent on a report mirrored before they existed. */
-  actions?: QuickAction[];
-}
+export type { MirroredReport };
 
 export async function report(depends: Depends, date: string): Promise<MirroredReport | null> {
   watch(depends, "reports");

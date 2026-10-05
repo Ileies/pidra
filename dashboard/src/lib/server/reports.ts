@@ -7,7 +7,7 @@
 
 import { renderMarkdown } from "#lib/markdown.js";
 import { sql } from "#lib/server/postgres.js";
-import type { ReportJson, Urgency } from "#lib/report/types.js";
+import { entriesOf, type ReportJson, type Urgency } from "#lib/report/types.js";
 
 /** One entry of the report, ready to render: sanitised HTML plus the refs behind it. */
 export interface RenderedEntry {
@@ -50,14 +50,7 @@ function injectDetailLinks(html: string, date: string, validIds: Set<string>): s
  *  checked against a real row. */
 export function collectRefIds(reportJson: ReportJson | null, fullReport: string | null): string[] {
   if (reportJson) {
-    return [
-      ...new Set([
-        ...reportJson.personal.flatMap((group) => group.entries.flatMap((entry) => entry.refIds)),
-        ...(reportJson.news ?? []).flatMap((group) => group.entries.flatMap((entry) => entry.refIds)),
-        ...reportJson.intel.flatMap((group) => group.entries.flatMap((entry) => entry.refIds)),
-        ...reportJson.alsoNoted.flatMap((entry) => entry.refIds),
-      ]),
-    ];
+    return [...new Set(entriesOf(reportJson).flatMap((entry) => entry.refIds))];
   }
   return fullReport ? extractRefsIds(fullReport) : [];
 }

@@ -74,7 +74,6 @@ function report(date: string, structured: MirroredReport["structured"]): Mirrore
     pipelineRun: {
       status: "completed",
       failedStep: null,
-      stepErrors: [],
       startedAt: `${date}T04:30:00.000Z`,
       completedAt: `${date}T05:00:00.000Z`,
       durationMs: 1_800_000,

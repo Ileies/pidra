@@ -28,6 +28,22 @@ export interface ReportJson {
   alsoNoted: ReportEntry[];
 }
 
+/** Every entry of a report in reading order, whichever section it sits in. Works on the stored
+ *  JSON and on the rendered form alike. */
+export function entriesOf<E>(s: {
+  personal: { entries: E[] }[];
+  news?: { entries: E[] }[];
+  intel: { entries: E[] }[];
+  alsoNoted: E[];
+}): E[] {
+  return [
+    ...s.personal.flatMap((g) => g.entries),
+    ...(s.news ?? []).flatMap((g) => g.entries),
+    ...s.intel.flatMap((g) => g.entries),
+    ...s.alsoNoted,
+  ];
+}
+
 /**
  * A quick action: a one-tap button beside a personal entry. Mirrors `ActionPreview` and the
  * `report_actions` row in the pipeline (`src/actions/`), which is the authority, the same

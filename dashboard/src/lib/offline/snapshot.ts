@@ -17,22 +17,13 @@
 
 import * as db from "./db.js";
 import { isMirrorStore, MIRROR_STORES, type MirrorStore } from "./db.js";
-import { reapplyPending, type Fetcher } from "./intents.js";
+import { reapplyPending } from "./intents.js";
+import type { Fetcher, SnapshotBody } from "#lib/mirror/types.js";
 
 export interface PullResult {
   /** `synced`: new rows arrived. `unchanged`: the server confirmed the mirror is current (304). */
   result: "synced" | "unchanged";
   changed: MirrorStore[];
-}
-
-interface SnapshotBody {
-  version: string;
-  etag: string;
-  mode: "full" | "delta";
-  base: string | null;
-  generatedAt: string;
-  stores: Partial<Record<MirrorStore, { id: string }[]>>;
-  ids: Partial<Record<MirrorStore, string[]>>;
 }
 
 export async function meta(id: string): Promise<string | undefined> {

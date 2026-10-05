@@ -8,6 +8,8 @@
  * store rather than one per shape.
  */
 
+import type { Keyed } from "#lib/mirror/types.js";
+
 const DB_NAME = "pidra-offline";
 /** 2: the reference tables (entities, relations, appearances, contacts, topics).
  *  3: the relation graph is gone (no confirmed edges, no evidence, never read by synthesis - see
@@ -67,9 +69,7 @@ export function withLock<T>(name: "pidra-outbox" | "pidra-snapshot", fn: () => P
   return locks ? locks.request(name, fn) : fn();
 }
 
-export interface Keyed {
-  id: string;
-}
+export type { Keyed };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 

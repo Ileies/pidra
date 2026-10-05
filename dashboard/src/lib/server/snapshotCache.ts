@@ -25,13 +25,10 @@
 import { createHash } from "node:crypto";
 import { version } from "$app/env";
 import { sql } from "#lib/server/postgres.js";
+import type { Keyed, SnapshotBody } from "#lib/mirror/types.js";
 
 /** Newest report dates the mirror keeps. About 2 to 3 MB, far inside any storage quota. */
 export const MIRROR_DAYS = 60;
-
-export interface Keyed {
-  id: string;
-}
 
 export type SnapshotStores = Record<string, Keyed[]>;
 
@@ -135,19 +132,6 @@ export function requestedEtags(header: string | null): string[] {
     .split(",")
     .map((part) => part.trim().replace(/^W\//, "").replace(/^"|"$/g, ""))
     .filter(Boolean);
-}
-
-export interface SnapshotBody {
-  version: string;
-  etag: string;
-  mode: "full" | "delta";
-  /** The version the delta is relative to; null for a full snapshot. */
-  base: string | null;
-  generatedAt: string;
-  /** Full: every row. Delta: only the rows that differ from `base`. */
-  stores: SnapshotStores;
-  /** Every id each store holds now, in both modes. What the client prunes against. */
-  ids: Record<string, string[]>;
 }
 
 /**

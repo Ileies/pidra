@@ -1,9 +1,10 @@
 // Phase 3 (called by run.ts): four source summaries, then the long-term document, either as a patch
 // of the previous one (update mode) or built in full. The document must keep the `# 1.` to `# 5.`
-// headings (see missingSections in run-tracking.ts); a document that fails the check is dropped.
+// headings (checked in verified-document.ts); a document that fails the check is dropped.
 import { logError } from "../errors";
 import { updateProgress } from "../progress";
-import { loadPreviousDocument, loadStoredExtractions, missingSections } from "../run-tracking";
+import { loadPreviousDocument, loadStoredExtractions } from "../run-tracking";
+import { buildVerifiedDocument } from "./verified-document";
 import { batchContacts } from "../pipeline/batch-contacts";
 import type { EmailExtraction } from "../pipeline/extract-email";
 import type { NoteExtraction } from "../pipeline/extract-note";
@@ -87,44 +88,31 @@ export async function synthesizePhase(
 
     const previous = mode === "update" ? await loadPreviousDocument() : { context: "", itemsIndexed: 0 };
 
-    if (previous.context) {
-      const delta = Object.fromEntries(
-        (Object.keys(fetchedFlags) as (keyof typeof fetchedFlags)[])
-          .filter((k) => fetchedFlags[k] && parts[k])
-          .map((k) => [k, parts[k]]),
-      );
-      fullContext = await synthesizePatch(
-        previous.context,
-        delta,
-        {
-          existing: previous.itemsIndexed,
-          delta: extracted.emailExtractions.length + extracted.noteExtractions.length + githubRepos.length,
-        },
-        corrections,
-      );
-
-      // The patch replaces the document outright, so a reply that broke the `# 1.`-`# 5.` contract
-      // would wipe the long-term context. Rebuild in full (one more call) instead.
-      const missing = missingSections(fullContext);
-      if (missing.length > 0) {
-        await logError(
-          "phase:synthesis",
-          `patched document is missing section(s) ${missing.join(", ")} - rebuilding it in full instead`,
-        );
-        fullContext = await synthesizeFullContext(parts, corrections);
-      }
-    } else {
-      if (mode === "update") {
-        console.warn("[Synthesis] no previous document worth patching - synthesising this one in full");
-      }
-      fullContext = await synthesizeFullContext(parts, corrections);
+    if (!previous.context && mode === "update") {
+      console.warn("[Synthesis] no previous document worth patching - synthesising this one in full");
     }
-
-    // A full build must meet the same contract; there is no fallback after it, so throw.
-    const stillMissing = missingSections(fullContext);
-    if (stillMissing.length > 0) {
-      throw new Error(`synthesised document is missing section(s) ${stillMissing.join(", ")}`);
-    }
+    const delta = Object.fromEntries(
+      (Object.keys(fetchedFlags) as (keyof typeof fetchedFlags)[])
+        .filter((k) => fetchedFlags[k] && parts[k])
+        .map((k) => [k, parts[k]]),
+    );
+    fullContext = await buildVerifiedDocument({
+      patch: previous.context
+        ? () =>
+            synthesizePatch(
+              previous.context,
+              delta,
+              {
+                existing: previous.itemsIndexed,
+                delta: extracted.emailExtractions.length + extracted.noteExtractions.length + githubRepos.length,
+              },
+              corrections,
+            )
+        : null,
+      full: () => synthesizeFullContext(parts, corrections),
+      onPatchRejected: (missing) =>
+        logError("phase:synthesis", `patched document is missing section(s) ${missing.join(", ")} - rebuilding it in full instead`),
+    });
   } catch (err) {
     await logError("phase:synthesis", err);
     // Empty fullContext means "failed": finalize.ts still writes the output files (the four summaries

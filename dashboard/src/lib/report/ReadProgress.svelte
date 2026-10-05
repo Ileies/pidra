@@ -7,6 +7,10 @@
    */
   import Check from "@lucide/svelte/icons/check";
 
+  // Dates whose end was reached this session: the celebration plays once, a remount or effect re-run
+  // restores the quiet "Read" state instead of replaying it.
+  const finished = new Set<string>();
+
   interface Props {
     /** The element holding the report text. */
     target: HTMLElement | undefined;
@@ -37,7 +41,7 @@
   $effect(() => {
     void date;
     progress = 0;
-    done = false;
+    done = finished.has(date);
     burst = false;
     scrolled = false;
     if (!target) return;
@@ -52,7 +56,9 @@
       const span = rect.height - window.innerHeight;
       progress = span <= 0 ? 0 : Math.min(1, Math.max(0, -rect.top / span));
       const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
-      if (scrolled && !done && atEnd) {
+      if (done) progress = 1;
+      else if (scrolled && atEnd) {
+        finished.add(date);
         done = true;
         burst = true;
         progress = 1;
@@ -89,7 +95,7 @@
   >
     <div class="h-[3px] bg-surface-800/60">
       <div
-        class="h-full origin-left transition-colors duration-500 {done ? 'bg-success-400 shimmer' : 'bg-primary-400'}"
+        class="h-full origin-left transition-colors duration-500 {done ? 'bg-success-400' : 'bg-primary-400'} {burst ? 'shimmer' : ''}"
         style="width: {progress * 100}%"
       ></div>
     </div>
@@ -97,7 +103,7 @@
       <span
         class="chip relative flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs tabular-nums
           {done
-          ? 'pop border-success-700 bg-success-950 text-success-300'
+          ? `${burst ? 'pop ' : ''}border-success-700 bg-success-950 text-success-300`
           : 'border-surface-700 bg-surface-900/90 text-surface-300'}"
       >
         {#if done}<Check class="h-3 w-3" aria-hidden="true" />{/if}

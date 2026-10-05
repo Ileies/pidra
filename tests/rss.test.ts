@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test";
 import type Parser from "rss-parser";
-import * as schema from "../src/db/schema";
+import { dbModule } from "./fixtures/db";
 
 // rss.ts writes through the db at module level; nothing here touches it.
-mock.module("../src/db", () => ({ ...schema, db: {}, existingMessageIds: async () => new Set() }));
+mock.module("../src/db", () => dbModule({}));
 const { rssBody } = await import("../src/ingest/rss");
 
 const feedItem = (fields: Record<string, string>) => fields as Parser.Item;

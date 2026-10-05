@@ -2,6 +2,7 @@
 // a failed placeholder. The db is an in-memory mock (mock.module below); the model call is stubbed.
 import { beforeEach, expect, mock, test } from "bun:test";
 import * as schema from "../src/db/schema";
+import { dbModule } from "./fixtures/db";
 
 const item = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -50,7 +51,7 @@ const db = {
   }),
 };
 
-mock.module("../src/db", () => ({ ...schema, db }));
+mock.module("../src/db", () => dbModule(db));
 mock.module("../src/config/email-accounts", () => ({ loadEmailAccounts: async () => [] }));
 mock.module("../src/ai/active-prompts", () => ({
   resolveActivePrompts: async () => ({

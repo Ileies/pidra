@@ -2,6 +2,7 @@
 // snapshots, 409 on repeat). The db is a recording mock; assertions read the captured writes.
 import { beforeEach, expect, mock, test } from "bun:test";
 import * as schema from "../src/db/schema";
+import { dbModule } from "./fixtures/db";
 
 type Write = { table: unknown; values: Record<string, unknown> };
 
@@ -21,7 +22,7 @@ const db = {
   }),
 };
 
-mock.module("../src/db", () => ({ ...schema, db }));
+mock.module("../src/db", () => dbModule(db));
 const { revertCorrection, recordCorrection, addContact, CorrectionError } = await import("../src/context/corrections?corrections-test");
 
 const correction = (over: Record<string, unknown>) => ({

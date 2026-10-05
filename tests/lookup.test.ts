@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import * as schema from "../src/db/schema";
+import { dbModule } from "./fixtures/db";
 
-mock.module("../src/db", () => ({ ...schema, db: {} }));
+mock.module("../src/db", () => dbModule({}));
 mock.module("../src/pipeline/long-term-context", () => ({ loadLongTermContext: async () => ({}) }));
 const { tokenize } = await import("../src/context/lookup");
 

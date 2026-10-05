@@ -21,9 +21,11 @@ export interface Lane {
   routes: string[];
   /** Runs the writes, then reopens offline, reconnects and checks the flush. */
   writes: boolean;
+  /** `--route`: only the page's own steps, without the budget and flush checks that need every page. */
+  partial?: boolean;
 }
 
-export function lanes(only: string | null): Lane[] {
+export function lanes(only: string | null, route: string | null = null): Lane[] {
   const mirrored = [...MIRRORED_ROUTES, ...STATIC_OFFLINE_ROUTES];
   const online = Object.keys(ONLINE_ONLY);
   const all = [...mirrored, ...online];
@@ -37,7 +39,10 @@ export function lanes(only: string | null): Lane[] {
     { name: "refused", mode: "refused", routes: all, writes: true },
     { name: "offline", mode: "offline", routes: all, writes: true },
   ];
-  return list.filter((lane) => !only || lane.mode === only);
+  return list
+    .filter((lane) => !only || lane.mode === only)
+    .map((lane) => (route ? { ...lane, routes: lane.routes.filter((id) => id === route), partial: true } : lane))
+    .filter((lane) => lane.routes.length > 0);
 }
 
 async function cut(lane: Lane, proxy: LaneProxy, context: BrowserContext): Promise<void> {
@@ -164,6 +169,8 @@ export async function runLane(browser: Awaited<ReturnType<typeof chromium.launch
       const controls = id in ONLINE_ONLY ? [RETRY] : lane.writes ? (CONTROLS[id] ?? []) : [];
       for (const control of controls) await step(`${id}: ${control.name}`, (deadline) => control.run(page, deadline), page);
     }
+
+    if (lane.partial) return;
 
     // No request, from anything, outlived its budget. Measured before anything reconnects.
     await step("no request outlived its budget", () => checkBudgets(proxy), page, 70_000);

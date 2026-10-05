@@ -26,6 +26,8 @@
  *   bun run scripts/blackhole/run.ts --no-build     against the existing build/
  *   bun run scripts/blackhole/run.ts --only gated   one mode (blackhole | gated | refused | offline)
  *   bun run scripts/blackhole/run.ts --only layout  just the desktop layout lane (`layout.ts`)
+ *   bun run scripts/blackhole/race.ts               just the filter-reset race (`race.ts`), a few seconds
+ *   bun run scripts/blackhole/run.ts --no-build --only blackhole --route /notes   one page, a few seconds
  *
  * Chrome is `PIDRA_CHROME`, else the first of google-chrome, chromium on PATH.
  *
@@ -37,10 +39,12 @@ import { MIRRORED_ROUTES, STATIC_OFFLINE_ROUTES } from "../../src/lib/offline/ti
 import { DESIGNED_WITHIN_MS, ARTIFACTS, expectedText, pathFor, results } from "./helpers.ts";
 import { lanes, runLane } from "./lane.ts";
 import { runLayout } from "./layout.ts";
+import { runRace } from "./race.ts";
 import { build, chromePath, startServer } from "./server.ts";
 
 const args = process.argv.slice(2);
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
+const route = args.includes("--route") ? args[args.indexOf("--route") + 1] : null;
 
 if (!args.includes("--no-build")) await build();
 
@@ -52,8 +56,9 @@ try {
     .filter((id) => id !== "/")
     .map((id) => ({ id, path: pathFor(id), text: expectedText(id) }));
   await Promise.all([
-    ...lanes(only).map((lane) => runLane(browser, lane, server.url)),
-    ...(!only || only === "layout" ? [runLayout(browser, server.url, layoutRoutes, ARTIFACTS).then((layout) => void results.push(...layout))] : []),
+    ...lanes(only, route).map((lane) => runLane(browser, lane, server.url)),
+    ...(!route && (!only || only === "race") ? [runRace(browser, server.url)] : []),
+    ...(!route && (!only || only === "layout") ? [runLayout(browser, server.url, layoutRoutes, ARTIFACTS).then((layout) => void results.push(...layout))] : []),
   ]);
 } finally {
   await browser.close();

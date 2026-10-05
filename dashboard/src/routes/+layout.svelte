@@ -11,6 +11,7 @@
   import Shortcuts from "#lib/components/Shortcuts.svelte";
   import Assistant from "#lib/assistant/Assistant.svelte";
   import { assistant } from "#lib/assistant/state.svelte.js";
+  import ReportPlayer from "#lib/report/ReportPlayer.svelte";
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import FirstSync from "#lib/offline/FirstSync.svelte";
   import { navBadges } from "#lib/navBadges.svelte.js";
@@ -125,6 +126,10 @@
 {#if loggedIn}
   <Assistant />
   <CommandPalette open={searchOpen} onOpenChange={(open) => (searchOpen = open)} />
+{/if}
+<!-- Mounted here, not on the report page, so a briefing keeps playing across route changes. -->
+{#if loggedIn}
+  <ReportPlayer />
 {/if}
 <SyncSheet />
 <Toast />

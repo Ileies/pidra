@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { setPageContext } from '#lib/assistant/state.svelte.js';
 	import Page from '#lib/components/Page.svelte';
 	import StatBar from '#lib/components/StatBar.svelte';
@@ -11,7 +11,6 @@
 	import NewsSection from '#lib/report/NewsSection.svelte';
 	import QuickActions from '#lib/report/QuickActions.svelte';
 	import ReportEntry from '#lib/report/ReportEntry.svelte';
-	import ReportPlayer from '#lib/report/ReportPlayer.svelte';
 	import { reportPlayer } from '#lib/report/player.svelte.js';
 	import Play from '@lucide/svelte/icons/play';
 	import SectionNav from '#lib/report/SectionNav.svelte';
@@ -111,12 +110,6 @@
 			!data.report && (data.pipelineRun?.status === 'running' || triggering || !!form?.triggered)
 	}));
 
-	// The player belongs to one day's briefing: stepping to another day or leaving the page ends it.
-	$effect(() => {
-		if (reportPlayer.open && reportPlayer.date !== data.date) reportPlayer.close();
-	});
-	onDestroy(() => reportPlayer.close());
-
 	useReadReceipt(() => ({ date: data.date, enabled: !!data.report }));
 </script>
 
@@ -180,7 +173,7 @@
 		{/if}
 
 		{#if data.structured}
-			{#if !reportPlayer.open}
+			{#if !(reportPlayer.open && reportPlayer.date === data.date)}
 				<!-- Speaking a chapter the first time costs money and needs the server, so the button says
          so up front when offline instead of failing after the tap. -->
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -336,5 +329,4 @@
 		/>
 	{/if}
 
-	<ReportPlayer />
 </Page>

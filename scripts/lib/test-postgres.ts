@@ -59,18 +59,30 @@ const alive = (pid: number) => {
   }
 };
 
-/** Removes what a killed earlier run left behind: dead ones at once, live ones after 30 minutes. */
+/**
+ * Removes what a killed earlier run left behind: dead ones at once, live ones after 30 minutes. A dir
+ * with no `postmaster.pid` yet is another run still inside `initdb`, so it is left for 10 minutes;
+ * removing it under that run makes `initdb` abort (and the desktop report a Postgres crash).
+ */
 function sweepStale(): void {
   for (const name of readdirSync(tmpdir())) {
     if (!name.startsWith(DIR_PREFIX)) continue;
     const dir = join(tmpdir(), name);
     try {
-      const pid = Number.parseInt(readFileSync(join(dir, "data", "postmaster.pid"), "utf8"), 10);
-      if (alive(pid)) {
-        if (Date.now() - statSync(dir).mtimeMs < 30 * 60_000) continue;
+      const age = Date.now() - statSync(dir).mtimeMs;
+      let pid = Number.NaN;
+      try {
+        pid = Number.parseInt(readFileSync(join(dir, "data", "postmaster.pid"), "utf8"), 10);
+      } catch {}
+      if (Number.isNaN(pid)) {
+        if (age < 10 * 60_000) continue;
+      } else if (alive(pid)) {
+        if (age < 30 * 60_000) continue;
         process.kill(pid, "SIGQUIT");
       }
-    } catch {}
+    } catch {
+      continue;
+    }
     rmSync(dir, { recursive: true, force: true });
   }
 }

@@ -4,6 +4,7 @@ import { MIRROR_DAYS, type SnapshotStores } from "#lib/server/snapshotCache.js";
 import { collectRefIds, renderReport, resolveValidIds } from "#lib/server/reports.js";
 import { loadExtractions } from "#lib/server/extractions.js";
 import { loadHarvestDocument } from "#lib/server/contextHarvest.js";
+import { reportNotificationKey } from "#lib/server/notifications.js";
 import { ingestFailures, withoutDetail, type StepAttempt } from "#lib/pipeline.js";
 import { entriesOf, type ActionPreview, type ActionStatus, type QuickAction, type ReportJson } from "#lib/report/types.js";
 import type {
@@ -37,7 +38,7 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
   const dates = dateRows.map((row) => row.report_date as string);
   if (dates.length === 0) return { reports: [], extractionIds: [] };
 
-  const [reportRows, runRows, actionRows] = await Promise.all([
+  const [reportRows, runRows, actionRows, readRows] = await Promise.all([
     db`
       SELECT report_date::text AS report_date, full_report, report_json, short_summary,
              item_count, items_included, items_filtered, tokens_in, tokens_out, ai_calls,
@@ -62,8 +63,14 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
       WHERE run_date::text = ANY(${dates}) AND status IN ('proposed', 'running', 'done', 'failed', 'queued')
       ORDER BY created_at, id
     `,
+    db`
+      SELECT substring(notification_key from 8) AS report_date, read_at
+      FROM notification_reads
+      WHERE notification_key = ANY(${dates.map(reportNotificationKey)})
+    `,
   ]);
 
+  const readAtByDate = new Map(readRows.map((row) => [row.report_date as string, new Date(row.read_at as string).toISOString()]));
   const runByDate = new Map(runRows.map((row) => [row.run_date as string, row]));
   const actionsByDate = new Map<string, QuickAction[]>();
   for (const row of actionRows) {
@@ -124,6 +131,7 @@ async function buildReports(): Promise<{ reports: MirroredReport[]; extractionId
       structured,
       reportHtml,
       ratings: {},
+      readAt: readAtByDate.get(date) ?? null,
       actions: actionsByDate.get(date) ?? [],
     };
   });

@@ -68,6 +68,19 @@ describe("applyOptimistic", () => {
     expect(await db.get("extractions", "e1")).toMatchObject({ rating: "explicit_minus" });
   });
 
+  test("report.read stamps the report once and keeps the earliest time", async () => {
+    await db.put("reports", asRow({ id: "d1", ratings: {}, readAt: null }));
+    await applyOptimistic(intent("report.read", { date: "d1" }, 1));
+    await applyOptimistic(intent("report.read", { date: "d1" }, 5));
+    expect(await db.get("reports", "d1")).toMatchObject({ readAt: "2026-10-04T10:00:01.000Z" });
+    expect(intentIsFor(intent("report.read", { date: "d1" }, 1), "rate", "d1")).toBe(false);
+  });
+
+  test("report.read for a report the mirror does not hold changes nothing", async () => {
+    await applyOptimistic(intent("report.read", { date: "d9" }, 1));
+    expect(await ids("reports")).toEqual([]);
+  });
+
   test("rate for an extraction the mirror does not hold only touches the reports", async () => {
     await db.put("reports", asRow({ id: "d1", ratings: {} }));
     await applyOptimistic(intent("rate", { extractionId: "e9", signal: "1" }, 1));

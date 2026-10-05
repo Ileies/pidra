@@ -77,6 +77,8 @@ async function computeFingerprint(): Promise<string> {
          FROM pipeline_runs p WHERE p.run_date IN (SELECT report_date FROM win)),
       (SELECT md5(coalesce(string_agg(a::text, ',' ORDER BY a.id), ''))
          FROM report_actions a WHERE a.run_date IN (SELECT report_date FROM win)),
+      (SELECT md5(coalesce(string_agg(nr::text, ',' ORDER BY nr.notification_key), ''))
+         FROM notification_reads nr WHERE nr.notification_key LIKE 'report:%'),
       (SELECT md5(coalesce(string_agg(f::text, ',' ORDER BY f.id), ''))
          FROM feedback_events f WHERE f.event_type IN ('explicit_plus', 'explicit_minus')),
       (SELECT count(*)::text || '/' || coalesce(max(created_at)::text, '') FROM extractions),

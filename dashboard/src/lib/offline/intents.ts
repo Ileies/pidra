@@ -33,6 +33,7 @@ export interface Payloads {
   "note.delete": { id: string };
   "note.restore": { id: string };
   rate: { extractionId: string; signal: "1" | "-1" };
+  "report.read": { date: string };
 }
 
 export type IntentKind = keyof Payloads;
@@ -115,6 +116,16 @@ const KINDS: { [K in IntentKind]: Handler<K> } = {
     request: ({ payload: p }, send) =>
       send("/api/feedback", jsonInit("POST", { extraction_id: p.extractionId, signal: p.signal })),
   },
+  "report.read": {
+    label: "Report read",
+    stores: ["reports"],
+    // Keeps the earliest time: a replay, or a second device, must not move it.
+    apply: async ({ payload: p, createdAt }) => {
+      const report = await db.get<MirroredReport>("reports", p.date);
+      if (report && !report.readAt) await db.put("reports", { ...report, readAt: createdAt });
+    },
+    request: ({ payload: p }, send) => send(`/api/notifications/report-read/${p.date}`, { method: "POST" }),
+  },
 };
 
 /** The one place the kind-to-handler correlation is asserted, instead of in every switch. */
@@ -131,7 +142,7 @@ export function storesOf(kind: IntentKind): MirrorStore[] {
 
 function intentTarget(intent: Intent): string {
   const p = intent.payload;
-  return "extractionId" in p ? p.extractionId : p.id;
+  return "extractionId" in p ? p.extractionId : "date" in p ? p.date : p.id;
 }
 
 /** Whether an intent writes a row of this kind with this id, which is where its state is shown. */

@@ -17,6 +17,7 @@ import {
   type Intent, type IntentKind, type NotePatchPayload, type Payloads,
 } from "./intents.js";
 import type { NoteRow } from "#lib/notes/api.js";
+import type { MirroredReport } from "#lib/mirror/types.js";
 
 export type { Intent, IntentKind } from "./intents.js";
 export { reapplyPending, INTENT_LABEL, intentIsFor, intentSummary } from "./intents.js";
@@ -124,6 +125,17 @@ export async function rate(extractionId: string, signal: "1" | "-1"): Promise<vo
     }
   }
   await enqueue("rate", { extractionId, signal });
+}
+
+/** Marks a report read on this device at once and on the server when the connection allows, so the
+ *  state reaches every device through the next sync. No-op when the mirror already says read. */
+export async function markReportRead(date: string): Promise<void> {
+  const current = await db.get<MirroredReport>("reports", date);
+  if (current?.readAt) return;
+  for (const intent of await sortedOutbox()) {
+    if (intent.kind === "report.read" && intent.payload.date === date) return;
+  }
+  await enqueue("report.read", { date });
 }
 
 let flushing: Promise<void> | null = null;

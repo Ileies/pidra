@@ -61,6 +61,9 @@ export interface MirroredReport {
   structured: RenderedReport | null;
   reportHtml: string | null;
   ratings: Record<string, string>;
+  /** When the reader reached the end (`notification_reads`, key `report:<date>`); null while unread.
+   *  Absent on a report mirrored before it existed, which reads as unread until the next full pull. */
+  readAt?: string | null;
   /** The quick actions still on offer or already done. Absent on a report mirrored before they existed. */
   actions?: QuickAction[];
 }

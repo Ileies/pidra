@@ -6,6 +6,8 @@
    */
   import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import ListMusic from "@lucide/svelte/icons/list-music";
+  import Maximize2 from "@lucide/svelte/icons/maximize-2";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -18,6 +20,7 @@
   import { reportPlayer as player, BACK_SECONDS, FORWARD_SECONDS } from "#lib/report/player.svelte.js";
 
   let listOpen = $state(false);
+  let minimized = $state(false);
 
   function clock(ms: number): string {
     const total = Math.max(0, Math.round(ms / 1000));
@@ -52,6 +55,35 @@
     class="fixed inset-x-2 z-40 mx-auto flex max-w-2xl flex-col gap-2 rounded-xl border border-surface-700 bg-surface-900 p-3 shadow-2xl
       bottom-[calc(3.5rem+var(--safe-b)+0.5rem)] lg:bottom-4"
   >
+    {#if minimized}
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="tap inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-none bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:opacity-60"
+          aria-label={player.buffering ? "Preparing the audio" : player.playing ? "Pause" : "Play"}
+          disabled={player.chapters.length === 0}
+          onclick={() => player.toggle()}
+        >
+          {#if player.buffering}
+            <Spinner size="md" label="Preparing the audio" />
+          {:else if player.playing}
+            <Pause class="h-5 w-5" aria-hidden="true" fill="currentColor" />
+          {:else}
+            <Play class="h-5 w-5" aria-hidden="true" fill="currentColor" />
+          {/if}
+        </button>
+        <p class="min-w-0 flex-1 truncate text-sm font-semibold text-surface-50">{player.chapter?.title ?? "Loading the briefing"}</p>
+        <button type="button" class="{button} h-10 w-10" aria-label="Expand the player" onclick={() => (minimized = false)}>
+          <Maximize2 class="h-5 w-5" aria-hidden="true" />
+        </button>
+        <button type="button" class="{button} h-10 w-10" aria-label="Close the player" onclick={() => player.close()}>
+          <X class="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
+      {#if player.error}
+        <p role="alert" class="rounded-lg border border-error-700 bg-error-950 px-3 py-2 text-xs text-error-200">{player.error}</p>
+      {/if}
+    {:else}
     {#if listOpen && sections.length > 0}
       <div class="max-h-[40dvh] overflow-y-auto overscroll-contain rounded-lg border border-surface-800 bg-surface-950 py-1">
         {#each sections as section (section.name + section.chapters[0].index)}
@@ -89,6 +121,17 @@
         onclick={() => (listOpen = !listOpen)}
       >
         {#if listOpen}<ChevronUp class="h-5 w-5" aria-hidden="true" />{:else}<ListMusic class="h-5 w-5" aria-hidden="true" />{/if}
+      </button>
+      <button
+        type="button"
+        class="{button} h-10 w-10"
+        aria-label="Minimize the player"
+        onclick={() => {
+          listOpen = false;
+          minimized = true;
+        }}
+      >
+        <Minimize2 class="h-5 w-5" aria-hidden="true" />
       </button>
       <button type="button" class="{button} h-10 w-10" aria-label="Close the player" onclick={() => player.close()}>
         <X class="h-5 w-5" aria-hidden="true" />
@@ -146,5 +189,6 @@
 
       <span class="min-w-12" aria-hidden="true"></span>
     </div>
+    {/if}
   </section>
 {/if}

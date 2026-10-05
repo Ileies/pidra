@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Reading progress on `/[date]`: a thin bar under the header plus a "N min left" chip. Purely
+   * Reading progress on `/[date]`: a thin bar above the header (slides in on first scroll) plus a "N min left" chip, which small screens replace with only the one-time reward at the bottom center. Purely
    * client-side; the persisted read state comes in as `read` (written by `useReadReceipt`). The end
    * only counts after a real scroll (`scrolled`), so a short report does not celebrate on load, and
    * never for a report that is already read. The celebration never
@@ -28,6 +28,9 @@
   let words = $state(0);
   let done = $state(false);
   let burst = $state(false);
+  /** True once the reader has scrolled; the bar slides in then and the chip may show. */
+  let started = $state(false);
+  let isSmall = $state(false);
   let scrolled = false;
 
   const minutesLeft = $derived(Math.ceil((words * (1 - progress)) / WORDS_PER_MINUTE));
@@ -50,7 +53,12 @@
     done = untrack(() => read);
     burst = false;
     scrolled = false;
+    started = false;
     if (!target) return;
+    const small = window.matchMedia("(max-width: 639.98px)");
+    const syncSmall = () => (isSmall = small.matches);
+    syncSmall();
+    small.addEventListener("change", syncSmall);
     const el = target;
 
     const measure = () => {
@@ -72,6 +80,7 @@
     };
     const onScroll = () => {
       scrolled = true;
+      started = window.scrollY > 8;
       update();
     };
 
@@ -82,6 +91,7 @@
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
+      small.removeEventListener("change", syncSmall);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", update);
     };
@@ -89,22 +99,31 @@
 </script>
 
 {#if words > 0}
+  <!-- Fixed above the (transparent) navbar, so it overlays instead of pushing the header down. It
+       slides in once the reader has scrolled. -->
   <div
-    class="pointer-events-none fixed inset-x-0 z-30"
-    style="top: var(--header-h, 0px)"
+    class="bar pointer-events-none fixed inset-x-0 top-0 z-40 {started ? 'bar-in' : ''}"
     role="progressbar"
     aria-label="Reading progress"
     aria-valuemin="0"
     aria-valuemax="100"
     aria-valuenow={Math.round(progress * 100)}
   >
-    <div class="h-[3px] bg-surface-800/60">
+    <div class="h-[3px] bg-surface-800">
       <div
         class="h-full origin-left transition-colors duration-500 {done ? 'bg-success-400' : 'bg-primary-400'} {burst ? 'shimmer' : ''}"
         style="width: {progress * 100}%"
       ></div>
     </div>
-    <div class="relative flex justify-end px-4 pt-1.5">
+  </div>
+
+  <!-- Desktop: a chip under the header. Small screens: nothing, except the one-time reward at the
+       bottom center (above the tab bar). -->
+  {#if started && (!isSmall || burst)}
+    <div
+      class="pointer-events-none fixed z-30 flex justify-end max-sm:inset-x-0 max-sm:justify-center sm:inset-x-0 sm:px-4 sm:pt-1.5
+        max-sm:bottom-[calc(3.5rem+var(--safe-b,0px)+0.75rem)] sm:top-[var(--header-h,0px)]"
+    >
       <span
         class="chip relative flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs tabular-nums
           {done
@@ -123,10 +142,21 @@
         {/if}
       </span>
     </div>
-  </div>
+  {/if}
 {/if}
 
 <style>
+  .bar {
+    opacity: 0;
+    transform: translateY(-100%);
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.18s ease-out;
+  }
+  .bar-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
   .pop {
     animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   }

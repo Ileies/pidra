@@ -4,15 +4,15 @@
  * `src/ai/surfaces.ts` picks what the assistant may do on a page from the route, and an unmatched
  * route silently falls back to `global`. This compares each entry of the dashboard registry
  * (`dashboard/src/lib/routes.ts`) with what `surfaceForRoute` resolves, and checks that every
- * registered skill is on a surface and every surface carries EVERYWHERE_SKILLS (and
- * INTERACTIVE_SKILLS, except `questions`).
+ * file in skills/ is registered in the loader, every registered skill is on a surface and every
+ * surface carries EVERYWHERE_SKILLS (and INTERACTIVE_SKILLS, except `questions`).
  *
  * The registry is parsed as text, not imported: it is a SvelteKit module with `$lib` aliases.
  *
  * Run by scripts/check.ts (`bun run check`); exits 1 on any disagreement.
  */
 
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { EVERYWHERE_SKILLS, INTERACTIVE_SKILLS, SURFACES, surfaceForRoute, SURFACES_LIST, type Surface } from "../src/ai/surfaces";
 import { listSkills } from "../src/skills/loader";
@@ -79,6 +79,13 @@ if (problems.length > 0) {
 const registered = listSkills().map((s) => s.name);
 const onSomeSurface = new Set(Object.values(SURFACES).flatMap((s) => s.skills));
 const coverage: string[] = [];
+
+// A skill file the loader does not import is silently ignored, so the assistant would never see it.
+// File names equal skill names (skills/add_note.ts is `add_note`).
+for (const file of readdirSync(join(import.meta.dir, "../skills")).filter((f) => f.endsWith(".ts"))) {
+  const name = file.replace(/\.ts$/, "");
+  if (!registered.includes(name)) coverage.push(`skills/${file}: not registered in src/skills/loader.ts`);
+}
 
 for (const name of registered) {
   if (!onSomeSurface.has(name)) coverage.push(`${name}: registered, but on no surface`);

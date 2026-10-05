@@ -53,7 +53,28 @@ let current: { fingerprint: string; builtAt: number; built: Built } | null = nul
 let building: Promise<Built> | null = null;
 const history = new Map<string, RowHashes>();
 
-async function fingerprint(): Promise<string> {
+/**
+ * How long a computed fingerprint answers for. The query md5s whole tables, and a phone's sync
+ * fires several requests back to back (the pull, the worker's, a retry), so they share one run.
+ * A change is at most this late reaching the mirror, which the next pull picks up.
+ */
+const FINGERPRINT_TTL_MS = 5_000;
+
+let printed: { at: number; value: Promise<string> } | null = null;
+
+function fingerprint(): Promise<string> {
+  if (printed && Date.now() - printed.at < FINGERPRINT_TTL_MS) return printed.value;
+  const value = computeFingerprint();
+  const entry = { at: Date.now(), value };
+  printed = entry;
+  // A failed query must not be served for the rest of the window.
+  value.catch(() => {
+    if (printed === entry) printed = null;
+  });
+  return value;
+}
+
+async function computeFingerprint(): Promise<string> {
   // `t::text` is the whole row as text, so any column change moves the hash without this list
   // having to name the columns the snapshot happens to read today.
   const [row] = await sql()`

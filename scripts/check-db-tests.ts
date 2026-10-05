@@ -18,11 +18,18 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+/** A file that has not finished by then is killed and reported, so a hung test cannot wedge the check. */
+const FILE_TIMEOUT_MS = 60_000;
+
 const pg = await startTestPostgres();
+const children = new Set<ReturnType<typeof Bun.spawn>>();
 let code = 1;
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => void pg.stop().finally(() => process.exit(130)));
+  process.on(signal, () => {
+    for (const child of children) child.kill("SIGKILL");
+    void pg.stop().finally(() => process.exit(130));
+  });
 }
 
 try {
@@ -32,8 +39,13 @@ try {
   const runs = await Promise.all(
     files.map(async (file) => {
       const proc = Bun.spawn([process.execPath, "test", `./${file.replace(/^\.\//, "")}`, ...passthrough], { env, stdout: "pipe", stderr: "pipe" });
+      children.add(proc);
+      const watchdog = setTimeout(() => proc.kill("SIGKILL"), FILE_TIMEOUT_MS);
       const [out, err, exit] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
-      return { file, exit, text: `${out}${err}`.trimEnd() };
+      clearTimeout(watchdog);
+      children.delete(proc);
+      const timedOut = proc.signalCode === "SIGKILL" ? `\n(killed: ${file} had not finished after ${FILE_TIMEOUT_MS / 1000} s)` : "";
+      return { file, exit, text: `${out}${err}`.trimEnd() + timedOut };
     }),
   );
 

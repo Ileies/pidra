@@ -2,7 +2,7 @@
  * A throwaway local Postgres for `tests-db/`: initdb in a temp dir, fsync off, schema loaded into a
  * template database `tpl` that every test file clones. Used by `scripts/check-db-tests.ts` (the
  * `db tests` check step) and by `tests-db/fixtures/database.ts`, which shares `assertThrowawayUrl`.
- * Never touches any database that is not the one started here; see TEST_PLAN.md Phase 4.
+ * Never touches any database that is not the one started here; see the db tests section of docs/operations.md.
  */
 import { $, SQL } from "bun";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -120,6 +120,8 @@ export async function startTestPostgres(): Promise<TestPostgres> {
     await admin.close();
     const template = new SQL(`postgres://test@127.0.0.1:${port}/${TEMPLATE}`);
     await template.unsafe(await exportDdl());
+    // DDL kept out of the Drizzle schema on purpose (the generated search columns); see the file.
+    await template.unsafe(await Bun.file(join(ROOT, "src/db/search-columns.sql")).text());
     await template.close();
     return { adminUrl, stop };
   } catch (err) {

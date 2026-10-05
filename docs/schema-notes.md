@@ -25,6 +25,7 @@ Each table has one writer module; don't add a second writer. Tables described be
   - `deleteSource` (from `/sources/[name]`) removes the source from `source_daily_scores`, `source_quality`, `rss_feeds` and `newsletter_sender_rules` in one transaction. A later mail from the same sender starts a fresh entry with default trust and no score.
   - `raw_items`, `extractions`, `feedback_events`, `entity_mentions`, `ingest_drops` and `daily_reports` are kept on purpose, so past reports and provenance do not change. Because a source's lifetime stats and delivery list are computed from them by source name, a re-created source's detail page shows its old deliveries.
 - **DB:** `src/db/index.ts`. Re-export everything from there and never open a new connection elsewhere.
+- **Search columns are not in the Drizzle schema.** `daily_reports`, `extractions`, `notes` and `entities` each carry a generated `search_tsv` tsvector with a GIN index, used by `/api/search`. They live only in `src/db/search-columns.sql` (idempotent `ADD COLUMN IF NOT EXISTS ... GENERATED ALWAYS AS ... STORED` plus the indexes), because declared in the schema each tsvector would come back in every `select()` row. A database built from `src/db/schema/` alone needs that file applied, or `/api/search` fails with "column does not exist". The db-test harness applies it after the exported schema.
 
 ## Pipeline data
 

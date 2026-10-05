@@ -9,6 +9,7 @@
 	import EntryHint from '#lib/report/EntryHint.svelte';
 	import IngestWarning from '#lib/report/IngestWarning.svelte';
 	import NewsSection from '#lib/report/NewsSection.svelte';
+	import ReadProgress from '#lib/report/ReadProgress.svelte';
 	import QuickActions from '#lib/report/QuickActions.svelte';
 	import ReportEntry from '#lib/report/ReportEntry.svelte';
 	import { reportPlayer } from '#lib/report/player.svelte.js';
@@ -111,6 +112,8 @@
 	}));
 
 	useReadReceipt(() => ({ date: data.date, enabled: !!data.report }));
+
+	let articleEl = $state<HTMLElement>();
 </script>
 
 {#snippet statsBar()}
@@ -146,7 +149,7 @@
 	bleed={statsBar}
 	class="xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start xl:gap-10"
 >
-	<div class="flex flex-col gap-5">
+	<div class="flex flex-col gap-5" bind:this={articleEl}>
 		<DayNav
 			date={data.date}
 			today={data.today}
@@ -317,6 +320,10 @@
 			/>
 		{/if}
 	</div>
+
+	{#if data.report && data.structured}
+		<ReadProgress target={articleEl} date={data.date} />
+	{/if}
 
 	{#if data.report}
 		<ReportSidebar

@@ -208,11 +208,8 @@ for (const { path, filters = [] } of SYNC) {
 // === INSTALL AND BUILD ===
 
 step("Installing dependencies and building the dashboard");
-// Separate `node_modules`, no shared writes - root's install has nothing the dashboard build reads.
-await Promise.all([
-  remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile`),
-  remote(`cd ${REMOTE_ROOT}/dashboard && bun install --frozen-lockfile && bun run build`),
-]);
+// One Bun workspace: the root install covers the dashboard too, and the build needs it first.
+await remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile && cd dashboard && bun run build`);
 if (!DRY) console.log("  built");
 
 // === RESTART ===

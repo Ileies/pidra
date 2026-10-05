@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "homepage": "https://github.com/Ileies/pidra",
   "private": true,
+  "workspaces": ["dashboard"],
   "scripts": {
     "check": "bun run scripts/check.ts",
     "check:quick": "bun run scripts/check.ts --quick",

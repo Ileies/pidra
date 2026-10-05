@@ -15,6 +15,8 @@ Flags:
 
 It refuses rather than improvises: an uncommitted tree (unless `--force`), commits not on origin (the server pulls from a *public* repo, so a deploy publishes them), a local branch behind origin, a dirty tree on the server, or a failing check in either the root or `dashboard/`.
 
+**One Bun workspace.** The root `package.json` declares `"workspaces": ["dashboard"]`, so there is one `bun.lock` (at the root, none in `dashboard/`) and one `bun install`; the deploy runs a single `bun install --frozen-lockfile` at the root, then the dashboard build. Dashboard packages still land in `dashboard/node_modules`. Two pins to know about: `@sveltejs/kit` (3.0.0-next.27) and `@sveltejs/adapter-node` (6.0.0-next.12) are exact in `dashboard/package.json`, because a regenerated lockfile resolved the caret range to stable kit 3.0.0, which fails the blackhole suite on a cold start (service-worker error). Moving to stable kit is a separate upgrade to examine, not a lockfile side effect. TypeScript is also split on purpose: the dashboard stays on ^6 because `svelte-kit sync` crashes under TS 7 (no `ts.sys`), while the root is on ^7.
+
 **Not carried by a deploy:**
 
 - **`.env`**, on either machine. Both files hold the same keys with different values (the server reaches Postgres locally, the workstation through a forward), so a copy in either direction breaks the other. The same goes for `context-builder/.checkpoint.json` and `errors.json`: the server runs its own monthly harvest and those are its live state. A new key means editing both `.env` files by hand.

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { errMessage } from "$pipeline/util/text";
-  import { goto } from "$app/navigation";
+  import { beforeNavigate, goto } from "$app/navigation";
   import { page } from "$app/state";
   import NoteCard from "#lib/notes/NoteCard.svelte";
   import NoteEditor from "#lib/notes/NoteEditor.svelte";
@@ -70,6 +70,11 @@
       goto(`/notes${written}`, { shallow: true, replace: true, reset: false, state: {} });
     }, 250);
   }
+
+  // A tap on a note link inside the debounce window must not be overtaken by the pending URL write.
+  beforeNavigate(({ to }) => {
+    if (to?.url.pathname !== page.url.pathname) clearTimeout(urlTimer);
+  });
 
   $effect(() => {
     const search = page.url.search;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
+  import { beforeNavigate, goto } from "$app/navigation";
   import { page } from "$app/state";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
@@ -58,6 +58,11 @@
       goto(`/entities${written}`, { shallow: true, replace: true, reset: false, state: {} });
     }, 250);
   }
+
+  // A tap on a result inside the debounce window must not be overtaken by the pending URL write.
+  beforeNavigate(({ to }) => {
+    if (to?.url.pathname !== page.url.pathname) clearTimeout(urlTimer);
+  });
 
   $effect(() => {
     const search = page.url.search;

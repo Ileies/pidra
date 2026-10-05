@@ -262,4 +262,7 @@ export const EXPECTED_WRITES = [
   `PATCH /api/notes/${F.NOTE_ID}`,
   `DELETE /api/notes/${F.NOTE_ID}`,
   `POST /api/notes/${F.TRASHED_NOTE_ID}/restore`,
+  // The fixture reports are short, so opening one reaches its end at once and queues its read receipt.
+  `POST /api/notifications/report-read/${F.TODAY}`,
+  `POST /api/notifications/report-read/${F.YESTERDAY}`,
 ];

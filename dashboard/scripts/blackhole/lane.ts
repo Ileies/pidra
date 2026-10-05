@@ -101,6 +101,13 @@ export async function runLane(browser: Awaited<ReturnType<typeof chromium.launch
         await page.goto(`${proxy.origin}/`, { timeout: remaining(deadline) });
         await page.waitForFunction(() => navigator.serviceWorker?.controller != null, null, { timeout: remaining(deadline) });
         await visible(page.getByText(F.TEXT.personal), deadline);
+        // The read receipt goes out when the reader reaches the end. Do it here, online, so it does
+        // not depend on a scroll or resize landing at the bottom later in the lane.
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        while (!proxy.delivered.some((d) => d.path === `/api/notifications/report-read/${F.TODAY}`)) {
+          if (performance.now() > deadline) throw new Error("the read receipt of today's report was never delivered");
+          await Bun.sleep(50);
+        }
       },
       page,
       30_000,

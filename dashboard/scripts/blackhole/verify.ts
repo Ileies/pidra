@@ -1,11 +1,10 @@
 /** The two end-of-lane assertions: every request kept its budget, every queued write landed once. */
 import { SLACK_MS } from "./helpers.ts";
-import type { LaneProxy, Tracked } from "./proxy.ts";
+import { WRITE, type LaneProxy, type Tracked } from "./proxy.ts";
 import * as F from "./fixture.ts";
 import { EXPECTED_WRITES } from "./steps.ts";
 
 // Budgets mirror `src/lib/offline/net.ts` BUDGET and the service worker's constants; keep in sync.
-const WRITE = /^\/api\/(notes(\/[^/]+(\/restore)?)?|feedback)$/;
 
 function budgetFor(t: Tracked): number {
   const path = t.path.split("?")[0];

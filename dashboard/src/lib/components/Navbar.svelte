@@ -44,7 +44,7 @@
       : routeId === "/[date]/detail/[ids]"
         ? `${page.params.date} · Detail`
         : routeId === "/sources/[name]" && page.params.name
-          ? decodeURIComponent(page.params.name)
+          ? page.params.name
           : (current?.label ?? ""),
   );
 

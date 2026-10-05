@@ -90,7 +90,7 @@ type QualityRow = {
 };
 
 export const load: PageServerLoad = async ({ params }) => {
-  const sourceName = decodeURIComponent(params.name);
+  const sourceName = params.name;
   const db = sql();
 
   const [qualityRows, dailyRows, rows, statsRows, ratingRows] = await Promise.all([
@@ -245,7 +245,7 @@ export const load: PageServerLoad = async ({ params }) => {
 export const actions: Actions = {
   toggle: async ({ request, params }) => {
     const form = await readForm(request);
-    const sourceName = decodeURIComponent(params.name);
+    const sourceName = params.name;
     const isActive = form.flag("isActive");
     const reason = (form.text("reason")) || undefined;
 
@@ -259,7 +259,7 @@ export const actions: Actions = {
   },
 
   delete: async ({ params }) => {
-    const sourceName = decodeURIComponent(params.name);
+    const sourceName = params.name;
 
     try {
       await deleteSource(sourceName);

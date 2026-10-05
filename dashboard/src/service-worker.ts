@@ -59,6 +59,7 @@ import { assets, immutable, prerendered } from "$app/manifest";
 import { version } from "$app/env";
 import { self } from "$app/service-worker";
 import { isMirroredPath } from "#lib/routes.js";
+import { buffered, isOurs } from "#lib/offline/guard.js";
 import { drain } from "#lib/offline/intents.js";
 import { pullSnapshot } from "#lib/offline/snapshot.js";
 import type { MirrorStore } from "#lib/offline/db.js";
@@ -364,12 +365,10 @@ async function syncFetch(input: string, init?: RequestInit): Promise<Response> {
   const timer = setTimeout(() => controller.abort(), SYNC_BUDGET_MS);
   try {
     const response = await fetch(input, { ...init, signal: controller.signal });
-    if (!response.headers.has("x-pidra")) throw new Error("answered by something other than the app");
-    // Read inside the budget, so a body that stalls after the headers cannot hold the worker.
-    const body = await response.arrayBuffer();
+    if (!isOurs(response)) throw new Error("answered by something other than the app");
+    const settled = await buffered(response);
     offline = false;
-    const nullBody = response.status === 204 || response.status === 205 || response.status === 304;
-    return new Response(nullBody ? null : body, { status: response.status, statusText: response.statusText, headers: response.headers });
+    return settled;
   } catch (err) {
     offline = true;
     throw err;

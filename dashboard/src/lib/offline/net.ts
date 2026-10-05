@@ -28,6 +28,7 @@
  */
 
 import { browser } from "$app/env";
+import { buffered, isOurs } from "./guard.js";
 
 export type Reachability = "checking" | "online" | "offline";
 
@@ -130,10 +131,6 @@ export async function adoptWorkerHint(): Promise<void> {
   if ((await answer) === "offline" && state === "checking") setState("offline");
 }
 
-function isOurs(response: Response): boolean {
-  return response.headers.has("x-pidra");
-}
-
 let probing: Promise<boolean> | null = null;
 
 /** Liveness of the dashboard process, which is exactly what wg0 gates. Shared by all callers. */
@@ -207,12 +204,7 @@ export async function net(input: string | URL, init: RequestInit = {}, options: 
       throw new NetError("offline", true);
     }
     setState("online");
-    if (options.stream) return res;
-    const body = await res.arrayBuffer();
-    // A 304 (the snapshot's ETag path) or 204 may not carry a body, not even an empty one: the
-    // constructor throws, which would read as a transport failure.
-    const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
-    return new Response(nullBody ? null : body, { status: res.status, statusText: res.statusText, headers: res.headers });
+    return options.stream ? res : await buffered(res);
   } catch (err) {
     if (err instanceof NetError) throw err;
     // The caller cancelled. That says nothing about the network, so it is theirs to handle.

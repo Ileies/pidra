@@ -4,8 +4,10 @@
    * the page scrolls, above the tab bar on a phone.
    *
    * The seek bar is cut into one segment per chapter, each as wide as the chapter is long, so the
-   * shape of the briefing is visible: how much is personal, how much news, how much depth. A tap
-   * in a segment seeks inside that chapter; a tap on a chapter in the list starts it.
+   * shape of the briefing is visible: how much is personal, how much news, how much depth. Like
+   * YouTube's chapters, a tap near the edge of a segment snaps to the boundary between chapters,
+   * while holding (or dragging) scrubs freely and seeks exactly where it is released. A tap on a
+   * chapter in the list starts it.
    */
   import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import ListMusic from "@lucide/svelte/icons/list-music";
@@ -17,6 +19,7 @@
   import SkipForward from "@lucide/svelte/icons/skip-forward";
   import X from "@lucide/svelte/icons/x";
   import Spinner from "#lib/components/Spinner.svelte";
+  import SeekBar from "#lib/report/SeekBar.svelte";
   import { reportPlayer as player, BACK_SECONDS, FORWARD_SECONDS } from "#lib/report/player.svelte.js";
 
   let listOpen = $state(false);
@@ -25,20 +28,6 @@
     const total = Math.max(0, Math.round(ms / 1000));
     const minutes = Math.floor(total / 60);
     return `${minutes}:${String(total % 60).padStart(2, "0")}`;
-  }
-
-  function fill(index: number): number {
-    if (index < player.current) return 100;
-    if (index > player.current) return 0;
-    const length = (player.chapter?.durationMs ?? 0) / 1000;
-    return length > 0 ? Math.min(100, (player.position / length) * 100) : 0;
-  }
-
-  function seek(event: MouseEvent, index: number) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    // Keyboard activation reports no pointer position: that starts the chapter.
-    const fraction = event.detail === 0 ? 0 : Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    void player.go(index, { fraction });
   }
 
   function onKeydown(event: KeyboardEvent) {
@@ -111,31 +100,7 @@
       </button>
     </div>
 
-    {#if player.chapters.length > 0}
-      <div class="flex items-center" role="group" aria-label="Chapters">
-        {#each player.chapters as chapter, index (chapter.key)}
-          <button
-            type="button"
-            style="flex: {Math.max(chapter.durationMs, 1000)} 1 0"
-            class="group relative h-6 min-w-1.5 border-none bg-transparent p-0
-              {index > 0 && chapter.section !== player.chapters[index - 1].section ? 'ml-2' : index > 0 ? 'ml-0.5' : ''}"
-            aria-label="{chapter.section}: {chapter.title}, chapter {index + 1} of {player.chapters.length}"
-            aria-current={index === player.current ? "true" : undefined}
-            title={chapter.title}
-            onclick={(event) => seek(event, index)}
-          >
-            <span class="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-surface-700 transition-[height] group-hover:h-2.5">
-              <span class="block h-full bg-primary-400" style="width: {fill(index)}%"></span>
-            </span>
-          </button>
-        {/each}
-      </div>
-    {/if}
-
-    <div class="flex items-center justify-between text-xs tabular-nums text-surface-400">
-      <span>{clock(player.elapsedMs)}</span>
-      <span>{clock(player.totalMs)}</span>
-    </div>
+    <SeekBar />
 
     {#if player.error}
       <p role="alert" class="rounded-lg border border-error-700 bg-error-950 px-3 py-2 text-xs text-error-200">

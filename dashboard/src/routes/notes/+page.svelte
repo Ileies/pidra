@@ -57,22 +57,26 @@
     return query ? `?${query}` : "";
   }
 
+  // A written filter lives in `page.shallow`: `page.url` stays the loaded URL, and a mirror reload
+  // hands it over again, which would read as the URL having changed and reset the filter.
+  const shownUrl = () => page.shallow?.url ?? page.url;
+
   // Filtering happens in the component: the load returns every note,
   // so a keystroke re-renders a `$derived` instead of re-running the load, which used to also
   // meant a full snapshot pull per keystroke.
-  let filter = $state<NotesFilter>(parseFilter(page.url.searchParams));
+  let filter = $state<NotesFilter>(parseFilter(shownUrl().searchParams));
 
   // The URL follows the filter without a navigation, so no load runs. A navigation from elsewhere
   // to a different `/notes?...` (a link, the back button) is picked up by the effect below; the
   // box does not fight the user mid-typing, because what we wrote ourselves is recognised.
-  let written = page.url.search;
+  let written = shownUrl().search;
   let urlTimer: ReturnType<typeof setTimeout> | undefined;
 
   function writeUrl() {
     clearTimeout(urlTimer);
     urlTimer = setTimeout(() => {
       written = searchOf(filter);
-      if (written === page.url.search) return;
+      if (written === shownUrl().search) return;
       goto(`/notes${written}`, { shallow: true, replace: true, reset: false, state: {} });
     }, 250);
   }
@@ -83,10 +87,10 @@
   });
 
   $effect(() => {
-    const search = page.url.search;
+    const search = shownUrl().search;
     if (search !== written) {
       written = search;
-      filter = parseFilter(page.url.searchParams);
+      filter = parseFilter(shownUrl().searchParams);
     }
   });
 

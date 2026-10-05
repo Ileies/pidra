@@ -47,16 +47,19 @@
     return query ? `?${query}` : "";
   }
 
-  let filter = $state<EntitiesFilter>(parseFilter(page.url.searchParams));
+  // See the note on `shownUrl` in notes/+page.svelte.
+  const shownUrl = () => page.shallow?.url ?? page.url;
 
-  let written = page.url.search;
+  let filter = $state<EntitiesFilter>(parseFilter(shownUrl().searchParams));
+
+  let written = shownUrl().search;
   let urlTimer: ReturnType<typeof setTimeout> | undefined;
 
   function writeUrl() {
     clearTimeout(urlTimer);
     urlTimer = setTimeout(() => {
       written = searchOf(filter);
-      if (written === page.url.search) return;
+      if (written === shownUrl().search) return;
       goto(`/entities${written}`, { shallow: true, replace: true, reset: false, state: {} });
     }, 250);
   }
@@ -67,10 +70,10 @@
   });
 
   $effect(() => {
-    const search = page.url.search;
+    const search = shownUrl().search;
     if (search !== written) {
       written = search;
-      filter = parseFilter(page.url.searchParams);
+      filter = parseFilter(shownUrl().searchParams);
     }
   });
 

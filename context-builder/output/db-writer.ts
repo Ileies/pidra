@@ -147,8 +147,12 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
   if (stats.size === 0) return;
 
   const today = utcDay();
+  // The unique index is case-sensitive, so a spelling variant of a stored entity ("ACME" vs "Acme")
+  // would be inserted as a duplicate; the daily pipeline matches on the normalized key, so must this.
+  const known = new Set((await db.select({ name: entities.name }).from(entities)).map((row) => normalizeEntityKey(row.name)));
+  const fresh = [...stats].filter(([key]) => !known.has(key)).map(([, entry]) => entry);
 
-  for (const batch of chunk([...stats.values()], BATCH_SIZE)) {
+  for (const batch of chunk(fresh, BATCH_SIZE)) {
     // Only brand-new rows come back from RETURNING, so only they get mention provenance.
     const inserted = await db
       .insert(entities)

@@ -1,11 +1,9 @@
 <script lang="ts">
   /**
-   * Reading progress: a thin bar under the header plus a "2 min left" chip.
-   *
-   * Progress is how far the article has scrolled, remaining time is the words below the reader at
-   * a reading pace. Reaching the end plays a short burst on the chip and turns the bar green. It
-   * never blocks anything: pointer-events are off, it ends by itself, and `prefers-reduced-motion`
-   * collapses it to the plain state change (the global rule in app.css).
+   * Reading progress on `/[date]`: a thin bar under the header plus a "N min left" chip. Purely
+   * client-side; independent of the read receipt (`useReadReceipt`). The end only counts after a
+   * real scroll (`scrolled`), so a short report does not celebrate on load. The celebration never
+   * blocks (pointer-events off, ends by itself); reduced motion is handled by the global rule in app.css.
    */
   import Check from "@lucide/svelte/icons/check";
 

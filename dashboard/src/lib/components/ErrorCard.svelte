@@ -1,15 +1,11 @@
 <script lang="ts">
   /**
-   * A failed run, with every attempt behind it (B2).
+   * A failed run with every attempt behind it: renders the `StepAttempt`s the pipeline's
+   * `withRetry` wrote to `pipeline_runs.step_errors`. Used by NoReportState and /runs, /runs/[id].
    *
-   * `withRetry` records a `StepAttemptError` per attempt, and the whole point of writing them to
-   * `pipeline_runs.step_errors` is that the dashboard can show what actually happened rather
-   * than "failed". Used by the report page and, once it exists, by the runs page.
-   *
-   * The `degraded` variant covers the other thing `step_errors` carries: a run that completed
-   * without one of its sources. Same rows, different meaning - nothing was retried and a report
-   * exists - so it gets the warning palette and drops the attempt counter rather than claiming
-   * "Attempt 1/3" for something that was never attempted twice.
+   * The `degraded` variant covers a run that completed without one of its sources: same rows,
+   * but nothing was retried and a report exists, so it uses the warning palette and drops the
+   * attempt counter.
    */
   import type { Snippet } from "svelte";
   import Badge from "#lib/components/Badge.svelte";

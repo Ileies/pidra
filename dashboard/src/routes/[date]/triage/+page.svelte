@@ -1,14 +1,10 @@
 <script lang="ts">
   /**
-   * Triage: everything that arrived on one run date and what became of it.
-   *
-   * The report is the system's answer. This is its working, and it exists because on 2026-09-12 a
-   * mail the reader knew had arrived was simply not in the briefing, and there was no way to find
-   * out whether it had been dropped at ingest, never extracted, filtered by the relevance gate, or
-   * outside Section 1 capacity, or read by synthesis and passed over.
-   *
-   * Filtering and searching are client-side on purpose: a run is a few hundred rows, they are all
-   * on the page already, and a round trip per keystroke would buy nothing.
+   * /[date]/triage: everything that arrived on one run date and where each item stopped (dropped at
+   * ingest, never extracted, gated, outside Section 1 capacity, passed over, or cited). Data is
+   * `loadTriage` via `+page.server.ts` (server only, not mirrored: online only). Each item is a
+   * TriageCard; IngestWarning is shown `compact`. Filtering and search are client-side on purpose
+   * (a run is a few hundred rows, all on the page).
    */
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import EmptyState from "#lib/components/EmptyState.svelte";
@@ -34,8 +30,6 @@
         `dropped before ingest. Reports are final; what can change is a note or a standing rule for tomorrow.`,
     });
   });
-
-  // --- filters ---
 
   type Filter = "all" | Outcome;
 

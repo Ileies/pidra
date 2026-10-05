@@ -1,5 +1,10 @@
 <script lang="ts">
-  /** A day with no report: the run in flight, the run that failed, or nothing at all, plus the way to start one. */
+  /**
+   * A day with no report: the run in flight, the run that failed, or nothing at all, plus the way
+   * to start one (`?/runPipeline` form action in `/[date]/+page.server.ts`, online only).
+   * `polling`/`liveStatus` come from `usePipelinePoll`; `triggering` is bound back to the page,
+   * which uses it to enable that polling.
+   */
   import { enhance } from "$app/forms";
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import Spinner from "#lib/components/Spinner.svelte";

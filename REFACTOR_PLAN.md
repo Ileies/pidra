@@ -239,6 +239,58 @@ Only with a full blackhole run after every step.
 
 CLAUDE.md says "no multi-paragraph docblocks", but `schema.ts` (234 comment lines), `propose.ts` (98), `push.ts` (45 of 137), `questions/store.ts`, `reconcile.ts`, `service-worker.ts` (~130), `dashboard/src/env.ts`, `util/time.ts` carry paragraph headers that repeat `docs/`. Cut each to one line where the WHY is already documented, keep the ones that state a hidden invariant. Estimated **-250 to -350 lines**, risk none. Do it last so splits do not fight with comment edits.
 
+**Status: done 2026-10-05, with these deviations.** The brief changed from "cut comments" to "optimise for Claude readers": comments were removed where they restated code, narrated incidents already in git history or `docs/`, or were banners, and **added** where they save opening other files. Net about -370 comment-or-blank lines across ~260 files (about 1,370 added, 1,745 removed); the target of -250 to -350 was met only because the additions are short. What was added: a 1-3 line role header on non-trivial files (caller, what it reads and writes, whether a dashboard page is mirrored), contracts on exported functions that the signature does not show (throws, units, idempotency, side effects), and coupling pointers ("must stay in sync with X", "parsed as text by scripts/check-route-surfaces.ts"). Only comment lines were changed (checked with a diff filter; two glued-comment formatting slips in `offline/intents.ts` and `server/postgres.ts` were fixed). Two files crossed the `file-size` budget because of the new headers and had them shortened. `src/db/schema/*` was not cut further (already one line per table), `skills/` at the repo root and most of `src/types`, `src/settings` were left alone. The `blackhole` step failed three times in a row while the agents were still running and passed twice after, so those failures were load flakes; each third of the patch also passed blackhole on its own against HEAD. Comment accuracy was verified by the agents reading code and grepping callers, not by tests, so a spot check of the new headers is the cheapest way to judge them.
+
+---
+
+## Review overview: what was done, skipped, or done differently (all phases)
+
+For going back over decisions. Details per item are in the phase status blocks above; this lists only where the outcome differs from the proposal or needs a second look.
+
+### Skipped or void (not done at all)
+- **1.3b** (Berlin-based `todayKey()`): void, the backend is UTC everywhere.
+- **2.4** (delete `db/relations.ts`): skipped by the owner; the file is now unused by the pipeline but stays.
+- **3.8** (auto-discover skills with `Bun.Glob`): skipped, the loader must stay synchronous and skills import `provenanceOf` from it (cycle). Adding a skill still means editing the file, the loader and `surfaces.ts` or `BRIDGE_ONLY_SKILLS`.
+- **1.16 `errorFrom`, 1.18 `urlFilter`/`enhanceWith`/`useFormToast`/`pageContext`**: skipped as wrappers that save a line or two.
+- **4.12 `SourceQualityRow` merge**, **5.1 `Button.svelte` wrapper**, **6.7 settings load function and `useAsync`**, **9.5 `tests/fixtures/db.ts`**: skipped (different shapes, utilities were enough, page is deliberately load-free, mocks genuinely differ).
+- **Owner decisions 3 and 4** (unused bridge endpoints, dashboard DB driver): never started, still waiting for a yes.
+- **9.8 part:** TypeScript versions not aligned (`svelte-kit sync` crashes under TS 7).
+
+### Done differently or only partly
+- **Line count goal missed in places:** Phase 3 net is about +180 lines (splitting adds imports and headers); Phase 5 is about -350, not -850; `[date]/+page.svelte` is 340 (target ~260); `routes.ts` 306 (must stay one text-parseable registry); `notes/store.ts` 367; `corrections.ts` did not shrink. Five files carry their own ceiling in `scripts/check-file-size.ts` `EXCEPTIONS`.
+- **2.1** also deleted the `SELF_EMAILS` env var, `PROMPT_VARIABLES` and `Skeleton.svelte` (asked first). **2.5:** only comments reworded, the assistant `prompts` surface text and `propose_prompt_version` untouched pending your decision on where prompt approval lives now that the page is gone.
+- **3.12:** stopword list deliberately not shared with `implicit-feedback.ts`. **3.17:** only verified with `context-builder:dry`.
+- **5.x:** button variants were normalised (border, padding, hover colours moved by about a pixel); several tinted boxes, forms and details were not converted to `Card`; the launcher bubble, stop square, `Sparkline`, `SyncLogo` stay custom.
+- **7.1:** `useReadReceipt` is an effect helper, not an attachment; `search-hit-current` is still toggled on the DOM in `DocSearch`.
+- **9.x:** `deploy.ts` runs one root install; dashboard packages still install into `dashboard/node_modules`; the `withHtmlMime()` workaround in `vite.config.ts` exists for a kit 3.0.0 bug.
+
+### Behavior changes (each should have its own commit message; double-check these)
+- 4.6: a cross-feed or cross-account duplicate is now skipped instead of throwing on the unique key.
+- 5.7/5.8: dropdown Escape no longer skips typing targets, removed scrim buttons are no longer tab stops, the section jump list closes on Escape.
+- 8.6: `retryFailed` now also requests a Background Sync flush.
+- 4.12: `/sources/[name]` now gets `runDate` as text, like the list.
+- 8.4: ETags changed (one full sync per client after deploy).
+
+### Never verified (needs you)
+- **8.4 snapshot SQL** was type-checked but never run against a live Postgres: verify after deploy.
+- **2.8** migration `0042_drop_questions_blocks_until.sql` must be applied by hand before deploying.
+- **9.8** single `bun install` on pronix has not run yet.
+- **3.17** resume, `--from-index` and a real context-builder run want one manual pass.
+- No manual phone or browser pass was done for Phases 5, 6 and 7 (only blackhole screenshots at 1280px).
+- Phase 10 comment accuracy: verified by reading code, not by tests.
+
+### Smells the Phase 10 agents noticed and left alone (code or prompt changes, so not in a comment pass)
+- `src/db/schema/pipeline.ts:~112`: `report_audio` variant documented as `<model>:<voice>`, the code writes `<model>:<voice>:<speed>`.
+- `news/store.ts` `priorities()` has no `orderBy`, yet `research.ts` and `run.ts` treat index 0 as the reader's first priority.
+- `context-builder/progress.ts` still names counters `sonnetTokens` though they count OpenAI tokens; `CheckpointState` has a `"resume"` mode nothing produces; `updateProgress` imported unused in `context-builder/run.ts`; extract-email schema says summary max 60 chars, code slices to 80.
+- `SKILL_TOUCHES` (`ai/chat/tools.ts`) is hand-maintained: a new writing skill missing from it silently never invalidates the page.
+- `routes/notes.ts`: a `base_updated_at` conflict still applies the edit (last write wins), `_conflict` is informational only.
+- `skills/execute.ts`: a rejected `critical` skill is settled without a `result` reason, unlike other rejects.
+- `ai/surfaces.ts` `report` prompt has a quick-action paragraph between two list bullets (prompt text, untouched).
+- Duplicate `SourceFailure` types (`evaluation/baseline.ts` vs `phase1-ingest.ts`); `as any` casts remain in `pipeline/phase6/*` and `entity-context.ts`.
+- `scripts/jev-baseline.ts` and the three `*-dry-run.ts` scripts are not wired into `package.json`.
+- Unchecked claims: `docs/scoring-formulas.md` says a Sunday 02:00 `prune` job exists; `actions/propose/mails.ts` points at a `docs/todo/now.md` entry.
+
 ---
 
 ## Owner decisions needed (not started without a yes)

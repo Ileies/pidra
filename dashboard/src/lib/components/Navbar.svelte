@@ -5,27 +5,17 @@
    * prop: a prop would let each page decide what the header looks like, which is the problem
    * this component exists to remove.
    *
-   * Two forms (M-1):
+   * Two forms (entries come from `ROUTES` in `lib/routes.ts`; see docs/dashboard.md "Navigation"):
    *
-   * - **`lg` and up:** one horizontal row, grouped rather than flat. Ten to twelve controls in
-   *   a single ungrouped row was the cause of the mobile header, and it was not much of a
-   *   desktop layout either. Now the row only ever shows a page's `secondary: false` entries -
-   *   the rest live behind one "More" menu, a grid of tiles that each carry their own red count;
-   *   the button shows the sum. `lg` (1024px) rather than `sm`: below that the ten-to-twelve pills
-   *   do not fit in one line even grouped, and a wrapped row squeezed the page title down to a
-   *   few truncated characters on anything narrower than roughly 1100px - a common laptop width.
-   *   Between `lg` and `xl` the row is compacted instead (smaller pill padding, tighter gaps, the
-   *   wordmark hidden next to the icon) so it still fits on one line at 1024px.
-   * - **Below `lg`:** the app icon, page title, sync state and settings stay in the header (as does
-   *   settings at `lg` and up, as an icon-only button, never a pill in the row). Navigation lives
-   *   in the bottom tab bar and its More sheet, so there is one predictable, thumb-reachable place
-   *   to open it.
+   * - **`lg` (1024px) and up:** one row showing only the non-`secondary` entries; the rest sit
+   *   behind a "More" menu of tiles, each with its own count, the button showing the sum. The
+   *   row would not fit on one line below `lg`, and between `lg` and `xl` it is compacted
+   *   (smaller padding, wordmark hidden) to still fit at 1024px. Settings is an icon-only button.
+   * - **Below `lg`:** only icon, page title, sync state and settings stay here; navigation is
+   *   `TabBar` and its More sheet.
    *
-   * The day steppers are gone from here. They were only ever on one route, they were the two
-   * controls that pushed the row over, and they belong next to the date they step.
-   *
-   * Log out, passkeys and the legal pages live in /settings. There is no notifications page: an
-   * unread report, an open question and an unreviewed run each count on the page they belong to.
+   * Badge counts come from `navBadges` (`/api/nav-badges`), keyed by href. Log out, passkeys and
+   * the legal pages live in /settings.
    */
   import { page } from "$app/state";
   import { afterNavigate } from "$app/navigation";
@@ -64,7 +54,7 @@
       (list) => list.length > 0,
     ),
   );
-  /** Everything folded into "More", in registry order rather than re-grouped: six items is a list, not a menu. */
+  /** Everything folded into "More", in registry order rather than re-grouped. */
   const overflow = $derived(visible.filter((route) => route.secondary));
   /** What the More button shows: the sum of the counts on the tiles inside it, so the two always agree. */
   const overflowTotal = $derived(overflow.reduce((sum, entry) => sum + (badges[entry.href] ?? 0), 0));

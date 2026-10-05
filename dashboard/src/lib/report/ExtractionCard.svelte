@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
-   * One extraction, as a card. Used by the deep-link page and by the report's inline expansion
-   * (C5), so the two show the same thing.
+   * One extraction, as a card. Used by `/[date]/detail/[ids]` and by ReportEntry's inline expansion
+   * (`compact`), so the two show the same thing. `web_news` items (news desks) render differently:
+   * links instead of sender/body. The raw mail body is online-only (`GET /api/extractions/[id]/raw`).
    */
   import Badge from "#lib/components/Badge.svelte";
   import Spinner from "#lib/components/Spinner.svelte";

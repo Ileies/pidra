@@ -4,7 +4,7 @@ import { fail } from "@sveltejs/kit";
 import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
 /**
- * The entity detail page's one write: the Watch control. Watching an entity sets
+ * The entity detail page's one write (`watch`). Watching an entity sets
  * `importance = 'high'` through the same correction path `/contacts` uses - a field-level merge,
  * `previous_state` snapshot, row locked against a re-seed - because `importance` is one of the
  * fields `src/context/corrections.ts` already allows on an entity. `src/search/slots.ts`'s

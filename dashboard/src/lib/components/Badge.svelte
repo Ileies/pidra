@@ -1,10 +1,8 @@
 <script lang="ts">
   /**
-   * One badge (B2). Five files carried an ad-hoc `badge` class plus their own colour map.
-   *
+   * The one badge. `tone` picks the palette (neutral|muted|primary|success|warning|error).
    * A tone is never the whole message: the badge always contains a word, because hue alone is
-   * not readable for everyone and does not exist at all on a monochrome print or a colour-blind
-   * screen (A4, P7). Where a caller wants a glyph too it goes *beside* the text, not instead.
+   * unreadable on monochrome or for colour-blind users. A glyph goes *beside* the text, not instead.
    */
   import type { Snippet } from "svelte";
 

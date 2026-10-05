@@ -1,9 +1,7 @@
 <script lang="ts">
   /**
-   * The width the wide-desktop grid frees up, put to use instead of left as margin: the same
-   * figures the (`xl:hidden`) stats bar shows, the open quick actions collected in one place, and
-   * a permanent copy of `SectionNav`'s domain dropdown. Sticky, so it stays in view while the
-   * article scrolls past it.
+   * The `xl`+ right rail of `/[date]` (hidden below): the run stats (the `xl:hidden` stats bar's
+   * twin), open quick actions, SectionNav `rail`, and a permanent jump list. Sticky.
    */
   import SectionNav from "#lib/report/SectionNav.svelte";
   import { jumpToSection } from "#lib/report/jump.js";

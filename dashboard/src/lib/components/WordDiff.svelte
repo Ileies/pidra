@@ -1,9 +1,7 @@
 <script lang="ts">
   /**
-   * Inline word diff, for a correction's before/after (D6's line-level `Diff.svelte` is the wrong
-   * grain here: a correction is a sentence or two, not a document, so showing it as two stacked
-   * blocks made the reader do the comparison in their head. One flowing paragraph, struck-through
-   * removals and highlighted additions inline, is what "diff" means at this size.
+   * Inline word diff for short before/after text (a correction, a note revision): one flowing
+   * paragraph with struck-through removals and highlighted additions.
    */
   import { diffWords } from "diff";
 

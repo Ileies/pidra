@@ -14,7 +14,7 @@ import { jsonInit } from "#lib/http.js";
 import * as outbox from "#lib/offline/outbox.js";
 import { netJson } from "#lib/offline/net.js";
 
-/** Snake_case shape the mirror and the (former) page load both use, as Postgres returns it. */
+/** Snake_case shape of a note in the offline mirror, as Postgres returns it. */
 export interface NoteRow {
   id: string;
   content: string;

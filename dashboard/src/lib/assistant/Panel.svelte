@@ -12,6 +12,9 @@
   import { ICON } from "#lib/routes.js";
   import { autosize } from "#lib/ui/autosize.js";
 
+  // The chat UI (transcript, hints, composer) over the shared `assistant` singleton. Rendered by
+  // Assistant.svelte (widget) and routes/chat/+page.svelte (page); both show the same live conversation.
+
   interface Props {
     /** The widget hides its own transcript scroller inside a fixed panel; /chat does not. */
     variant?: "widget" | "page";

@@ -1,7 +1,8 @@
 /**
  * Whether PIDRA is installed on this device and what the browser lets us do about it.
  *
- * Started once from the root layout: Chromium fires `beforeinstallprompt` shortly after load,
+ * Singleton `pwa` (reactive `$state` fields); `pwa.start()` runs once, from `startClient` in the
+ * root layout, and fields stay at their defaults until then. Chromium fires `beforeinstallprompt` shortly after load,
  * usually before the user has opened Settings, so a listener registered by the settings page would
  * miss it. The platform gives us less than the UI might suggest, and each limit decides what
  * `InstallApp` may offer:

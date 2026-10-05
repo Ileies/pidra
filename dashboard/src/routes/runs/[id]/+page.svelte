@@ -1,4 +1,5 @@
 <script lang="ts">
+  // Online-only step graph and cost tables for one run; maths in `$lib/runTrace.ts`, `runUsage.ts`, `pricing.ts`.
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";

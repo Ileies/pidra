@@ -11,6 +11,10 @@
  * media elements stops being a server concern.
  *
  * Online only by design: a chapter that has not been spoken yet does not exist anywhere else.
+ *
+ * `reportPlayer` is a singleton whose `$state` fields drive ReportPlayer.svelte and SeekBar.svelte
+ * (both mounted from the root layout) and the Play button on `/[date]`. Endpoints:
+ * `GET /api/report-audio/[date]` (chapter manifest) and `POST /api/report-audio/[date]/[key]`.
  */
 
 import { browser } from "$app/env";

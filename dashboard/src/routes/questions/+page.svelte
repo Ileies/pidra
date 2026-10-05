@@ -11,6 +11,8 @@
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+  // Online-only open-question queue. Form actions `answer` / `dismiss` / `reopen` live in
+  // +page.server.ts and are matched below by `action.search` (`?/answer` etc.), keep in step with DONE.
 
   /** Typed answers by question id, so an answer sent for one card never clears another's draft. */
   let drafts = $state<Record<string, string>>({});

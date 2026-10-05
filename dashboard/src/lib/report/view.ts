@@ -49,7 +49,11 @@ export function placeActions(structured: RenderedReport | null, actions: QuickAc
   return { byEntry, unplaced };
 }
 
-/** The jump targets in reading order: the News groups come before the briefing's domains. */
+/**
+ * The jump targets in reading order: the News groups come before the briefing's domains.
+ * The ids (`news-N`, `domain-N`, and below `personal`/`news`/`intel`) must match the element ids
+ * rendered by NewsSection and `/[date]/+page.svelte` (`groupWrapper`).
+ */
 export function domainTargets(structured: RenderedReport | null): NavTarget[] {
   return [
     ...(structured?.news ?? []).map((group, index) => ({ id: `news-${index}`, label: group.group })),

@@ -1,4 +1,8 @@
 <script lang="ts">
+  // `/sources/[name]`: one source's score header (SourceHeader), stats, daily scores and a searchable
+  // list of deliveries (DeliveryCard, last 80) with the items extraction made of each. Data and the
+  // `toggle`/`delete` actions are in `+page.server.ts` (online-only). Hard delete goes through
+  // DeleteSourceModal; sources are keyed by name (URL-encoded), not id.
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import Page from "#lib/components/Page.svelte";
   import DeliveryCard, { isSkipped } from "./DeliveryCard.svelte";

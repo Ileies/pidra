@@ -1,3 +1,9 @@
+<!--
+  /[date]/detail/[ids]: the extractions behind one report entry (shareable deep link and no-JS
+  fallback for ReportEntry's inline expansion). `+page.ts` reads them from the offline mirror and
+  lists the ids it lacks in `data.missing`, which this page fetches live from `GET /api/extractions`.
+  Composes ExtractionCard and RateButtons; the `?/deepen` action (online only) calls the bridge.
+-->
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
@@ -13,18 +19,9 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // The deep dive is a model call through the skills bridge, so it is online-only.
-  // Said up front rather than as a "Not sent" after the tap, like the other online-only writes.
-
   $effect(() => toastFormResult(form));
 
-  /**
-   * The deep link behind a report entry. Since C5 the report expands these cards in place, so
-   * this page is the shareable form and the no-JS fallback rather than the only way to see them.
-   */
-
-  // Still the report surface: these are the items behind a briefing paragraph, so they are read
-  // material too. What the assistant can change from here are notes, todos and the context.
+  // Still the `report` surface: these items are read material behind a briefing paragraph.
   $effect(() => {
     setPageContext({
       surface: "report",

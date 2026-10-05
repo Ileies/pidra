@@ -1,4 +1,6 @@
 <script lang="ts">
+  // `/contacts`: mirrored sender directory from `+page.ts`; edits post the form action in
+  // `+page.server.ts` (online-only, goes through the bridge correction endpoint).
   import { enhance } from "$app/forms";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";

@@ -7,15 +7,10 @@ import { sql } from "#lib/server/postgres.js";
 import { mapRun, runColumns, type RunSummary } from "#lib/server/runs.js";
 
 /**
- * Pipeline run history (D5).
- *
- * `pipeline_runs` had no UI: a successful run was invisible, and a failed one only surfaced on
- * its own date page, and then only if that day had no report. So there was no way to see that a
- * run was getting slower, or that phase 2 had failed three days running.
- *
- * This list shows what `pipeline_runs` holds: total duration, status, the failed step and its
- * attempt log, plus the report's token counts joined on the date for the cost trend. Per-step
- * timing and cost live on `/runs/[id]`.
+ * `/runs` data: the last 90 `pipeline_runs` (newest first) with the report's token counts joined on
+ * `run_date` for the cost trend, plus `unreviewed` from `notification_reads` (key `run:<id>`).
+ * The `reviewRun` action writes that read, which is what the Runs nav badge counts.
+ * Online-only (live SQL). Per-step timing and cost live on `/runs/[id]`.
  */
 
 export interface RunRow extends RunSummary {

@@ -16,10 +16,13 @@
 
   let { data }: { data: PageData } = $props();
 
+  // /context-builder: the harvested document (tab) and source summaries (tab), with run controls.
+  // Document and corrections come from the offline mirror (`+page.ts` via `contextDoc`); the run
+  // strip is online-only (`useContextRun` polls /api/context-builder/status). Composes RunControls,
+  // DocSearch, QuickLinks (xl rail). Corrections live at /context-builder/corrections.
+  //
   // The harvest is never overwritten here: the assistant records corrections that outrank it.
-  // Corrections themselves moved to their own route (see below) - it can grow arbitrarily long,
-  // and stacking it into this page's context digest would tell the assistant nothing it cannot
-  // already see from the count.
+  // The digest carries only the corrections count, not their text, which can grow arbitrarily long.
   $effect(() => {
     setPageContext({
       surface: "context",

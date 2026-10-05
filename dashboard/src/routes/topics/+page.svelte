@@ -1,4 +1,6 @@
 <script lang="ts">
+  // `/topics`: mirrored list of `active_topics` (status chips + GET search form, 20 per page via
+  // `Paged`) from `+page.ts`. Resolve/archive posts the `setStatus` action in `+page.server.ts`.
   import ShowMore from "#lib/components/ShowMore.svelte";
   import { Paged } from "#lib/ui/paged.svelte.js";
   import { enhance } from "$app/forms";

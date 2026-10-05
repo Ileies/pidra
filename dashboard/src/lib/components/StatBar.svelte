@@ -1,11 +1,8 @@
 <script lang="ts">
   /**
-   * The horizontal run of figures under the header (B2, M10).
-   *
-   * The report's version was five to seven items separated by `·` glyphs that were themselves
-   * flex children, so on a phone it wrapped into three rows with separators orphaned at the
-   * start and end of lines. This is a grid: two columns on a phone, auto-flow above, and the
-   * separator is a border rather than a character that can wrap on its own.
+   * The horizontal run of figures under the header (the report uses it in `Page`'s `bleed`). A grid: two
+   * columns on a phone, auto-flow above, with the separator drawn as a border rather than a
+   * glyph so it can never wrap orphaned onto a line start.
    */
   import type { Snippet } from "svelte";
 

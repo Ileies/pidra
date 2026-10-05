@@ -2,12 +2,8 @@ import type { PageLoad } from "./$types";
 import { mirrorEmpty, reportDates, topics } from "#lib/offline/repo.js";
 
 /**
- * Active topics (D1), client-rendered and local-first. Readable offline;
+ * `/topics` (`active_topics` with running summaries): mirrored and client-only, readable offline;
  * resolving or archiving one stays online-only, see `+page.server.ts`.
- *
- * Story continuity is the reason the system compounds over days, and it had no UI at all - the
- * running summaries that make tomorrow's briefing say "UPDATE:" instead of re-explaining a story
- * were invisible.
  *
  * The days list is the window a topic was live in, from `first_seen` to `last_updated`, narrowed
  * to the mirrored days that produced a report, which are also the only reports a link can open.

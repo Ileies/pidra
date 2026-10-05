@@ -5,6 +5,8 @@ import { fail } from "@sveltejs/kit";
 import { bridgeAction } from "#lib/server/bridge.js";
 import { sql } from "#lib/server/postgres.js";
 
+// /questions/closed: the latest CLOSED_LIMIT non-open questions, read from Postgres. Online-only
+// (see onlineOnly.ts). `reopen` / `reprocess` ("Run again") forward to the bridge like /questions.
 const CLOSED_LIMIT = 100;
 
 interface Row {

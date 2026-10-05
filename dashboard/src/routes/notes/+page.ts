@@ -2,12 +2,11 @@ import type { PageLoad } from "./$types";
 import { mirrorEmpty, notes } from "#lib/offline/repo.js";
 
 /**
- * Client-rendered and local-first. Writes already went through `/api/notes`
- * (the bridge, keeping `src/notes/store.ts` the single writer) rather than a form action here, so
- * there is no `+page.server.ts` left once the read moves to the mirror - nothing else was in it.
+ * Mirrored, local-first, client-rendered (no `+page.server.ts`). Writes go through `/api/notes`
+ * (the bridge, keeping `src/notes/store.ts` the single writer), not form actions.
  *
- * Returns every note and leaves search, scope, sort and view to the page: this load used to
- * read them from the URL, so every keystroke in the search box re-ran it, and with it a full pull.
+ * Returns every note and leaves search, scope, sort and view to the page (`filterNotes`), so a
+ * keystroke in the search box does not re-run this load.
  */
 export const ssr = false;
 

@@ -1,12 +1,7 @@
 <script lang="ts" generics="Row">
   /**
-   * One table, two responsive strategies (B2, M-5).
-   *
-   * Three of the app's four tables had no responsive treatment at all: /sources was six columns
-   * including an inline text input and a three-button confirm dance with no `overflow-x`
-   * wrapper, so the whole page panned sideways on a phone. /entities was the one that got it
-   * right, with `overflow-x-auto` plus progressive `hidden sm:table-cell` columns, and that is
-   * the `scroll` mode here.
+   * One table, two responsive strategies. Column definitions (`value`, `class`, `showAt`, cell
+   * snippet) are typed in `table.ts`.
    *
    * - `mode="cards"`  below `md` the rows become a stacked card list. For a table whose row is
    *                   really an object with a name and some facts about it.

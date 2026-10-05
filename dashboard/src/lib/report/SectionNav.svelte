@@ -1,13 +1,9 @@
 <script lang="ts">
   /**
-   * Section switcher and jump list (C3, C6).
-   *
-   * The report is 600-900 words plus 300-500, so a phone read is several screens with no
-   * orientation. This is the orientation: a sticky segmented control that both switches sections
-   * and shows which one you are in, plus a jump list of the domains inside Section 1.
-   *
-   * It anchors to `--header-h`, the measured header height, rather than a hard-coded offset -
-   * that is the bug the notes bulk bar had (X6, M8).
+   * Section switcher and jump list for `/[date]`: a sticky pill (`bar`, below `xl`) or a rail card
+   * (`rail`, used by ReportSidebar), highlighting the section in view via IntersectionObserver.
+   * Targets are element ids from `sectionTargets` / `domainTargets` in `view.ts`.
+   * Anchors to `--header-h` (the measured header height), never a hard-coded offset.
    */
   import { onMount } from "svelte";
   import List from "@lucide/svelte/icons/list";
@@ -18,7 +14,7 @@
   interface Props {
     /** Top-level sections, in reading order. */
     sections: NavTarget[];
-    /** Domains inside the briefing, for the jump list. */
+    /** News groups and briefing domains, for the jump list. */
     domains: NavTarget[];
     /**
      * `bar` is the sticky pill under the header and hides from `xl`; `rail` is the card the report
@@ -112,8 +108,7 @@
     </nav>
 
     {#if domains.length > 0}
-      <!-- The rail on `/[date]` shows the same list permanently from `xl` up, so the dropdown
-           would be a second, redundant way to do the same thing there. -->
+      <!-- Hidden from `xl`: the rail shows this list permanently. -->
       <div class="relative ml-auto shrink-0 xl:hidden" use:dismissable={{ open: jumpOpen, onclose: () => (jumpOpen = false) }}>
         <button
           type="button"

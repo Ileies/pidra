@@ -1,7 +1,11 @@
 import { netJson } from "#lib/offline/net.js";
 import { navBadges } from "#lib/navBadges.svelte.js";
 
-/** A report is acknowledged only once the reader reaches its actual end. Call during component init. */
+/**
+ * A report is acknowledged only once the reader reaches its actual end (page bottom). Call during
+ * component init. POSTs `/api/notifications/report-read/[date]` (online only, retried on the next
+ * scroll after a failure) and refreshes the nav badge on success.
+ */
 export function useReadReceipt(args: () => { date: string; enabled: boolean }) {
   $effect(() => {
     const { date, enabled } = args();

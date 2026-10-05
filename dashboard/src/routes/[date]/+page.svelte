@@ -1,3 +1,12 @@
+<!--
+  /[date]: the daily report. Data comes from `+page.ts` (client-only, reads the offline mirror, so the
+  page works offline); `+page.server.ts` holds only the `runPipeline` and `rate` form actions.
+  Layout: Section 2 (EntryGroup "personal") -> NewsSection -> Section 1 (EntryGroup "intel") -> "Also
+  noted"; falls back to `reportHtml` markdown when there is no structured body, and to NoReportState
+  when there is no report. Side pieces: DayNav, IngestWarning, SectionNav (below xl), ReportSidebar
+  (rail at xl), ReadProgress, and the Play button for the singleton ReportPlayer (mounted in the root layout).
+  Per-entry rendering and rating is ReportEntry; section/target helpers are in `$lib/report/view.ts`.
+-->
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { setPageContext } from '#lib/assistant/state.svelte.js';
@@ -29,8 +38,6 @@
 	import type { PageData, ActionData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-
-	// A pipeline trigger is online-only (it needs the server); said before the tap, not after it.
 
 	$effect(() => toastFormResult(form));
 
@@ -71,8 +78,7 @@
 		});
 	});
 
-	// --- ratings: optimistic, re-synced whenever the load function returns ---
-
+	// Ratings are optimistic: a local override that resets whenever the load function returns.
 	let ratings = $derived<Record<string, string | null>>({ ...data.ratings });
 
 	function onRate(extractionId: string, eventType: string | null) {
@@ -102,8 +108,7 @@
 		sectionTargets(data.structured, personalEntries > 0 || placement.unplaced.length > 0)
 	);
 
-	// --- live pipeline status (C7) ---
-
+	// Polls /api/pipeline/status only while there is no report yet and a run is (or was just asked to be) running.
 	let triggering = $state(false);
 	const pipeline = usePipelinePoll(() => ({
 		date: data.date,
@@ -118,12 +123,9 @@
 
 {#snippet statsBar()}
 	{#if data.report}
-		<!-- The bar says how much was ingested and how much made it. The question that leaves - which
-         items, and why not - is the one thing the report itself can never answer, so the link to
-         the page that can belongs right here. Its label does not lean on `itemsFiltered`: that is
-         a subtraction over what synthesis was handed, not over what arrived, and it reads as
-         "0 filtered" on a day where plenty was. Hidden from `xl` up: the rail's "Run stats" card
-         says the same thing without needing the reader to scroll back to the top of the page. -->
+		<!-- The link label must not lean on `itemsFiltered`: that is a subtraction over what synthesis
+         was handed, not over what arrived, and reads "0 filtered" on days where plenty was.
+         Hidden from `xl` up: the rail's "Run stats" card says the same. -->
 		<div class="xl:hidden">
 			<StatBar {stats}>
 				<a
@@ -138,11 +140,9 @@
 	{/if}
 {/snippet}
 
-<!-- `size="app"` rather than `read`: the frame needs to be wide enough to hold the rail beside
-     the article. The article itself is not capped to the 68ch prose measure at `xl` - it fills
-     the left track up to the rail, because a fixed-width article inside a wide `1fr` track left
-     it stranded away from the rail with an ugly gap between them. Below `xl` there is no grid and
-     no rail, and the article uses the full `app` width. -->
+<!-- `size="app"`, not `read`: wide enough for the rail beside the article. At `xl` the article is not
+     capped to the prose measure: it fills the left track up to the rail (a fixed width left a gap).
+     Below `xl` there is no grid and no rail. -->
 <Page
 	title={data.date}
 	size="app"
@@ -157,8 +157,7 @@
 			nextDate={data.nextDate}
 		/>
 
-		<!-- Above the briefing, and above the "no report" state too: what a dead mailbox means is that
-       the text below is incomplete, which has to be read before the text, not after it. -->
+		<!-- Above the "no report" state too: a dead source means the text below is incomplete. -->
 		<IngestWarning failures={data.ingestFailures} date={data.date} />
 
 		{#if todayArrived}
@@ -177,8 +176,7 @@
 
 		{#if data.structured}
 			{#if !(reportPlayer.open && reportPlayer.date === data.date)}
-				<!-- Speaking a chapter the first time costs money and needs the server, so the button says
-         so up front when offline instead of failing after the tap. -->
+				<!-- Speaking a chapter the first time costs money and needs the server: disabled offline. -->
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 					<button
 						type="button"
@@ -201,8 +199,7 @@
 
 			<EntryHint />
 
-			<!-- Section 2 leads, at every width. It is the actionable half; the briefing
-         is the half you read when you have time. -->
+			<!-- Section 2 leads at every width: the actionable half. -->
 			{#if personalEntries > 0 || placement.unplaced.length > 0}
 				<EntryGroup
 					id="personal"
@@ -212,7 +209,7 @@
 				>
 					{#snippet header(group)}
 						{@const meta = URGENCY_META[group.urgency]}
-						<!-- The chip carries the meaning; the hue only reinforces it (A4, P7). -->
+						<!-- The chip label carries the meaning; the hue only reinforces it. -->
 						<h3
 							class="flex items-center gap-2 text-sm font-semibold text-surface-200"
 						>
@@ -249,7 +246,6 @@
 				<p class="text-sm text-surface-300">Nothing needs action today.</p>
 			{/if}
 
-			<!-- What happened, between what needs doing and the newsletters' depth. -->
 			<NewsSection
 				groups={newsGroups}
 				date={data.date}
@@ -302,9 +298,8 @@
 				<div class="h-52" aria-hidden="true"></div>
 			{/if}
 		{:else if data.reportHtml}
-			<!-- The parser found no section headings, or this row predates report_json. The markdown
-         renders exactly as it always did, so a prompt drift degrades the layout rather than
-         emptying the page (C1). -->
+			<!-- No section headings parsed, or the row predates report_json: render the markdown, so prompt
+         drift degrades the layout instead of emptying the page. -->
 			<!-- No entries to attach the actions to, so they lead, each with its reason. -->
 			<QuickActions actions={data.actions} showReason />
 			<div class="report-body">

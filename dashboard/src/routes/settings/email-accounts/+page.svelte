@@ -1,4 +1,7 @@
 <script lang="ts">
+  // `/settings/email-accounts` (online-only): card list of live IMAP/SMTP accounts; one Sheet serves
+  // add and edit, delete sits at the bottom of the sheet. Actions `create`/`update`/`delete` are in
+  // `+page.server.ts`.
   import { enhance } from "$app/forms";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";

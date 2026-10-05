@@ -2,6 +2,8 @@ import type { RequestHandler } from "./$types";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { authManagerDenied, listCredentials, rpConfig, storeChallenge, randomToken } from "#lib/server/auth.js";
 
+// Passkey registration step 1 (from /setup): returns WebAuthn options plus a `nonce` that keys the
+// server-held challenge; `register/verify` redeems it once. Existing credentials are excluded.
 export const POST: RequestHandler = async ({ locals, cookies }) => {
   const denied = authManagerDenied({ locals, cookies });
   if (denied) return denied;

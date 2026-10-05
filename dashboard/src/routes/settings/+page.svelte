@@ -1,8 +1,7 @@
 <script lang="ts">
   /**
-   * The account-level page: notifications, the passkey/PIN manager, the legal pages, and log out.
-   * These used to be individual controls on the navbar - one gear icon replaces five, and the
-   * mobile tab bar gains a way to log out at all, which it never had.
+   * `/settings`: install app (`InstallApp`), notifications, language/theme, links to `/setup`,
+   * email accounts, newsletters and the legal pages, and log out.
    *
    * No server load: everything here is either a link to a page that already handles its own
    * state (`/setup`, `/privacy`, `/terms`) or a client-side control (`NotifyButton`, log out, the
@@ -80,9 +79,8 @@
 </script>
 
 <Page title="Settings" size="app" class="flex flex-col gap-6">
-  <!-- Capped rather than left to fill `app`'s full width (M14, 2026-10-01): a menu of four tiles
-       and a notification toggle has no content to grow into, and stretching the rows edge to edge
-       on a wide monitor just put empty space between each label and its description. -->
+  <!-- Capped rather than left to fill `app`'s full width : a menu of tiles and a toggle has no
+       content to grow into, and full-width rows put empty space between label and description. -->
   <div class="flex flex-1 flex-col w-full">
   <div class="flex flex-1 flex-col gap-6 max-w-3xl mx-auto w-full">
     <Card as="section" class="px-4 sm:px-5 py-4 flex items-center justify-between gap-4">

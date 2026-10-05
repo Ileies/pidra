@@ -1,12 +1,9 @@
 <script lang="ts">
   /**
-   * The seek bar of the report player, cut into one segment per chapter, each as wide as the
-   * chapter is long, so the shape of the briefing is visible: how much is personal, how much news,
-   * how much depth.
-   *
-   * It behaves like YouTube's chapter bar: a tap near the edge of a segment snaps to the boundary
-   * between two chapters, so jumping by section is quick, while holding (or dragging) scrubs freely
-   * and seeks exactly where the pointer is released.
+   * The seek bar of ReportPlayer: one segment per chapter, flex-weighted by its duration. Like
+   * YouTube's chapter bar, a tap near a segment edge snaps to the chapter boundary, while holding
+   * (HOLD_MS) or dragging (DRAG_PX) scrubs freely and seeks on release. All seeking goes through
+   * `player.go()`.
    */
   import { reportPlayer as player } from "#lib/report/player.svelte.js";
 

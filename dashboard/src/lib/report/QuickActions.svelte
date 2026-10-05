@@ -12,6 +12,8 @@
    * later against an event that has moved on would be wrong. Offline the buttons are disabled
    * with the reason, and a tap that loses the connection says whether it may have gone through.
    * A second tap on one that did is harmless: the bridge answers "done" instead of adding again.
+   * Endpoint: `POST /api/actions/[id]/[op]` (run|dismiss|restore). Placement of actions under
+   * entries is `placeActions` in `view.ts`. `local` overrides props until the forced sync lands.
    */
   import Calendar from "@lucide/svelte/icons/calendar";
   import Check from "@lucide/svelte/icons/check";

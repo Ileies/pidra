@@ -1,4 +1,7 @@
 <script lang="ts">
+  // `/setup`: first-passkey bootstrap and device/PIN/session management. WebAuthn registration and
+  // PIN set call `/api/auth/*` through `netJson`; deleting a passkey or revoking a session are the
+  // `deleteCredential`/`revokeSession` actions in `+page.server.ts` (which also explains the gating).
   import { jsonInit } from "#lib/http.js";
   import { errMessage } from "$pipeline/util/text";
   import { enhance } from "$app/forms";

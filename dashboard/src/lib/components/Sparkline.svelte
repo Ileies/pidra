@@ -1,10 +1,7 @@
 <script lang="ts">
   /**
-   * A small series with an axis, a range and a readable value (B2).
-   *
-   * The version this replaces was a bare dot scatter with no axis, no labels and no tooltip:
-   * `source_daily_scores` rendered as decoration. It now has a baseline, a midline, min/max
-   * labels, and a title that says what the series is - so the shape means something.
+   * A small series (e.g. `source_daily_scores`) with baseline, midline, min/max labels and a
+   * title naming the series. `null` values are skipped. Scale is 0..`max` (default 10).
    */
   export interface Point {
     /** Whatever names the x position in a tooltip: a date, usually. */

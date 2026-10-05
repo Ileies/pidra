@@ -27,8 +27,8 @@ interface PendingExecution {
 }
 
 export const load: PageServerLoad = async () => {
-  // The bridge owns edits and execution, but the registered catalog is part of this checkout.
-  // Load it here too so the page can still explain what skills exist while the bridge is down.
+  // The bridge owns edits and execution, but the registered catalog is part of this checkout
+  // (`./catalog.ts`), so the page can still list skills (read-only data, no toggling) while the bridge is down.
   const [skillsRes, usageRows, pendingRows] = await Promise.all([
     bridgeFetch("/skills").catch(() => null),
     sql()`
@@ -62,8 +62,6 @@ export const load: PageServerLoad = async () => {
     parameters: parseJsonb<Record<string, unknown> | null>(row.parameters, null),
   })) as PendingExecution[];
 
-  // `pending` means a high-risk call is waiting for the owner. It leads the page rather than
-  // sitting somewhere in a reverse-chronological log: it is the one thing here that blocks.
   return {
     skills,
     pending,
@@ -84,13 +82,9 @@ export const actions: Actions = {
   },
 
   /**
-   * The confirm/reject half of the high-risk queue (D4).
-   *
-   * CLAUDE.md specifies that a `high`-risk skill is inserted as `pending` and waits for manual
-   * confirmation. `executeSkill` did its half; nothing could ever complete the other, so a queued
-   * call sat in the log forever. It goes through the bridge rather than writing the row here,
-   * because confirming means actually running the skill - and `executeSkill` is the only path a
-   * skill may run through.
+   * Confirm/reject a `pending` high-risk execution. Goes through the bridge rather than writing the
+   * row here: confirming actually runs the skill, and `executeSkill` is the only path a skill may
+   * run through (`docs/skills.md`).
    */
   resolve: async ({ request }) => {
     const form = await readForm(request);

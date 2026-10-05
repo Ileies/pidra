@@ -1,19 +1,12 @@
 <script lang="ts">
   /**
-   * The thumbs up/down pair (C4, X4).
+   * The thumbs up/down pair (feeds `feedback_events`, the relevance calibration loop). 44px targets
+   * on a phone. The rating is optimistic (`onRate` updates the page) and re-synced on the next load.
    *
-   * `feedback_events` is the relevance calibration loop, and it only filled up if the reader
-   * took a two-click detour to the detail page - so it was starved. These sit inside the opened
-   * report entry, 44px on a phone, which is the viewport that actually matters for this.
-   *
-   * The rating is optimistic and re-synced from the server on the next load, so a tap under a
-   * thumb never waits on a round trip.
-   *
-   * Online, with JS: `use:enhance` cancels the form's own network submission and hands the tap to
-   * the offline outbox instead, which applies it to the mirror and queues the
-   * real write - the same code path whether the connection is up or not. No JS: the form still posts to
-   * `action` directly, which is why it and its hidden fields stay in the markup rather than being
-   * replaced by a plain button.
+   * With JS, `use:enhance` cancels the form's own submission and hands the tap to the offline
+   * outbox (`outbox.rate`), which updates the mirror and queues the write, online or not. Without
+   * JS the form posts to `action` (`?/rate`, exposed by `/[date]` and the detail page), which is
+   * why it and its hidden fields stay in the markup.
    */
   import { enhance } from "$app/forms";
   import ThumbsDown from "@lucide/svelte/icons/thumbs-down";

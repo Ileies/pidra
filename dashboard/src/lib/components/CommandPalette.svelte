@@ -1,18 +1,15 @@
 <script lang="ts">
   /**
-   * Search and route jumping in one surface (D8, E1).
+   * Search and route jumping in one surface, mounted by the root layout. Ctrl/Cmd+K opens it
+   * (so does `/` when nothing has focus); the assistant is Ctrl/Cmd+J. Both are listed in
+   * `Shortcuts.svelte`.
    *
-   * Ctrl/Cmd+K opens it, and `/` does too when nothing has focus. The assistant moves to
-   * Ctrl/Cmd+J - the collision was called out in the plan and this is where it is settled, with
-   * both bindings listed in the `?` overlay so neither is folklore.
+   * Routes are matched locally from `ROUTES` and always rank above archive hits: jumping to a
+   * page should not wait on a query, and typing "notes" usually means the page.
    *
-   * Routes are matched locally from the registry and always rank above archive hits: jumping to
-   * a page you know exists should not wait on a query, and typing "notes" means the page far
-   * more often than it means a note containing the word.
-   *
-   * Offline, the archive half searches this device's copy instead, and
-   * says so: it matches plain text over the mirrored window, which is not what the server's
-   * ranked keyword search finds.
+   * Archive hits come from `net()` (server keyword search, snippets pre-sanitised to `<mark>`).
+   * Offline, the archive half searches the mirror instead (plain-text match over the mirrored
+   * window, not the server's ranked search) and says so.
    */
   import { goto } from "$app/navigation";
   import Search from "@lucide/svelte/icons/search";

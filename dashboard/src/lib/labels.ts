@@ -2,8 +2,7 @@
  * Display labels for database values.
  *
  * Enums stay English in Postgres and are given their display form here, so `novelty:
- * "continuation"` renders as "Continuation" without a second translation layer and without a
- * per-page label map. Four pages carried their own before this file existed.
+ * "continuation"` renders as "Continuation": add new enum values to `LABELS`, never a per-page map.
  *
  * A value with no entry falls back to itself, capitalised, which is the right answer for most
  * of them and keeps a new enum value from rendering as a blank.
@@ -125,7 +124,7 @@ export function toneFor(status: string | null | undefined): Tone {
   return STATUS_TONES[status ?? ""] ?? "muted";
 }
 
-/** Trend glyphs. Always rendered beside the word, never instead of it (A4). */
+/** Trend glyphs. Always rendered beside the word, never instead of it. */
 export const TREND_GLYPH: Record<string, string> = {
   improving: "↑",
   declining: "↓",

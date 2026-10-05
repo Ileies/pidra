@@ -11,9 +11,8 @@ import {
 } from "#lib/server/emailAccounts.js";
 
 /**
- * `/settings/email-accounts` is the replacement for hand-editing the gitignored
- * `email-accounts.json`: form actions only, online-only (see `ONLINE_ONLY` in `routes.ts`) since
- * this is live credential management, not something an offline mirror should ever hold a copy of.
+ * `/settings/email-accounts`: live credential management (actions `create`/`update`/`delete`).
+ * Online-only (`ONLINE_ONLY`) since an offline mirror must never hold a copy of credentials.
  */
 
 function accountError(err: unknown) {

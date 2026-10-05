@@ -5,6 +5,9 @@ import { sql } from "#lib/server/postgres.js";
 import { setSourceActive } from "#lib/server/sources.js";
 import { recentDailyScores, type DailyScore } from "#lib/server/sourceScores.js";
 
+// `/sources` data: `source_quality` rows (best 30-day score first) joined in memory with the last
+// `raw_items` delivery and up to 30 daily scores. The `toggle` action (enable/disable) writes
+// straight to Postgres via `$lib/server/sources.ts`, no pipeline server needed. Online-only.
 export interface SourceRow {
   sourceName: string;
   isActive: boolean;

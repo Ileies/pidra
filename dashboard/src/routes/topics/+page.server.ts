@@ -4,9 +4,7 @@ import type { Actions } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { sql } from "#lib/server/postgres.js";
 
-/**
- * Topic curation, online-only. The read side moved to `+page.ts`.
- */
+// Topic curation write (`setStatus`), online-only. The read side is `+page.ts` (mirrored).
 
 const STATUSES = ["active", "dormant", "archived", "resolved"] as const;
 

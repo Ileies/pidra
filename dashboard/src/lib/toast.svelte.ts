@@ -1,10 +1,7 @@
 /**
- * The one toast store (E3).
- *
- * /notes had the only real toast in the app, with the only undo, and four other pages rendered
- * their own inline `form?.error` / `form?.success` block instead. This is where a transient
- * message goes now; inline text stays for field-level validation, where the message has to sit
- * next to the field it is about.
+ * The one toast store (`toasts`), rendered by `Toast.svelte` in the root layout. This is where a
+ * transient message goes; inline text stays for field-level validation, next to its field.
+ * Durations: 6s default, 9s with an undo, `error()` never auto-dismisses.
  */
 
 import { errMessage } from "$pipeline/util/text";
@@ -80,14 +77,10 @@ class ToastStore {
 export const toasts = new ToastStore();
 
 /**
- * Show a form action's result as a toast (E3).
+ * Show a form action's result (`error` or `message`) as a toast.
  *
  * Call inside an `$effect`; it fires once per result object, because `form` only changes
- * identity when an action returns. Six pages each rendered their own coloured banner for this,
- * in four different shapes, and a banner at the top of a long page is not where the reader is
- * looking after pressing a button halfway down it.
- *
- * Field-level validation stays inline, next to the field it is about.
+ * identity when an action returns.
  */
 export function toastFormResult(
   form: { error?: string; message?: string; success?: boolean } | null | undefined,

@@ -10,6 +10,8 @@
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+  // Online-only list of closed questions; actions are the `reopen` / `reprocess` form actions in +page.server.ts.
+  /** Id of the question whose reopen/rerun request is in flight. */
   let busy = $state<string | null>(null);
 
   const LABEL: Record<string, string> = {

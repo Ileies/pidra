@@ -4,8 +4,7 @@ import { error } from "@sveltejs/kit";
 import { parseIds } from "#lib/ids.js";
 import { extractionsFor, mirrorEmpty } from "#lib/offline/repo.js";
 
-/** Client-rendered and local-first. The read side moved off
- *  `+page.server.ts`; see `[date]/+page.ts` for the reasoning, identical here. */
+/** Client-rendered and local-first (reads the mirror), same reasoning as `[date]/+page.ts`. */
 export const ssr = false;
 
 export const load: PageLoad = async ({ params, depends }) => {

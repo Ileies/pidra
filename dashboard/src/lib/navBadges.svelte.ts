@@ -1,12 +1,11 @@
 /**
- * The navbar and tab bar badges (open questions, pending approvals), fetched in the
- * background. They used to be the root layout's load, which every cold
- * start awaited for up to 4 s before the first page could render, offline included. Now nothing
- * waits: the badges render as none until the count arrives.
+ * The navbar and tab bar badges (`GET /api/nav-badges`: unread reports, open questions, run
+ * issues, pending approvals), fetched in the background so nothing waits on them: badges render
+ * as none until the count arrives.
  *
- * Refreshed whenever the page's data reloads - a navigation, or a form action's invalidation on
- * `/skills` or `/questions`, which is exactly when a count can have moved - at most every few
- * seconds and one request at a time. Hidden while offline: a count that cannot be checked is not
+ * `refresh()` is called by the root layout whenever page data reloads (navigation, a form
+ * action's invalidation) and by `useReadReceipt` after the read receipt; it is throttled to once
+ * per 5 s, one request at a time. Hidden while offline: a count that cannot be checked is not
  * shown as if it were current.
  */
 

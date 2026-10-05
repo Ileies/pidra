@@ -6,7 +6,7 @@
 @source "../node_modules/@skeletonlabs/skeleton-svelte";
 
 /* ==========================================================================
-   Fonts (A2)
+   Fonts
 
    Self-hosted, not a CDN: the dashboard runs on the LAN and must not depend on
    an external host to render text. Both faces are variable, so one file covers
@@ -30,7 +30,7 @@
 }
 
 /* ==========================================================================
-   Theme: type scale, fonts, container widths (A2, A3)
+   Theme: type scale, fonts, container widths
    ========================================================================== */
 
 @theme {
@@ -104,7 +104,7 @@
 }
 
 /* ==========================================================================
-   Palette (A4)
+   Palette
 
    Dark by default, light or follow-the-OS by a per-device choice in Settings. Every stop is a
    `light-dark(light, dark)` pair, and the light value is the dark ramp mirrored (50 <-> 950, so
@@ -160,9 +160,8 @@
   --color-surface-900-100: var(--color-surface-100);
   --color-surface-950-50: var(--color-surface-50);
 
-  /* The accent ramps used to stop at four stops each, so every `border-success-700`,
-     `bg-primary-600` and `text-error-400` in the app silently resolved to a cerberus
-     default from a different palette. Full ramps, so a class picks a colour on purpose. */
+  /* Full 50-950 accent ramps, so every `border-success-700` / `bg-primary-600` class resolves to
+     this palette rather than to a cerberus default. */
   --color-primary-50: light-dark(#0f2145, #eaf1fe);
   --color-primary-100: light-dark(#162d58, #d5e3fd);
   --color-primary-200: light-dark(#1e3a6e, #abc7fb);
@@ -222,11 +221,10 @@
 }
 
 /* ==========================================================================
-   Semantic tokens (A1)
+   Semantic tokens
 
    One source for every colour the app names by role. `.report-body` and every
-   hand-written rule below reference these, so a palette change is a change to
-   this block rather than a sweep through twelve pages.
+   hand-written rule below reference these.
    ========================================================================== */
 
 :root {
@@ -323,8 +321,7 @@
 }
 
 @layer base {
-  /* A5: one focus ring for the whole app. Individual components no longer get to
-     remove the outline without providing a replacement. */
+  /* One focus ring for the whole app: a component that removes the outline must provide a replacement. */
   :focus-visible {
     outline: 2px solid var(--app-accent);
     outline-offset: 2px;
@@ -337,7 +334,7 @@
   }
 }
 
-/* A5: motion is decoration. Anything that moves on its own stops here. */
+/* Motion is decoration: anything that moves on its own stops here (Spinner and the loadbar degrade to static). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -406,8 +403,8 @@
   @apply border-surface-700 bg-surface-900 text-surface-300 hover:bg-surface-800;
 }
 
-/* Context Builder (C-something): a jumped-to anchor sitting flush under the fixed header is half
-   hidden by it, so every in-page jump target carries this instead of a one-off inline style. */
+/* Context Builder: a jumped-to anchor sitting flush under the fixed header is half hidden by it,
+   so every in-page jump target carries this (`withHeadingIds` in `searchHighlight.ts` adds it). */
 @utility cb-anchor {
   scroll-margin-top: calc(var(--header-h) + 1rem);
 }
@@ -420,9 +417,8 @@
   @apply bg-warning-500 text-surface-950 rounded-sm;
 }
 
-/* M-3: the minimum touch target. iOS asks for 44x44pt, Material for 48dp; the app's
-   controls were 22-28px and its checkboxes 13px. Below `sm` every control this is on
-   is at least 44px; above it, the desktop size stands. */
+/* The minimum touch target (iOS asks 44x44pt). Below `sm` every control this is on is at least
+   44px; above it, the desktop size stands. `btn` and `chip` include it. */
 @utility tap {
   @media (width < 40rem) {
     min-height: 2.75rem;
@@ -440,10 +436,9 @@
   }
 }
 
-/* M-4: mobile Safari zooms the viewport whenever a focused field computes below 16px,
-   and never zooms back out. Every field in the app was 12px or 14px. 16px below `sm`,
-   the dense 14px above it - the correct fix, rather than `maximum-scale=1`, which
-   would also disable accessibility zoom. */
+/* Mobile Safari zooms the viewport whenever a focused field computes below 16px, and never
+   zooms back out. So 16px below `sm`, the dense 14px above it (not `maximum-scale=1`, which
+   would also disable accessibility zoom). */
 @utility input-base {
   @apply rounded bg-surface-900 border text-surface-100 placeholder-surface-400
          px-3 py-2 sm:py-1.5 text-base sm:text-sm transition-colors;
@@ -457,8 +452,8 @@
   @apply input-base bg-surface-950;
 }
 
-/* A4: badges read as low-contrast because of size and a same-hue border, not because
-   of the colour pair. 12.5px at 500 weight, and the hue always sits next to a word. */
+/* Badge typography (colours come from `Badge.svelte`): 12.5px at 500 weight, since low contrast
+   came from size and a same-hue border, not the colour pair. The hue always sits next to a word. */
 @utility badge {
   font-size: 0.78125rem;
   font-weight: 500;
@@ -468,8 +463,8 @@
   padding-inline: 0.5rem;
 }
 
-/* The top progress bar's sweep (E2). Reduced motion freezes it, which still leaves a
-   visible bar - a stationary marker is still a marker. */
+/* The top progress bar's sweep (root layout). Reduced motion freezes it, which still leaves a
+   visible bar. */
 @keyframes loadbar {
   0% {
     transform: translateX(-100%);

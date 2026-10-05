@@ -1,9 +1,9 @@
 /**
  * Web Push subscription state for this device, held globally.
  *
- * Started once from the root layout so the browser's answer (service worker ready, current
- * subscription) is already in by the time Settings opens. Keeping it in the component instead
- * meant every visit to `/settings` began in "checking" and the switch animated from off to on.
+ * `push.start()` runs once from `startClient` so the browser's answer (service worker ready,
+ * current subscription) is already in by the time Settings opens; `NotifyButton` only renders
+ * `push.state` and calls `toggle()`. Subscriptions are registered through `/api/push/subscribe`.
  */
 
 import { jsonInit } from "#lib/http.js";

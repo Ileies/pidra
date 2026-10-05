@@ -1,4 +1,6 @@
 <script lang="ts">
+  // `/sources`: sortable DataTable of source quality (trust, include rate, sparkline, last delivery)
+  // from `+page.server.ts`; "Details" links to `/sources/[name]`, `toggle` form action enables/disables.
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { focusFrom } from "#lib/assistant/pageContext.js";
   import Page from "#lib/components/Page.svelte";

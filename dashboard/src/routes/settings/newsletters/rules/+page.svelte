@@ -1,4 +1,6 @@
 <script lang="ts">
+  // `/settings/newsletters/rules` (online-only): sender rules, one `SenderRuleRow` each. Actions
+  // `createRule`/`updateRule`/`deleteRule` live in `+page.server.ts`.
   import { enhance } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";

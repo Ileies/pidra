@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Replaces eight one-off centered paragraphs, each with its own padding and colour. */
+  /** The shared "nothing here" block: `title` says why, optional `hint`, children for an action. */
   import type { Snippet } from "svelte";
 
   interface Props {

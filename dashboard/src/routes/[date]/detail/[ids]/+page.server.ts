@@ -6,8 +6,7 @@ import { parseIds, UUID_RE } from "#lib/ids.js";
 import { rateExtraction } from "#lib/server/extractions.js";
 import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
-/** Actions only. The read side moved to `+page.ts`; see `[date]/+page.server.ts`
- *  for why a co-located `load` here would never run for a client-side navigation now. */
+/** Actions only (`rate`, and `deepen`, a model call through the bridge: online only). The read side is `+page.ts`; see `[date]/+page.server.ts`. */
 export const actions: Actions = {
   rate: async ({ request }) => {
     const form = await readForm(request);

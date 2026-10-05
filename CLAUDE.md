@@ -59,6 +59,10 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 
 Never use real personal information in code, comments, or examples - no real email addresses, names, phone numbers, or other PII. Use placeholders like `user@example.com` instead.
 
+## Code comments
+
+Comments are written for Claude readers: every file opens with a 1-3 line role header, and exports carry contract comments for what signatures don't show (invariants, cross-file coupling). Don't restate code, narrate incident history or duplicate `docs/`.
+
 ## Development loop
 
 While iterating on a change, run `bun run check:quick` (or `bun run check --quick` / `-q`) instead of the full `bun run check` - it skips `dashboard/scripts/blackhole/run.ts`, the step that dominates the full check's wall time (~65-70s against well under 4s for everything else combined), so you still get `svelte-check`, contrast, offline-check and component-test feedback without the wait. Reach for it by default whenever you're confident the change in flight can't touch routing, offline behavior, or rendering - most single-file edits qualify. It is never a substitute for the full check right before finishing: the `commit` skill and `bun run deploy` both require the full run regardless.

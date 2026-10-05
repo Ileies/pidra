@@ -1,13 +1,8 @@
 <script lang="ts">
   /**
-   * The audio player for a report. Docked to the bottom of the screen so it stays in reach while
-   * the page scrolls, above the tab bar on a phone.
-   *
-   * The seek bar is cut into one segment per chapter, each as wide as the chapter is long, so the
-   * shape of the briefing is visible: how much is personal, how much news, how much depth. Like
-   * YouTube's chapters, a tap near the edge of a segment snaps to the boundary between chapters,
-   * while holding (or dragging) scrubs freely and seeks exactly where it is released. A tap on a
-   * chapter in the list starts it.
+   * The audio player UI for a report, docked to the bottom (above the tab bar on a phone). Mounted
+   * once in the root layout (logged in only) and driven entirely by the `reportPlayer` singleton
+   * (`player.svelte.ts`); the Play button lives on `/[date]`. The chapter seek bar is SeekBar.svelte.
    */
   import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import ListMusic from "@lucide/svelte/icons/list-music";

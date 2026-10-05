@@ -3,9 +3,10 @@
  * otherwise hard-code one way back. Today that is the detail page behind a delivery: the report
  * links to it, and so do the source pages, feedback and triage.
  *
+ * `record()` is fed by the root layout's `beforeNavigate`; pages read `back`.
  * Kept in memory on purpose. A reload, a new tab or a shared link loses it, and the page then
- * falls back to its default back link, which is what it showed before this existed. The URL
- * stays free of it, so the offline mirror and service worker see one URL per page.
+ * falls back to its default back link. The URL stays free of it, so the offline mirror and
+ * service worker see one URL per page.
  */
 
 import { routeFor } from "#lib/routes.js";

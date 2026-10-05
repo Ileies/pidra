@@ -3,7 +3,7 @@
    * A note's revisions in a sheet instead of inline: an open list inside a card in a column of cards
    * shoved its neighbours around. Each revision is the state *before* a change, shown as a word diff
    * against what the note says now, so "Restore this version" reads as exactly what it will do.
-   * Online-only, as before: a revert replayed later would land on whatever the note has become.
+   * Online-only: a revert replayed later would land on whatever the note has become.
    */
   import { errMessage } from "$pipeline/util/text";
   import { noteHistory, revertRevision, type NoteRevisionRow, type NoteRow } from "#lib/notes/api.js";

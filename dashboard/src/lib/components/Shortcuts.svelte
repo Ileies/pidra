@@ -1,12 +1,8 @@
 <script lang="ts">
   /**
-   * Keyboard shortcuts, and the overlay that documents them (E1).
-   *
-   * This owns the global bindings so there is one place that knows what a key does - the
-   * Ctrl+K collision between search and the assistant was exactly the kind of thing that happens
-   * when two components each claim a key on their own.
-   *
-   * Desktop by nature, which is fine: the phone gets the bottom tab bar instead.
+   * The global keyboard bindings and the `?` overlay listing them. This is the one place that
+   * knows what a key does: add a binding here and in the overlay list below, not in a component.
+   * `g` + letter jumps to a page (letters come from `key` on `ROUTES` entries). Desktop only.
    */
   import { goto } from "$app/navigation";
   import { isTyping } from "#lib/ui/keys.js";

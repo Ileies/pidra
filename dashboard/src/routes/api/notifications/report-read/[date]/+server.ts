@@ -3,6 +3,8 @@ import { error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { acknowledgeNotification, reportNotificationKey } from "#lib/server/notifications.js";
 
+// Read receipt for a report (posted by `useReadReceipt` on reaching the end); clears its unread
+// badge in /api/nav-badges.
 export const POST: RequestHandler = async ({ params }) => {
   if (!isDateKey(params.date)) error(400, "Invalid report date.");
   await acknowledgeNotification(reportNotificationKey(params.date));

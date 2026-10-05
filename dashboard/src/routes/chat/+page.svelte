@@ -19,10 +19,11 @@
    * than scrolling as a document, and `<Page>`'s padding/title handling is built for a document
    * that scrolls as a whole, which this deliberately does not.
    *
-   * Below `lg` the three panes used to stack and each keep its own `overflow-y-auto`, so a phone
-   * got three independently scrolling regions in a box that was also the wrong height (M11).
-   * Now exactly one pane is on screen at a time and the other two are behind a segmented control,
-   * so the transcript gets the whole height instead of whatever is left over.
+   * Below `lg` exactly one pane is on screen at a time (the other two sit behind a segmented
+   * control), so the transcript gets the whole height instead of three nested scrollers.
+   *
+   * Data: `+page.server.ts` reads conversations, the active transcript (`?c=<id>`) and active
+   * corrections from Postgres; online-only. Sending goes through the shared `assistant` state.
    */
 
   type MobileView = "chat" | "conversations" | "corrections";

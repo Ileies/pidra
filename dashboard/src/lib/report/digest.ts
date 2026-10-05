@@ -10,7 +10,7 @@ interface DigestInput {
   openActions: QuickAction[];
 }
 
-/** What the assistant is told about the briefing on screen. */
+/** What the assistant is told about the briefing on screen: the `digest` of `setPageContext` for the `report` surface. */
 export function buildReportDigest(input: DigestInput): string {
   const { date, today, report, newsGroups, pipelineStatus, ingestFailures, openActions } = input;
   return [

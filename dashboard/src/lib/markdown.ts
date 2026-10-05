@@ -1,16 +1,11 @@
 /**
  * Markdown rendering, sanitised. The only place in the dashboard that produces HTML for
- * `{@html}` (X1, C2).
+ * `{@html}`; nothing else may call `marked`.
  *
- * There were four `{@html marked(...)}` call sites and no sanitiser anywhere. `marked` does not
- * sanitise - it passes raw HTML in its input straight through - and the input here is model
- * output derived from ingested newsletter HTML and, for the Context Builder document, from
- * personal mail and Keep notes. That is untrusted content by any reading, whichever end of the
- * pipe it entered from.
- *
- * The allowlist below is what a briefing can legitimately contain. Anything else - a script, an
- * iframe, an event handler, a `javascript:` href, a style attribute - is removed rather than
- * escaped, because a briefing that renders a stray `<script>` as visible text is also wrong.
+ * `marked` does not sanitise, and the input is model output derived from ingested newsletter
+ * HTML and personal mail, so it is untrusted. The allowlist below is what a briefing can
+ * legitimately contain. Anything else (script, iframe, event handler, `javascript:` href, style
+ * attribute) is removed rather than escaped, so a stray `<script>` is not shown as visible text.
  */
 
 import DOMPurify from "isomorphic-dompurify";

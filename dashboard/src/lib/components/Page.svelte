@@ -1,11 +1,7 @@
 <script lang="ts">
   /**
-   * The page frame (B1, M-2).
-   *
-   * Ten pages hand-rolled `<div class="flex flex-1 flex-col min-h-0"><main class="max-w-{2..6}xl
-   * w-full mx-auto px-{6,8} py-{6,8} pb-16">`, picking one of seven container widths and one of
-   * two paddings per page. All of that lives here now, so a page's top-level markup is one
-   * element and the padding is responsive everywhere at once.
+   * The page frame every route wraps itself in. `size` (read|app|form|legal) picks the container
+   * width, padding is responsive; both are defined in `lib/ui/layout.ts`.
    *
    * `bleed` renders full-width above the container, for the one thing that legitimately spans
    * the viewport: the report's stats bar.

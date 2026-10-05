@@ -16,6 +16,8 @@ function scrolledAway(from: Element | null, root: HTMLElement): boolean {
  * Drag a bottom drawer down with a finger to dismiss it. The drawer follows the finger and closes
  * past a distance or a flick; otherwise it springs back. A drag only starts on a downward move that
  * begins with the drawer's content scrolled to the top, so scrolling long content still works.
+ * Usage: `use:swipeToClose={() => close()}` on the drawer node (More sheet, `Sheet`, `SyncSheet`).
+ * `touchmove` is non-passive so it can `preventDefault` once a drag has started.
  */
 export const swipeToClose: Action<HTMLElement, () => void> = (node, onclose) => {
   let close = onclose;

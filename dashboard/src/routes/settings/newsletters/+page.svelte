@@ -1,4 +1,7 @@
 <script lang="ts">
+  // `/settings/newsletters` (online-only): live RSS feed cards, add/edit in one Sheet. Data and the
+  // `createFeed`/`updateFeed`/`deleteFeed` actions are in `+page.server.ts` (`$lib/server/newsletters.ts`).
+  // Sender rules are the child page `rules/`.
   import { enhance } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
   import ConfirmButton from "#lib/components/ConfirmButton.svelte";
@@ -61,8 +64,8 @@
     <input name="url" type="url" required placeholder="https://example.com/feed" aria-label="New feed URL" class="input-base-flush min-w-0 flex-1 font-mono" />
     <button disabled={adding} class="btn btn-sm btn-primary">{adding ? "Adding…" : "Add feed"}</button>
   </form>
-  <!-- A grid, not a single stretched column (M14, 2026-10-01): these cards have a short header
-       and a link, so one column at `app` width left most of the row empty. -->
+  <!-- A grid, not a single stretched column : these cards are short, so one column at
+       `app` width left most of the row empty. -->
   <ul class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 items-start gap-3">
     {#each feeds as feed (feed.sourceName)}
       <Card as="li" class="p-4">

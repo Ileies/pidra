@@ -1,12 +1,11 @@
 import type { Snippet } from "svelte";
 
 /**
- * Column definition for `DataTable` (B2, M-5).
+ * Column definition for `DataTable`.
  *
- * `showAt` is the /entities strategy: the column exists in the table but only appears from that
- * breakpoint up. `card` is the M-5 strategy: below `md` the table becomes a list of cards, and
- * this says what the column is *in* a card. A column can use both - the table hides it on a
- * phone, the card shows it as a labelled row.
+ * `showAt` (`scroll` mode): the column only appears in the table from that breakpoint up.
+ * `card` (`cards` mode): below `md` the table becomes a list of cards, and this says what the
+ * column is *in* a card. A column can use both. Give a cell either `value` or a `cell` snippet.
  */
 export interface Column<Row> {
   /** Stable key, used for the `{#each}` and for nothing else. */

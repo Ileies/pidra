@@ -4,11 +4,9 @@ import { UUID_RE } from "#lib/ids.js";
 import { entity, mirrorEmpty, reportDates } from "#lib/offline/repo.js";
 
 /**
- * Entity detail (D2), client-rendered and local-first.
- *
- * /entities was a flat table with no detail page, so `entity_appearances` - the timeline of when
- * an entity actually showed up in a report - had no UI at all. This is also the natural target
- * for a row tap on a phone, where most of the table's columns are hidden anyway.
+ * `/entities/[id]`: mirrored and client-only. Returns the entity plus its `entity_appearances`
+ * timeline, each flagged `hasReport` when that day is in the mirror. The Watch write is the `watch`
+ * action in `+page.server.ts` (online-only).
  */
 export const ssr = false;
 

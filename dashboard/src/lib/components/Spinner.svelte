@@ -1,9 +1,7 @@
 <script lang="ts">
   /**
-   * The one spinner. Replaces the "loading…" text swaps.
-   *
-   * `prefers-reduced-motion` stops the spin globally (A5), so this degrades to a static ring
-   * rather than disappearing - a still marker is still a marker.
+   * The one spinner. `prefers-reduced-motion` stops the spin globally (app.css), so it degrades
+   * to a static ring rather than disappearing.
    */
   interface Props {
     /** Matches the surrounding text size by default. */

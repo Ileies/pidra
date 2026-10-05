@@ -4,7 +4,7 @@ import { fail } from "@sveltejs/kit";
 import { bridgeAction, jsonPost } from "#lib/server/bridge.js";
 
 /**
- * The sender directory's one write (D7). The read side moved to `+page.ts`.
+ * The sender directory's one write (`update`). The read side is `+page.ts`.
  *
  * Editing goes through the bridge's correction endpoint rather than writing the row here: a
  * contact row is harvested context, so the same rules apply as to the assistant's own edits -

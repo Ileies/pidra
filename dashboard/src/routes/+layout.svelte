@@ -1,4 +1,7 @@
 <script lang="ts">
+  // Root shell: Navbar/ServerStatus/TabBar, FirstSync (empty mirror), and singletons that outlive
+  // navigation (Assistant, CommandPalette, ReportPlayer, SyncSheet, Toast, Shortcuts). The chrome is
+  // gated on `loggedIn`; `startClient` (`$lib/startClient.ts`) boots the client services (pwa, theme, offline).
   import "../app.css";
   import { browser } from "$app/env";
   import { page } from "$app/state";
@@ -64,16 +67,15 @@
 
   // The chat owns the viewport and scrolls inside its own panes; every other page scrolls whole.
   // `dvh`, not `vh`: mobile browser chrome makes 100vh taller than the visible area, which put
-  // the chat composer under the URL bar (M6).
+  // the chat composer under the URL bar.
   const fullHeight = $derived(page.route.id === "/chat");
 
   let moreOpen = $state(false);
   let searchOpen = $state(false);
 
   /**
-   * Publish the real header height as `--header-h` (M-6, X6). Every sticky element references
-   * it instead of hard-coding `top-14`, which was a desktop-only 56px and left the notes bulk
-   * bar hidden underneath the wrapped mobile header.
+   * Publish the real header height as `--header-h`. Every sticky element references it instead of
+   * a hard-coded `top-14`, which is wrong when the mobile header wraps.
    * Re-runs when `loggedIn` flips, because the header only exists while the logged-in chrome does.
    */
   const publishHeaderHeight: Attachment<HTMLDivElement> = (shell) => {
@@ -90,8 +92,7 @@
   };
 </script>
 
-<!-- Navbar and shell live here, above the swapped-out page, so navigating never unmounts the
-     header. Mounting it per page made every click rebuild the button row for a frame. -->
+<!-- Navbar lives here, above the swapped-out page, so navigating never unmounts the header. -->
 <div {@attach publishHeaderHeight} class="flex flex-col {fullHeight ? 'h-dvh' : 'min-h-dvh'}">
   <!-- Only a server load is worth a bar: a mirrored page renders from IndexedDB in milliseconds,
        and the bar only flashed there. Its first-sync wait has its own screen. -->
@@ -126,9 +127,8 @@
   <TabBar open={moreOpen} onOpenChange={(open) => (moreOpen = open)} />
 {/if}
 
-<!-- One instance each for the whole app, so a turn and an undo offer both survive navigation.
-     Assistant and the command palette are gated the same as the navbar: both reach account data
-     (a chat turn, the route registry) that a logged-out visitor should not have. -->
+<!-- One instance each for the whole app, so a turn survives navigation. Gated like the navbar:
+     both reach account data that a logged-out visitor should not have. -->
 {#if loggedIn}
   <Assistant />
   <CommandPalette open={searchOpen} onOpenChange={(open) => (searchOpen = open)} />

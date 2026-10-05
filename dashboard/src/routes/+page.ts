@@ -6,9 +6,9 @@ import { mirrorEmpty, reportDates } from "#lib/offline/repo.js";
 /**
  * `/` never waits. Today when today is mirrored, otherwise the newest
  * mirrored date: offline overnight today's briefing was never fetched, and an empty "no
- * report yet" page when yesterday's is in the mirror is the wrong answer. The first version pulled
- * the whole snapshot here before deciding, which is half of what made a cold start slow. If a
- * background sync brings today's report while yesterday's is open, that page offers it.
+ * report yet" page when yesterday's is in the mirror is the wrong answer. It must not pull the
+ * snapshot before deciding (slow cold start). If a background sync brings today's report while
+ * yesterday's is open, that page offers it. Redirects to `/[date]`.
  *
  * An empty mirror is the one case with nothing to decide from. The load then returns, the layout
  * shows the first-sync state, and the sync that fills the mirror re-runs this load (`mirror:status`),

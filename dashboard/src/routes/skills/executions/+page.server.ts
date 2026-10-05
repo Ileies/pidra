@@ -2,6 +2,7 @@ import type { PageServerLoad } from "./$types";
 import { sql } from "#lib/server/postgres.js";
 import { parseJsonb } from "#lib/jsonb.js";
 
+// `/skills/executions` (online-only): the last 100 non-pending `skill_executions` rows, newest first.
 interface SkillExecution {
   id: string;
   run_date: string;

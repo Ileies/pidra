@@ -9,8 +9,8 @@ import type { PageContext, Surface } from "#lib/assistant/pageContext.js";
 import { surfaceForPath } from "#lib/routes.js";
 
 /**
- * The floating assistant's client state. Lives in the root layout, so it survives navigation
- * between pages: a turn started on /notes keeps streaming while the user walks to the report.
+ * Singleton `assistant`, shared by the floating widget and /chat (both render `Panel.svelte`). Module state,
+ * so a turn started on /notes keeps streaming across navigation. Client only; a turn is one SSE stream from `POST /api/assistant/chat`.
  */
 
 export interface UiToolCall {
@@ -72,7 +72,7 @@ class Assistant {
   surface = $derived<Surface>(this.context.surface);
   info = $derived<SurfaceInfo | null>(this.surfaces?.[this.surface] ?? null);
 
-  /** Called once from the layout, on the client only. */
+  /** Reads open/draft from localStorage; called once on the client by `startClient.ts`. */
   restore() {
     this.open = readStored(STORAGE_OPEN) === "1";
     this.draft = readStored(STORAGE_DRAFT) ?? "";
@@ -83,7 +83,7 @@ class Assistant {
     this.context = context;
   }
 
-  /** Fallback for a page that does not declare its own context. */
+  /** Fallback for a page that does not declare its own context (called by `Assistant.svelte` from the pathname). */
   setRoute(pathname: string) {
     if (this.context.route === pathname) return;
     this.context = { surface: surfaceForPath(pathname), route: pathname };
@@ -223,7 +223,7 @@ class Assistant {
     }
   }
 
-  /** Server-sent events, one JSON payload per `data:` line. */
+  /** Parses the SSE body: frames split on a blank line, one JSON payload per `data:` line. Event types (see `#handle`): conversation (id), text (full text so far, replaces), tool_call, tool_result, done (`touched` ids), error. */
   async #consume(body: ReadableStream<Uint8Array>, reply: UiMessage) {
     const reader = body.getReader();
     const decoder = new TextDecoder();

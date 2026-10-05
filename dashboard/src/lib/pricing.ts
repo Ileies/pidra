@@ -1,8 +1,5 @@
 /**
- * Token cost, in one place.
- *
- * The Context Builder page used to compute its cost with $3.00 / $15.00 per Mtok - Sonnet's
- * prices - applied to OpenAI token counts, and that was the only cost figure in the app.
+ * Token cost, in one place (`costUsd`; format the result with `fmtCost`).
  *
  * Prices are configuration, not a constant: they change, and guessing one produces a number that
  * looks authoritative and is not. Both come from the shared root `.env`, and when either is

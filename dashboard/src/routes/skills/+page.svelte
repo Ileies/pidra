@@ -1,10 +1,9 @@
 <script lang="ts">
   /**
-   * The skill registry and the execution log.
-   *
-   * Skills are code-defined and not editable from here - the registry is a read-only catalog plus
-   * one switch per skill for turning it off. No expand, no form: flipping the switch submits
-   * immediately.
+   * `/skills` (online-only): the pending high-risk approval queue (`?/resolve`, runs via the bridge)
+   * above the registry. Skills are code-defined; the registry is read-only apart from one enable
+   * switch per skill (`?/update`, submits on flip). Data from `+page.server.ts`, which falls back to
+   * `catalog.ts` when the bridge is down. Recent history is `/skills/executions`.
    */
   import { enhance } from "$app/forms";
   import Page from "#lib/components/Page.svelte";
@@ -48,9 +47,8 @@
 </script>
 
 <Page title="Skills" size="app" class="flex flex-col gap-8">
-  <!-- The approval queue (D4). A high-risk call is inserted as `pending` and waits for the
-       owner; until now nothing on this page could complete that decision, so the documented
-       workflow had no UI. It leads the page because it is the one thing here that blocks. -->
+  <!-- Approval queue: a high-risk call is inserted as `pending` and waits for the owner. It leads
+       the page because it is the one thing here that blocks. -->
   {#if data.pending.length > 0}
     <section class="flex flex-col gap-3">
       <h2 class="text-lg font-semibold text-warning-400">

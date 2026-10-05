@@ -4,6 +4,8 @@ import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { authManagerDenied, rpConfig, takeChallenge, addCredential } from "#lib/server/auth.js";
 import { readJson } from "#lib/server/form.js";
 
+// Passkey registration step 2: redeems the `nonce` challenge from `register/challenge` (single use),
+// verifies the attestation and stores the credential.
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   const denied = authManagerDenied({ locals, cookies });
   if (denied) return denied;

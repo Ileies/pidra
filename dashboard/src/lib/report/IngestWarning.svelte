@@ -1,15 +1,10 @@
 <script lang="ts">
   /**
-   * "A mailbox was never reached on this run."
-   *
-   * The failure this exists for: Phase 1 does not abort when one source dies - a briefing is worth
-   * more partial than absent - so a run with two dead mailboxes still writes a report and still
-   * reports `completed`. Every signal on the page then agrees that the morning went fine, and the
-   * mail that never arrived looks exactly like mail that was never sent. On 2026-09-14 and again
-   * on 2026-09-18 an account failed to authenticate and nothing on the briefing said so.
-   *
-   * So it sits above the report rather than beside it, and it says which account and how it failed,
-   * because "could not connect" and "password rejected" send the reader to different places.
+   * "A mailbox was never reached on this run." Phase 1 carries on when one source dies, so a run
+   * with dead mailboxes still reports `completed` and mail that never arrived looks like mail that
+   * was never sent. Hence this sits above the report, and names the account and how it failed
+   * ("could not connect" vs "password rejected" send the reader to different places).
+   * `failures` is the sanitised ingest digest (source and kind, no text) from the mirror.
    */
   import Card from "#lib/components/Card.svelte";
   import { failureLabel, isMailbox, isNewsDesk, type IngestFailure, type IngestFailureKind } from "#lib/pipeline.js";

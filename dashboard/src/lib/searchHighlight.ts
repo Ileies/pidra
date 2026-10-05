@@ -1,3 +1,6 @@
+// Helpers for the Context Builder document view (`routes/context-builder/+page.svelte`, DocSearch,
+// QuickLinks): operate on HTML already produced by `renderMarkdown()`.
+
 export interface DocHeading {
   id: string;
   title: string;

@@ -1,6 +1,9 @@
 import { costUsd, PRICING_CONFIGURED } from "#lib/pricing.js";
 import type { GroupTotal, StepTotal, Usage } from "#lib/runTrace.js";
 
+// Usage rollups for `/runs/[id]` on top of `runTrace.ts` types. Weights are dollars when pricing is
+// configured (`pricing.ts`), tokens otherwise, so bars and sorting work either way.
+
 /** What a share is a share *of*: dollars when priced, tokens otherwise. */
 export function weight(tokensIn: number, tokensOut: number): number {
   return PRICING_CONFIGURED ? (costUsd(tokensIn, tokensOut) ?? 0) : tokensIn + tokensOut;

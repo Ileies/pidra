@@ -25,6 +25,12 @@
 
   let { data }: { data: PageData } = $props();
 
+  // /notes: masonry of note cards. Data is the offline mirror (`+page.ts`), writes go through
+  // `#lib/notes/api.js` (online, or queued as outbox intents while offline). Composes NotesToolbar
+  // (search/scope/sort/view chips), NoteCard, NoteEditor (single create/edit surface), NoteHistory
+  // (online-only modal), BulkBar; draft and selection state live in `useNoteDrafts` / `useNoteSelection`.
+  // Behaviour spec: docs/dashboard.md "/notes".
+
   // --- filters: applied here, kept in the URL so a view is shareable and survives a reload ---
 
   const SORTS = ["newest", "oldest", "edited"] as const;

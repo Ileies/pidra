@@ -1,4 +1,6 @@
 <script lang="ts">
+  // `/entities`: mirrored (offline-capable) filterable DataTable fed by `+page.ts`; status/type/query
+  // filters live in the URL, rows link to `/entities/[id]`.
   import { beforeNavigate, goto } from "$app/navigation";
   import { page } from "$app/state";
   import { setPageContext } from "#lib/assistant/state.svelte.js";

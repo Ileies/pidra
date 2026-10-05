@@ -1,14 +1,10 @@
 <script lang="ts">
   /**
-   * The mobile bottom bar and its More sheet (M-1, M-7).
+   * The mobile bottom bar and its More sheet. Destinations are the `tab` entries of `ROUTES`
+   * (Report, Notes, Chat) plus More, each a full-height target (44px minimum). Chat being a tab
+   * is why the floating assistant launcher is hidden on phones.
    *
-   * Four destinations - Report, Notes, Chat, More - each a full-height target, which makes this
-   * the first thing in the app to satisfy the 44px minimum. Chat being a tab is also what
-   * removes the floating launcher below `lg`: the panel already took the whole screen there, so
-   * the button bought nothing and collided with the toast and the home indicator.
-   *
-   * `h-14` plus the safe-area inset, so the bar sits above the iOS home indicator rather than
-   * under it.
+   * `h-14` plus the safe-area inset, so the bar sits above the iOS home indicator.
    */
   import { page } from "$app/state";
   import { afterNavigate } from "$app/navigation";

@@ -1,12 +1,9 @@
 <script lang="ts">
   /**
-   * The News section: what happened since the last briefing, found by the news desks.
-   *
-   * It sits between the two older sections: what needs acting on, then what happened, then the
-   * newsletters' depth. Each group is a heading the editor wrote (Top stories, the home area, one
-   * per field, Talk of the day, Something different). An entry carries its source links inline -
-   * attached by the pipeline from the checked sources, never written by the model - and expands
-   * into the stories behind it and can be rated, like every other entry.
+   * The News section (written by the news desks, `src/news/`), rendered between Section 2 and the
+   * briefing. Each group is a heading the editor wrote; each entry is a ReportEntry whose source
+   * links were attached by the pipeline, never written by the model. Groups get the jump ids
+   * `news-N` (see `domainTargets` in `view.ts`). Renders nothing without groups or desk failures.
    */
   import ReportEntry from "#lib/report/ReportEntry.svelte";
   import { failureLabel, isNewsDesk, type IngestFailure } from "#lib/pipeline.js";
@@ -23,11 +20,7 @@
 
   let { groups, date, ratings, onRate, failures }: Props = $props();
 
-  /**
-   * Said here as well as above the briefing. For a reader whose only news source this is, a
-   * missing desk has to be visible where the news is read, or an empty home heading reads as a
-   * quiet day in the city.
-   */
+  /** Repeated here (IngestWarning also shows it): a missing desk must be visible where the news is read, or it reads as a quiet day. */
   const missing = $derived(failures.filter(isNewsDesk));
 </script>
 

@@ -1,4 +1,7 @@
 <script lang="ts">
+  // `/login`: passkey first (`/api/auth/webauthn/*`), PIN as the fallback step (`/api/auth/pin/verify`).
+  // On success navigates to the `?redirect=` target. Online-only; `+page.server.ts` sends a
+  // credential-less environment to `/setup`.
   import { jsonInit } from "#lib/http.js";
   import { errMessage } from "$pipeline/util/text";
   import { page } from "$app/state";

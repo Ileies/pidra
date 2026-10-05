@@ -1,15 +1,9 @@
 <script lang="ts">
   /**
-   * One entry of the briefing: the prose and the expansion, which holds the rating controls (C4, C5).
-   *
-   * Tapping an entry expands its extraction cards in place; it used to navigate to
-   * `/[date]/detail/[ids]`, which lost the reader's place in a report several screens long. The
-   * chevron beside the prose says the entry opens; the deep link stays as the shareable form,
-   * offered inside the expansion.
-   *
-   * The cards come from the mirror, which holds every extraction a mirrored
-   * report cites, so they open in the same frame online or not. This used to be a request per
-   * tap, which offline meant a spinner and then an error under a report that was otherwise fine.
+   * One entry of the briefing: prose plus an in-place expansion (ExtractionCard list, RateButtons,
+   * link to the shareable `/[date]/detail/[ids]` page). Used by `/[date]` and NewsSection.
+   * Cards are read from the offline mirror (`extractionsFor`), so expanding works offline.
+   * Rating targets the entry's first ref id; `ratings` / `onRate` are owned by the page.
    */
   import { extractionsFor, type MirroredExtraction } from "#lib/offline/repo.js";
   import ExtractionCard from "#lib/report/ExtractionCard.svelte";
@@ -66,10 +60,8 @@
 </script>
 
 <div class="group flex flex-col gap-2 {accent ? `border-l-2 pl-3 ${accent}` : ''}">
-  <!-- The entry is the control: there is no button to find or to miss with a thumb. A chevron
-       at the end of the prose (`.entry-prose` in app.css) says it opens, the tint says it is
-       pressable, and the hint above the report says it once. `role="group"` rather than "button"
-       because the prose holds links, which a button would hide from a screen reader. -->
+  <!-- The entry is the control (no button). The chevron is `.entry-prose` in app.css. `role="group"`
+       rather than "button" because the prose holds links, which a button would hide from a screen reader. -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div
     role="group"

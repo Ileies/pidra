@@ -11,8 +11,9 @@ import type { StepRow } from "#lib/runTrace.js";
  *
  * Runs from before 2026-10-01 have no step rows: the page then shows what `pipeline_runs` and the
  * report hold (total time, status, token counts) and says so, instead of drawing an empty graph.
+ * Online-only. `mapRun`/`runColumns` come from `$lib/server/runs.ts`; the page builds the span tree
+ * with `$lib/runTrace.ts`.
  */
-
 
 export const load: PageServerLoad = async ({ params }) => {
   if (!isUuid(params.id)) error(404, "No such run");

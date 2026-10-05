@@ -1,11 +1,9 @@
 <script lang="ts">
   /**
-   * The two-step confirm, in one place (B2).
-   *
-   * /sources and /sources/[name] each carried their own copy: a trigger, an optional reason
-   * field, a Confirm and a Cancel, all `px-2.5 py-1` and laid out in a row that does not fit a
-   * phone. Here the armed state stacks full-width below `sm` (M-3) and every control is a real
-   * target.
+   * The two-step confirm: a trigger, an optional reason field, Confirm and Cancel, submitted as a
+   * form POST to `action` through `enhance`. The armed state stacks full-width below `sm` so
+   * every control is a real tap target on a phone. Used by /sources, /sources/[name], the
+   * settings pages and the assistant's ConversationList.
    */
   import Trash from "@lucide/svelte/icons/trash";
   import { enhance } from "$app/forms";

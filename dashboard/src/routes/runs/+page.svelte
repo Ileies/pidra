@@ -1,4 +1,7 @@
 <script lang="ts">
+  // `/runs`: run history with duration and cost trends (Sparkline) and an expandable per-attempt
+  // error log per row. Data from `+page.server.ts` (online-only); each row links to `/runs/[id]`.
+  // "Mark reviewed" is the `reviewRun` form action. Cost via `$lib/pricing.ts`.
   import Page from "#lib/components/Page.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";

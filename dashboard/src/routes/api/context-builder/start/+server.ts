@@ -1,6 +1,8 @@
 import type { RequestHandler } from "./$types";
 import { startRun, getStatus } from "#lib/server/contextBuilder.js";
 
+// Called by `useContextRun` (lib/contextBuilder). Body `{ mode?: "full" | "update" }`; anything
+// else means "let the builder pick". 409 while a run is already in progress.
 export const POST: RequestHandler = async ({ request }) => {
   const status = await getStatus();
   if (status.running) {

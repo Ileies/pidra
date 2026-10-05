@@ -13,11 +13,10 @@ export interface StepAttempt {
 }
 
 /**
- * How a source failed. A closed vocabulary on purpose, and the reason this is a classifier rather
- * than a pass-through: `step_errors` is raw text from whatever threw, and the plan keeps it off the
- * phone entirely because an attempt stack can quote raw source content - the
- * 2026-09-11 run recorded a failed `INSERT INTO contacts` with its values inline. Reducing a
- * message to one of these four words carries the fact the reader needs without carrying the text.
+ * How a source failed. A closed vocabulary on purpose: `step_errors` is raw text from whatever
+ * threw and an attempt stack can quote raw source content (a failed `INSERT INTO contacts` once
+ * recorded its values inline), so it stays off the phone. Reducing a message to one of these
+ * words carries the fact the reader needs without the text (see `withoutDetail`).
  */
 export type IngestFailureKind = "timeout" | "auth" | "connection" | "config" | "unknown";
 

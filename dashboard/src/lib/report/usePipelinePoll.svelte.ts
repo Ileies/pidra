@@ -5,6 +5,8 @@ import { sync } from "#lib/offline/sync.js";
 /**
  * Follows a running pipeline while `enabled`: the report reaches the page through the mirror like
  * any other, so once the run ends a forced sync re-runs the load. Call during component init.
+ * Polls `GET /api/pipeline/status?date=` every 5 s (online only) and stops itself when the report
+ * exists or the run failed. `polling` / `liveStatus` are reactive getters for NoReportState.
  */
 export function usePipelinePoll(args: () => { date: string; enabled: boolean }) {
   let polling = $state(false);

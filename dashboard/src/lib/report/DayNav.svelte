@@ -1,13 +1,8 @@
 <script lang="ts">
   /**
-   * Day stepping and the archive (C8, M-1).
-   *
-   * The steppers used to live in the navbar, where they were two of the twelve controls that
-   * made the mobile header six rows tall, and they were only ever on this one route. They are
-   * here now, as two large targets beside the date, with the archive behind the date itself.
-   *
-   * The archive list is read when the picker opens, from the mirror: it is
-   * the list of reports this device can actually open, online or not, and it costs no request.
+   * Day stepping (prev/next props come from `/[date]/+page.ts`; Left/Right arrow keys step too) and
+   * the archive picker behind the date. The archive list is read from the mirror on every open, so
+   * it is exactly the reports this device can open, online or not, with no request.
    */
   import { goto } from "$app/navigation";
   import { isTyping } from "#lib/ui/keys.js";
@@ -35,7 +30,7 @@
     if (open) days = await archive(null);
   }
 
-  /** The left and right arrow keys step days, which is the one keyboard shortcut this page really wants (E1). */
+  /** Left/Right arrows step days, unless typing or a modifier is held. */
   function onKeydown(event: KeyboardEvent) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (isTyping(event.target)) return;

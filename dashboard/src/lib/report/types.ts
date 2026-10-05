@@ -95,7 +95,7 @@ export const ACTION_META: Record<ActionPreview["kind"], { verb: string; done: st
   complete_todo: { verb: "Mark done", done: "Marked done" },
 };
 
-/** Display order and presentation for Section 2's urgency groups (C3). */
+/** Presentation for Section 2's urgency groups; `tone` is a Badge tone, `accent` a ReportEntry left-border class. */
 export const URGENCY_META: Record<Urgency, { label: string; accent: string; tone: "error" | "warning" | "muted" | "neutral" }> = {
   critical: { label: "Critical", accent: "border-l-error-500", tone: "error" },
   high: { label: "High priority", accent: "border-l-warning-500", tone: "warning" },

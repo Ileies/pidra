@@ -1,13 +1,9 @@
 /**
- * Every formatter in the dashboard.
+ * Every formatter in the dashboard (dates, numbers, durations, cost): never format inline in a
+ * page. Every function returns `EMPTY` for null/undefined/unparseable input.
  *
- * There were sixteen local ones across eight files - `fmtDate` four times with four different
- * option sets, plus `fmtDay`, `fmtTs` twice, `fmtNum` twice, `fmtScore` twice, `fmtPct` twice,
- * `fmtCost` and `fmtElapsed`. A date rendered differently depending on which page you were on.
- *
- * Locale is `en-GB` throughout, matching the English UI: day-month-year and a 24-hour clock, which is the
- * order the German output already used, without German month names. `sv-SE` survives in `isoDay`
- * only, where it is a trick for getting a local ISO date and not a locale choice.
+ * Locale is `en-GB` throughout (day-month-year, 24-hour clock). `sv-SE` is used in `isoDay`
+ * only, as a trick for getting a local ISO date and not a locale choice.
  */
 
 import { isDateKey } from "$pipeline/util/ids";
@@ -171,9 +167,7 @@ export function fmtElapsed(since: DateInput, until?: DateInput): string {
 
 /**
  * "$0.412". Takes dollars, not tokens: `costUsd()` in `#lib/pricing.js` is what turns token counts
- * into a figure, and it returns null when no price is configured. The old inline version
- * multiplied OpenAI token counts by Sonnet's $3/$15 per Mtok, which made the one cost
- * number in the app wrong.
+ * into a figure, and it returns null when no price is configured.
  */
 export function fmtCost(usd: number | null | undefined): string {
   if (usd == null) return EMPTY;

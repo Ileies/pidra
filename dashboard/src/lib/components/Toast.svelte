@@ -4,8 +4,8 @@
    * what makes an undo offer trustworthy.
    *
    * Position: above the mobile tab bar and above the safe area, and left-aligned rather than
-   * centred, because a centred toast at the bottom of a phone sits exactly where the thumb is
-   * (M7). From `sm` up it is a compact bottom-left card instead of full width, clear of the
+   * centred, because a centred toast at the bottom of a phone sits exactly where the thumb is.
+   * From `sm` up it is a compact bottom-left card instead of full width, clear of the
    * floating assistant on the right; only the bottom offset waits for `lg`, when the tab bar goes.
    */
   import { toasts } from "#lib/toast.svelte.js";

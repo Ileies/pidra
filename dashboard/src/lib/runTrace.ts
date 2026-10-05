@@ -1,6 +1,7 @@
 /**
- * Pure helpers for the run breakdown page: the span tree, usage rollups, labels and groups, and
- * the compressed time scale. Kept free of Svelte and of `$app` imports so they can be tested alone.
+ * Pure helpers for the run breakdown page (`/runs/[id]`; rows come from `pipeline_run_steps`):
+ * the span tree, usage rollups, labels and groups, and the compressed time scale. Step ids in
+ * `groupOf`/`STEP_LABELS` must match what the pipeline records. Kept free of Svelte and of `$app` imports so they can be tested alone.
  *
  * `pipeline_run_steps` stores counters as per-span *self* values (what that span's own code
  * recorded), so a parent's total is its self plus every descendant's. The root "run" span holds
@@ -275,7 +276,7 @@ export interface StepTotal extends Usage {
   wallMs: number;
 }
 
-/** Totals per step id across attempts, own usage plus descendants', for the table. */
+/** Totals per step id across attempts, each span's own (self) usage only, for the table. */
 export function stepTotals(tree: RunTree): StepTotal[] {
   const byStep = new Map<string, StepTotal>();
   for (const node of tree.spans) {

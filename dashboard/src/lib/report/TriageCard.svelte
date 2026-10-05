@@ -1,11 +1,9 @@
 <script lang="ts">
   /**
-   * One ingested mail on the triage view, with the verdict on every item extracted from it.
-   *
-   * The card's job is to make the sum visible, not just the result. "Below the bar" on its own
-   * invites the reader to argue with a number they cannot see; `3 x 0.90 trust + 0.30 = 3.00,
-   * needed 3` tells them which of the three inputs to go and change - the extraction prompt, the
-   * source's trust score, or the threshold.
+   * One ingested mail on `/[date]/triage`, with the verdict on every item extracted from it. It
+   * shows the gate's arithmetic (`3 x 0.90 trust + 0.30 = 3.00, needed 3`, see `sum()`), not just
+   * "below the bar", so the reader can tell whether the prompt, the trust score or the threshold
+   * is the thing to change. `OUTCOME` must cover every `Outcome` in `$lib/triage/types.ts`.
    */
   import Badge from "#lib/components/Badge.svelte";
   import Card from "#lib/components/Card.svelte";

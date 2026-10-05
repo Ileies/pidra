@@ -1,6 +1,6 @@
 # TEST_PLAN - closing the test gap
 
-Status (2026-10-05): Phases 1 and 2 (except 2.2) committed, Phase 4 (harness and the four stores) committed, Phases 3 and 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
+Status (2026-10-05): Phases 1 and 2 committed, Phase 4 (harness and the four stores) committed, Phases 3 and 5 not started (see "Progress and what is left" at the end). Delete this file when the last phase lands (open leftovers move to `docs/todo/`).
 
 Source: a coverage audit on 2026-10-05. Counts below were measured then: `bun test ./tests` runs 213 tests in 22 files, all passing.
 
@@ -137,7 +137,7 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 
 - **Phase 2, all six items written and passing and committed:**
   - 2.1 `tests/long-term-context.test.ts` (`pickSections`, `loadLongTermContext` fallback past a patch document, legacy archive path).
-  - 2.2 NOT done: the context-builder output verification in `context-builder/phases/synthesize.ts` is still untested (needs the verification predicate extracted into a pure function first, as its own commit).
+  - 2.2 `tests/context-builder-verified-document.test.ts`: the patch-then-rebuild-then-throw flow was extracted from `phases/synthesize.ts` into `phases/verified-document.ts` (`buildVerifiedDocument`, own commit); a good patch is kept, a malformed one is rebuilt in full, a rebuild that still fails throws.
   - 2.3 `tests/brave.test.ts` (30/day cap with a strict `<`, UTC rollover, every retry reserves, fail closed, 429 wait).
   - 2.4 `tests/execute-skill.test.ts` (gate order, audit rows, confirm/reject re-checks).
   - 2.5 `tests/openai-rules.test.ts` (store:false, flex, no temperature/max_tokens, retry policy, speech exception).
@@ -161,8 +161,7 @@ Written 2026-10-05, mid-session, so a fresh context can pick up.
 - **Blackhole under load:** with the machine busy (load average above 8) a `navigate while believed online` step can miss its 4000 ms budget by a few ms. Not a code defect; rerun when the machine is quiet.
 - **Commits:** everything above is committed and the temporary worktrees are gone. The standing rule stays: no test-work commit without a passing full `bun run check`. Do not stage other sessions' files.
 - **Then, in this order:**
-  1. Phase 2.2: extract the verification predicate in `context-builder/phases/synthesize.ts` into a pure function (its own commit), then test it.
-  2. Phase 3 (3.1 to 3.7): `actions/propose/matching.ts` and `check.ts`, `questions/reconcile.ts`, phase 4/5 parsing, `news/research.ts` + `run.ts`, `ingest/google.ts` + `imap.ts`, `ai/surfaces.ts`.
-  3. Phase 4 leftovers worth a `tests-db` file: schema constraints rejecting bad rows (`user_settings_content_language_code`, `contacts_identifier_email_like`), the Brave quota upsert (`lt(calls, 30)`) against real SQL, `apply-plan.ts` (the pipeline's guarded `status = 'open'` writes), and `context-builder/output/db-writer.ts` idempotence (Phase 5.1).
-  4. Phase 5: context-builder tests and the dashboard server-route tests (69 files).
+  1. Phase 3 (3.1 to 3.7): `actions/propose/matching.ts` and `check.ts`, `questions/reconcile.ts`, phase 4/5 parsing, `news/research.ts` + `run.ts`, `ingest/google.ts` + `imap.ts`, `ai/surfaces.ts`.
+  2. Phase 4 leftovers worth a `tests-db` file: schema constraints rejecting bad rows (`user_settings_content_language_code`, `contacts_identifier_email_like`), the Brave quota upsert (`lt(calls, 30)`) against real SQL, `apply-plan.ts` (the pipeline's guarded `status = 'open'` writes), and `context-builder/output/db-writer.ts` idempotence (Phase 5.1).
+  3. Phase 5: context-builder tests and the dashboard server-route tests (69 files).
   Each store test file can reuse the pattern in `tests-db/*-store.test.ts`: `useTestDatabase()` first, dynamic imports after, `truncate` in `beforeEach`, `mock.module` only for the model, network and skill gate.

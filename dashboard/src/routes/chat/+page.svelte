@@ -5,7 +5,6 @@
   import ConversationList from "#lib/assistant/ConversationList.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
   import CorrectionsSidebar from "#lib/assistant/CorrectionsSidebar.svelte";
-  import Segmented from "#lib/components/Segmented.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -19,14 +18,15 @@
    * than scrolling as a document, and `<Page>`'s padding/title handling is built for a document
    * that scrolls as a whole, which this deliberately does not.
    *
-   * Below `lg` exactly one pane is on screen at a time (the other two sit behind a segmented
-   * control), so the transcript gets the whole height instead of three nested scrollers.
+   * Below `lg` exactly one pane is on screen at a time (the other sits behind a segmented
+   * control), so the transcript gets the whole height instead of nested scrollers. Corrections
+   * are a collapsed section under the conversation list there.
    *
    * Data: `+page.server.ts` reads conversations, the active transcript (`?c=<id>`) and active
    * corrections from Postgres; online-only. Sending goes through the shared `assistant` state.
    */
 
-  type MobileView = "chat" | "conversations" | "corrections";
+  type MobileView = "chat" | "conversations";
   let view = $state<MobileView>("chat");
 
   // Hydrate the shared state from whichever conversation the URL selects. Only `data` is tracked:
@@ -87,11 +87,6 @@
     goto("/chat", { invalidateAll: true });
   }
 
-  const views = $derived<{ key: MobileView; label: string }[]>([
-    { key: "conversations", label: "Chats" },
-    { key: "chat", label: "Transcript" },
-    { key: "corrections", label: `Corrections${data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}` },
-  ]);
 </script>
 
 <svelte:head>
@@ -104,7 +99,12 @@
        padding so the transcript can use the full width; the rows that are not the transcript
        carry their own gutter instead. -->
   <div class="lg:hidden flex gap-1.5 shrink-0 px-4">
-    <Segmented options={views} bind:value={view} class="flex-1" />
+    <button
+      type="button"
+      onclick={() => (view = "conversations")}
+      aria-pressed={view === "conversations"}
+      class="tap nav-btn flex-1 border-surface-700 text-surface-300 hover:bg-surface-800 {view === 'conversations' ? 'bg-surface-800' : ''}"
+    >Chats</button>
     <button
       type="button"
       onclick={newConversation}
@@ -131,6 +131,13 @@
         onSelect={() => (view = "chat")}
         {onDeletedActive}
       />
+      <!-- Below lg corrections live here, collapsed, instead of in a pane of their own. -->
+      <details class="lg:hidden shrink-0 mt-3 max-h-[50%] overflow-y-auto">
+        <summary class="cursor-pointer text-surface-400 text-xs font-semibold uppercase tracking-wide py-2">
+          Active corrections{data.corrections.length > 0 ? ` (${data.corrections.length})` : ""}
+        </summary>
+        <CorrectionsSidebar corrections={data.corrections} />
+      </details>
     </aside>
 
     <!-- Transcript, the same component the floating widget uses -->
@@ -142,7 +149,7 @@
 
     <!-- Active corrections -->
     <aside
-      class="min-w-0 min-h-0 flex-1 px-4 lg:px-0 {view === 'corrections' ? 'flex' : 'hidden'} lg:flex flex-col"
+      class="min-w-0 min-h-0 flex-1 px-4 lg:px-0 hidden lg:flex flex-col"
       aria-label="Active corrections"
     >
       <CorrectionsSidebar corrections={data.corrections} />

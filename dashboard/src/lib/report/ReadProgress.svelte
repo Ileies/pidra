@@ -4,7 +4,8 @@
    * client-side; the persisted read state comes in as `read` (written by `useReadReceipt`). The end
    * only counts after a real scroll (`scrolled`), so a short report does not celebrate on load, and
    * never for a report that is already read. The "Read" chip exists only during the one celebration;
-   * afterwards the bar and chip track the scroll position like for any unread report. The celebration never
+   * afterwards the bar and chip track the scroll position like for any unread report. The chip hides
+   * once no minutes are left (no "Almost done" lingering at the bottom). The celebration never
    * blocks (pointer-events off, ends by itself); reduced motion is handled by the global rule in app.css.
    */
   import { untrack } from "svelte";
@@ -36,9 +37,7 @@
   let celebrated = false;
 
   const minutesLeft = $derived(Math.ceil((words * (1 - progress)) / WORDS_PER_MINUTE));
-  const label = $derived(
-    burst ? "Read" : minutesLeft <= 0 ? "Almost done" : minutesLeft === 1 ? "1 min left" : `${minutesLeft} min left`
-  );
+  const label = $derived(burst ? "Read" : minutesLeft === 1 ? "1 min left" : `${minutesLeft} min left`);
 
   function countWords(el: HTMLElement): number {
     return (el.innerText.match(/\S+/g) ?? []).length;
@@ -114,7 +113,7 @@
 
   <!-- Desktop: a chip under the header. Small screens: nothing, except the one-time reward at the
        bottom center (above the tab bar). -->
-  {#if started && (!isSmall || burst)}
+  {#if burst || (started && !isSmall && minutesLeft > 0)}
     <div
       class="pointer-events-none fixed z-30 flex justify-end max-sm:inset-x-0 max-sm:justify-center sm:inset-x-0 sm:px-4 sm:pt-1.5
         max-sm:bottom-[calc(3.5rem+var(--safe-b,0px)+0.75rem)] sm:top-[var(--header-h,0px)]"

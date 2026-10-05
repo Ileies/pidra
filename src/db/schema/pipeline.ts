@@ -1,4 +1,4 @@
-import { boolean, check, integer, pgTable, primaryKey, real, text, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, integer, pgTable, primaryKey, real, text, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type { GateDetail } from "../../pipeline/gate";
 import type { ReportJson } from "../../pipeline/report-json";
@@ -182,6 +182,8 @@ export const pipelineRuns = pgTable("pipeline_runs", {
   startedAt: timestamptz("started_at").default(sql`now()`),
   completedAt: timestamptz("completed_at"),
   durationMs: integer("duration_ms"),
+  /** Estimated USD spent speaking this run's report, added to by `src/audio/store.ts` as chapters are first played. Always on the newest run of the date. */
+  audioCostUsd: doublePrecision("audio_cost_usd").notNull().default(0),
 });
 
 /** One row per measured stretch of a run (`src/util/trace.ts`). Spans nest through `parent_id`; counters are self values, the dashboard sums descendants. */

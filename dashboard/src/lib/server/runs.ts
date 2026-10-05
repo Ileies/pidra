@@ -15,12 +15,14 @@ export interface RunSummary {
   tokensIn: number | null;
   tokensOut: number | null;
   itemsIncluded: number | null;
+  /** Estimated USD spent speaking the report, already priced when stored (`src/audio/cost.ts`); 0 when never played. */
+  audioCostUsd: number;
 }
 
 /** The columns `mapRun` reads, from `pipeline_runs r LEFT JOIN daily_reports d ON d.report_date = r.run_date`. */
 export const runColumns = () => sql()`
   r.id, r.run_date::text AS run_date, r.status, r.failed_step, r.step_errors,
-  r.started_at, r.completed_at, r.duration_ms,
+  r.started_at, r.completed_at, r.duration_ms, r.audio_cost_usd,
   d.tokens_in, d.tokens_out, d.items_included`;
 
 const iso = (value: unknown): string | null => (value == null ? null : new Date(value as string).toISOString());
@@ -39,5 +41,6 @@ export function mapRun(row: Record<string, unknown>): RunSummary {
     tokensIn: num(row.tokens_in),
     tokensOut: num(row.tokens_out),
     itemsIncluded: num(row.items_included),
+    audioCostUsd: num(row.audio_cost_usd) ?? 0,
   };
 }

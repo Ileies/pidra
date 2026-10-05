@@ -127,7 +127,7 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div class="grid grid-cols-2 {data.run.audioCostUsd > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3">
     <StatCard label="Total time" value={fmtDuration(data.run.durationMs)} />
     {#if waitSpan}
       <StatCard label="Without the wait" value={fmtDuration(activeMs)} hint="Time the pipeline itself worked" />
@@ -139,6 +139,7 @@
       value={totalCost != null ? fmtCost(totalCost) : "-"}
       hint={PRICING_CONFIGURED ? undefined : PRICING_HINT}
     />
+    {#if data.run.audioCostUsd > 0}<StatCard label="Audio cost" value={fmtCost(data.run.audioCostUsd)} hint="Estimate, not in the run cost" />{/if}
     <StatCard
       label={hasSteps ? "Model calls" : "Items in report"}
       value={hasSteps ? fmtNum(stepSum.aiCalls) : data.run.itemsIncluded != null ? fmtNum(data.run.itemsIncluded) : "-"}

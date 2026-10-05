@@ -6,12 +6,14 @@
  * The caller names a date and a chapter key; the text always comes from the stored report, never
  * from the request, so the endpoint can only ever pay to speak text the pipeline produced. A
  * chapter is spoken once per (text, model, voice): a replay, a second device and a seek back all
- * read the cached row.
+ * read the cached row. The estimated cost of each first-time chapter is added to
+ * `pipeline_runs.audio_cost_usd` of the date's newest run.
  */
 
 import { HttpError } from "../util/errors";
-import { and, eq, lt, ne, sql } from "drizzle-orm";
-import { db, dailyReports, reportAudio } from "../db";
+import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
+import { db, dailyReports, pipelineRuns, reportAudio } from "../db";
+import { speechCostUsd } from "./cost";
 import { speak, TTS_MODEL, TTS_VOICE } from "../ai/openai";
 import { buildChapters, chunkText, estimateDurationMs, mp3DurationMs, type Chapter } from "./chapters";
 
@@ -63,6 +65,18 @@ export async function audioManifest(date: string): Promise<{ voice: string; chap
   };
 }
 
+/** Adds to the newest run of the date, the one the report came from. A date with no run row (an old report) has nowhere to book it. */
+async function addAudioCost(date: string, usd: number): Promise<void> {
+  const [latest] = await db
+    .select({ id: pipelineRuns.id })
+    .from(pipelineRuns)
+    .where(eq(pipelineRuns.runDate, date))
+    .orderBy(desc(pipelineRuns.startedAt))
+    .limit(1);
+  if (!latest) return;
+  await db.update(pipelineRuns).set({ audioCostUsd: sql`${pipelineRuns.audioCostUsd} + ${usd}` }).where(eq(pipelineRuns.id, latest.id));
+}
+
 const inFlight = new Map<string, Promise<{ audio: Buffer; durationMs: number }>>();
 
 async function generate(date: string, chapter: Chapter): Promise<{ audio: Buffer; durationMs: number }> {
@@ -75,10 +89,13 @@ async function generate(date: string, chapter: Chapter): Promise<{ audio: Buffer
   const audio = Buffer.concat(parts);
   const durationMs = mp3DurationMs(audio);
 
-  await db
+  const inserted = await db
     .insert(reportAudio)
     .values({ reportDate: date, chapterKey: chapter.key, variant: VARIANT, audio, durationMs, chars: chapter.text.length })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ chapterKey: reportAudio.chapterKey });
+  // Only the request that stored the row is billed to the run; a lost race was a duplicate spend, not a second chapter.
+  if (inserted.length > 0) await addAudioCost(date, speechCostUsd(chapter.text.length, durationMs));
   // Old days age out; the day just spoken stays, so replaying an archived report is still free.
   await db.delete(reportAudio).where(and(lt(reportAudio.reportDate, sql`(current_date - ${KEEP_DAYS}::int)`), ne(reportAudio.reportDate, date)));
   return { audio, durationMs };

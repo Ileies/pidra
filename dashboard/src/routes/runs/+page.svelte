@@ -196,6 +196,9 @@
                 {#if PRICING_CONFIGURED && run.tokensIn != null}
                   <span>{runCost(run)}</span>
                 {/if}
+                {#if run.audioCostUsd > 0}
+                  <span>{fmtCost(run.audioCostUsd)} audio</span>
+                {/if}
               </div>
             </div>
 

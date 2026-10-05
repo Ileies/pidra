@@ -36,10 +36,3 @@ export async function approvePromptVersion(id: string): Promise<{ section: strin
 
   return { section: target.section, version: target.version };
 }
-
-export async function deletePromptVersion(id: string): Promise<void> {
-  const [target] = await db.select({ active: promptVersions.active }).from(promptVersions).where(eq(promptVersions.id, id)).limit(1);
-  if (!target) throw new HttpError("Not found", 404);
-  if (target.active) throw new HttpError("Cannot delete the active prompt version", 409);
-  await db.delete(promptVersions).where(eq(promptVersions.id, id));
-}

@@ -7,7 +7,6 @@ import { chat } from "./routes/chat";
 import { context } from "./routes/context";
 import { notes } from "./routes/notes";
 import { pipeline } from "./routes/pipeline";
-import { prompts } from "./routes/prompts";
 import { questions } from "./routes/questions";
 import { skills } from "./routes/skills";
 import { sms } from "./routes/sms";
@@ -22,7 +21,7 @@ app.onError(onError);
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-for (const routes of [skills, audio, sms, pipeline, questions, prompts, notes, actions, chat, context]) {
+for (const routes of [skills, audio, sms, pipeline, questions, notes, actions, chat, context]) {
   app.route("/", routes);
 }
 

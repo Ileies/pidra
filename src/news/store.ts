@@ -1,7 +1,7 @@
 /** What the news desk run reads from and writes to the database, so `run.ts` is only the orchestration. */
 
 import { addDays } from "../util/time";
-import { and, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { db, extractions, notes, rawItems } from "../db";
 import { DESKS, NEWS_SOURCE_TYPE, deskMessageId, deskSource, type Desk, type DeskId, type NewsWindow } from "./config";
 import type { SearchEvidence } from "./research";
@@ -95,7 +95,7 @@ export async function recentlyReported(runDate: string): Promise<ReportedStory[]
 
 /**
  * The contents of the live `intel` notes (expired and deleted ones skipped). Callers treat index 0
- * as the first priority, but there is no `orderBy` here, so the order is whatever Postgres returns.
+ * as the first priority, so the order is oldest note first (`id` breaks ties for a stable order).
  */
 export async function priorities(runDate: string): Promise<string[]> {
   const rows = await db
@@ -105,7 +105,8 @@ export async function priorities(runDate: string): Promise<string[]> {
       eq(notes.scope, "intel"),
       isNull(notes.deletedAt),
       or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
-    ));
+    ))
+    .orderBy(asc(notes.createdAt), asc(notes.id));
   return rows.map((r) => r.content);
 }
 

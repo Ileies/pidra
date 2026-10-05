@@ -15,21 +15,15 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   process.exit(1);
 }
 
-// Desktop App credentials use localhost as redirect. Google matches this string exactly against
-// what is registered in the Cloud console, so it is overridable: the callback server below accepts
-// any path, and a project registered as .../oauth/callback would otherwise fail the flow with
-// redirect_uri_mismatch before the consent screen ever appears.
+// Google matches the redirect URI exactly against the Cloud console registration, hence the
+// override (else redirect_uri_mismatch). The callback server below accepts any path on port 3333.
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3333";
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
 const ENV_PATH = new URL("../.env", import.meta.url).pathname;
 
-/**
- * Replaces `key`'s line in .env, or appends it if the key is absent. Rewrites the file rather than
- * appending blindly, because a duplicate key is ambiguous: Bun's loader keeps the last occurrence
- * and a human reading the file usually reads the first.
- */
+/** Replaces `key`'s line in .env or appends it; never duplicates (Bun keeps the last duplicate, humans read the first). */
 async function upsertEnv(key: string, value: string): Promise<void> {
   const file = Bun.file(ENV_PATH);
   const before = (await file.exists()) ? await file.text() : "";
@@ -41,10 +35,8 @@ async function upsertEnv(key: string, value: string): Promise<void> {
   await Bun.write(ENV_PATH, after);
 }
 
-// Read *and* write. The pipeline only reads, but `add_calendar_event`, `add_todo_item` and
-// `complete_todo_item` all call insert/patch, and with the readonly scopes this script used to
-// request they could never have succeeded - the grant simply did not cover them. Calendar is
-// scoped to events rather than the full calendar: creating an event is the only write there is.
+// Read and write: the skills `add_calendar_event`, `add_todo_item` and `complete_todo_item` need
+// insert/patch. Calendar is limited to events since creating one is the only write.
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/tasks",
@@ -83,23 +75,18 @@ const server = Bun.serve({
       const { tokens } = await oauth2Client.getToken(code);
 
       if (!tokens.refresh_token) {
-        // Google only returns a refresh token when the grant is actually re-consented. Without
-        // `prompt: "consent"` above an already-authorised account silently yields an access token
-        // and nothing else, which used to write an empty value over a working one.
+        // Google returns a refresh token only on a fresh consent (`prompt: "consent"` above); never write an empty one over a working one.
         throw new Error("Google returned no refresh_token - re-run and approve the consent screen.");
       }
 
-      // Written straight into .env rather than printed. A refresh token that reaches a terminal
-      // ends up in scrollback, in shell history if it is copied around, and in the transcript of
-      // any agent watching that terminal - at which point it has to be rotated before it is even
-      // used. The file is gitignored and is the only place this value belongs.
+      // Written to .env, never printed: a token in a terminal lands in scrollback and agent
+      // transcripts and would need rotating.
       await upsertEnv("GOOGLE_REFRESH_TOKEN", tokens.refresh_token);
 
       console.log("\n=== SUCCESS ===");
       console.log(`GOOGLE_REFRESH_TOKEN written to ${ENV_PATH} (${tokens.refresh_token.length} chars).`);
-      // Deliberately not "now go revoke the old one": removing the app at
-      // myaccount.google.com/permissions revokes the whole grant for this client, which would kill
-      // the token this run just minted. Revoking belongs *before* the flow, not after.
+      // No "revoke the old one" advice on purpose: revoking at myaccount.google.com/permissions kills
+      // this client's whole grant, including the token just minted. Revoke before the flow.
       console.log("The value was not printed.\n");
 
       setTimeout(() => { server.stop(); process.exit(0); }, 300);

@@ -1,3 +1,5 @@
+// Protects src/context/corrections.ts: recording and reverting corrections (locks, previous-state
+// snapshots, 409 on repeat). The db is a recording mock; assertions read the captured writes.
 import { beforeEach, expect, mock, test } from "bun:test";
 import * as schema from "../src/db/schema";
 

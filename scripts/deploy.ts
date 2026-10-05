@@ -2,11 +2,10 @@
 /**
  * Deploys the working tree's committed state to pronix.
  *
- * The server runs from a clone of the public GitHub repo, so a deploy is a `git pull` there plus
- * the three things a pull cannot carry: the gitignored config and harvest files, the dependency
- * install, and the dashboard build. Doing those by hand is how `dashboard/build/` ends up a
- * version behind the source it was built from, silently, since nothing about a stale build looks
- * broken.
+ * The server runs from a clone of the public GitHub repo, so a deploy is a reset to this HEAD there
+ * plus what a pull cannot carry: gitignored harvest files (SYNC), the dependency install and the
+ * dashboard build. Order: local preflight, check, pull, sync, install+build, restart, verify.
+ * Procedure and server layout: docs/operations.md.
  *
  * Usage:
  *   bun run deploy                 preflight, sync, build, restart, verify
@@ -76,9 +75,8 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-// A deploy makes about ten `remote()` calls; without reuse each pays its own SSH handshake
-// (~170-250ms measured). `ControlMaster` multiplexes them all over one connection, opened once
-// below so it doesn't depend on the workstation's `~/.ssh/config`.
+// ControlMaster multiplexes the ~10 `remote()` calls over one SSH connection (opened below), so
+// the script does not depend on the workstation's `~/.ssh/config`.
 const SSH_CONTROL_PATH = `${process.env.TMPDIR ?? "/tmp"}/pidra-deploy-${HOST}.sock`;
 const SSH_OPTS = ["-o", "ConnectTimeout=10", "-o", "ControlMaster=auto", "-o", `ControlPath=${SSH_CONTROL_PATH}`, "-o", "ControlPersist=60s"];
 
@@ -93,13 +91,9 @@ async function remote(script: string): Promise<string> {
 }
 
 if (!DRY) {
-  // Opens the shared connection up front and waits for it, so the calls below that run
-  // concurrently (install/build, the verify loops) multiplex an existing master instead of
-  // racing each other to become it.
+  // Open the master up front so concurrent calls later reuse it instead of racing to become it.
   await $`ssh ${SSH_OPTS} -MNf ${HOST}`.quiet();
 }
-
-// === PREFLIGHT: LOCAL ===
 
 step("Preflight (local)");
 
@@ -142,8 +136,6 @@ if (ahead !== "0") {
   else await $`git push origin ${branch}`;
 }
 
-// === PREFLIGHT: LOCAL CHECK + REMOTE DIRTY CHECK (concurrent) ===
-
 step(`Local check + preflight (${HOST})`);
 
 const quickCheck = flag("quick-check");
@@ -155,8 +147,7 @@ const localCheckFailure = flag("skip-check")
         console.log(`  [dry-run] bun run check${quickCheck ? " --quick" : ""} (root + dashboard)`);
         return null;
       }
-      // Root's own `check` script already ends by running the dashboard's, blackhole included - a
-      // second, separately-scoped call here would just rerun that same suite a second time.
+      // Root `check` already runs the dashboard's check (blackhole included); don't call it twice.
       const checkArgs = quickCheck ? ["--quick"] : [];
       return $`bun run check ${checkArgs}`
         .quiet()
@@ -184,40 +175,28 @@ if (!DRY) {
   console.log(`  ${REMOTE_ROOT} is clean`);
 }
 
-// === PULL ===
-
 step(`Pulling ${branch} on ${HOST}`);
 await remote(`cd ${REMOTE_ROOT} && git fetch --quiet origin ${branch} && git checkout --quiet ${branch} && git reset --hard --quiet ${head}`);
 const remoteHead = await remote(`cd ${REMOTE_ROOT} && git rev-parse HEAD`);
 if (!DRY && remoteHead !== head) fail(`${HOST} is at ${remoteHead.slice(0, 8)}, expected ${head.slice(0, 8)}`);
 if (!DRY) console.log(`  now at ${head.slice(0, 8)}`);
 
-// === SYNC GITIGNORED FILES ===
-
 step("Syncing gitignored files");
 for (const { path, filters = [] } of SYNC) {
-  // `-rlptz`, not `-a`: everything on the server is root-owned and the services run as root, so
-  // preserving the workstation's uid would rewrite ownership for no reason. Times and modes yes,
-  // ownership no.
+  // `-rlptz`, not `-a`: keep times and modes, not the workstation's ownership (server files are root-owned).
   const args = ["-rlptz", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...filters, path, `${HOST}:${REMOTE_ROOT}/${path}`];
   const changes = (await $`rsync ${args}`.text()).trim();
   const label = DRY ? `[dry-run] ${path}` : path;
   console.log(changes ? `  ${label}:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : `  ${label}: already current`);
 }
 
-// === INSTALL AND BUILD ===
-
 step("Installing dependencies and building the dashboard");
 // One Bun workspace: the root install covers the dashboard too, and the build needs it first.
 await remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile && cd dashboard && bun run build`);
 if (!DRY) console.log("  built");
 
-// === RESTART ===
-
 step(`Restarting ${SERVICES.join(" ")}`);
 await remote(`systemctl restart ${SERVICES.join(" ")}`);
-
-// === VERIFY ===
 
 step("Verifying");
 
@@ -231,13 +210,10 @@ for (const { service, state } of serviceStates) {
   }
 }
 
-// The dashboard answering is the only check that covers the build rather than the unit: a broken
-// page still leaves systemd reporting `active`.
-//
-// Redirects are followed rather than accepted as success. `/` is a 307 to today's report, so a
-// bare status check passes without a single page having rendered - which is most of what there is
-// to get wrong in a build. `/context-builder` is requested too: it is the one route that reads a
-// file off disk, so it fails when the harvest did not come across.
+// HTTP checks cover the build (systemd says `active` even for a broken page). Redirects are
+// followed because `/` is a 307 to today's report, so a bare status check would pass with nothing
+// rendered. `/context-builder` is the one route that reads a file off disk, so it fails when the
+// synced harvest is missing.
 const port = (await remote(`systemctl show pidra-dashboard -p Environment --value | tr ' ' '\\n' | grep '^PORT=' | cut -d= -f2`)) || "3009";
 const verifyResults = await Promise.all(
   ["/", "/context-builder"].map(async (path) => ({
@@ -249,9 +225,9 @@ for (const { path, code } of verifyResults) {
   if (!DRY) report(code === "200", `${path} on :${port} answered ${code || "nothing"}`);
 }
 
-// The document the briefing actually synthesises on. It is loaded by a path recorded on a run row
-// by whichever machine built it, so it is exactly the thing a deploy can leave behind - and a
-// missing one degrades every briefing without failing anything.
+// The long-term document the briefing synthesises on. Legacy rows locate it by a path recorded by
+// whichever machine built it, so a deploy can leave it behind; a missing one degrades every
+// briefing without failing anything. Prints a warning, not a failure.
 const context = await remote(
   `cd ${REMOTE_ROOT} && bun -e 'const {loadLongTermContext}=await import("./src/pipeline/long-term-context");` +
     `const c=await loadLongTermContext();` +
@@ -264,8 +240,7 @@ if (!DRY) {
 }
 
 if (!DRY) {
-  // Tears down the shared connection rather than waiting out `ControlPersist=60s` - nothing left
-  // to reuse it after this.
+  // Close the master now instead of waiting out ControlPersist.
   await $`ssh ${SSH_OPTS} -O exit ${HOST}`.quiet().catch(() => {});
 }
 

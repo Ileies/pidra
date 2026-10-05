@@ -9,7 +9,7 @@
  * would carry it, which costs one synthesis call more.
  *
  * It reads the database (the intel notes, the last days' reported stories, the context document),
- * so on a machine off the LAN it needs the tunnel from `CLAUDE.md`'s DB access notes.
+ * so on a machine off the LAN it needs the DB tunnel described in docs/operations.md.
  */
 
 import { isDateKey } from "../src/util/ids";

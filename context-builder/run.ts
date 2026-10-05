@@ -1,3 +1,7 @@
+// Context Builder entry point: picks the mode, then runs fetch -> extract -> synthesize -> finalize
+// (phases/). CLI: `bun run context-builder[:dry|:full]` (package.json); src/job.ts calls
+// runContextBuilder for the monthly systemd job. Reads and writes context_builder_runs and
+// context_builder_indexed_items. Mode table and recovery: docs/context-builder.md.
 import { utcDay } from "../src/util/time";
 import { loadConfig } from "./config";
 import { saveCheckpoint, makeInitialCheckpoint } from "./checkpoint";
@@ -50,7 +54,7 @@ async function seedOnlyRun(): Promise<void> {
   const { emails, notes } = await loadStoredExtractions();
   console.log(`\n=== Context Builder - seed-only ===\n`);
   console.log(`Re-seeding from ${emails.length} stored email and ${notes.length} stored note extractions.\n`);
-  // errors.json is a persistent log, so count only what this invocation added.
+  // errors.json persists across runs, so count only what this invocation added.
   const errorsBefore = getErrors().length;
   await runDbSeeding(batchContacts(emails), emails, notes);
   const added = getErrors().length - errorsBefore;
@@ -112,8 +116,8 @@ export async function runContextBuilder(options: ContextBuilderOptions = {}): Pr
   if (!dryRun) await saveCheckpoint(state);
   startProgress(state);
 
-  // Flush a live snapshot to disk regularly (not just at phase boundaries) so external
-  // consumers (e.g. the dashboard) can show near-real-time progress.
+  // Snapshot to .checkpoint.json every 2s for external progress readers. Write-only: resume
+  // state comes from the DB row, never from this file.
   const checkpointFlush = dryRun ? null : setInterval(() => {
     const tokens = getSonnetTokens();
     state.openaiTokensIn = tokens.tokensIn;

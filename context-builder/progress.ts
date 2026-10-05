@@ -1,3 +1,6 @@
+// Console progress display for a run (full-screen on a TTY, sparse lines under systemd) plus the
+// process-wide model token counters (the "sonnet" names are historical: they count whatever model
+// the extraction and synthesis calls use). Display only; run.ts mirrors the counters into the checkpoint.
 import type { CheckpointState } from "./checkpoint";
 
 let intervalId: Timer | null = null;

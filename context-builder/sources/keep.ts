@@ -1,3 +1,6 @@
+// Keep source: runs context-builder/scripts/keep-fetch.py (gkeepapi, venv setup in the README) and
+// parses its JSON. fetchKeepNotes is the ONLY exit for Keep content, so the label exclusion below
+// holds for every consumer. Any subprocess failure is logged to errors.json and yields no notes.
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
@@ -14,10 +17,9 @@ export interface KeepNote {
 }
 
 /**
- * Keep labels whose notes must never leave this machine - they hold passwords, card and bank
- * details, and identity-document numbers. Filtering here, at the source, is deliberate: it is
- * the single choke point every consumer goes through, so no extraction, synthesis or DB-seeding
- * path can reach a cloud API with this content even if one is added later.
+ * Labels (case-insensitive; env CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS, default "Credentials") whose
+ * notes hold secrets and must never leave this machine. Filtered at the source, the single choke
+ * point, so no later extraction, synthesis or seeding path can send them to a cloud API.
  */
 const EXCLUDED_LABELS = new Set(
   (process.env.CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS ?? "Credentials")
@@ -30,6 +32,7 @@ function isExcluded(note: KeepNote): boolean {
   return note.labels.some((l) => EXCLUDED_LABELS.has(l.trim().toLowerCase()));
 }
 
+/** All Keep notes minus excluded labels. Always go through this, never fetchAllKeepNotes. */
 export async function fetchKeepNotes(): Promise<KeepNote[]> {
   const all = await fetchAllKeepNotes();
   const kept = all.filter((n) => !isExcluded(n));

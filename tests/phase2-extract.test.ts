@@ -1,3 +1,5 @@
+// Protects Phase 2 reruns: extraction IDs and downstream verdicts survive a rerun, and a retry replaces
+// a failed placeholder. The db is an in-memory mock (mock.module below); the model call is stubbed.
 import { beforeEach, expect, mock, test } from "bun:test";
 import * as schema from "../src/db/schema";
 

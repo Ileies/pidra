@@ -1,3 +1,5 @@
+// Strict-schema model extraction of Keep notes, called by phases/extract.ts. Mirrors extract-email.ts:
+// each success is upserted into context_builder_indexed_items (source "keep", keyed by note id).
 import type { KeepNote } from "../sources/keep";
 import { NOTE_EXTRACTION_PROMPT, NOTE_EXTRACTION_SCHEMA } from "../prompts/note-extraction";
 import { logError } from "../errors";
@@ -8,6 +10,7 @@ import { mapPool } from "./pool";
 import { db } from "../../src/db";
 import { contextBuilderIndexedItems } from "../../src/db/schema";
 
+/** Stored verbatim as the `data` JSON of the index row; `type === "rule"` notes become `personal` notes via seedRuleNotes. */
 export interface NoteExtraction {
   id: string;
   title: string;
@@ -61,8 +64,7 @@ export async function extractNotes(
           : [],
         type: json.type ?? "other",
         importance: json.importance ?? "medium",
-        // Kept generous: the Keep synthesis feeds this verbatim to the model, and the whole
-        // point of the context document is to be thorough about the user's own notes.
+        // Kept generous: synthesizeKeep passes this verbatim, and seedRuleNotes stores it as the rule text.
         rawText: note.text.slice(0, 600),
       };
       results.push(extraction);

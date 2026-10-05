@@ -1,3 +1,6 @@
+// Phase 2 (called by run.ts): model extraction of new emails and Keep notes. Each extraction is
+// persisted per item inside pipeline/extract-*.ts (context_builder_indexed_items), which is what
+// makes a resumed run cheap.
 import { saveCheckpoint } from "../checkpoint";
 import { updateProgress } from "../progress";
 import { extractEmails, type EmailExtraction } from "../pipeline/extract-email";

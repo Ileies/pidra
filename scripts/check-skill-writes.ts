@@ -1,12 +1,11 @@
 /**
  * Guard: no skill may write a report.
  *
- * Reports are final. `daily_reports`, `extractions`, `raw_items` and `active_topics` belong to the
- * pipeline and to Phase 6's `<!--SYSTEM-->` parsing; a skill - and therefore the assistant, which
- * can only act through skills - may read them and nothing more. Reading is fine and `read_report`
- * depends on it, so this looks for writes specifically, both through Drizzle and in raw SQL.
+ * Reports are final (docs/architecture-rules.md). The PROTECTED tables belong to the pipeline; skills
+ * (and so the assistant) may read them, which `read_report` depends on, but not write. Scans
+ * skills/*.ts for Drizzle `.insert/.update/.delete(table)` and raw SQL writes, ignoring comments.
  *
- * Wired into `bun run check`.
+ * Run by scripts/check.ts (`bun run check`).
  */
 
 import { readdirSync } from "fs";
@@ -20,8 +19,7 @@ const PROTECTED: [string, string][] = [
   ["extractions", "extractions"],
   ["rawItems", "raw_items"],
   ["activeTopics", "active_topics"],
-  // The quick actions a report offers are the pipeline's proposals and the owner's taps, never
-  // the assistant's: `src/actions/store.ts` is the only writer.
+  // Quick actions: `src/actions/store.ts` is the only writer.
   ["reportActions", "report_actions"],
 ];
 
@@ -37,7 +35,7 @@ for (const file of readdirSync(SKILLS_DIR).filter((f) => f.endsWith(".ts"))) {
   const lines = (await Bun.file(join(SKILLS_DIR, file)).text()).split("\n");
 
   lines.forEach((line, index) => {
-    // Comments describing the rule are not violations of it.
+    // Strip comments (line-based, so block-comment bodies must start with `*`).
     const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
 
     for (const [table, sqlName] of PROTECTED) {

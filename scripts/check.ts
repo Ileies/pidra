@@ -4,7 +4,8 @@
  * concurrently, so `bun run check` takes as long as the slowest part (the dashboard's blackhole
  * suite) instead of the sum. `--quick` / `-q` and `--verbose` / `-v` are forwarded to the
  * dashboard check; see `scripts/lib/check-runner.ts` for the output rules. `bun run deploy` and
- * the `commit` skill require the full run, not `--quick`.
+ * the `commit` skill require the full run, not `--quick`. Steps: root tsc, check-skill-writes,
+ * check-route-surfaces, check-file-size, then `dashboard/scripts/check.ts`.
  */
 import { $ } from "bun";
 import { q, quick, step, text, verbose, type Out } from "./lib/check-runner";

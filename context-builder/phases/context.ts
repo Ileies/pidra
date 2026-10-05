@@ -1,3 +1,5 @@
+// Shared run context and the failure wrapper used by the four phases (fetch, extract, synthesize,
+// finalize), which run.ts calls in that order.
 import type { loadConfig } from "../config";
 import type { CheckpointState } from "../checkpoint";
 import { logError } from "../errors";

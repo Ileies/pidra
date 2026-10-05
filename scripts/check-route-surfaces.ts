@@ -1,19 +1,15 @@
 /**
  * Guard: every dashboard page has a surface, and it is the one the pipeline thinks it has.
  *
- * `src/ai/surfaces.ts` decides what the assistant may do on a page, and it decides it from the
- * route. An unmatched route falls back to `global` - which is the correct failure mode for an
- * unknown URL, and the wrong one for a page that simply was not added to the map. That is a
- * capability decision made by omission, and it is silent.
+ * `src/ai/surfaces.ts` picks what the assistant may do on a page from the route, and an unmatched
+ * route silently falls back to `global`. This compares each entry of the dashboard registry
+ * (`dashboard/src/lib/routes.ts`) with what `surfaceForRoute` resolves, and checks that every
+ * registered skill is on a surface (or in BRIDGE_ONLY_SKILLS) and every surface carries
+ * EVERYWHERE_SKILLS.
  *
- * The dashboard's route registry (`dashboard/src/lib/routes.ts`) is the list of pages. This
- * checks each entry's declared surface against what `surfaceForRoute` actually resolves, so
- * adding a page to the registry and forgetting the pipeline's map fails the build instead.
+ * The registry is parsed as text, not imported: it is a SvelteKit module with `$lib` aliases.
  *
- * The registry is parsed rather than imported: it is a SvelteKit module in a separate package
- * with `$lib` aliases, and this script has no business booting Vite to read a list of strings.
- *
- * Wired into `bun run check`.
+ * Run by scripts/check.ts (`bun run check`); exits 1 on any disagreement.
  */
 
 import { readFileSync } from "fs";

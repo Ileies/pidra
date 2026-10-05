@@ -5,6 +5,7 @@ import { loadEmailAccounts, type EmailAccount } from "../src/config/email-accoun
 
 export type { EmailAccount };
 
+/** Per-run settings from env (CONTEXT_BUILDER_EMAIL_YEARS, CONTEXT_BUILDER_OUTPUT_DIR, GITHUB_TOKEN) and the shared email_accounts table. */
 export interface Config {
   emailAccounts: EmailAccount[];
   emailYears: number;

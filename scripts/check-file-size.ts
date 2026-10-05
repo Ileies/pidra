@@ -3,6 +3,8 @@
  * File-size budget: `.ts` files stay under 350 lines and `.svelte` files under 250, so a file that
  * keeps growing gets split before it becomes the next refactor. A justified exception goes in
  * `EXCEPTIONS` with its own ceiling, which holds it at today's size instead of exempting it.
+ * Run by scripts/check.ts over `git ls-files` (tracked plus untracked, non-ignored). An EXCEPTIONS
+ * entry whose file no longer exists fails the check, so delete the entry when a file is removed.
  */
 import { $ } from "bun";
 

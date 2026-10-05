@@ -9,7 +9,7 @@
  * The date must already have been through Phase 3, since the candidates are read by gate verdict.
  *
  * It reads the database (extractions, the calendar and task snapshot, notes, standing rules) and
- * Google Calendar, so on a machine off the LAN it needs the tunnel from CLAUDE.md.
+ * Google Calendar, so on a machine off the LAN it needs the DB tunnel described in docs/operations.md.
  */
 
 import { parseJsonRows } from "../src/util/json";

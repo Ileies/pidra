@@ -1,3 +1,6 @@
+// Synthesis prompts and model calls (via src/ai/openai.ts): four source summaries plus the final
+// document, either built in full or as a patch of the previous one. Called only by phases/synthesize.ts.
+// Both document prompts embed DOCUMENT_STRUCTURE, the `# 1.`-`# 5.` contract checked by missingSections.
 import type { ContactProfile } from "./batch-contacts";
 import type { NoteExtraction } from "./extract-note";
 import type { TaskItem } from "../sources/tasks";
@@ -10,13 +13,9 @@ import { addSonnetTokens } from "../progress";
 export type PromptCorrections = ReturnType<typeof formatForPrompt>;
 
 /**
- * What every synthesis prompt is told about the correction layer.
- *
- * A build re-derives the document from the same mail and notes that produced the mistake in the
- * first place, and an update run additionally hands the previous document to the model verbatim,
- * wrong text included. Without this block both would quietly reinstate something the user has
- * already corrected. The corrections are input only: the run never writes, edits or deletes one,
- * and the layer stays authoritative over the document it produces.
+ * Prompt block telling the model that user corrections outrank every other input. Needed because a
+ * rebuild re-reads the sources that caused the mistake and a patch receives the previous (wrong)
+ * text verbatim. Corrections are read-only here.
  */
 const CORRECTIONS_RULES = `context_corrections are corrections the user made to an earlier version of this document,
 stated by them directly. They outrank every other input here, without exception:
@@ -32,14 +31,11 @@ stated by them directly. They outrank every other input here, without exception:
 - If the list is empty, proceed exactly as you would without it.`;
 
 /**
- * The document's heading contract, shared by the full build and the update patch.
- *
- * `pickSections` (src/pipeline/long-term-context.ts) splits the document on `# N.` headings and
- * routes each numbered section to one of the two daily synthesis calls, so these numbers are an
- * interface rather than a formatting preference. Only the full build ever stated the structure,
- * and only as a bare list: the 2026-09-11 update run answered with one "# Updated Personal
- * Context" title over "## 1." headings, the split matched nothing, and every briefing after it
- * synthesised on an empty document while the run was recorded as completed.
+ * The document's heading contract, shared by the full build and the update patch. INTERFACE, not
+ * formatting: `pickSections` (src/pipeline/long-term-context.ts) splits on `# N.` headings to route
+ * sections to the daily synthesis calls, and REQUIRED_SECTIONS in run-tracking.ts checks the same
+ * five numbers. Change all three together. (2026-09-11: a patch answered with a single title over
+ * "## 1." headings, the split matched nothing and briefings ran on an empty document.)
  */
 const DOCUMENT_STRUCTURE = `Structure it as exactly these five top-level sections, each introduced by a level-1 heading
 that starts with the section number and a dot:
@@ -107,8 +103,7 @@ Format as readable plain text, not JSON.`,
 }
 
 export async function synthesizeKeep(notesByCategory: Map<string, NoteExtraction[]>): Promise<string> {
-  // Title and excerpt go in alongside the model's own summary: these are the user's own words
-  // about themselves and are the richest signal in the whole build.
+  // Raw title and excerpt accompany the extraction summary: the user's own words are the richest signal.
   const input: Record<string, { title: string; summary: string; excerpt: string; type: string; importance: string }[]> = {};
   for (const [cat, notes] of notesByCategory) {
     input[cat] = notes.map((n) => ({
@@ -158,6 +153,7 @@ export interface SynthesisResult {
   fullContext: string;
 }
 
+/** Builds the whole document from the four summaries; the output is not validated here (phases/synthesize.ts does that). */
 export async function synthesizeFullContext(
   parts: Omit<SynthesisResult, "fullContext">,
   corrections: PromptCorrections = [],
@@ -182,6 +178,10 @@ ${CORRECTIONS_RULES}`,
   );
 }
 
+/**
+ * Update mode: returns the COMPLETE updated document (it replaces the previous one outright), not a
+ * diff. `deltaSummaries` holds only sources fetched this run. Output is not validated here.
+ */
 export async function synthesizePatch(
   existingContext: string,
   deltaSummaries: Partial<Omit<SynthesisResult, "fullContext">>,

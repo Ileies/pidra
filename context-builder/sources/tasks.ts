@@ -12,6 +12,7 @@ export interface TaskItem {
   completedAt: string | null;
 }
 
+/** Google Tasks (first 20 lists, 200 items each): all open tasks plus those completed in the last 90 days. Logs and returns [] on any error. */
 export async function fetchTaskItems(): Promise<TaskItem[]> {
   try {
     const tasks = getTasksClient();

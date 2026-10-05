@@ -10,7 +10,7 @@
  * the queue now rather than tomorrow morning).
  *
  * It reads the database (the queue, notes, contacts, standing rules) and the Context Builder
- * document, so on a machine off the LAN it needs the tunnel from CLAUDE.md.
+ * document, so on a machine off the LAN it needs the DB tunnel described in docs/operations.md.
  */
 
 import { utcDay } from "../src/util/time";

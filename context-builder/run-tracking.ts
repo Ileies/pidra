@@ -1,3 +1,6 @@
+// DB access for context_builder_runs (run lifecycle: running -> completed|failed) and
+// context_builder_indexed_items (per-item skip set plus the stored extraction JSON in `data`).
+// Used by run.ts and the phases; a row left "running" is what makes the next plain run a resume.
 import { errMessage } from "../src/util/text";
 import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
@@ -15,10 +18,12 @@ import type { NoteExtraction } from "./pipeline/extract-note";
  */
 const REQUIRED_SECTIONS = ["1", "2", "3", "4", "5"];
 
+/** Required `# N.` headings absent from `doc` (empty array = contract satisfied). Used by phases/synthesize.ts and loadPreviousDocument. */
 export function missingSections(doc: string): string[] {
   return REQUIRED_SECTIONS.filter((n) => !pickSections(doc, n));
 }
 
+/** "update" once any completed run exists (or forced), else "full". `forceFull` wins. */
 export async function detectMode(forceFull: boolean, forceUpdate: boolean): Promise<"full" | "update"> {
   if (forceFull) return "full";
 
@@ -32,6 +37,7 @@ export async function detectMode(forceFull: boolean, forceUpdate: boolean): Prom
   return (lastRun || forceUpdate) ? "update" : "full";
 }
 
+/** Item IDs already indexed for `source` ("email" | "keep") across all runs: the update-mode skip set. */
 export async function getSkipSet(source: string): Promise<Set<string>> {
   const rows = await db
     .select({ itemId: contextBuilderIndexedItems.itemId })
@@ -41,7 +47,7 @@ export async function getSkipSet(source: string): Promise<Set<string>> {
 }
 
 // A run that died mid-way (crash, OOM-kill, watchdog trip) leaves its row status="running"
-// forever - find it so we can continue it instead of starting over from scratch.
+// forever. This finds the newest one so run.ts can continue it (the resume mode).
 export async function getResumableRun(): Promise<{ id: string; mode: "full" | "update" } | null> {
   const [row] = await db
     .select({ id: contextBuilderRuns.id, mode: contextBuilderRuns.mode })
@@ -72,6 +78,7 @@ export async function createRun(mode: "full" | "update"): Promise<string> {
   return runRow.id;
 }
 
+/** Marks the run completed. `document` null means synthesis produced nothing usable, so loaders skip this row. */
 export async function finalizeRun(
   id: string,
   fields: { itemsIndexed: number; outputPath: string | null; document: ContextDocument | null },
@@ -88,8 +95,8 @@ export async function finalizeRun(
     .where(eq(contextBuilderRuns.id, id));
 }
 
-// Items already extracted during the interrupted run are stored with their full result -
-// reuse them instead of paying for extraction on the same items a second time.
+// Resume: extractions already stored under this run's id (rows with non-null `data`), so the
+// fetch/extract phases skip those items instead of paying for them twice.
 export async function getPriorResults<T>(dbRunId: string, source: string): Promise<{ skipIds: Set<string>; results: T[] }> {
   const rows = await db
     .select({ itemId: contextBuilderIndexedItems.itemId, data: contextBuilderIndexedItems.data })
@@ -107,6 +114,7 @@ export async function getPriorResults<T>(dbRunId: string, source: string): Promi
   return { skipIds, results };
 }
 
+/** Every stored email and Keep extraction across all runs; feeds --from-index and --seed-only. */
 export async function loadStoredExtractions(): Promise<{ emails: EmailExtraction[]; notes: NoteExtraction[] }> {
   const rows = await db
     .select({ source: contextBuilderIndexedItems.source, data: contextBuilderIndexedItems.data })

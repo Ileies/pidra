@@ -1,3 +1,6 @@
+// IMAP source: reads headers for the lookback window, then fetches bodies only for new, non-automated
+// senders (read-only INBOX, via src/ingest/imap-client.ts). Called per account by phases/fetch.ts.
+// `skipIds` are Message-IDs already indexed. Never throws: failures go to errors.json.
 import type Imap from "imap";
 import { simpleParser } from "mailparser";
 import libmime from "libmime";
@@ -27,11 +30,7 @@ export interface EmailFetchProgress {
 
 const SKIP_PATTERNS = [/no-?reply/i, /noreply/i, /mailer-daemon/i, /notifications?@/i, /do-?not-?reply/i, /bounce/i];
 
-/**
- * Decodes RFC 2047 encoded-words, so a sender arrives as "Michael Nüsken" rather than
- * "=?UTF-8?Q?Michael_N=C3=BCsken?=". These names are written straight into the `contacts`
- * table and shown in the briefing, so the raw form is not merely cosmetic.
- */
+/** Decodes RFC 2047 encoded-words ("=?UTF-8?Q?...?="); names go straight into `contacts` and the briefing. */
 function decodeHeader(value: string): string {
   if (!value.includes("=?")) return value;
   try {
@@ -42,13 +41,9 @@ function decodeHeader(value: string): string {
 }
 
 /**
- * Splits a From header into display name and address. Returns a null address when the header
- * carries none, so the caller can drop the item rather than invent a contact.
- *
- * A plain `name <addr>` regex is not enough: real headers carry parenthesised comments
- * ("Paul Schuh" (via Some Mailing List) <list@example.com>), which made the previous pattern
- * fail over to a catch-all that wrote the entire header into the address field - and those
- * strings became `contacts.identifier` primary keys.
+ * Splits a From header into display name and address. Null address means the header carries none,
+ * so the caller drops the item (the address becomes `contacts.identifier`, never a raw header).
+ * Handles RFC 5322 comments such as `"Name" (via List) <list@example.com>`.
  */
 function parseFromHeader(raw: string): { name: string; email: string | null } {
   const cleanName = (value: string): string =>
@@ -90,19 +85,15 @@ function fetchHeadersSince(imap: Imap, since: Date): Promise<{ uid: number; mess
 
         fetch.on("message", (msg) => {
           const chunks: Buffer[] = [];
-          // 'attributes' (carries the real UID) and 'body' (the header text) are emitted
-          // independently per message and can arrive in either order - the 2nd "message"
-          // event param is a SEQUENCE NUMBER, not a UID, so the real UID must come from
-          // 'attributes'; wait for both before recording this message, or fetchBody()
-          // later silently fetches the wrong (usually nonexistent) message by seqno.
+          // 'attributes' (real UID) and 'body' (header text) arrive in either order, and the
+          // "message" event's 2nd param is a sequence number, not a UID. Wait for both, or
+          // fetchBody() later fetches the wrong message.
           let uid: number | undefined;
           let raw: string | undefined;
 
           const tryPush = () => {
             if (uid === undefined || raw === undefined) return;
-            // Unfold first: long From/Subject headers are wrapped onto continuation lines that
-            // begin with whitespace, and a line-anchored match would capture only the first
-            // fragment - which for an encoded-word header is not even separately decodable.
+            // Unfold continuation lines first, or the line-anchored matches capture only the first fragment.
             const unfolded = raw.replace(/\r?\n[\t ]+/g, " ");
             const fromMatch = unfolded.match(/^From:\s*(.+)$/im);
             const subjectMatch = unfolded.match(/^Subject:\s*(.+)$/im);
@@ -137,10 +128,11 @@ function fetchHeadersSince(imap: Imap, since: Date): Promise<{ uid: number; mess
   });
 }
 
-const MAX_MESSAGE_BYTES = 20 * 1024 * 1024; // safety cap - never buffer a pathological message whole
+const MAX_MESSAGE_BYTES = 20 * 1024 * 1024; // over this a message yields an empty body (skipped)
 
 const FETCH_BODY_TIMEOUT_MS = 20_000;
 
+/** Cleaned text of one message by UID; resolves "" (never rejects on body problems) when empty, oversized, unparsable or timed out. */
 function fetchBody(imap: Imap, uid: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const fetch = imap.fetch([uid], { bodies: "" });
@@ -148,12 +140,9 @@ function fetchBody(imap: Imap, uid: number): Promise<string> {
     let size = 0;
     let oversized = false;
     let settled = false;
-    // The fetch command's own 'end' fires once the server closes the FETCH response, which can
-    // race ahead of the message body stream's 'data'/'end' events (especially for full bodies,
-    // vs. tiny header-only fetches where this never showed up) - wait for both before resolving,
-    // or Buffer.concat(chunks) silently reads a still-empty buffer. If the server never emits a
-    // 'body' event at all for a message (corrupted/deleted/expunged), streamEnded never fires -
-    // guard with a hard timeout so one bad message can't hang the whole run forever.
+    // The fetch's own 'end' can race ahead of the body stream's 'end' on full bodies, so wait for
+    // both or Buffer.concat reads an empty buffer. A deleted/expunged message never emits 'body',
+    // hence the hard timeout below so one bad message cannot hang the run.
     let streamEnded = false;
     let fetchEnded = false;
 
@@ -244,8 +233,6 @@ async function doFetch(account: EmailAccount, yearsBack: number, skipIds: Set<st
         }
 
         const { name: fromName, email: fromEmail } = parseFromHeader(h.from);
-        // No parseable address means nothing that can key a contact - skip rather than
-        // fabricate an identifier out of the raw header.
         if (!fromEmail) {
           progress?.onItemDone?.();
           continue;
@@ -271,6 +258,7 @@ async function doFetch(account: EmailAccount, yearsBack: number, skipIds: Set<st
   return { items: results, skipped };
 }
 
+/** One account's new personal mail since now minus `yearsBack`; news accounts yield nothing. Retries once after a connection error, then returns empty. */
 export async function fetchEmailItems(account: EmailAccount, yearsBack: number, skipIds: Set<string>, progress?: EmailFetchProgress): Promise<EmailFetchResult> {
   try {
     return await doFetch(account, yearsBack, skipIds, progress);

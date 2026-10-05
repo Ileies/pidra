@@ -11,6 +11,10 @@ export interface ContactProfile {
   actionCount: number;
 }
 
+/**
+ * Pure: groups email extractions by lowercased sender into profiles, sorted by email count.
+ * Importance is derived from the per-mail ratings (high: 2+ high, or 1 high in 5+ mails; medium: 3+ medium).
+ */
 export function batchContacts(extractions: EmailExtraction[]): ContactProfile[] {
   const byEmail = new Map<string, EmailExtraction[]>();
 

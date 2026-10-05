@@ -1,7 +1,11 @@
+// Archival output: context-YYYY-MM-DD.json and .md in config.outputDir (called by phases/finalize.ts).
+// The returned `document` is what finalizeRun stores in context_builder_runs.document, the copy the
+// daily pipeline actually reads; the files are for manual inspection only.
 import { writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { SynthesisResult } from "../pipeline/synthesize";
 
+/** Shape stored in context_builder_runs.document and in the .json file. `fullContext` must hold the `# 1.`-`# 5.` sections. */
 export interface ContextDocument {
   generatedAt: string;
   date: string;
@@ -32,8 +36,6 @@ export async function writeOutputFiles(
     fullContext: result.fullContext,
   };
 
-  // The DB row (context_builder_runs.document) is what every reader actually relies on now;
-  // these files remain for archival/manual inspection only.
   await writeFile(jsonPath, JSON.stringify(jsonOutput, null, 2), "utf-8");
 
   const mdOutput = `# PIDRA Context Snapshot - ${date}

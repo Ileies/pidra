@@ -1,3 +1,7 @@
+// Strict-schema model extraction of emails, called by phases/extract.ts. Each success is upserted
+// into context_builder_indexed_items (source "email", keyed by message id) immediately, which both
+// feeds later skip sets and lets a resumed run reuse it. Failures are logged and the item left
+// unindexed, so a later run retries it.
 import type { EmailItem } from "../sources/email";
 import { buildEmailExtractionPrompt, EMAIL_EXTRACTION_SCHEMA } from "../prompts/email-extraction";
 import { logError } from "../errors";
@@ -8,6 +12,7 @@ import { mapPool } from "./pool";
 import { db } from "../../src/db";
 import { contextBuilderIndexedItems } from "../../src/db/schema";
 
+/** Stored verbatim as the `data` JSON of the index row; loadStoredExtractions casts it back, so keep it backward compatible. */
 export interface EmailExtraction {
   messageId: string;
   from: string;
@@ -30,8 +35,7 @@ interface RawEmailExtraction {
   sentiment: string;
 }
 
-// Extraction runs against the hosted model on the flex tier, which handles far more parallelism
-// than the local GPU did. Retries and 429 backoff live in withFlexRetry inside extractJson.
+// Retries and 429 backoff live in withFlexRetry inside extractJson.
 const CONCURRENCY = Number(process.env.CONTEXT_BUILDER_EXTRACT_CONCURRENCY ?? 8);
 
 export async function extractEmails(

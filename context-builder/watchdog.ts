@@ -3,6 +3,7 @@ import { markRunFailed } from "./run-tracking";
 
 // Self-exit cleanly on runaway memory instead of waiting for the OS OOM-killer, which reaps
 // the whole cgroup (took the launching terminal down with it - see incident 2026-09-15).
+// On trip it marks the DB run failed, so the next plain invocation starts fresh rather than resuming.
 const MAX_RSS_MB = Number(process.env.CONTEXT_BUILDER_MAX_RSS_MB ?? 4096);
 
 let watchdogRunId: string | undefined;

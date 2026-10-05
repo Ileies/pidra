@@ -1,3 +1,6 @@
+// The three seed writers (contacts, entities, Keep rule notes) that phases/finalize.ts runs
+// independently after synthesis. All are idempotent upserts safe to re-run (--seed-only): they never
+// overwrite locked/corrected contacts or the daily pipeline's live entity counts. Rules: docs/context-builder.md.
 import { utcDay } from "../../src/util/time";
 import { db, contacts, entities, entityMentions } from "../../src/db";
 import { sql as drizzleSql } from "drizzle-orm";
@@ -8,9 +11,8 @@ import type { ContactProfile } from "../pipeline/batch-contacts";
 import type { NoteExtraction } from "../pipeline/extract-note";
 import type { EmailExtraction } from "../pipeline/extract-email";
 
-// A full build seeds a couple of thousand entities. One round-trip per row took long enough that
-// a single transient blip aborted the whole phase mid-way (and, before the phase steps were
-// isolated, silently skipped the rule notes) - so writes go out in batches instead.
+// A full build seeds a couple of thousand entities; row-by-row writes were slow enough that one
+// transient blip aborted the phase, so writes go out in batches.
 const BATCH_SIZE = 500;
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -23,6 +25,10 @@ function chunk<T>(items: T[], size: number): T[][] {
 // address. Headers that failed to parse used to land here verbatim as the identifier.
 const EMAIL_SHAPED = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
+/**
+ * Upserts high/medium-importance contacts by identifier (email). On conflict only name and priority
+ * refresh, and never on a `locked` (user-corrected) row; corpus metrics are insert-only.
+ */
 export async function seedContacts(contactProfiles: ContactProfile[]): Promise<void> {
   const highOrMedium = contactProfiles.filter(
     (c) => c.importance !== "low" && EMAIL_SHAPED.test(c.email),
@@ -47,11 +53,10 @@ export async function seedContacts(contactProfiles: ContactProfile[]): Promise<v
           name: drizzleSql`excluded.name`,
           priority: drizzleSql`excluded.priority`,
           updatedAt: drizzleSql`now()`,
-          // Corpus metrics are insert-only. A re-seed must not clobber values accumulated after
-          // the first seed, including the live pipeline's running email count.
+          // Corpus metrics are deliberately absent: insert-only, so a re-seed cannot clobber the
+          // live pipeline's running email count.
         },
-        // A row the user corrected through `revise_context` is left exactly as it is: a re-seed
-        // must never undo a correction.
+        // Rows corrected via `revise_context` are locked; a re-seed must never undo a correction.
         setWhere: drizzleSql`${contacts.locked} IS NOT TRUE`,
       });
   }
@@ -89,18 +94,19 @@ function isJunkEntityName(name: string): boolean {
   return PURE_NUMBER.test(name) || DATE_LIKE.test(name);
 }
 
+/**
+ * Inserts entities mentioned in the extractions, with corpus mention counts and `context_builder`
+ * provenance rows. Insert-only (onConflictDoNothing): existing entities keep the daily pipeline's counts.
+ */
 export async function seedEntities(extractions: EmailExtraction[], noteExtractions: NoteExtraction[]): Promise<void> {
-  // Case-insensitive dedupe within the run, keeping the first spelling seen. The DB's unique
-  // index on name is case-sensitive, so without this "Acme"/"acme" would both be inserted.
-  // The corpus frequency is kept: it is the whole point of pre-seeding, because phase 3 only
-  // promotes an entity into the synthesis payload once `mention_count >= 3`. `refs` is the
-  // provenance behind that count - one (source_kind, source_ref) per contributing item - so a
-  // seeded entity's count is reproducible the same way a daily-pipeline mention's is.
+  // Case-insensitive dedupe within the run (first spelling wins; the DB unique index on name is
+  // case-sensitive). Corpus frequency is kept on purpose: phase 3 of the daily pipeline only
+  // promotes an entity once `mention_count >= 3`. `refs` is the provenance behind that count,
+  // one (source_kind, source_ref) per contributing item.
   const stats = new Map<string, { name: string; count: number; first: string | null; last: string | null; refs: Map<string, string | null> }>();
 
   const record = (raw: unknown, date: string | null, sourceRef: string) => {
-    // Model output goes straight into Postgres here: one entity name arrived with NUL
-    // separators, which `text` rejects and which failed the entire batch over one row.
+    // Model output goes straight into Postgres: an entity name with NUL bytes (rejected by `text`) once failed a whole batch.
     const name = stripControlChars(String(raw)).trim();
     if (name.length <= 2 || name.length > MAX_ENTITY_NAME_LENGTH) return null;
     if (isJunkEntityName(name)) return null;
@@ -143,15 +149,13 @@ export async function seedEntities(extractions: EmailExtraction[], noteExtractio
   const today = utcDay();
 
   for (const batch of chunk([...stats.values()], BATCH_SIZE)) {
-    // Existing rows belong to the daily pipeline, which owns the live count from here on - only
-    // a brand-new row comes back from `RETURNING` here, and only those get mention provenance.
+    // Only brand-new rows come back from RETURNING, so only they get mention provenance.
     const inserted = await db
       .insert(entities)
       .values(batch.map((entry) => ({
         name: entry.name,
         mentionCount: entry.count,
-        // `first_seen` tracks the corpus, not the run: leaving it at today while
-        // `last_mentioned` sits in the past would be incoherent on its face.
+        // first_seen follows the corpus dates (today only as fallback) so it never postdates last_mentioned.
         firstSeen: entry.first ?? today,
         lastMentioned: entry.last,
         status: "active",

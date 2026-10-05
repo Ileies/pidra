@@ -11,8 +11,10 @@ export interface ErrorEntry {
 
 const ERRORS_PATH = resolve(import.meta.dir, "errors.json");
 
+// errors.json is an append-only log persisted across runs; the cache mirrors it for the whole process.
 let errorCache: ErrorEntry[] = [];
 
+/** Must run once at startup (run.ts) so logError appends to the existing file instead of replacing it. */
 export async function loadErrors(): Promise<ErrorEntry[]> {
   try {
     const raw = await readFile(ERRORS_PATH, "utf-8");

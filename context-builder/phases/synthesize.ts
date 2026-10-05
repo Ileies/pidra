@@ -1,3 +1,6 @@
+// Phase 3 (called by run.ts): four source summaries, then the long-term document, either as a patch
+// of the previous one (update mode) or built in full. The document must keep the `# 1.` to `# 5.`
+// headings (see missingSections in run-tracking.ts); a document that fails the check is dropped.
 import { logError } from "../errors";
 import { updateProgress } from "../progress";
 import { loadPreviousDocument, loadStoredExtractions, missingSections } from "../run-tracking";
@@ -30,14 +33,11 @@ export async function synthesizePhase(
   const { mode, state } = ctx;
   const { taskItems, githubRepos } = fetched;
 
-  // The standalone Contacts/Keep sections - and the "new information" handed to synthesizePatch -
-  // must reflect the full current corpus in update mode, not just today's delta, or they collapse
-  // to whatever changed today (2026-09-11: "Personal Knowledge (Keep)" shrank from 641 to 71 lines
-  // off a single-note delta, and the Contacts Summary's low-importance breakdown vanished). Tasks
-  // and GitHub don't have this problem since they're always refetched in full; email and Keep need
-  // it explicitly because their fetch is delta-only via the skip-set. DB seeding stays on the
-  // delta-only sets - seedContacts/seedEntities/seedRuleNotes are upserts against already-seeded
-  // history, so re-processing everything already indexed would be wasted work, not a correctness fix.
+  // In update mode the Contacts/Keep summaries must come from the full stored corpus, not today's
+  // delta, or they collapse to whatever changed (2026-09-11: the Keep section shrank from 641 to
+  // 71 lines off a single-note delta). Tasks and GitHub are always fetched in full, so only email
+  // and Keep need this. DB seeding (finalize.ts) stays delta-only: its upserts are idempotent
+  // against already-seeded history.
   const corpus = mode === "update" ? await loadStoredExtractions() : { emails: extracted.emailExtractions, notes: extracted.noteExtractions };
   const synthesisEmails = corpus.emails;
   const synthesisNotes = corpus.notes;
@@ -52,12 +52,10 @@ export async function synthesizePhase(
   let parts: Omit<SynthesisResult, "fullContext"> = { contacts: "", tasks: "", keep: "", github: "" };
   let fullContext = "";
 
-  // Which sources actually produced something this run. Kept as flags rather than re-derived from
-  // the prose below, because the patch path has to tell "this source says nothing new" apart from
-  // "this source was not fetched" - and on the server the latter is routine: GitHub needs a token
-  // in .env and Keep needs the gkeepapi venv, and either being absent yields zero items, not an
-  // error. Handing the resulting "No GitHub data" placeholder to synthesizePatch as a delta tells
-  // the model the user's repos are gone, with nothing but "do not shrink the document" in the way.
+  // Which sources produced anything this run. Flags, not derived from the summary prose, because
+  // the patch must tell "nothing new" from "not fetched" (routine on the server: GitHub needs a
+  // token, Keep needs the gkeepapi venv, and absence yields zero items, not an error). Passing a
+  // "No GitHub data" placeholder to synthesizePatch would tell the model the repos are gone.
   const fetchedFlags = {
     contacts: synthesisEmails.length > 0,
     tasks: taskItems.length > 0,
@@ -80,10 +78,8 @@ export async function synthesizePhase(
       github: githubSummary.status === "fulfilled" ? githubSummary.value : "",
     };
 
-    // Read-only input to synthesis. A build re-derives the document from the same sources that
-    // produced a corrected mistake, and an update run hands the previous document over verbatim,
-    // so without these the run reinstates what the user has already corrected. Nothing here
-    // writes, edits or deletes a correction: the layer stays authoritative over what comes out.
+    // Read-only prompt input: without it a rebuild or patch reinstates mistakes the user already
+    // corrected. Corrections are never written here and outrank the harvested text.
     const corrections = formatForPrompt(await listActiveCorrections());
     if (corrections.length > 0) {
       console.log(`[Synthesis] ${corrections.length} active correction(s) injected`);
@@ -107,9 +103,8 @@ export async function synthesizePhase(
         corrections,
       );
 
-      // The patch replaces the document outright, so a reply that ignored the heading contract is
-      // not a cosmetic problem: it is the whole long-term context gone. Rebuilding from the source
-      // summaries costs one more synthesis call and always produces the five-section structure.
+      // The patch replaces the document outright, so a reply that broke the `# 1.`-`# 5.` contract
+      // would wipe the long-term context. Rebuild in full (one more call) instead.
       const missing = missingSections(fullContext);
       if (missing.length > 0) {
         await logError(
@@ -125,17 +120,15 @@ export async function synthesizePhase(
       fullContext = await synthesizeFullContext(parts, corrections);
     }
 
-    // A full build has the same contract to meet, and there is no second fallback left after it.
+    // A full build must meet the same contract; there is no fallback after it, so throw.
     const stillMissing = missingSections(fullContext);
     if (stillMissing.length > 0) {
       throw new Error(`synthesised document is missing section(s) ${stillMissing.join(", ")}`);
     }
   } catch (err) {
     await logError("phase:synthesis", err);
-    // Whatever is in fullContext at this point did not pass, so it must not be handed on as though
-    // it had. The output file still gets written - it holds the four source summaries and is worth
-    // having - but the run records no output path, which keeps the last good harvest the newest
-    // document the pipeline can find instead of quietly displacing it with an unreadable one.
+    // Empty fullContext means "failed": finalize.ts still writes the output files (the four summaries
+    // are worth keeping) but records no document, so the last good harvest stays the newest one.
     fullContext = "";
   }
 

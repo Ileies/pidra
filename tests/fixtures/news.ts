@@ -1,3 +1,4 @@
+// Shared builders for tests/news/*.test.ts: `story` is a raw desk story, `item` a validated NewsItem for the editor stage.
 import type { DeskStory, NewsExtraction, NewsValidation } from "../../src/news/validate";
 import type { NewsItem } from "../../src/news/format";
 

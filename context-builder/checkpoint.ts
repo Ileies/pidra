@@ -1,3 +1,5 @@
+// Progress snapshot written to context-builder/.checkpoint.json by run.ts (every 2s) and the
+// watchdog. Write-only: nothing reads it back, resume state lives in context_builder_runs.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 

@@ -1,3 +1,6 @@
+// Phase 1 (called by run.ts): pulls email headers, Tasks, Keep and GitHub into memory and fills the
+// checkpoint counters. Tasks and GitHub are always fetched in full; email and Keep skip items already
+// indexed (update/resume modes) and are not fetched at all under --from-index.
 import { updateProgress } from "../progress";
 import { getSkipSet } from "../run-tracking";
 import { fetchEmailItems, type EmailItem } from "../sources/email";
@@ -33,10 +36,8 @@ export async function fetchPhase(ctx: RunCtx, resume: ResumeSkips): Promise<Fetc
   await safePhase("email-fetch", undefined, async () => {
     const skip = mode === "full" ? new Set<string>() : await getSkipSet("email");
     for (const id of resume.emailSkip) skip.add(id);
-    // Each account is an independent IMAP connection with no shared state beyond the skip set
-    // (read-only during fetch), so they fetch concurrently instead of one at a time - the mail
-    // fetch had become the whole runtime. fetchEmailItems already retries and logs its own errors
-    // internally, so a single account's failure never aborts the others.
+    // Accounts fetch concurrently (independent IMAP connections; the skip set is read-only here).
+    // fetchEmailItems retries and logs its own errors, so one account failing never aborts the rest.
     const results = await Promise.all(
       (fromIndex ? [] : config.emailAccounts)
         .filter((account) => !account.isNewsAccount)

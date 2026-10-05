@@ -23,6 +23,7 @@ async function ghFetch(path: string, token: string): Promise<unknown> {
   return res.json();
 }
 
+/** The 50 most recently pushed owned/collaborator repos with a README excerpt and last 10 commit subjects. README/commit failures degrade silently per repo; a list failure is logged and returns []. */
 export async function fetchGitHubRepos(token: string): Promise<GitHubRepo[]> {
   try {
     const repos = await ghFetch("/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator", token) as {

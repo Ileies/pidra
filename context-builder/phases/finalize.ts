@@ -1,3 +1,5 @@
+// Phase 4 (called by run.ts): writes the archival output files, seeds contacts/entities/rule notes,
+// marks the run completed and clears the checkpoint. runDbSeeding is also the whole of --seed-only.
 import { clearCheckpoint } from "../checkpoint";
 import { logError } from "../errors";
 import { stopProgress, updateProgress } from "../progress";
@@ -63,9 +65,8 @@ export async function finalizePhase(
   const totalIndexed = emailExtractions.length + noteExtractions.length + fetched.githubRepos.length + fetched.taskItems.length;
 
   if (dbRunId) {
-    // No document unless synthesis actually produced one the pipeline can read. The column is
-    // how every downstream reader finds the harvest, so recording a failed synthesis is worse
-    // than recording nothing.
+    // The document column is how every downstream reader finds the harvest, so a failed synthesis
+    // (empty fullContext) records null rather than an unreadable document.
     const usable = synthesis.fullContext ? document : null;
     await finalizeRun(dbRunId, {
       itemsIndexed: totalIndexed,

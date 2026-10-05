@@ -15,7 +15,7 @@ No `critical` skill exists yet.
 
 ## Registry
 
-The skills themselves are the files in `skills/`, registered in `src/skills/loader.ts`; each declares its own risk level. Only `send_email` and `propose_prompt_version` are `high`. Only three are kept off the assistant, as `BRIDGE_ONLY_SKILLS` in `src/ai/surfaces.ts`: `create_file`, `send_email`, `open_project_in_editor`. The bridge no longer exposes `POST /skills/execute`, so these have no caller (open question in `docs/todo/now.md`). Every other skill is on at least one surface, and `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
+The skills themselves are the files in `skills/`, registered in `src/skills/loader.ts`; each declares its own risk level. Only `send_email` and `propose_prompt_version` are `high`. Every skill is on at least one assistant surface. `INTERACTIVE_SKILLS` in `src/ai/surfaces.ts` (`send_email`, `create_file`) are on every surface except `questions`, whose turns run unattended on untrusted mail text. `EVERYWHERE_SKILLS` (context, report and web reads, notes list and write, all calendar, to-do and question skills) is on all of them; a page adds its own skills on top. `update_calendar_event` is therefore available to the chat, which finds the event id with `list_calendar_events` first.
 
 ## Default state
 
@@ -30,7 +30,7 @@ A skill takes optional parameters with defaults that keep the old call working, 
 - `list_calendar_events` defaults to today plus 14 days; `add_calendar_event` defaults to a 60-minute event when `end` is omitted; `update_calendar_event` given a new start alone keeps the event's length.
 - `send_updates` defaults to none, so adding or changing `attendees` does not mail guests unless asked.
 - `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item` and `complete_todo_item` take an `expected_title` guard: the call fails if the item at that id has a different title, so a wrong id cannot hit the wrong item.
-- Adding a skill also means a place in `EVERYWHERE_SKILLS`, a page's list in `SURFACES`, or `BRIDGE_ONLY_SKILLS`; `scripts/check-route-surfaces.ts` fails the build otherwise.
+- Adding a skill also means a place in `EVERYWHERE_SKILLS`, a page's list in `SURFACES`, or `INTERACTIVE_SKILLS`; `scripts/check-route-surfaces.ts` fails the build otherwise.
 
 ## Execution
 

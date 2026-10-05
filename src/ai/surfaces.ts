@@ -2,9 +2,9 @@
  * Surfaces: per-page skill allowlist, prompt fragment and widget hints for the floating assistant.
  * Used by src/ai/chat (tool list, system prompt) and served to the dashboard widget.
  * Invariants (docs/architecture-rules.md): no surface edits a report; unknown routes fall back to
- * `global`; BRIDGE_ONLY_SKILLS are on no surface; EVERYWHERE_SKILLS are on all.
+ * `global`; EVERYWHERE_SKILLS are on all, INTERACTIVE_SKILLS on all but `questions`.
  * `scripts/check-route-surfaces.ts` imports this file (and parses dashboard/src/lib/routes.ts as text)
- * and fails the build when a registered skill is on no surface and not bridge-only, an everywhere
+ * and fails the build when a registered skill is on no surface, an everywhere or interactive
  * skill is missing, or a dashboard route declares an unknown surface. Add a route there too.
  */
 
@@ -51,11 +51,15 @@ export const EVERYWHERE_SKILLS = [
   ...CALENDAR_SKILLS, ...TODO_SKILLS, ...QUESTION_SKILLS,
 ];
 
-/** Never offered to the assistant: they mail someone, write a file or open an editor on the host. */
-export const BRIDGE_ONLY_SKILLS = ["send_email", "create_file", "open_project_in_editor"];
+/**
+ * Reach outside the system (mail someone, write a file on the host), so they are on every surface
+ * except `questions`, whose turns run unattended on untrusted mail text. `send_email` is also off
+ * until switched on at /skills and `high` risk, so each send waits for confirmation there.
+ */
+export const INTERACTIVE_SKILLS = ["send_email", "create_file"];
 
 function surfaceSkills(...extra: string[]): string[] {
-  return [...new Set([...EVERYWHERE_SKILLS, ...extra])];
+  return [...new Set([...EVERYWHERE_SKILLS, ...INTERACTIVE_SKILLS, ...extra])];
 }
 
 export const SURFACES: Record<Surface, SurfaceDef> = {
@@ -189,7 +193,7 @@ to the user when you make one.`,
     label: "Questions",
     skills: surfaceSkills(
       "revise_context", "revert_context_revision", "remove_context_item", "add_contact", ...NOTE_SKILLS, "set_source_active",
-    ),
+    ).filter((name) => !INTERACTIVE_SKILLS.includes(name)),
     prompt: `The user is on /questions, the queue of things the system could not work out on its own.
 This surface is also where an answer is acted on: when a message starts with "ANSWERED QUESTION", the
 user has just answered a queued question and you are the one who turns the answer into changes.

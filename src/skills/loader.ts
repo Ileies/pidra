@@ -13,7 +13,6 @@ import getCalendarEvent from "../../skills/get_calendar_event";
 import listCalendarEvents from "../../skills/list_calendar_events";
 import listNotes from "../../skills/list_notes";
 import listTodoItems from "../../skills/list_todo_items";
-import openProjectInEditor from "../../skills/open_project_in_editor";
 import proposePromptVersion from "../../skills/propose_prompt_version";
 import readContext from "../../skills/read_context";
 import readReport from "../../skills/read_report";
@@ -31,7 +30,7 @@ import writeNote from "../../skills/write_note";
 /**
  * Skill registry and the skill types. Skills live in repo-root skills/*.ts and are registered by
  * hand below (static imports, so `getSkill`/`listSkills` stay synchronous). A new skill must be added
- * here AND placed on a surface or in BRIDGE_ONLY_SKILLS (src/ai/surfaces.ts), or `bun run check` fails.
+ * here AND placed on a surface (src/ai/surfaces.ts), or `bun run check` fails.
  * Execution always goes through `executeSkill` (execute.ts). See docs/skills.md.
  */
 export type RiskLevel ="low" | "medium" | "high" | "critical";
@@ -97,7 +96,6 @@ const registry = new Map<string, Skill>([
   listCalendarEvents,
   listNotes,
   listTodoItems,
-  openProjectInEditor,
   proposePromptVersion,
   readContext,
   readReport,

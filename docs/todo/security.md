@@ -5,7 +5,8 @@ Open security work, ordered by impact; every entry was re-checked against the co
 ## Immediate: close bypasses
 
 - **[BUG] Notes proxy:** `dashboard/src/routes/api/notes/[...path]/+server.ts` builds the bridge URL from a catch-all path. Replace it with explicit allowed bridge routes and methods, and test encoded and nested paths so a dashboard session cannot steer it to another bridge endpoint.
-- **[BUG] Outbound mail:** The merged `send_email` skill ships disabled, queues each call for confirmation and uses an empty-by-default recipient allowlist for system-account sends. Configured-account sends still accept any recipient. Give that path an explicit recipient allowlist with an empty default, require TLS for outbound SMTP, and add a per-day outbound cap enforced at execution time.
+- **[SECURITY] `create_file` risk level:** Decide whether `create_file` (medium, executes immediately) should be `high` risk or stay off the unattended `questions` surface only; it is now reachable from every interactive assistant page.
+- **[BUG] Outbound mail:** The `send_email` skill (on every assistant surface except `questions`) ships disabled, queues each call for confirmation and uses an empty-by-default recipient allowlist for system-account sends. Configured-account sends still accept any recipient. Give that path an explicit recipient allowlist with an empty default, require TLS for outbound SMTP, and add a per-day outbound cap enforced at execution time.
 
 ## Authorization and prompt injection
 
@@ -19,7 +20,7 @@ Open security work, ordered by impact; every entry was re-checked against the co
 
 ## Host, secrets and recovery
 
-- **[INFRA] Service isolation:** Confirm deployed bind addresses and firewall rules. Run PIDRA under a dedicated unprivileged service account, restrict filesystem writes and systemd capabilities, and test which sandbox options Bun tolerates. Keep the bridge loopback-only. Remove `create_file` and `open_project_in_editor` from the deployed skill registry if they have no server use case.
+- **[INFRA] Service isolation:** Confirm deployed bind addresses and firewall rules. Run PIDRA under a dedicated unprivileged service account, restrict filesystem writes and systemd capabilities, and test which sandbox options Bun tolerates. Keep the bridge loopback-only. Restrict where `create_file` may write on the deployed host.
 - **[INFRA] Secrets:** Move the pronix environment out of the checkout into a protected systemd credential or the existing agenix setup. Determine whether the Keep master token can be present only for the monthly job.
 - **[INFRA] Database and backups:** Verify the PIDRA Postgres role cannot access other databases or create databases, check `pg_hba` and listening addresses, confirm disk encryption, and add a tested encrypted backup to storage outside pronix. Document a restore drill.
 - **[INFRA] Detection:** Add append-only authentication events for login attempts, credential changes, session revocation and denied step-up. Alert on new credentials, repeated failures, sensitive admin actions and outbound mail. Provide a dashboard security view for sessions, credentials and recent events.

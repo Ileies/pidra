@@ -17,7 +17,6 @@ export const LOCAL_SKILLS: (Pick<SkillInfo, "name" | "description" | "risk_level
   { name: "list_calendar_events", description: "List Google Calendar events in a date range, with their ids", risk_level: "low" },
   { name: "list_notes", description: "List notes from the briefing system notes store", risk_level: "low" },
   { name: "list_todo_items", description: "List Google Tasks items with their ids and lists", risk_level: "low" },
-  { name: "open_project_in_editor", description: "Open a project directory in the configured code editor", risk_level: "medium" },
   { name: "propose_prompt_version", description: "Propose a new version of a pipeline prompt", risk_level: "high" },
   { name: "read_context", description: "Search the harvested long-term context", risk_level: "low" },
   { name: "read_report", description: "Read a daily briefing and its sources", risk_level: "low" },

@@ -4,8 +4,8 @@
  * `src/ai/surfaces.ts` picks what the assistant may do on a page from the route, and an unmatched
  * route silently falls back to `global`. This compares each entry of the dashboard registry
  * (`dashboard/src/lib/routes.ts`) with what `surfaceForRoute` resolves, and checks that every
- * registered skill is on a surface (or in BRIDGE_ONLY_SKILLS) and every surface carries
- * EVERYWHERE_SKILLS.
+ * registered skill is on a surface and every surface carries EVERYWHERE_SKILLS (and
+ * INTERACTIVE_SKILLS, except `questions`).
  *
  * The registry is parsed as text, not imported: it is a SvelteKit module with `$lib` aliases.
  *
@@ -14,7 +14,7 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import { BRIDGE_ONLY_SKILLS, EVERYWHERE_SKILLS, SURFACES, surfaceForRoute, SURFACES_LIST, type Surface } from "../src/ai/surfaces";
+import { EVERYWHERE_SKILLS, INTERACTIVE_SKILLS, SURFACES, surfaceForRoute, SURFACES_LIST, type Surface } from "../src/ai/surfaces";
 import { listSkills } from "../src/skills/loader";
 
 const REGISTRY = join(import.meta.dir, "../dashboard/src/lib/routes.ts");
@@ -75,22 +75,25 @@ if (problems.length > 0) {
 }
 
 // Skill coverage: a skill the assistant cannot see answers "I can't do that" for something the
-// system can. Every registered skill is on a surface, or says out loud that it is bridge-only.
+// system can. Every registered skill is on at least one surface.
 const registered = listSkills().map((s) => s.name);
 const onSomeSurface = new Set(Object.values(SURFACES).flatMap((s) => s.skills));
 const coverage: string[] = [];
 
 for (const name of registered) {
-  if (!onSomeSurface.has(name) && !BRIDGE_ONLY_SKILLS.includes(name)) {
-    coverage.push(`${name}: registered, but on no surface and not in BRIDGE_ONLY_SKILLS`);
-  }
+  if (!onSomeSurface.has(name)) coverage.push(`${name}: registered, but on no surface`);
 }
-for (const name of [...BRIDGE_ONLY_SKILLS, ...EVERYWHERE_SKILLS, ...onSomeSurface]) {
+for (const name of [...EVERYWHERE_SKILLS, ...INTERACTIVE_SKILLS, ...onSomeSurface]) {
   if (!registered.includes(name)) coverage.push(`${name}: named in src/ai/surfaces.ts but not registered in the skill loader`);
 }
 for (const [surface, def] of Object.entries(SURFACES)) {
   for (const name of EVERYWHERE_SKILLS) {
     if (!def.skills.includes(name)) coverage.push(`${surface}: missing ${name}, which every surface carries`);
+  }
+  for (const name of INTERACTIVE_SKILLS) {
+    const has = def.skills.includes(name);
+    if (surface === "questions" && has) coverage.push(`questions: carries ${name}, but its turns run unattended on untrusted mail text`);
+    if (surface !== "questions" && !has) coverage.push(`${surface}: missing ${name}, which every surface but questions carries`);
   }
 }
 
@@ -102,5 +105,5 @@ if (coverage.length > 0) {
 }
 
 console.log(
-  `check-route-surfaces: ${entries.length} routes, all surfaces agree; ${registered.length} skills, all on a surface or bridge-only.`,
+  `check-route-surfaces: ${entries.length} routes, all surfaces agree; ${registered.length} skills, all on a surface.`,
 );

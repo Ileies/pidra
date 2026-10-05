@@ -14,7 +14,6 @@
   const PROMPT = "M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5";
   const MAIL = "M4 5h16v14H4zM4 6l8 7 8-7";
   const FILE = "M6 3h9l5 5v13H6zM15 3v5h5";
-  const EXTERNAL = "M9 15L20 4M14 4h6v6M6 9v11h11v-5";
 
   // Plain language, because the point of the chip is that the user can see what happened without
   // knowing the skill registry.
@@ -47,8 +46,6 @@
     propose_prompt_version: { label: "Proposed a prompt version", icon: PROMPT },
     create_file: { label: "Created a file", icon: FILE },
     send_email: { label: "Sent an email", icon: MAIL },
-    send_mail: { label: "Sent mail", icon: MAIL },
-    open_project_in_editor: { label: "Opened the project", icon: EXTERNAL },
   };
 
   /** One `name: value` line per argument: no braces or quotes around a payload meant to be read. */

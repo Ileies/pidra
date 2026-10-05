@@ -66,3 +66,67 @@ export interface MirroredReport {
   /** The quick actions still on offer or already done. Absent on a report mirrored before they existed. */
   actions?: QuickAction[];
 }
+
+export interface MirroredCorrection {
+  id: string;
+  target_kind: string;
+  target_key: string;
+  operation: string;
+  statement: string;
+  supersedes_text: string | null;
+  rationale: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface MirroredEntity {
+  id: string;
+  name: string;
+  aliases: string[];
+  type: string | null;
+  domain: string | null;
+  summary: string | null;
+  firstSeen: string | null;
+  lastMentioned: string | null;
+  mentionCount: number;
+  status: string;
+  importance: string;
+  locked: boolean;
+}
+
+export interface EntityAppearance {
+  id: string;
+  reportDate: string | null;
+  contextSnippet: string | null;
+  relevanceScore: number | null;
+}
+
+export interface MirroredAppearance extends EntityAppearance {
+  entityId: string;
+}
+
+export interface MirroredContact {
+  id: string;
+  identifier: string;
+  name: string | null;
+  relationship: string | null;
+  priority: string;
+  contextNotes: string | null;
+  firstSeen: string | null;
+  updatedAt: string | null;
+  locked: boolean;
+  /** Seeded once from the Context Builder's corpus, then owned by the live pipeline. */
+  emailCount: number;
+}
+
+export interface MirroredTopic {
+  id: string;
+  headline: string;
+  domain: string;
+  runningSummary: string | null;
+  firstSeen: string;
+  lastUpdated: string;
+  status: string;
+  updateCount: number;
+  sources: string[];
+}

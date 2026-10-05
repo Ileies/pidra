@@ -6,7 +6,16 @@ import { loadExtractions } from "#lib/server/extractions.js";
 import { loadHarvestDocument } from "#lib/server/contextHarvest.js";
 import { ingestFailures, withoutDetail, type StepAttempt } from "#lib/pipeline.js";
 import { entriesOf, type ActionPreview, type ActionStatus, type QuickAction, type ReportJson } from "#lib/report/types.js";
-import type { MirroredReport } from "#lib/mirror/types.js";
+import type {
+  MirroredAppearance,
+  MirroredContact,
+  MirroredCorrection,
+  MirroredEntity,
+  MirroredReport,
+  MirroredTopic,
+} from "#lib/mirror/types.js";
+import type { NoteRow } from "#lib/notes/api.js";
+import type { MirroredContextDoc } from "#lib/offline/repo.js";
 
 /**
  * Assembles the full offline snapshot. Assembly, not new SQL semantics: every query here reuses
@@ -148,8 +157,12 @@ function refIdsOf(report: MirroredReport): string[] {
   return report.structured ? entriesOf(report.structured).flatMap((e) => e.refIds) : [];
 }
 
+// The queries below name their columns as the mirror does (snake_case where the type is, camelCase
+// where it is), so a row goes into the snapshot as it came out. Defaults live in `coalesce`, which
+// is where a null becomes a value; a column that is nullable in the type is left null.
+
 async function buildNotes() {
-  const rows = await sql()`
+  return sql()<NoteRow[]>`
     SELECT
       n.id, n.content, n.scope, n.created_at, n.updated_at, n.expires_at,
       n.created_by, n.updated_by, n.deleted_at, n.source_key,
@@ -158,43 +171,19 @@ async function buildNotes() {
     ORDER BY n.created_at DESC
     LIMIT 500
   `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    content: row.content as string,
-    scope: row.scope as string,
-    created_at: row.created_at as string,
-    updated_at: (row.updated_at as string | null) ?? null,
-    expires_at: (row.expires_at as string | null) ?? null,
-    created_by: (row.created_by as string | null) ?? null,
-    updated_by: (row.updated_by as string | null) ?? null,
-    deleted_at: (row.deleted_at as string | null) ?? null,
-    source_key: (row.source_key as string | null) ?? null,
-    revision_count: row.revision_count as number,
-  }));
 }
 
 async function buildCorrections() {
-  const rows = await sql()`
+  return sql()<MirroredCorrection[]>`
     SELECT id, target_kind, target_key, operation, statement, supersedes_text, rationale, source, created_at
     FROM context_corrections
     WHERE status = 'active'
     ORDER BY created_at DESC
   `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    target_kind: row.target_kind as string,
-    target_key: row.target_key as string,
-    operation: row.operation as string,
-    statement: row.statement as string,
-    supersedes_text: (row.supersedes_text as string | null) ?? null,
-    rationale: (row.rationale as string | null) ?? null,
-    source: row.source as string,
-    created_at: row.created_at as string,
-  }));
 }
 
 async function buildContextCounts() {
-  const [counts] = await sql()`
+  const [counts] = await sql()<MirroredContextDoc["counts"][]>`
     SELECT
       (SELECT count(*) FROM contacts WHERE removed_at IS NULL)::int AS contacts,
       (SELECT count(*) FROM entities)::int                        AS entities,
@@ -203,7 +192,7 @@ async function buildContextCounts() {
       (SELECT count(*) FROM context_builder_indexed_items
         WHERE source = 'keep')::int                               AS indexed_keep
   `;
-  return counts as { contacts: number; entities: number; indexed_email: number; indexed_keep: number };
+  return counts;
 }
 
 // --- the reference tables ---
@@ -214,82 +203,43 @@ async function buildContextCounts() {
 // report window, like the extractions.
 
 async function buildEntities() {
-  const rows = await sql()`
-    SELECT id, name, aliases, type, domain, summary, first_seen::text AS first_seen,
-           last_mentioned::text AS last_mentioned, mention_count, status, importance, locked
+  return sql()<MirroredEntity[]>`
+    SELECT id, name, coalesce(aliases, '{}') AS aliases, type, domain, summary,
+           first_seen::text AS "firstSeen", last_mentioned::text AS "lastMentioned",
+           coalesce(mention_count, 0) AS "mentionCount", coalesce(status, 'active') AS status,
+           coalesce(importance, 'normal') AS importance, coalesce(locked, false) AS locked
     FROM entities
   `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    aliases: (row.aliases as string[] | null) ?? [],
-    type: (row.type as string | null) ?? null,
-    domain: (row.domain as string | null) ?? null,
-    summary: (row.summary as string | null) ?? null,
-    firstSeen: (row.first_seen as string | null) ?? null,
-    lastMentioned: (row.last_mentioned as string | null) ?? null,
-    mentionCount: (row.mention_count as number | null) ?? 0,
-    status: (row.status as string | null) ?? "active",
-    importance: (row.importance as string | null) ?? "normal",
-    locked: !!row.locked,
-  }));
 }
 
 async function buildEntityAppearances() {
-  const rows = await sql()`
-    SELECT id, entity_id, report_date::text AS report_date, context_snippet, relevance_score
+  return sql()<MirroredAppearance[]>`
+    SELECT id, entity_id AS "entityId", report_date::text AS "reportDate",
+           context_snippet AS "contextSnippet", relevance_score AS "relevanceScore"
     FROM entity_appearances
     WHERE report_date >= (
       SELECT min(report_date) FROM (SELECT report_date FROM daily_reports ORDER BY report_date DESC LIMIT ${MIRROR_DAYS}) win
     )
   `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    entityId: row.entity_id as string,
-    reportDate: (row.report_date as string | null) ?? null,
-    contextSnippet: (row.context_snippet as string | null) ?? null,
-    relevanceScore: (row.relevance_score as number | null) ?? null,
-  }));
 }
 
 async function buildContacts() {
-  const rows = await sql()`
-    SELECT id, identifier, name, relationship, priority, context_notes,
-           first_seen::text AS first_seen, updated_at, locked, email_count
+  return sql()<MirroredContact[]>`
+    SELECT id, identifier, name, relationship, coalesce(priority, 'normal') AS priority,
+           context_notes AS "contextNotes", first_seen::text AS "firstSeen", updated_at AS "updatedAt",
+           coalesce(locked, false) AS locked, coalesce(email_count, 0) AS "emailCount"
     FROM contacts
     WHERE removed_at IS NULL
   `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    identifier: row.identifier as string,
-    name: (row.name as string | null) ?? null,
-    relationship: (row.relationship as string | null) ?? null,
-    priority: (row.priority as string | null) ?? "normal",
-    contextNotes: (row.context_notes as string | null) ?? null,
-    firstSeen: (row.first_seen as string | null) ?? null,
-    updatedAt: (row.updated_at as string | null) ?? null,
-    locked: !!row.locked,
-    emailCount: (row.email_count as number | null) ?? 0,
-  }));
 }
 
 async function buildTopics() {
-  const rows = await sql()`
-    SELECT id, headline, domain, running_summary, first_seen::text AS first_seen,
-           last_updated::text AS last_updated, status, update_count, sources
+  return sql()<MirroredTopic[]>`
+    SELECT id, headline, domain, running_summary AS "runningSummary", first_seen::text AS "firstSeen",
+           last_updated::text AS "lastUpdated", coalesce(status, 'active') AS status,
+           coalesce(update_count, 1) AS "updateCount", coalesce(sources, '{}') AS sources
     FROM active_topics
   `;
-  return rows.map((row) => ({
-    id: row.id as string,
-    headline: row.headline as string,
-    domain: row.domain as string,
-    runningSummary: (row.running_summary as string | null) ?? null,
-    firstSeen: row.first_seen as string,
-    lastUpdated: row.last_updated as string,
-    status: (row.status as string | null) ?? "active",
-    updateCount: (row.update_count as number | null) ?? 1,
-    sources: (row.sources as string[] | null) ?? [],
-  }));
 }
 
 export async function assemble(): Promise<SnapshotStores> {

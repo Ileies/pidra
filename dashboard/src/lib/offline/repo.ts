@@ -22,7 +22,15 @@
 import * as db from "./db.js";
 import { getLastSyncedAt, sync } from "./sync.js";
 import { mirrorKey, type MirrorKey, type MirrorStore } from "./deps.js";
-import type { MirroredReport } from "#lib/mirror/types.js";
+import type {
+  EntityAppearance,
+  MirroredAppearance,
+  MirroredContact,
+  MirroredCorrection,
+  MirroredEntity,
+  MirroredReport,
+  MirroredTopic,
+} from "#lib/mirror/types.js";
 import type { ExtractedJson } from "#lib/server/extractions.js";
 import type { HarvestDoc, HarvestRun } from "#lib/server/contextHarvest.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
@@ -43,7 +51,7 @@ export async function mirrorEmpty(): Promise<boolean> {
   return (await getLastSyncedAt()) === null;
 }
 
-export type { MirroredReport };
+export type { EntityAppearance, MirroredAppearance, MirroredContact, MirroredCorrection, MirroredEntity, MirroredReport, MirroredTopic };
 
 export async function report(depends: Depends, date: string): Promise<MirroredReport | null> {
   watch(depends, "reports");
@@ -136,18 +144,6 @@ export function filterNotes(all: MirroredNote[], filter: NotesFilter): MirroredN
   return filtered.slice(0, NOTES_SHOWN);
 }
 
-export interface MirroredCorrection {
-  id: string;
-  target_kind: string;
-  target_key: string;
-  operation: string;
-  statement: string;
-  supersedes_text: string | null;
-  rationale: string | null;
-  source: string;
-  created_at: string;
-}
-
 export interface MirroredContextDoc {
   id: "current";
   run: HarvestRun | null;
@@ -176,21 +172,6 @@ export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> 
 // --- the reference tables. Read-only here: their writes are corrections
 // and topic curation, which stay online-only, so the outbox never touches these stores. ---
 
-export interface MirroredEntity {
-  id: string;
-  name: string;
-  aliases: string[];
-  type: string | null;
-  domain: string | null;
-  summary: string | null;
-  firstSeen: string | null;
-  lastMentioned: string | null;
-  mentionCount: number;
-  status: string;
-  importance: string;
-  locked: boolean;
-}
-
 /** Most mentioned first, as the server-rendered table sorted them. */
 export async function entities(depends: Depends): Promise<MirroredEntity[]> {
   watch(depends, "entities");
@@ -198,17 +179,6 @@ export async function entities(depends: Depends): Promise<MirroredEntity[]> {
   return rows.sort(
     (a, b) => b.mentionCount - a.mentionCount || (b.lastMentioned ?? "").localeCompare(a.lastMentioned ?? ""),
   );
-}
-
-export interface EntityAppearance {
-  id: string;
-  reportDate: string | null;
-  contextSnippet: string | null;
-  relevanceScore: number | null;
-}
-
-export interface MirroredAppearance extends EntityAppearance {
-  entityId: string;
 }
 
 /** One entity and its appearances inside the report window. Null when the mirror has no such entity. */
@@ -228,20 +198,6 @@ export async function entity(
   return { entity: row, appearances };
 }
 
-export interface MirroredContact {
-  id: string;
-  identifier: string;
-  name: string | null;
-  relationship: string | null;
-  priority: string;
-  contextNotes: string | null;
-  firstSeen: string | null;
-  updatedAt: string | null;
-  locked: boolean;
-  /** Seeded once from the Context Builder's corpus, then owned by the live pipeline. */
-  emailCount: number;
-}
-
 const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1 };
 
 export async function contacts(depends: Depends): Promise<MirroredContact[]> {
@@ -253,18 +209,6 @@ export async function contacts(depends: Depends): Promise<MirroredContact[]> {
       b.emailCount - a.emailCount ||
       a.identifier.localeCompare(b.identifier),
   );
-}
-
-export interface MirroredTopic {
-  id: string;
-  headline: string;
-  domain: string;
-  runningSummary: string | null;
-  firstSeen: string;
-  lastUpdated: string;
-  status: string;
-  updateCount: number;
-  sources: string[];
 }
 
 /** Most recently updated first. */

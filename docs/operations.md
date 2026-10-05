@@ -91,7 +91,7 @@ Step timing shows where a run spends its time: a news desk, a flex backoff, a sy
 
 ## Synthesis output parsing
 
-Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses it to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic.
+Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses it to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic. The block is model output, so parsing is defensive: a block that is not a JSON object is treated as absent, list fields that are not lists and entries that are not objects are dropped, and an entry missing its required text (a new topic's headline or domain, a new entity's name, a skill suggestion's skill) is skipped. Invalid entries never fail the step or the rest of the block.
 
 ## Error handling model
 

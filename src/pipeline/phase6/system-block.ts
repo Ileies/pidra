@@ -45,15 +45,30 @@ export interface Section2System {
   notes_to_write?: { content: string; scope?: string }[];
 }
 
-/** Null when the block is absent or not valid JSON. Takes the first block only. */
+/** Null when the block is absent, not valid JSON or not a JSON object. Takes the first block only. */
 export function parseSystemBlock<T extends Section1System | Section2System>(text: string): T | null {
   const match = text.match(/<!--SYSTEM\s*([\s\S]*?)\s*-->/);
   if (!match) return null;
   try {
-    return JSON.parse(match[1]) as T;
+    const parsed: unknown = JSON.parse(match[1]);
+    return isRecord(parsed) ? (parsed as T) : null;
   } catch {
     return null;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The object entries of a block field; anything that is not a list (or not an object inside it) is dropped, never thrown on. */
+function records(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+/** A trimmed non-blank string, else null. */
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function isValidTopicUpdate(update: Partial<TopicUpdate>): update is TopicUpdate {
@@ -79,7 +94,13 @@ async function applyTopicUpdate(update: TopicUpdate, runDate: string): Promise<v
 }
 
 export async function applySection1SystemBlock(s1System: Section1System, runDate: string): Promise<void> {
-  const updates = (s1System.updated_topics ?? []).filter(isValidTopicUpdate);
+  const updates = (records(s1System.updated_topics) as Partial<TopicUpdate>[]).filter(isValidTopicUpdate);
+  const newTopics = records(s1System.new_topics).flatMap((entry) => {
+    const headline = text(entry.headline);
+    const domain = text(entry.domain);
+    // `active_topics` requires both; a topic without them is skipped rather than failing the block.
+    return headline && domain ? [{ headline, domain, summary: text(entry.summary), importance: normalizeTopicImportance(entry.importance) }] : [];
+  });
   const targetIds = updates.filter((u) => u.status === "active").map((u) => u.id);
   const statusById = new Map(
     targetIds.length
@@ -100,8 +121,8 @@ export async function applySection1SystemBlock(s1System: Section1System, runDate
 
   type Candidate = { importance: string; admit: () => Promise<void> };
   const candidates: Candidate[] = [
-    ...(s1System.new_topics ?? []).map((topic): Candidate => ({
-      importance: normalizeTopicImportance(topic.importance),
+    ...newTopics.map((topic): Candidate => ({
+      importance: topic.importance,
       admit: async () => {
         await db.insert(activeTopics).values({
           headline: topic.headline,
@@ -111,7 +132,7 @@ export async function applySection1SystemBlock(s1System: Section1System, runDate
           lastUpdated: runDate,
           status: "active",
           updateCount: 1,
-          importance: normalizeTopicImportance(topic.importance),
+          importance: topic.importance,
         }).onConflictDoNothing();
       },
     })),
@@ -146,11 +167,13 @@ export async function applySection1SystemBlock(s1System: Section1System, runDate
     }
   }
 
-  for (const entity of s1System.new_entities ?? []) {
+  for (const entity of records(s1System.new_entities)) {
+    const name = text(entity.name);
+    if (!name) continue;
     await db.insert(entities).values({
-      name: entity.name,
-      type: entity.type,
-      domain: entity.domain,
+      name,
+      type: text(entity.type),
+      domain: text(entity.domain),
       firstSeen: runDate,
       lastMentioned: runDate,
       mentionCount: 1,
@@ -158,7 +181,11 @@ export async function applySection1SystemBlock(s1System: Section1System, runDate
     }).onConflictDoNothing();
   }
 
-  await processSkillSuggestions(s1System.skill_suggestions ?? [], runDate, "report_section");
+  const suggestions = records(s1System.skill_suggestions).flatMap((entry) => {
+    const skill = text(entry.skill);
+    return skill ? [{ skill, reason: text(entry.reason) ?? "", parameters: isRecord(entry.parameters) ? entry.parameters : {} }] : [];
+  });
+  await processSkillSuggestions(suggestions, runDate, "report_section");
 }
 
 export async function applySection2SystemBlock(s2System: Section2System): Promise<void> {
@@ -175,11 +202,11 @@ export async function applySection2SystemBlock(s2System: Section2System): Promis
     }).onConflictDoNothing();
   }
 
-  for (const note of s2System.notes_to_write ?? []) {
+  for (const note of records(s2System.notes_to_write)) {
     // Through the store, so a pipeline-written note is editable and reversible like any other.
     // A malformed one is skipped rather than allowed to fail the step.
     try {
-      await createNote({ content: note.content, scope: note.scope ?? "global" }, { by: "system" });
+      await createNote({ content: note.content as string, scope: typeof note.scope === "string" ? note.scope : "global" }, { by: "system" });
     } catch (err) {
       console.warn(`[Phase 6] Skipped a note from the SYSTEM block: ${errMessage(err)}`);
     }

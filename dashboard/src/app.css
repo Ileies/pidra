@@ -368,16 +368,24 @@
 /* Form and action buttons: behaviour (`btn`), one size, one tone. Sizes and tones never set the
    same property, so any one of each composes without depending on stylesheet order. */
 @utility btn {
-  @apply tap inline-flex items-center justify-center gap-2 rounded border no-underline transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  @apply tap inline-flex items-center justify-center gap-2 border no-underline transition-colors disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-sm {
-  @apply px-3 py-1.5 text-xs;
+  @apply rounded px-3 py-1.5 text-xs;
 }
 @utility btn-md {
-  @apply px-4 py-1.5 text-sm;
+  @apply rounded px-4 py-1.5 text-sm;
 }
 @utility btn-lg {
-  @apply px-5 py-2 text-sm;
+  @apply rounded px-5 py-2 text-sm;
+}
+/* The prev/next day links: a larger, softer-cornered step control. */
+@utility btn-step {
+  @apply rounded-lg px-3 py-2 text-sm;
+}
+/* Text-only buttons (no fill, no visible border): padding and radius only, the text size is the caller's. */
+@utility btn-bare {
+  @apply rounded px-2;
 }
 @utility btn-primary {
   @apply border-primary-700 bg-primary-900 text-primary-200 hover:bg-primary-800;
@@ -387,6 +395,18 @@
 }
 @utility btn-ghost {
   @apply border-surface-600 text-surface-300 hover:border-surface-400 hover:text-surface-100;
+}
+/* A panel-coloured button; carries the panel lift so it matches Card in light mode. */
+@utility btn-surface {
+  @apply border-surface-700 bg-surface-900 text-surface-200 hover:bg-surface-800;
+  box-shadow: var(--app-shadow-panel);
+}
+/* No fill, no visible border: a dismiss, a history link, an inline action. */
+@utility btn-quiet {
+  @apply border-transparent bg-transparent text-surface-400 hover:text-surface-100;
+}
+@utility btn-quiet-danger {
+  @apply border-transparent bg-transparent text-surface-400 hover:text-error-400;
 }
 @utility btn-danger {
   @apply border-error-700 bg-surface-900 text-error-400 hover:bg-surface-950;

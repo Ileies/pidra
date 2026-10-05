@@ -53,14 +53,14 @@
   {#if prevDate}
     <a
       href="/{prevDate}"
-      class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
+      class="btn btn-step btn-surface"
     >
       <ChevronLeft class="h-5 w-5 shrink-0" aria-hidden="true" />
       <span class="hidden xs:inline tabular-nums">{prevDate}</span>
       <span class="sr-only">Previous day, {prevDate}</span>
     </a>
   {:else}
-    <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
+    <span class="btn btn-step border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
       <ChevronLeft class="h-5 w-5" />
     </span>
   {/if}
@@ -127,14 +127,14 @@
     {#if nextDate}
       <a
         href="/{nextDate}"
-        class="tap flex items-center gap-2 px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-sm text-surface-200 no-underline hover:bg-surface-800"
+        class="btn btn-step btn-surface"
       >
         <span class="hidden xs:inline tabular-nums">{nextDate}</span>
         <ChevronRight class="h-5 w-5 shrink-0" aria-hidden="true" />
         <span class="sr-only">Next day, {nextDate}</span>
       </a>
     {:else}
-      <span class="tap flex items-center px-3 py-2 rounded-lg border border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
+      <span class="btn btn-step border-surface-800 text-surface-400 opacity-40 select-none" aria-hidden="true">
         <ChevronRight class="h-5 w-5" />
       </span>
     {/if}
@@ -142,8 +142,9 @@
     {#if showLatest}
       <a
         href="/"
-        class="tap flex items-center px-3 py-2 rounded-lg border border-surface-700 bg-surface-900 text-surface-200 no-underline hover:bg-surface-800"
+        class="btn btn-step btn-surface"
       >
+        <span class="hidden xs:inline">Latest</span>
         <ChevronsRight class="h-5 w-5 shrink-0" aria-hidden="true" />
         <span class="sr-only">Latest report</span>
       </a>

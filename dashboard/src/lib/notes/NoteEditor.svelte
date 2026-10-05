@@ -123,7 +123,7 @@
           <button
             type="button"
             onclick={onHistory}
-            class="tap rounded bg-transparent px-2 text-xs text-surface-400 hover:text-surface-100 border-none"
+            class="btn btn-quiet btn-bare text-xs"
           >{existing.revisionCount} {existing.revisionCount === 1 ? "change" : "changes"}</button>
         {/if}
         {#if onDelete}
@@ -131,7 +131,7 @@
             type="button"
             onclick={onDelete}
             aria-label="Delete this note"
-            class="tap inline-flex items-center justify-center rounded bg-transparent px-2 text-surface-400 hover:text-error-400 border-none transition-colors"
+            class="btn btn-quiet-danger btn-bare"
           ><Trash class="h-4 w-4" aria-hidden="true" /></button>
         {/if}
       </span>

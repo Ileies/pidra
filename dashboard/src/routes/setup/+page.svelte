@@ -105,7 +105,7 @@
                   class="ml-auto"
                 >
                   <input type="hidden" name="id" value={cred.id} />
-                  <button type="submit" class="tap px-2 text-surface-400 hover:text-error-400 bg-transparent border-none text-xs">Remove</button>
+                  <button type="submit" class="btn btn-quiet-danger btn-bare text-xs">Remove</button>
                 </form>
               {/if}
             </li>
@@ -158,7 +158,7 @@
                 <Badge tone="muted">expires {fmtDateTime(sess.expiresAt)}</Badge>
                 <form method="POST" action="?/revokeSession" use:enhance class="ml-auto">
                   <input type="hidden" name="id" value={sess.id} />
-                  <button type="submit" class="tap px-2 text-surface-400 hover:text-error-400 bg-transparent border-none text-xs">Sign out</button>
+                  <button type="submit" class="btn btn-quiet-danger btn-bare text-xs">Sign out</button>
                 </form>
               </li>
             {/each}

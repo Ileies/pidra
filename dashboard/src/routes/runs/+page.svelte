@@ -176,7 +176,7 @@
                     <button
                       type="submit"
                       disabled={reviewing !== null}
-                      class="btn btn-ghost px-2 py-0.5 text-xs"
+                      class="btn btn-ghost btn-bare py-0.5 text-xs"
                     >
                       {#if reviewing === run.id}<Spinner label="Marking as reviewed" />{/if}
                       Mark reviewed

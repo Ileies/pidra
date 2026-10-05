@@ -177,7 +177,7 @@
           <button
             type="button"
             onclick={() => onHistory(note)}
-            class="tap rounded bg-transparent px-1 text-xs text-surface-400 hover:text-surface-100 border-none"
+            class="btn btn-quiet rounded px-1 text-xs"
           >{note.revision_count} {note.revision_count === 1 ? "change" : "changes"}</button>
         {/if}
       </span>

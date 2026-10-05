@@ -37,12 +37,18 @@ const SECTION_NEWS = "News";
 const SECTION_INTEL = "Intelligence Briefing";
 const SECTION_ALSO_NOTED = "Also noted";
 
+const LINK = String.raw`\[[^\]]*\]\([^)]*\)`;
+/** The source links closing an item: a run of links split by `·`, `,` or `;`, optionally in parentheses. */
+const TRAILING_SOURCES = new RegExp(String.raw`[ \t]*\(?[ \t]*${LINK}(?:[ \t]*[·•,;|][ \t]*${LINK})*[ \t]*\)?[ \t]*$`, "gm");
+
 /** Markdown to plain sentences. One line per paragraph or list item, each ending in punctuation. */
 export function speechText(markdown: string): string {
   const cleaned = markdown
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    // Source citations are for the eyes: drop them with their text. Links inside a sentence keep their words.
+    .replace(TRAILING_SOURCES, "")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/<https?:[^>]*>/g, "")
     .replace(/https?:\/\/[^\s)>\]]+/g, "")

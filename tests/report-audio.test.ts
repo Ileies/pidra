@@ -20,6 +20,12 @@ describe("speechText", () => {
     expect(out).toBe("Bold and a link code.");
   });
 
+  test("drops the trailing source links with their publisher names", () => {
+    const md = "- **Vote passes.** The [parliament](https://example.com/a) agreed. [Reuters](https://example.com/r) · [BBC](https://example.com/b) <!--refs:1,2-->";
+    expect(speechText(md)).toBe("Vote passes. The parliament agreed.");
+    expect(speechText("Fact stated. ([Reuters](https://example.com/r))")).toBe("Fact stated.");
+  });
+
   test("turns list items and headings into sentences", () => {
     expect(speechText("## Heading\n- one\n- two.\n1. three")).toBe("Heading.\none.\ntwo.\nthree.");
   });

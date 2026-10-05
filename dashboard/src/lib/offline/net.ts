@@ -131,7 +131,7 @@ export async function adoptWorkerHint(): Promise<void> {
 
 let probing: Promise<boolean> | null = null;
 
-/** Liveness of the dashboard process, which is exactly what wg0 gates. Shared by all callers. */
+/** Liveness of the dashboard process, shared by all callers. */
 export function probe(): Promise<boolean> {
   probing ??= runProbe().finally(() => {
     probing = null;

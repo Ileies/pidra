@@ -11,7 +11,7 @@ The highest-impact assets are the mail accounts, Google and other API tokens, th
 ## Internet ingress
 
 - `pidra.de` is served by nginx over TLS with HSTS for one year. nginx proxies the dashboard to port 3009 and rate-limits `/api/auth/` to 5 requests per minute per IP with a burst of 10 (`/etc/nixos/hosts/pronix/nginx.nix`).
-- The dashboard listens on `0.0.0.0:3009`. The firewall opens that port on `wg0` only and nginx reaches it over loopback, so it is not internet-facing (`/etc/nixos/hosts/pronix/pidra.nix`).
+- The dashboard listens on `127.0.0.1:3009` and the firewall does not open that port, so nginx is the only way in and the login in `hooks.server.ts` is the security boundary (`/etc/nixos/hosts/pronix/pidra.nix`).
 - The skills bridge binds `127.0.0.1:4000` by default (`src/server/index.ts`) and nginx does not proxy it. Its endpoints have no authentication, so loopback binding is a security boundary.
 - `dashboard/src/hooks.server.ts` requires a valid session for every route except a fixed allowlist: login, setup, privacy, terms, the manifest and service worker, static assets, health and `/api/auth/`. Unknown routes require login. This is an application gate: anonymous requests still reach the SvelteKit process.
 - The hook sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` and an enforced CSP for framing, objects and base URLs. The broader resource CSP is still report-only (`CSP_REPORT_ONLY`). Truly prerendered static pages bypass the hook's headers.

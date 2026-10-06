@@ -91,6 +91,10 @@ Step timing shows where a run spends its time: a news desk, a flex backoff, a sy
 - Every trace write is swallowed: a failed insert costs a bar, never a briefing.
 - Runs before 2026-10-01 have no step data. Those before the question gate stopped waiting also show a `phase4-wait` span of up to 45 minutes (`detail`: `questions`, `unanswered`, `outcome`, `timeoutMinutes`); new runs never write it.
 
+## Jev shadow mode
+
+`JEV_MODE_NEWS_IMPACT=shadow` turns on the shadow `news_impact` task; unset or any other value is off. After the news desks' deterministic checks and duplicate marking, `shadowNewsImpact` (`src/news/jev-shadow.ts`, in a `news:jev-shadow` span) scores each story that passed the checks and was not stored by an earlier run, sending only public story fields (headline, summary, context, region, topic, happened_at) with the `jev_news_impact` rubric from the approved-prompt resolver. One `jev_decisions` row per story. It never throws, needs a traced run id (`currentRunId()` in `src/util/trace.ts`, so dry runs and scripts record nothing), and nothing it produces reaches stories, the gate or the report.
+
 ## Synthesis output parsing
 
 Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses it to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic. The block is model output, so parsing is defensive: a block that is not a JSON object is treated as absent, list fields that are not lists and entries that are not objects are dropped, and an entry missing its required text (a new topic's headline or domain, a new entity's name, a skill suggestion's skill) is skipped. Invalid entries never fail the step or the rest of the block.

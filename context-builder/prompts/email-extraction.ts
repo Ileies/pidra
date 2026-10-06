@@ -13,7 +13,7 @@ export const EMAIL_EXTRACTION_SCHEMA = {
         enum: ["work", "personal", "financial", "service", "automated", "spam"],
       },
       importance: { type: "string", enum: ["high", "medium", "low"] },
-      summary: { type: "string", description: "max 60 chars - what the email is about" },
+      summary: { type: "string", description: "max 80 chars - what the email is about" },
       action_required: {
         type: ["string", "null"],
         description: "what the user needs to do, if anything",
@@ -34,7 +34,7 @@ export function buildEmailExtractionPrompt(today: string): string {
   return `Today's date is ${today}. Extract key information from this email into the required JSON schema.
 
 Rules:
-- summary: be specific, not generic ("Invoice #1234 from Acme" not "an invoice"), max 60 chars
+- summary: be specific, not generic ("Invoice #1234 from Acme" not "an invoice"), max 80 chars
 - action_required: null if the deadline or action has clearly already passed relative to today's date, or if no action was ever needed
 - importance: weigh against how old the email is relative to today - a time-bound request or deadline from months or years ago is no longer high importance just because it once was, unless it describes a recurring or still-ongoing situation
 - entities: AT MOST 5, each a short proper name of two to five words. Never a sentence, never a

@@ -93,7 +93,13 @@ Step timing shows where a run spends its time: a news desk, a flex backoff, a sy
 
 ## Jev shadow mode
 
-`JEV_MODE_NEWS_IMPACT=shadow` turns on the shadow `news_impact` task; unset or any other value is off. After the news desks' deterministic checks and duplicate marking, `shadowNewsImpact` (`src/news/jev-shadow.ts`, in a `news:jev-shadow` span) scores each story that passed the checks and was not stored by an earlier run, sending only public story fields (headline, summary, context, region, topic, happened_at) with the `jev_news_impact` rubric from the approved-prompt resolver. One `jev_decisions` row per story. It never throws, needs a traced run id (`currentRunId()` in `src/util/trace.ts`, so dry runs and scripts record nothing), and nothing it produces reaches stories, the gate or the report.
+Two independent shadow tasks, each switched by its own env var (`shadow` turns it on; unset or any other value is off): `JEV_MODE_NEWS_IMPACT` for `news_impact` and `JEV_MODE_NEWS_NOVELTY` for `news_novelty`. After the news desks' deterministic checks and duplicate marking, `shadowNewsJev(candidates, reported, transport?)` (`src/news/jev-shadow.ts`, in a `news:jev-shadow` span) runs both over each story that passed the checks and was not stored by an earlier run. Rubrics come from the approved-prompt resolver: `jev_news_impact` and `jev_news_novelty` (four ordered levels: nothing new, minor update, material development, entirely new).
+
+- `news_impact` sends only public story fields (headline, summary, context, region, topic, happened_at).
+- `news_novelty` sends the same fields plus `prior_headlines`: the newest 20 already-reported desk headlines with dates (`PRIOR_HEADLINE_LIMIT`), taken from the desks' `reported` input. These are reader-delivered public news headlines, never notes or personal context.
+- One `jev_decisions` row per story per task. A failure in one task is warned and does not affect the other.
+
+It never throws, needs a traced run id (`currentRunId()` in `src/util/trace.ts`, so dry runs and scripts record nothing), and nothing it produces reaches stories, the gate or the report.
 
 ## Synthesis output parsing
 

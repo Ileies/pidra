@@ -69,6 +69,26 @@ describe("jev ledger", () => {
     expect(await rows()).toHaveLength(3);
   });
 
+  test("a shadow decision changes nothing outside the ledger", async () => {
+    const sql = database.sql;
+    const [raw] = await sql`insert into raw_items (run_date, source_type, raw_content) values ('2026-10-05', 'web_news', 'x') returning id`;
+    await sql`insert into extractions (raw_item_id, run_date, relevance_score, gate_passed, included_in_report) values (${raw!.id}, '2026-10-05', 4, true, false)`;
+    await sql`insert into daily_reports (report_date, full_report) values ('2026-10-05', 'final report')`;
+    const snapshot = async () => JSON.stringify([
+      await sql`select * from raw_items order by id`,
+      await sql`select * from extractions order by id`,
+      await sql`select * from daily_reports order by id`,
+      await sql`select * from report_actions order by id`,
+      await sql`select * from skill_executions order by id`,
+      await sql`select id, status, step_errors from pipeline_runs order by id`,
+    ]);
+    const before = await snapshot();
+    await recordJevDecision(ok, entry());
+    await recordJevDecision(failed, entry({ subjectKey: "story-2" }));
+    expect(await snapshot()).toBe(before);
+    expect(await rows()).toHaveLength(2);
+  });
+
   test("a write failure returns false instead of throwing", async () => {
     expect(await recordJevDecision(ok, entry({ runId: "00000000-0000-0000-0000-000000000000" }))).toBe(false);
   });

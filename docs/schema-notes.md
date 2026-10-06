@@ -4,7 +4,7 @@
 
 The schema is split by concern and re-exported from `src/db/schema/index.ts`, so every `../db/schema` import and `drizzle.config.ts` (`schema: "./src/db/schema"`) resolve to the directory. `columns.ts` holds the shared `pk()` / `createdAt()` / `updatedAt()` helpers; schema comments are one line per table, so the rationale lives here.
 
-- `pipeline.ts`: `raw_items`, `extractions`, `ingest_drops`, `active_topics`, `daily_reports`, `report_audio`, `brave_daily_usage`, `report_actions`, `feedback_events`, `push_subscriptions`, `pipeline_runs`, `pipeline_run_steps`, `notification_reads`
+- `pipeline.ts`: `raw_items`, `extractions`, `ingest_drops`, `active_topics`, `daily_reports`, `report_audio`, `brave_daily_usage`, `report_actions`, `feedback_events`, `push_subscriptions`, `pipeline_runs`, `pipeline_run_steps`, `jev_decisions`, `notification_reads`
 - `context.ts`: `entities`, `entity_mentions`, `entity_appearances`, `source_quality`, `source_daily_scores`, `contacts`, `context_builder_runs`, `context_builder_indexed_items`, `context_corrections`
 - `notes.ts`: `notes`, `note_revisions`
 - `questions.ts`: `questions`, `question_events`
@@ -35,6 +35,7 @@ Each table has one writer module; don't add a second writer. Tables described be
 - `daily_reports`: one row per report date: the markdown (`full_report`, the source of truth), its parsed form (`report_json`, nullable by design), summary, counts and token/search figures.
 - `pipeline_runs`: one row per run (`running | completed | failed`), with `failed_step` and `step_errors` (JSONB array of `StepAttemptError`). `audio_cost_usd` (double, default 0) is the estimated cost of speaking that date's report, kept apart from the run cost.
 - `pipeline_run_steps`: span tree per run (`parent_id`, `step`, `attempt`, timing, own tokens, AI calls, searches, flex retries, `detail` JSONB), written by `src/util/trace.ts`. Absent for runs before 2026-10-01; deleted with the run.
+- `jev_decisions`: Jev decision ledger, written by `recordJevDecision` in `src/ai/jev-ledger.ts`. One row per run, task, subject, model and rubric version; a retry replaces an `error` row, never an `ok` one. Stores a state hash and subject key, no source text; `off` results record nothing. **Not yet applied to the production DB**: apply it raw (see `docs/operations.md`) before deploying any code that writes it. Nothing in the pipeline calls the writer yet.
 - `active_topics`: running story summaries, giving continuity across days.
 - `brave_daily_usage`: atomic shared count of actual Brave API attempts per UTC day, capped at 30.
 - `report_actions`: the quick actions a report offers, with state `proposed | running | done | failed | queued | dismissed`, or `discarded` with the reason code that threw a proposal out.

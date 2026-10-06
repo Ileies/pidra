@@ -1,4 +1,4 @@
-import { boolean, check, doublePrecision, integer, pgTable, primaryKey, real, text, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, integer, pgTable, primaryKey, real, text, unique, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type { GateDetail } from "../../pipeline/gate";
 import type { ReportJson } from "../../pipeline/report-json";
@@ -204,6 +204,37 @@ export const pipelineRunSteps = pgTable("pipeline_run_steps", {
   flexRetries: integer("flex_retries").notNull().default(0),
   detail: jsonb("detail").$type<Record<string, unknown>>(),
 });
+
+/**
+ * Evaluation ledger for Jev decisions (src/ai/jev-ledger.ts). One row per run, task, subject, model
+ * and rubric version; a retry updates it. Holds a state hash and source IDs, never source text.
+ */
+export const jevDecisions = pgTable("jev_decisions", {
+  id: pk(),
+  runId: uuid("run_id").notNull().references(() => pipelineRuns.id, { onDelete: "cascade" }),
+  task: text("task").notNull(), // JevTask in src/ai/jev.ts
+  /** extractions.id or the news story's stable key; the caller picks one per task. */
+  subjectKey: text("subject_key").notNull(),
+  model: text("model").notNull(),
+  rubricVersion: text("rubric_version").notNull(),
+  mode: text("mode").notNull(), // shadow | active
+  status: text("status").notNull(), // ok | error
+  stateHash: text("state_hash").notNull(),
+  /** Full answers including every option probability; null on error. */
+  answers: jsonb("answers").$type<Record<string, unknown> | null>(),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  tokensIn: integer("tokens_in"),
+  tokensOut: integer("tokens_out"),
+  latencyMs: integer("latency_ms").notNull(),
+  /** True only when an active-mode decision changed what the report contained. */
+  influencedReport: boolean("influenced_report").notNull().default(false),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("jev_decisions_identity").on(t.runId, t.task, t.subjectKey, t.model, t.rubricVersion),
+  check("jev_decisions_mode", sql`${t.mode} in ('shadow', 'active')`),
+  check("jev_decisions_status", sql`${t.status} in ('ok', 'error')`),
+]);
 
 /** Acknowledgements for dashboard notifications; the notifications themselves are projections of the source tables. */
 export const notificationReads = pgTable("notification_reads", {

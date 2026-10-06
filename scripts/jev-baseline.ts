@@ -4,7 +4,7 @@
  * The output can contain paid newsletter claims. Keep it outside version control.
  * Read-only against the DB (pipeline_runs, raw_items, extractions, feedback_events, ingest_drops);
  * writes one JSON file (mode 0600, refuses to overwrite) and refuses a path inside this repo.
- * Not wired into package.json; a manual tool for the Jev ranking evaluation (src/evaluation/baseline.ts).
+ * Run as `bun run jev:baseline`; a manual tool for the Jev ranking evaluation (src/evaluation/baseline.ts).
  */
 import { isDateKey } from "../src/util/ids";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";

@@ -21,7 +21,11 @@
     "db:studio": "drizzle-kit studio",
     "context-builder": "bun run context-builder/run.ts",
     "context-builder:dry": "bun run context-builder/run.ts --dry-run",
-    "context-builder:full": "bun run context-builder/run.ts --full"
+    "context-builder:full": "bun run context-builder/run.ts --full",
+    "news:dry": "bun run scripts/news-dry-run.ts",
+    "actions:dry": "bun run scripts/actions-dry-run.ts",
+    "questions:dry": "bun run scripts/questions-dry-run.ts",
+    "jev:baseline": "bun run scripts/jev-baseline.ts"
   },
   "dependencies": {
     "@typesafe-ai/sdk": "0.6.0",

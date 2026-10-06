@@ -1,6 +1,7 @@
 import {
   ANSWER_CLASSIFICATION_PROMPT,
   ENTITY_EXTRACTION_PROMPT,
+  JEV_NEWS_IMPACT_PROMPT,
   NEWS_BEAT_PROMPT,
   NEWS_FIELD_PROMPT,
   NEWS_HOME_PROMPT,
@@ -33,6 +34,7 @@ export const PROMPT_SECTIONS = [
   "news_field",
   "news_talk",
   "news_serendipity",
+  "jev_news_impact",
 ] as const;
 
 export type PromptSection = (typeof PROMPT_SECTIONS)[number];
@@ -61,6 +63,7 @@ const BASELINES: Record<PromptSection, string> = {
   news_field: NEWS_FIELD_PROMPT,
   news_talk: NEWS_TALK_PROMPT,
   news_serendipity: NEWS_SERENDIPITY_PROMPT,
+  jev_news_impact: JEV_NEWS_IMPACT_PROMPT,
 };
 
 export interface EffectivePrompt {

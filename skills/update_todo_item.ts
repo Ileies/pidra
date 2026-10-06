@@ -8,6 +8,7 @@ const skill: Skill = {
   description:
     "Change a Google Tasks item: rename it, change its notes or due date, remove the due date, or reopen a completed one. Only the fields given change. Find the id with list_todo_items first",
   risk_level: "medium",
+  touches: ["todos"],
   parameters: {
     task_id: { type: "string", required: true, description: "Google Tasks task ID" },
     title: { type: "string", required: false, description: "New title" },

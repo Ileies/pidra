@@ -5,7 +5,7 @@ import { converse, type ResponseInput } from "../openai";
 import { executeSkill } from "../../skills/execute";
 import { loadPromptVars } from "../../settings/store";
 import { normaliseContext, systemPrompt, type TurnContextInput } from "./context";
-import { skillTools, SKILL_TOUCHES } from "./tools";
+import { skillTools, skillTouches } from "./tools";
 import { buildHistory, MAX_TOOL_RESULT_CHARS } from "./history";
 import { persistAssistantTurn } from "./persist";
 
@@ -75,7 +75,7 @@ async function* runToolCall(
     timeZone: ctx.timeZone,
   });
   if (executed.status === "executed") {
-    for (const store of SKILL_TOUCHES[call.name] ?? []) touched.add(store);
+    for (const store of skillTouches(call.name)) touched.add(store);
   }
 
   yield { type: "tool_result", name: call.name, status: executed.status, message: executed.message };

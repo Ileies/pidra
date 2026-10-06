@@ -8,6 +8,7 @@ const skill: Skill = {
   description:
     "Delete an existing Google Calendar event. Find its id with list_calendar_events first, and pass expected_title so a wrong id cannot delete the wrong event",
   risk_level: "medium",
+  touches: ["calendar"],
   parameters: {
     event_id: { type: "string", required: true, description: "Google Calendar event ID" },
     expected_title: {

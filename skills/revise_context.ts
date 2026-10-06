@@ -13,6 +13,7 @@ const skill: Skill = {
     "Correct one fact in the harvested long-term context. The harvest is never overwritten - the correction is layered over it and outranks it in every daily briefing. " +
     "Record exactly one fact per call. Always run read_context first so target_key is real and supersedes quotes the actual wrong wording.",
   risk_level: "medium",
+  touches: ["context", "entities", "contacts"],
   parameters: {
     target_kind: { type: "string", required: true, description: `One of: ${TARGET_KINDS.join(" | ")}` },
     target_key: { type: "string", required: true, description: "Document heading, entity name, or contact email address" },

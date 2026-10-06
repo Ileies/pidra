@@ -8,6 +8,7 @@ const skill: Skill = {
     "Use this before revising anything, to find the exact wrong wording and the right target_key. " +
     "Pass query='outline' to list the context document's headings, or query='all' with a kind to list everything of that kind (e.g. every contact).",
   risk_level: "low",
+  touches: [],
   parameters: {
     query: { type: "string", required: true, description: "Search term, e.g. a person's name. 'outline' lists the document's headings; 'all' lists every row of the given kind." },
     kind: { type: "string", required: false, description: "Restrict to one of: document | entity | contact | correction (default: all)" },

@@ -11,6 +11,7 @@ const skill: Skill = {
   description:
     "Execute a web search query via Brave Search and return top results. Every search uses one of a small shared daily budget, so make each query count",
   risk_level: "low",
+  touches: [],
   parameters: {
     query: { type: "string", required: true, description: "Search query (max 100 chars)" },
     count: { type: "number", required: false, description: "Number of results (1–10, default 5)" },

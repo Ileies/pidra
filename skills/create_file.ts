@@ -19,6 +19,7 @@ const skill: Skill = {
   name: "create_file",
   description: "Create a file at a given path with specified content. Restricted to allowed directories (~/Documents, ~/notes, ~/projects, /tmp).",
   risk_level: "medium",
+  touches: [],
   parameters: {
     path: { type: "string", required: true, description: "Absolute file path to create" },
     content: { type: "string", required: true, description: "File content" },

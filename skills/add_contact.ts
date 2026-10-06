@@ -7,6 +7,7 @@ const skill: Skill = {
     "Add a sender to the contact directory (an email address the user gets mail from or writes to), or bring back one that was removed. " +
     "The row is locked against a re-seed and the addition is reversible with revert_context_revision. If the contact already exists, use revise_context to change it.",
   risk_level: "medium",
+  touches: ["context", "contacts"],
   parameters: {
     identifier: { type: "string", required: true, description: "The email address. Contacts are an email sender directory, so it must be one." },
     name: { type: "string", required: false, description: "The person's or organisation's name" },

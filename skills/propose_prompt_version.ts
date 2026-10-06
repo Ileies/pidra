@@ -18,6 +18,7 @@ const skill: Skill = {
     "user confirms it there (that confirmation activates the version) - never claim a proposed prompt is live. " +
     "Pass the full prompt text, not a diff.",
   risk_level: "high",
+  touches: [],
   parameters: {
     section: { type: "string", required: true, description: `One of: ${PROMPT_SECTIONS.join(" | ")}` },
     prompt_text: { type: "string", required: true, description: "The complete new prompt text" },

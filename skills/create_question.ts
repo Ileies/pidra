@@ -8,6 +8,7 @@ const skill: Skill = {
     "Run list_questions first so you do not ask what is already open. The question must stand on its own, because it is answered later without this conversation: name the exact contact address, entity or sentence it is about. " +
     "When the user answers, an assistant with edit skills acts on the answer, so ask for the decision, not for a description.",
   risk_level: "low",
+  touches: ["questions"],
   parameters: {
     question: { type: "string", required: true, description: "One self-contained question, in the user's language" },
     why: { type: "string", required: false, description: "What you saw that made you ask; the assistant that processes the answer reads it" },

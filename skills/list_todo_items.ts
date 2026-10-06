@@ -16,6 +16,7 @@ const skill: Skill = {
   description:
     "List Google Tasks items, one line each, with their ids and lists. Defaults to all open tasks in every list. update_todo_item, complete_todo_item and delete_todo_item need the id from here",
   risk_level: "low",
+  touches: [],
   parameters: {
     list_id: { type: "string", required: false, description: "Only this Google Tasks list, by name or ID. Default: every list" },
     query: { type: "string", required: false, description: "Only tasks whose title or notes contain this text" },

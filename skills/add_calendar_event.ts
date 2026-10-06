@@ -10,6 +10,7 @@ const skill: Skill = {
   description:
     "Create an event in Google Calendar. Only title and start are needed: without an end it lasts duration_minutes (default 60), or one day if start is a date. Check list_calendar_events first when a clash matters",
   risk_level: "low",
+  touches: ["calendar"],
   parameters: {
     title: { type: "string", required: true, description: "Event title" },
     start: {

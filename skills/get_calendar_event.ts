@@ -7,6 +7,7 @@ const skill: Skill = {
   description:
     "Get every detail of one Google Calendar event: times, location, description, attendees and their replies, organizer, recurrence, video link, reminders. Find the id with list_calendar_events first",
   risk_level: "low",
+  touches: [],
   parameters: {
     event_id: { type: "string", required: true, description: "Google Calendar event ID" },
     calendar_id: { type: "string", required: false, description: "Calendar ID (default: primary)" },

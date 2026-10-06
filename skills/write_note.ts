@@ -7,6 +7,7 @@ const skill: Skill = {
     "Write a note to the briefing system notes store. Notes are standing instructions and context " +
     "for the daily briefing: 'intel' and 'global' notes steer Section 1, 'personal' and 'global' steer Section 2.",
   risk_level: "low",
+  touches: ["notes"],
   parameters: {
     content: { type: "string", required: true, description: "Note content" },
     scope: { type: "string", required: false, description: `One of: ${NOTE_SCOPES.join(" | ")} (default: global)` },

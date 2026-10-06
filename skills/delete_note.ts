@@ -12,6 +12,7 @@ const skill: Skill = {
     "Delete a note from the briefing system notes store by ID. Reversible: the note is moved to the " +
     "dashboard's trash and can be restored with restore_note. Run list_notes first to get a real ID.",
   risk_level: "low",
+  touches: ["notes"],
   parameters: {
     note_id: { type: "string", required: true, description: "UUID of the note to delete" },
     must_contain: {

@@ -6,6 +6,7 @@ const skill: Skill = {
   name: "complete_todo_item",
   description: "Mark a Google Tasks item as completed. Find the id with list_todo_items first; to undo, use update_todo_item with reopen",
   risk_level: "low",
+  touches: ["todos"],
   parameters: {
     task_id: { type: "string", required: true, description: "Google Tasks task ID" },
     expected_title: {

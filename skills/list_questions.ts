@@ -7,6 +7,7 @@ const skill: Skill = {
     "List the questions on /questions, so you do not ask the same thing twice. Defaults to the open ones; " +
     "pass status to look at answered, dismissed, resolved or merged questions too (answered ones show the user's answer).",
   risk_level: "low",
+  touches: [],
   parameters: {
     status: { type: "string", required: false, description: `One of: ${QUESTION_STATUSES.join(" | ")} | all. Default: open` },
     kind: { type: "string", required: false, description: `Only this kind: ${QUESTION_KINDS.join(" | ")} (chat = asked by the assistant). Default: every kind` },

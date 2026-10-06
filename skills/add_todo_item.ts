@@ -6,6 +6,7 @@ const skill: Skill = {
   name: "add_todo_item",
   description: "Add a task to Google Tasks. Only the title is needed; it lands in the \"To-Do Now\" list unless list_id says otherwise",
   risk_level: "low",
+  touches: ["todos"],
   parameters: {
     title: { type: "string", required: true, description: "Task title" },
     notes: { type: "string", required: false, description: "Optional task notes" },

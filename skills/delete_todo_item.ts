@@ -7,6 +7,7 @@ const skill: Skill = {
   description:
     "Delete a Google Tasks item. To finish a task use complete_todo_item instead. Find the id with list_todo_items first, and pass expected_title so a wrong id cannot delete the wrong task",
   risk_level: "medium",
+  touches: ["todos"],
   parameters: {
     task_id: { type: "string", required: true, description: "Google Tasks task ID" },
     expected_title: {

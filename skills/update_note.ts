@@ -13,6 +13,7 @@ const skill: Skill = {
     "The previous version is kept in the note's history, so the edit is reversible. " +
     "This is for notes only - facts the Context Builder harvested are corrected with revise_context instead.",
   risk_level: "low",
+  touches: ["notes"],
   parameters: {
     note_id: { type: "string", required: true, description: "UUID of the note to edit" },
     content: { type: "string", required: false, description: "New content, replacing the old text in full. Default: content unchanged" },

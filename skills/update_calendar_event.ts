@@ -42,6 +42,7 @@ const skill: Skill = {
   description:
     "Change an existing Google Calendar event: move it, rename it, relocate it, re-describe it, or change guests and reminders. Only the fields given change. Giving just a new start keeps the event's length. Find the id with list_calendar_events first",
   risk_level: "medium",
+  touches: ["calendar"],
   parameters: {
     event_id: { type: "string", required: true, description: "Google Calendar event ID" },
     start: {

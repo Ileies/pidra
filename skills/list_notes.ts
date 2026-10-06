@@ -12,6 +12,7 @@ const skill: Skill = {
     "delete_note so the ID is real. Optional filters: scope, a substring search on content, who wrote it, " +
     "when it was created, and which expire soon. Newest first by default.",
   risk_level: "low",
+  touches: [],
   parameters: {
     scope: { type: "string", required: false, description: `Restrict to one of: ${NOTE_SCOPES.join(" | ")}. Default: all scopes` },
     query: { type: "string", required: false, description: "Substring to search for in the note content" },

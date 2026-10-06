@@ -1,5 +1,6 @@
 import type { FunctionTool } from "../openai";
 import { listEffectiveSkills, type EffectiveSkill } from "../../skills/overrides";
+import { getSkill } from "../../skills/loader";
 import { SURFACES, type Surface } from "../surfaces";
 
 function toJsonSchema(skill: EffectiveSkill): Record<string, unknown> {
@@ -34,26 +35,9 @@ export async function skillTools(surface: Surface): Promise<FunctionTool[]> {
 }
 
 /**
- * Which stores a turn wrote, so the dashboard knows whether the page it is on went stale. Returned
- * as `touched` in the chat events; a skill that writes but is missing here never invalidates a page.
- * Keys are store names the dashboard matches on (keep in sync when adding a writing skill).
+ * Which stores a skill call wrote, so the dashboard knows whether the page it is on went stale.
+ * Returned as `touched` in the chat events; read from the skill's own `touches` declaration.
  */
-export const SKILL_TOUCHES: Record<string, string[]> = {
-  write_note: ["notes"],
-  update_note: ["notes"],
-  delete_note: ["notes"],
-  restore_note: ["notes"],
-  revise_context: ["context", "entities", "contacts"],
-  revert_context_revision: ["context", "entities", "contacts"],
-  remove_context_item: ["context", "entities", "contacts"],
-  add_contact: ["context", "contacts"],
-  create_question: ["questions"],
-  set_source_active: ["sources"],
-  add_todo_item: ["todos"],
-  complete_todo_item: ["todos"],
-  update_todo_item: ["todos"],
-  delete_todo_item: ["todos"],
-  add_calendar_event: ["calendar"],
-  update_calendar_event: ["calendar"],
-  delete_calendar_event: ["calendar"],
-};
+export function skillTouches(name: string): string[] {
+  return getSkill(name)?.touches ?? [];
+}

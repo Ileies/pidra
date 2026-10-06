@@ -37,6 +37,7 @@ const skill: Skill = {
     "dates with an excerpt, then read one by date. Read-only: reports are final and cannot be " +
     "edited - act on notes, todos, the calendar or the long-term context instead.",
   risk_level: "low",
+  touches: [],
   parameters: {
     date: { type: "string", required: false, description: "Report date as YYYY-MM-DD, or 'latest' (default: the most recent report)" },
     section: {

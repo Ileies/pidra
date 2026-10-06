@@ -28,6 +28,7 @@ const skill: Skill = {
   description:
     "List Google Calendar events in a date range, one line each, with their ids. Defaults to today and the next 14 days. For every detail of one event use get_calendar_event; update_calendar_event and delete_calendar_event need the id from here",
   risk_level: "low",
+  touches: [],
   parameters: {
     from: { type: "string", required: false, description: 'First day: YYYY-MM-DD, "today", "tomorrow" or "yesterday". Default: today' },
     to: { type: "string", required: false, description: "Last day, inclusive, same forms as from. Default: from plus days minus one" },

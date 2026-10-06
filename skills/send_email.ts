@@ -11,6 +11,7 @@ const skill: Skill = {
   name: "send_email",
   description: "Send an email from the system account or a configured account. System-account recipients must be allowed.",
   risk_level: "high",
+  touches: [],
   default_enabled: false,
   parameters: {
     account: { type: "string", required: false, description: "Sender address or alias from configured accounts. Omit for the system account" },

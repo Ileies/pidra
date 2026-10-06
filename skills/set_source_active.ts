@@ -15,6 +15,7 @@ const skill: Skill = {
     "Enable or disable an ingestion source by its exact name. A disabled source stops being ingested " +
     "from the next pipeline run; its trust score and history are kept. Trust scores themselves cannot be edited.",
   risk_level: "medium",
+  touches: ["sources"],
   parameters: {
     source_name: { type: "string", required: true, description: "Source name as shown on /sources (exact by default, see match)" },
     active: { type: "boolean", required: true, description: "true enables the source, false disables it" },

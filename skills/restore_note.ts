@@ -6,6 +6,7 @@ const skill: Skill = {
   description:
     "Restore a deleted note, undoing a delete_note. Use list_notes with include_deleted to find the ID.",
   risk_level: "low",
+  touches: ["notes"],
   parameters: {
     note_id: { type: "string", required: true, description: "UUID of the deleted note to restore" },
   },

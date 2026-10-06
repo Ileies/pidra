@@ -67,6 +67,12 @@ export interface Skill {
    */
   risk_level: RiskLevel;
   /**
+   * Dashboard store names this skill writes (`notes`, `todos`, ...), `[]` for a skill that only reads
+   * or acts outside the system. Required so a new writing skill cannot forget it: the chat turn
+   * reports these as `touched` (src/ai/chat/stream.ts) and the open page refreshes on them.
+   */
+  touches: string[];
+  /**
    * Whether the skill runs before anyone has touched its switch on /skills. Default true. A skill
    * that sends something outside the system sets false: the owner turns it on by choice.
    */

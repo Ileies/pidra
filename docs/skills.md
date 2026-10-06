@@ -30,6 +30,7 @@ A skill takes optional parameters with defaults that keep the old call working, 
 - `list_calendar_events` defaults to today plus 14 days; `add_calendar_event` defaults to a 60-minute event when `end` is omitted; `update_calendar_event` given a new start alone keeps the event's length.
 - `send_updates` defaults to none, so adding or changing `attendees` does not mail guests unless asked.
 - `update_calendar_event`, `delete_calendar_event`, `update_todo_item`, `delete_todo_item` and `complete_todo_item` take an `expected_title` guard: the call fails if the item at that id has a different title, so a wrong id cannot hit the wrong item.
+- Every skill declares a required `touches: string[]` on `Skill`: the dashboard store names it writes (`notes`, `todos`, `calendar`, `context`, `entities`, `contacts`, `questions`, `sources`), `[]` for a skill that only reads or acts outside the system. The chat reports these as `touched` (via `skillTouches()` in `src/ai/chat/tools.ts`) so the open page refreshes; a missing declaration fails `tsc`.
 - Adding a skill also means a place in `EVERYWHERE_SKILLS`, a page's list in `SURFACES`, or `INTERACTIVE_SKILLS`; `scripts/check-route-surfaces.ts` fails the build otherwise. The same check fails on a `skills/*.ts` file not registered in `src/skills/loader.ts` (file name equals skill name).
 
 ## Execution

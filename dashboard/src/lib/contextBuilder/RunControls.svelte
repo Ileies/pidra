@@ -36,7 +36,10 @@
         <button
           class="tap nav-btn nav-btn-muted"
           disabled={offline.isOffline || run.starting || status?.running}
-          onclick={() => run.start("full")}
+          onclick={() => {
+            // A full run re-reads the whole multi-year corpus through the model: millions of tokens.
+            if (confirm("Force a full run? It re-extracts every email and note and costs millions of tokens.")) run.start("full");
+          }}
         >
           Force full
         </button>

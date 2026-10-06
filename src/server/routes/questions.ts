@@ -6,6 +6,8 @@ import { bodyOf, uuidParam } from "../http";
 
 export const questions = new Hono();
 
+const RUNNING_FRESH_MS = 15 * 60_000;
+
 // One question at a time from /questions: answer, dismiss, reopen. `src/questions/store.ts` is the
 // only writer of the queue; the dashboard only proxies.
 questions.post("/api/questions/:id/:op", uuidParam(), async (c) => {
@@ -23,6 +25,10 @@ questions.post("/api/questions/:id/:op", uuidParam(), async (c) => {
   if (op === "reprocess") {
     const question = await getAnsweredQuestion(id);
     if (question.answerStatus === "done") throw new HttpError("The answer was already acted on", 409);
+    // `running` also survives a bridge that died mid-turn, which is what reprocess recovers from,
+    // so only a recent start blocks the rerun (`updated_at` is stamped when the status is set).
+    const startedMs = question.answerStatus === "running" ? Date.parse(String(question.updatedAt)) : NaN;
+    if (Date.now() - startedMs < RUNNING_FRESH_MS) throw new HttpError("The answer is still being acted on", 409);
     void processAnswer(id);
     return c.json({ id, status: question.status });
   }

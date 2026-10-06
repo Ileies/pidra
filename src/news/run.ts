@@ -24,7 +24,7 @@ import {
   DESKS, NEWS_SOURCE_TYPE, deskSource, enabledDesks, homeConfig, newsWindow,
   type Desk, type DeskId, type HomeConfig, type NewsWindow,
 } from "./config";
-import { shadowNewsImpact } from "./jev-shadow";
+import { shadowNewsJev } from "./jev-shadow";
 import { lastScanEnd, loadReusedDesks, persist, priorities, recentlyReported, type DeskAnswer } from "./store";
 import {
   findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, verifySources, withinWindow,
@@ -266,7 +266,7 @@ export async function runNewsDesk(
     );
   }
 
-  if (!dryRun) await span("news:jev-shadow", () => shadowNewsImpact(candidates));
+  if (!dryRun) await span("news:jev-shadow", () => shadowNewsJev(candidates, inputs.reported));
 
   // In DESKS order, so logs and anything that lists the desks read the same every day.
   outcome.desks.sort((a, b) => DESKS.findIndex((d) => d.id === a.desk) - DESKS.findIndex((d) => d.id === b.desk));

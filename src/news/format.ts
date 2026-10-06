@@ -41,7 +41,7 @@ export interface EditorStory {
 const deskOrder = (item: NewsItem) => DESKS.findIndex((desk) => desk.id === item.story.desk);
 
 /** Desk order, then most significant first: the order the section itself is written in. */
-function ordered(items: NewsItem[]): NewsItem[] {
+export function ordered(items: NewsItem[]): NewsItem[] {
   return [...items].sort((a, b) => deskOrder(a) - deskOrder(b) || b.story.significance - a.story.significance);
 }
 

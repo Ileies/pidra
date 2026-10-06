@@ -238,6 +238,37 @@ export const jevDecisions = pgTable("jev_decisions", {
   check("jev_decisions_status", sql`${t.status} in ('ok', 'error')`),
 ]);
 
+/**
+ * Per-run candidate ledger (src/evaluation/run-candidates.ts): what became of every newsletter claim
+ * and news story in one run, frozen after Phase 6. Deliberately no foreign key to `extractions`: a
+ * Phase 2 rerun deletes those rows and this trail has to outlive that. Ids and verdicts only, no text.
+ */
+export const runCandidates = pgTable("run_candidates", {
+  id: pk(),
+  runId: uuid("run_id").notNull().references(() => pipelineRuns.id, { onDelete: "cascade" }),
+  extractionId: uuid("extraction_id").notNull(),
+  rawItemId: uuid("raw_item_id"),
+  sourceType: text("source_type").notNull(), // newsletter | web_news
+  sourceName: text("source_name"),
+  aiFailed: boolean("ai_failed"),
+  relevanceScore: integer("relevance_score"),
+  effectiveRelevance: real("effective_relevance"),
+  novelty: text("novelty"),
+  gatePassed: boolean("gate_passed"),
+  gateReason: text("gate_reason"),
+  gateDetail: jsonb("gate_detail").$type<GateDetail | null>(),
+  synthesisHandoff: text("synthesis_handoff"),
+  synthesisOrder: integer("synthesis_order"),
+  /** One-based position in the News editor's input (desk order, then significance); web_news that passed the gate only. */
+  newsEditorOrder: integer("news_editor_order"),
+  includedInReport: boolean("included_in_report").notNull(),
+  /** `CandidateOutcome` from src/evaluation/baseline.ts, as of the snapshot. */
+  outcome: text("outcome").notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("run_candidates_identity").on(t.runId, t.extractionId),
+]);
+
 /** Acknowledgements for dashboard notifications; the notifications themselves are projections of the source tables. */
 export const notificationReads = pgTable("notification_reads", {
   notificationKey: text("notification_key").primaryKey(),

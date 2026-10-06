@@ -20,6 +20,7 @@ import { renderNewsFallback } from "../news/format";
 import { proposeQuickActions } from "../actions/propose";
 import { saveProposals } from "../actions/store";
 import { span, traceRun } from "../util/trace";
+import { recordRunCandidates } from "../evaluation/run-candidates";
 import type { ContextPayload } from "./phase3-context";
 import { shareLongTermContext, type LongTermContext } from "./long-term-context";
 
@@ -145,6 +146,9 @@ async function executePipeline(date: string, run: { id: string }, start: number)
         ctx.webSearchResults.length + news.searchCalls,
       )
     );
+
+    // Frozen now, while the gate, handoff and citation verdicts agree; a later rerun can replace the extractions.
+    await span("candidate-ledger", () => recordRunCandidates(run.id, date));
 
     const durationMs = Date.now() - start;
     const ts = new Date().toISOString();

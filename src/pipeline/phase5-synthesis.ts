@@ -13,6 +13,7 @@ import type { NewsExtraction } from "../news/validate";
 import { db, extractions } from "../db";
 import { inArray } from "drizzle-orm";
 import { SECTION1_CAPACITY } from "./section1-handoff";
+import { forModel } from "../util/extracted";
 
 // Null rather than an empty array, matching how every other optional block in the payload
 // signals "nothing here" - the prompts already say to proceed unchanged when a field is null.
@@ -63,7 +64,7 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
       source: i.sourceName,
       effective_relevance: i.extraction.effectiveRelevance,
       novelty: i.extraction.novelty,
-      ...(i.extraction.extractedJson as object),
+      ...forModel(i.extraction.extractedJson),
     })),
     entity_contexts: ctx.entityContexts.map((e) => ({
       name: e.name,

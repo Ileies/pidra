@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { HttpError } from "../util/errors";
+import { forModel } from "../util/extracted";
 import { renderPromptText } from "./active-prompts";
 import { synthesize } from "./openai";
 import { DEEPEN_PROMPT } from "./prompts";
@@ -33,7 +34,7 @@ export async function deepen(ids: string[]): Promise<string> {
     items: rows.map((r) => ({
       source: r.sourceName,
       source_type: r.sourceType,
-      ...((r.extractedJson as object) ?? {}),
+      ...forModel(r.extractedJson),
     })),
     web_search_results: webResults || null,
   });

@@ -2,7 +2,7 @@
  * Export one completed morning's public-news and newsletter candidate trail for local review.
  * Usage: bun run scripts/jev-baseline.ts YYYY-MM-DD --output /private/path/DATE.json
  * The output can contain paid newsletter claims. Keep it outside version control.
- * Read-only against the DB (pipeline_runs, raw_items, extractions, feedback_events, ingest_drops);
+ * Read-only against the DB (pipeline_runs, run_candidates, raw_items, extractions, feedback_events, ingest_drops);
  * writes one JSON file (mode 0600, refuses to overwrite) and refuses a path inside this repo.
  * Run as `bun run jev:baseline`; a manual tool for the Jev ranking evaluation (src/evaluation/baseline.ts).
  */
@@ -12,7 +12,7 @@ import { open } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { loadRssFeeds } from "../src/config/rss-feeds";
 import { loadNewsletterConfig } from "../src/config/newsletter-sources";
-import { db, dailyReports, extractions, feedbackEvents, ingestDrops, pipelineRuns, rawItems } from "../src/db";
+import { db, dailyReports, extractions, feedbackEvents, ingestDrops, pipelineRuns, rawItems, runCandidates } from "../src/db";
 import { candidateOutcome, sourceFailures } from "../src/evaluation/baseline";
 
 const [date, flag, outputPath] = Bun.argv.slice(2);
@@ -82,8 +82,31 @@ const drops = await db.select({
   eq(ingestDrops.sourceType, "newsletter"),
 )).orderBy(asc(ingestDrops.id));
 
-const byDelivery = new Map<string, typeof extracted>();
-for (const row of extracted) {
+// A run recorded after Phase 6 has its verdicts frozen in `run_candidates`; text and feedback still
+// come from the live extraction when it exists. Older runs fall back to the live verdicts.
+const ledger = await db.select().from(runCandidates).where(eq(runCandidates.runId, run.id)).orderBy(asc(runCandidates.extractionId));
+const liveById = new Map(extracted.map((row) => [row.id, row]));
+type Candidate = Omit<(typeof extracted)[number], "extractedJson"> & { extractedJson: unknown; newsEditorOrder: number | null };
+const rows: Candidate[] = ledger.length > 0
+  ? ledger.map((row) => ({
+      id: row.extractionId,
+      rawItemId: row.rawItemId,
+      extractedJson: liveById.get(row.extractionId)?.extractedJson ?? null,
+      relevanceScore: row.relevanceScore,
+      effectiveRelevance: row.effectiveRelevance,
+      novelty: row.novelty,
+      aiFailed: row.aiFailed,
+      gatePassed: row.gatePassed,
+      gateReason: row.gateReason,
+      gateDetail: row.gateDetail,
+      synthesisHandoff: row.synthesisHandoff,
+      synthesisOrder: row.synthesisOrder,
+      includedInReport: row.includedInReport,
+      newsEditorOrder: row.newsEditorOrder,
+    }))
+  : extracted.map((row) => ({ ...row, newsEditorOrder: null }));
+const byDelivery = new Map<string, Candidate[]>();
+for (const row of rows) {
   if (!row.rawItemId) continue;
   const list = byDelivery.get(row.rawItemId) ?? [];
   list.push(row);
@@ -107,7 +130,9 @@ const configuredNewsletters = [...new Set([
 const deliveredNewsletters = new Set(deliveries.filter((row) => row.sourceType === "newsletter").map((row) => row.sourceName));
 
 const snapshot = {
-  formatVersion: 1,
+  formatVersion: 2,
+  // "ledger": verdicts frozen after Phase 6; "live": rebuilt from today's extraction rows (older runs).
+  verdictSource: ledger.length > 0 ? "ledger" : "live",
   runDate: date,
   runId: run.id,
   reportId: report.id,
@@ -137,6 +162,7 @@ const snapshot = {
           gateDetail: row.gateDetail,
           synthesisHandoff: row.synthesisHandoff,
           synthesisOrder: row.synthesisOrder,
+          newsEditorOrder: row.newsEditorOrder,
           includedInReport: row.includedInReport,
           outcome: candidateOutcome({ ...row, sourceType: delivery.sourceType as "newsletter" | "web_news" }),
           feedback: byExtraction.get(row.id) ?? [],

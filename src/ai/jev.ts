@@ -39,7 +39,7 @@ const DEADLINE_MS = 20_000;
 let active = 0;
 const waiting: (() => void)[] = [];
 
-function modeFor(task: JevTask): JevMode {
+export function modeFor(task: JevTask): JevMode {
   const value = process.env[`JEV_MODE_${task.toUpperCase()}`]?.trim().toLowerCase();
   return value === "shadow" || value === "active" ? value : "off";
 }

@@ -74,6 +74,8 @@ mock.module("../../src/ai/openai", () => ({
 }));
 mock.module("../../src/ai/active-prompts", () => ({
   activePrompt: async (section: string) => { prompts.push(section); return { section, text: `mandate for ${section}`, version: 7 }; },
+  // Only read by the Jev shadow task, which stays off in these tests.
+  resolveActivePrompts: async () => { throw new Error("not stubbed"); },
 }));
 
 async function brave(kind: BraveCall["kind"], query: string, options: Any) {

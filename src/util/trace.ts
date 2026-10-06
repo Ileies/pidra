@@ -116,3 +116,8 @@ export function recordFlexRetry(): void {
   const s = current.getStore();
   if (s) s.flexRetries++;
 }
+
+/** The run being traced, or null outside one (a dry run, a script). */
+export function currentRunId(): string | null {
+  return current.getStore()?.runId ?? null;
+}

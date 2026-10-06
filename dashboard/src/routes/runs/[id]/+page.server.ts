@@ -57,5 +57,63 @@ export const load: PageServerLoad = async ({ params }) => {
     detail: parseJsonb<Record<string, unknown> | null>(row.detail, null),
   }));
 
-  return { run: mapRun(run), steps };
+  return { run: mapRun(run), steps, jev: await jevSummary(params.id) };
 };
+
+export interface JevTaskSummary {
+  task: string;
+  mode: string;
+  calls: number;
+  failures: number;
+  /** Error codes seen, most frequent first. */
+  errorCodes: string[];
+  tokensIn: number;
+  tokensOut: number;
+  avgLatencyMs: number;
+  maxLatencyMs: number;
+  influenced: number;
+}
+
+/**
+ * Jev calls from the evaluation ledger (`jev_decisions`), per task and mode. Kept apart from the
+ * run's own token counts on purpose: those mix other providers. Empty until the table exists or the
+ * run made no Jev call; a missing table must not take the page down.
+ */
+async function jevSummary(runId: string): Promise<JevTaskSummary[]> {
+  try {
+    const rows = await sql()`
+      SELECT
+        task, mode,
+        count(*)::int AS calls,
+        count(*) FILTER (WHERE status = 'error')::int AS failures,
+        COALESCE(sum(tokens_in), 0)::int AS tokens_in,
+        COALESCE(sum(tokens_out), 0)::int AS tokens_out,
+        round(avg(latency_ms))::int AS avg_latency_ms,
+        max(latency_ms)::int AS max_latency_ms,
+        count(*) FILTER (WHERE influenced_report)::int AS influenced,
+        COALESCE(array_agg(error_code ORDER BY error_code) FILTER (WHERE error_code IS NOT NULL), '{}') AS error_codes
+      FROM jev_decisions
+      WHERE run_id = ${runId}
+      GROUP BY task, mode
+      ORDER BY task, mode
+    `;
+    return rows.map((row) => {
+      const counts = new Map<string, number>();
+      for (const code of row.error_codes as string[]) counts.set(code, (counts.get(code) ?? 0) + 1);
+      return {
+        task: row.task as string,
+        mode: row.mode as string,
+        calls: Number(row.calls),
+        failures: Number(row.failures),
+        errorCodes: [...counts].sort((a, b) => b[1] - a[1]).map(([code]) => code),
+        tokensIn: Number(row.tokens_in),
+        tokensOut: Number(row.tokens_out),
+        avgLatencyMs: Number(row.avg_latency_ms),
+        maxLatencyMs: Number(row.max_latency_ms),
+        influenced: Number(row.influenced),
+      };
+    });
+  } catch {
+    return [];
+  }
+}

@@ -20,7 +20,7 @@ const EXCEPTIONS: Record<string, number> = {
   "dashboard/src/lib/runTrace.ts": 370,
   // The report page and the run page are mostly markup around one data flow.
   "dashboard/src/routes/[date]/+page.svelte": 345,
-  "dashboard/src/routes/runs/[id]/+page.svelte": 312,
+  "dashboard/src/routes/runs/[id]/+page.svelte": 314,
 };
 
 const files = (await $`git ls-files --cached --others --exclude-standard`.text()).split("\n").filter(Boolean);

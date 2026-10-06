@@ -6,6 +6,7 @@
   import StatCard from "#lib/components/StatCard.svelte";
   import ErrorCard from "#lib/components/ErrorCard.svelte";
   import Disclosure from "#lib/components/Disclosure.svelte";
+  import JevDecisionsCard from "#lib/components/JevDecisionsCard.svelte";
   import Legend from "#lib/components/Legend.svelte";
   import CostShareBar from "#lib/components/CostShareBar.svelte";
   import UsageTable from "#lib/components/UsageTable.svelte";
@@ -146,6 +147,8 @@
       hint={hasSteps ? `${fmtNum(stepSum.searchCalls)} searches, ${fmtNum(stepSum.flexRetries)} flex retries` : undefined}
     />
   </div>
+
+  <JevDecisionsCard rows={data.jev} />
 
   {#if waitSpan}
     {@const outcome = waitSpan.detail?.outcome}

@@ -24,6 +24,8 @@ export interface ExtractedJson {
   headline?: string;
   key_claim?: string;
   topic_tags?: string[];
+  /** Newsletter extractions only: the entity graph Phase 2 copies onto every claim of one source item. */
+  entities_graph?: { entities?: { name: string; aliases?: string[]; type?: string; domain?: string }[] };
   /** Set instead of the claim fields when a newsletter was judged not worth extracting. */
   skip_reason?: string | null;
   /** Personal mail and SMS classification (`PersonalEmailClassification` in phase2-extract.ts). */

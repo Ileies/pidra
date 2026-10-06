@@ -4,9 +4,9 @@ import { normalizeEntityKey } from "../../util/entities";
 
 interface EntityGraphEntity {
   name: string;
-  aliases: string[];
-  type: string;
-  domain: string;
+  aliases?: string[];
+  type?: string;
+  domain?: string;
 }
 
 /**
@@ -25,9 +25,9 @@ export async function upsertEntitiesFromExtractions(runDate: string): Promise<vo
   const graphByRawItem = new Map<string, EntityGraphEntity[]>();
   for (const row of rows) {
     if (!row.rawItemId || graphByRawItem.has(row.rawItemId)) continue;
-    const graph = (row.extractedJson as any)?.entities_graph;
+    const graph = row.extractedJson?.entities_graph;
     if (!graph?.entities?.length) continue;
-    graphByRawItem.set(row.rawItemId, graph.entities as EntityGraphEntity[]);
+    graphByRawItem.set(row.rawItemId, graph.entities);
   }
 
   if (graphByRawItem.size === 0) return;

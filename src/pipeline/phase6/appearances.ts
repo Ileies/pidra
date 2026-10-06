@@ -29,10 +29,10 @@ export async function writeEntityAppearances(runDate: string, includedIds: strin
 
   const byEntity = new Map<string, { relevanceScore: number | null; snippet: string | null }>();
   for (const row of rows) {
-    const json = row.extractedJson as any;
+    const json = row.extractedJson;
     // Personal/SMS extractions carry no `entities` field at all, so they fall out here on their
     // own; newsletter and news-desk extractions both carry one.
-    const names = (json?.entities ?? []) as string[];
+    const names = json?.entities ?? [];
     if (names.length === 0) continue;
     const snippetRaw = json?.key_claim ?? json?.headline ?? null;
     const snippet = snippetRaw ? String(snippetRaw).slice(0, 300) : null;

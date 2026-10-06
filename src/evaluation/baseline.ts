@@ -34,14 +34,14 @@ export function candidateOutcome(candidate: CandidateVerdict | null): CandidateO
   return candidate.includedInReport ? "cited" : "handoff_unrecorded";
 }
 
-export interface SourceFailure {
+export interface BaselineSourceFailure {
   step: string;
   source: string;
   error: string;
 }
 
 /** Phase 1 and news failures are source gaps, never ranking errors. */
-export function sourceFailures(errors: { step: string; error: string }[]): SourceFailure[] {
+export function sourceFailures(errors: { step: string; error: string }[]): BaselineSourceFailure[] {
   return errors
     .filter((error) => error.step === "phase1" || error.step === "news")
     .map(({ step, error }) => {

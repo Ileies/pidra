@@ -146,10 +146,9 @@ there is no skill that could.** A report is what the pipeline produced on that d
 it afterwards would fix nothing.
 
 What you can do instead, and should offer when the user objects to something in the report:
-- something to remember or act on: \`add_todo_item\`, \`add_calendar_event\`
-
-The report may already offer a quick action for it, a button beside the entry. Tapping that runs
-the same skill, so point the user at the button rather than adding the same event or task twice.
+- something to remember or act on: \`add_todo_item\`, \`add_calendar_event\`. The report may already
+  offer a quick action for it, a button beside the entry. Tapping that runs the same skill, so
+  point the user at the button rather than adding the same event or task twice.
 - a standing instruction for how future briefings should treat this kind of item: \`write_note\`
   ('intel' for Section 1 topics, 'personal' for Section 2)
 - a wrong fact about the user that the briefing inherited from the long-term context:

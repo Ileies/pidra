@@ -27,9 +27,10 @@ Rules:
 - A new tool, library or product a developer could try today scores at least 3: a launch is a development
 - topic_tags must be from: AI, China, Geopolitics, Finance, Science, BCI, Dev, Health, Startups, VC, EU, Switzerland, Energy, Philosophy, Security. Pick the closest fit if nothing matches exactly (e.g. climate news -> Science or Energy) - never invent a new tag`;
 
-export const ENTITY_EXTRACTION_PROMPT = `Extract named entities from the text below. Return ONLY valid JSON.
+/** Appended to the newsletter prompt: the entity graph comes back in the same call, as the top-level `entities_graph` field. */
+export const ENTITY_EXTRACTION_PROMPT = `Also fill "entities_graph" in the same JSON: every named entity in the whole email, including ones that belong to no item above.
 
-{
+"entities_graph": {
   "entities": [
     {
       "name": "canonical name",
@@ -40,7 +41,7 @@ export const ENTITY_EXTRACTION_PROMPT = `Extract named entities from the text be
   ]
 }
 
-Only named entities - no generic terms.`;
+Only named entities - no generic terms. Use "entities_graph": {"entities": []} when there are none.`;
 
 export const PERSONAL_EMAIL_PROMPT = `Classify this email. Return ONLY valid JSON.
 

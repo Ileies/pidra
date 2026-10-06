@@ -39,11 +39,51 @@ interface NewsletterExtraction {
     relevance_score: number;
   }[];
   skip_reason: string | null;
+  entities_graph: EntityExtraction;
 }
 
 interface EntityExtraction {
   entities: { name: string; aliases: string[]; type: string; domain: string }[];
 }
+
+const STRING = { type: "string" };
+const strictObject = (properties: Record<string, unknown>) => ({
+  type: "object",
+  additionalProperties: false,
+  required: Object.keys(properties),
+  properties,
+});
+
+// Strict, so a field can neither drift nor truncate into unparseable JSON. Mirrors `NewsletterExtraction`
+// and the prompt's JSON shape: change all three together.
+const NEWSLETTER_SCHEMA = {
+  name: "newsletter_extraction",
+  schema: strictObject({
+    source: STRING,
+    date: STRING,
+    items: {
+      type: "array",
+      items: strictObject({
+        headline: STRING,
+        topic_tags: { type: "array", items: STRING },
+        key_claim: STRING,
+        substance: { type: "string", enum: ["fact", "argument", "teaser"] },
+        entities: { type: "array", items: STRING },
+        relevance_score: { type: "integer" },
+      }),
+    },
+    skip_reason: { type: ["string", "null"] },
+    entities_graph: strictObject({
+      entities: {
+        type: "array",
+        items: strictObject({ name: STRING, aliases: { type: "array", items: STRING }, type: STRING, domain: STRING }),
+      },
+    }),
+  }),
+};
+
+// The claims alone fit the 2000 default; the graph is on top, and a dense issue lists many entities.
+const NEWSLETTER_MAX_OUTPUT = 3000;
 
 interface PersonalEmailClassification {
   type: string;
@@ -133,10 +173,12 @@ async function extractItem(
   let succeeded = true;
   try {
     if (item.sourceType === "newsletter") {
-      const [newsletterData, entityData] = await Promise.all([
-        extractJson<NewsletterExtraction>(prompts.extraction.text, item.rawContent ?? ""),
-        extractJson<EntityExtraction>(prompts.entity_extraction.text, item.rawContent ?? ""),
-      ]);
+      // One call: the body is billed once, and the entity graph rides along as a top-level field.
+      const { entities_graph: entityData, ...newsletterData } = await extractJson<NewsletterExtraction>(
+        `${prompts.extraction.text}\n\n${prompts.entity_extraction.text}`,
+        item.rawContent ?? "",
+        { schema: NEWSLETTER_SCHEMA, maxOutputTokens: NEWSLETTER_MAX_OUTPUT },
+      );
 
       values = newsletterData.items.map((extracted) => ({
         rawItemId: item.id,

@@ -61,21 +61,20 @@ mock.module("../src/ai/active-prompts", () => ({
   }),
 }));
 mock.module("../src/ai/openai", () => ({
-  extractJson: async (prompt: string) => {
+  extractJson: async () => {
     calls++;
     if (failNext) {
       failNext = false;
       throw new Error("model failed");
     }
-    return prompt === "Extract entities"
-      ? { entities: [], relations: [] }
-      : {
-          items: [
-            { headline: "One", topic_tags: [], key_claim: "First", entities: [], relevance_score: 4 },
-            { headline: "Two", topic_tags: [], key_claim: "Second", entities: [], relevance_score: 3 },
-          ],
-          skip_reason: null,
-        };
+    return {
+      items: [
+        { headline: "One", topic_tags: [], key_claim: "First", entities: [], relevance_score: 4 },
+        { headline: "Two", topic_tags: [], key_claim: "Second", entities: [], relevance_score: 3 },
+      ],
+      skip_reason: null,
+      entities_graph: { entities: [{ name: "Acme", aliases: [], type: "org", domain: "Dev" }] },
+    };
   },
 }));
 
@@ -99,7 +98,11 @@ test("a rerun preserves extraction IDs and downstream verdicts without adding st
   expect(saved).toHaveLength(2);
   expect(saved[0].gatePassed).toBe(true);
   expect(saved[0].includedInReport).toBe(true);
-  expect(calls).toBe(2);
+  // One call per newsletter: claims and entity graph come back together, and the graph stays on every claim row.
+  expect(calls).toBe(1);
+  expect((saved[0].extractedJson as { entities_graph: unknown }).entities_graph).toEqual({
+    entities: [{ name: "Acme", aliases: [], type: "org", domain: "Dev" }],
+  });
 });
 
 test("a retry replaces a failed placeholder with the complete newsletter result", async () => {
@@ -115,5 +118,5 @@ test("a retry replaces a failed placeholder with the complete newsletter result"
 
   await runPhase2(item.runDate);
   expect(saved.map((row) => row.id)).toEqual(["extraction-2", "extraction-3"]);
-  expect(calls).toBe(4);
+  expect(calls).toBe(2);
 });

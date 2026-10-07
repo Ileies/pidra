@@ -82,11 +82,13 @@ Output rules:
   more; never pad an item with analysis or background to fill space.
 - Target length: at most 900 words. Length follows the material: on a light day, write less.
   Never pad, but never drop a concrete development in the reader's priorities to look brief.
+- Omit any heading that has no items. Never write a heading with a placeholder under it
+  ("None", "Keine", "Nothing to report"): an empty group is simply absent
 - Use this structure:
   ## Intelligence Briefing
   ### {Domain}
   ...
-  ### Also noted
+  ### Also noted (omit if empty)
   ...
 - Source refs: each item in todays_items has an "id" field. After each bullet point or paragraph, append the HTML comment <!--refs:ID--> (or <!--refs:ID1,ID2--> for combined items) immediately after the text, before the newline. Every item you reference must appear in exactly one <!--refs:--> comment.
 - After the report, append:

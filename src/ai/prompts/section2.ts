@@ -52,13 +52,15 @@ Output rules:
 - If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
 - If an item should be added to calendar or to-do but hasn't been, flag it explicitly
 - Target length: 300–500 words
+- Omit any heading that has no items. Never write a heading with a placeholder under it
+  ("None", "Keine", "Nothing critical today"): an empty group is simply absent
 - Use this structure:
   ## Personal Action Center
-  ### Critical
+  ### Critical (omit if empty)
   ...
-  ### High priority
+  ### High priority (omit if empty)
   ...
-  ### Normal
+  ### Normal (omit if empty)
   ...
   ### Mentions (omit if empty)
   ...

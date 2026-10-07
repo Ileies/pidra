@@ -19,6 +19,7 @@
   import SyncSheet from "#lib/offline/SyncSheet.svelte";
   import FirstSync from "#lib/offline/FirstSync.svelte";
   import { navBadges } from "#lib/navBadges.svelte.js";
+  import { poll } from "#lib/offline/poll.js";
   import { navigating } from "$app/state";
   import { beforeNavigate } from "$app/navigation";
   import { MIRRORED_ROUTES } from "#lib/offline/tiers.js";
@@ -56,6 +57,22 @@
   $effect(() => {
     void page.data;
     void navBadges.refresh();
+  });
+
+  // Live badges while the app sits open. A push makes the worker pull the snapshot and announce
+  // `pidra:mirror-changed`; that and a slow poll (paused while hidden or offline, ticking again on
+  // return to the tab) each re-count, so a report arriving mid-read no longer waits for a navigation.
+  $effect(() => {
+    if (!loggedIn) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "pidra:mirror-changed") void navBadges.refresh({ force: true });
+    };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    const stopPoll = poll(() => navBadges.refresh(), 60_000);
+    return () => {
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+      stopPoll();
+    };
   });
 
   $effect(() => startClient(loggedIn));

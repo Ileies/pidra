@@ -4,9 +4,10 @@
  * as none until the count arrives.
  *
  * `refresh()` is called by the root layout whenever page data reloads (navigation, a form
- * action's invalidation) and by `useReadReceipt` after the read receipt; it is throttled to once
- * per 5 s, one request at a time. Hidden while offline: a count that cannot be checked is not
- * shown as if it were current.
+ * action's invalidation), when the service worker announces a finished sync (which a push triggers),
+ * on a 60 s poll while the page is visible, and by `useReadReceipt` after the read receipt; it is
+ * throttled to once per 5 s unless forced, one request at a time. Hidden while offline: a count
+ * that cannot be checked is not shown as if it were current.
  */
 
 import { netJson } from "#lib/offline/net.js";
@@ -24,8 +25,9 @@ class NavBadges {
     return offline.isOffline ? {} : this.#counts;
   }
 
-  async refresh(): Promise<void> {
-    if (this.#inFlight || Date.now() - this.#lastAt < MIN_INTERVAL_MS) return;
+  /** `force` skips the throttle, for a signal that the counts just moved (a push, a finished sync). */
+  async refresh({ force = false }: { force?: boolean } = {}): Promise<void> {
+    if (this.#inFlight || (!force && Date.now() - this.#lastAt < MIN_INTERVAL_MS)) return;
     this.#inFlight = true;
     this.#lastAt = Date.now();
     try {

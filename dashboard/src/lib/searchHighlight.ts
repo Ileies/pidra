@@ -4,6 +4,22 @@
 export interface DocHeading {
   id: string;
   title: string;
+  /** Quick Links text: the title without its trailing parenthetical explanation. */
+  label: string;
+}
+
+/** `renderMarkdown()` output is entity-escaped, so a plain tag strip leaves `&amp;` behind. */
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function shortLabel(title: string): string {
+  return title.replace(/\s*\([^)]*\)\s*$/, "").trim() || title;
 }
 
 function slugify(text: string): string {
@@ -20,9 +36,9 @@ function slugify(text: string): string {
 export function withHeadingIds(html: string): { html: string; headings: DocHeading[] } {
   const headings: DocHeading[] = [];
   const tagged = html.replace(/<h1(\s[^>]*)?>([\s\S]*?)<\/h1>/g, (_m, attrs: string | undefined, inner: string) => {
-    const title = inner.replace(/<[^>]+>/g, "").trim();
+    const title = decodeEntities(inner.replace(/<[^>]+>/g, "")).trim();
     const id = `doc-${slugify(title)}`;
-    headings.push({ id, title });
+    headings.push({ id, title, label: shortLabel(title) });
     return `<h1${attrs ?? ""} id="${id}" class="cb-anchor">${inner}</h1>`;
   });
   return { html: tagged, headings };

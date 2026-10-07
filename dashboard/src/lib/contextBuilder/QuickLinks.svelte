@@ -24,8 +24,13 @@
     <div class="flex flex-col gap-0.5">
       <span class="text-surface-500 text-xs uppercase tracking-wide font-semibold">Document</span>
       {#each headings as heading (heading.id)}
-        <button type="button" class={link(activeId === heading.id)} onclick={() => onjump(heading.id, "document")}>
-          {heading.title}
+        <button
+          type="button"
+          class={link(activeId === heading.id)}
+          title={heading.title}
+          onclick={() => onjump(heading.id, "document")}
+        >
+          {heading.label}
         </button>
       {/each}
     </div>

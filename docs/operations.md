@@ -118,4 +118,6 @@ Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`):
 
 When adding a pipeline phase, always call it as `withRetry("phaseN", () => runPhaseN(...))`, never directly in `run.ts`.
 
+IMAP ingest reads from the last completed run's `started_at` (earlier `run_date`), floored at `IMAP_LOOKBACK_DAYS` (default 1) and capped at 3 days (`src/ingest/imap-window.ts`, computed once per run in Phase 1), so a delayed or skipped run does not lose mail from the gap; `message_id` dedup makes the overlap safe.
+
 RSS ingest looks back 14 days by default (`RSS_LOOKBACK_DAYS`) so midnight-dated weekly items and short outages are not missed; message IDs deduplicate: RSS (per feed) and IMAP (per batch of 8 parsed mails) check existing ids with one query and bulk insert, and the insert skips a conflicting `raw_items.message_id` instead of failing, since feeds and mail accounts run in parallel and can carry the same id. Each feed fetch records its latest error or success on the feed row, and failures also enter the run error log shown on `/runs`.

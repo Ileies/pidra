@@ -153,6 +153,7 @@ const notes: NoteRow[] = [
     deleted_at: null,
     // One revision, so the history panel (online-only) has something to try to load.
     revision_count: 1,
+    steps: [], applies_to: null, active_from: null, load_count: 0, last_loaded_on: null,
   },
   {
     id: TRASHED_NOTE_ID,
@@ -165,6 +166,7 @@ const notes: NoteRow[] = [
     updated_by: "user",
     deleted_at: `${YESTERDAY}T07:30:00.000Z`,
     revision_count: 0,
+    steps: [], applies_to: null, active_from: null, load_count: 0, last_loaded_on: null,
   },
 ];
 

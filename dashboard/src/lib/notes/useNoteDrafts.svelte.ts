@@ -1,9 +1,10 @@
 import { createNote, updateNote, type Draft, type NotePatch, type NoteRow } from "#lib/notes/api.js";
+import { draftTargeting, targetingPatch, targetsOf } from "#lib/notes/targeting.js";
 import { toasts } from "#lib/toast.svelte.js";
 import { errMessage } from "$pipeline/util/text";
 
 function blankDraft(scope = "global"): Draft {
-  return { content: "", scope, expires: "", saving: false, error: null };
+  return { content: "", scope, expires: "", ...draftTargeting(), saving: false, error: null };
 }
 
 /**
@@ -18,7 +19,7 @@ export function useNoteDrafts() {
 
   function startEdit(note: NoteRow) {
     if (note.deleted_at || note.id in drafts) return;
-    drafts[note.id] = { content: note.content, scope: note.scope, expires: note.expires_at ?? "", saving: false, error: null };
+    drafts[note.id] = { content: note.content, scope: note.scope, expires: note.expires_at ?? "", ...draftTargeting(note), saving: false, error: null };
   }
 
   function cancelEdit(note: NoteRow) {
@@ -35,7 +36,7 @@ export function useNoteDrafts() {
       return;
     }
 
-    const patch: NotePatch = {};
+    const patch: NotePatch = targetingPatch(note, draft);
     if (content !== note.content) patch.content = content;
     if (draft.scope !== note.scope) patch.scope = draft.scope;
     if ((draft.expires || null) !== (note.expires_at ?? null)) patch.expires_at = draft.expires || null;
@@ -69,7 +70,10 @@ export function useNoteDrafts() {
     composer.saving = true;
     composer.error = null;
     try {
-      await createNote({ content, scope: composer.scope, expires_at: composer.expires || null });
+      await createNote({
+        content, scope: composer.scope, expires_at: composer.expires || null,
+        steps: [...composer.steps], applies_to: targetsOf(composer), active_from: composer.activeFrom || null,
+      });
       composing = false;
       toasts.success("Note added.");
     } catch (err) {

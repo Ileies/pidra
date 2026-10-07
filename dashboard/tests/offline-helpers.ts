@@ -44,6 +44,7 @@ export function note(id: string, extra: Partial<NoteRow> = {}): NoteRow {
     id, content: `note ${id}`, scope: "global",
     created_at: "2026-10-01T08:00:00.000Z", updated_at: null, expires_at: null,
     created_by: "user", updated_by: null, deleted_at: null, revision_count: 0,
+    steps: [], applies_to: null, active_from: null, load_count: 0, last_loaded_on: null,
     ...extra,
   };
 }

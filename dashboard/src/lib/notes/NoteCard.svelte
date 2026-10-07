@@ -1,12 +1,13 @@
 <script lang="ts">
   import { SCOPE_INFO, SCOPE_FALLBACK_CLASS, type Draft, type NoteRow } from "#lib/notes/api.js";
-  import { fmtAgo, fmtDateTime, fmtDay, isoDay } from "#lib/format.js";
+  import { fmtAgo, fmtDateTime, fmtDay, isoDay, utcDay } from "#lib/format.js";
   import { label as displayLabel } from "#lib/labels.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { intentIsFor } from "#lib/offline/outbox.js";
   import FailedWrite from "#lib/offline/FailedWrite.svelte";
   import Badge from "#lib/components/Badge.svelte";
   import NoteEditor from "#lib/notes/NoteEditor.svelte";
+  import { isDormant, targetingBadges, targetingPatch } from "#lib/notes/targeting.js";
   import Check from "@lucide/svelte/icons/check";
 
   interface Props {
@@ -42,9 +43,24 @@
     !!draft && (
       draft.content.trim() !== note.content ||
       draft.scope !== note.scope ||
-      (draft.expires || null) !== (note.expires_at ?? null)
+      (draft.expires || null) !== (note.expires_at ?? null) ||
+      Object.keys(targetingPatch(note, draft)).length > 0
     ),
   );
+
+  const badges = $derived(targetingBadges(note));
+
+  /** Whether the briefing really reads this note: a note too narrow to ever match shows up here. */
+  const loads = $derived.by(() => {
+    if (deleted) return null;
+    const dormant = isDormant(note, utcDay());
+    if (note.load_count === 0) return { text: "never loaded", dormant, title: "No briefing step has read this note since loads were first recorded" };
+    return {
+      text: `loaded ${note.load_count}x, last ${fmtDay(note.last_loaded_on!)}`,
+      dormant,
+      title: "Step and run-day pairs this note went into a model call or search",
+    };
+  });
 
   const long = $derived(note.content.length > 420 || note.content.split("\n").length > 9);
   let expanded = $state(false);
@@ -156,8 +172,14 @@
       class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 pb-3 pt-2.5 text-xs text-surface-400 sm:px-5 {selecting ?'cursor-pointer' : ''}"
     >
       <span class="badge border {SCOPE_INFO[note.scope]?.classes ?? SCOPE_FALLBACK_CLASS}">{displayLabel(note.scope)}</span>
+      {#each badges as badge (badge.text)}
+        <span class="badge border border-surface-700 text-surface-300 [overflow-wrap:anywhere]" title={badge.title}>{badge.text}</span>
+      {/each}
       {#if expiry}
         <span class={expiry.tone}>{expiry.text}</span>
+      {/if}
+      {#if loads}
+        <span class={loads.dormant ? "text-warning-400" : ""} title={loads.title}>{loads.text}</span>
       {/if}
       <span title={provenance}>
         {#if deleted}Deleted {fmtAgo(note.deleted_at)}{note.source_key ? " · kept so Keep does not re-add it" : " · purged after 30 days"}{:else}{when}{/if}

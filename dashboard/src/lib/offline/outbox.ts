@@ -17,6 +17,7 @@ import {
   type Intent, type IntentKind, type NotePatchPayload, type Payloads,
 } from "./intents.js";
 import type { NoteRow } from "#lib/notes/api.js";
+import type { NoteTargets } from "$pipeline/notes/steps";
 import type { MirroredReport } from "#lib/mirror/types.js";
 
 export type { Intent, IntentKind } from "./intents.js";
@@ -94,12 +95,17 @@ async function requestBackgroundFlush(): Promise<void> {
   }
 }
 
-export async function createNote(input: { content: string; scope?: string; expiresAt?: string | null }): Promise<void> {
+export async function createNote(
+  input: { content: string; scope?: string; expiresAt?: string | null; steps?: string[]; appliesTo?: NoteTargets | null; activeFrom?: string | null },
+): Promise<void> {
   await enqueue("note.create", {
     id: crypto.randomUUID(),
     content: input.content,
     scope: input.scope ?? "global",
     expiresAt: input.expiresAt ?? null,
+    ...(input.steps === undefined ? {} : { steps: input.steps }),
+    ...(input.appliesTo === undefined ? {} : { appliesTo: input.appliesTo }),
+    ...(input.activeFrom === undefined ? {} : { activeFrom: input.activeFrom }),
   });
 }
 

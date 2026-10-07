@@ -13,6 +13,7 @@
 import { jsonInit } from "#lib/http.js";
 import * as outbox from "#lib/offline/outbox.js";
 import { netJson } from "#lib/offline/net.js";
+import type { NoteTargets } from "$pipeline/notes/steps";
 
 /** Snake_case shape of a note in the offline mirror, as Postgres returns it. */
 export interface NoteRow {
@@ -28,6 +29,16 @@ export interface NoteRow {
   /** Set on a rule the Context Builder seeded from Keep; such a note is never purged from the trash. */
   source_key?: string | null;
   revision_count: number;
+  /** Pipeline steps that load the note; empty means every step its scope reaches. */
+  steps: string[];
+  /** Narrowing to the item being processed, or null for always. */
+  applies_to: NoteTargets | null;
+  /** First live day, `YYYY-MM-DD`; null means live from creation. */
+  active_from: string | null;
+  /** Step and run-day pairs the note went into a model call in (`note_loads`). 0 also covers the time before tracking began. */
+  load_count: number;
+  /** Latest such run day, `YYYY-MM-DD`. */
+  last_loaded_on: string | null;
   /** Mirror-only, set by the outbox: an offline edit's `base_updated_at`
    *  did not match the row's actual `updated_at` when it flushed - "changed on the server while
    *  you were offline". Never present in a server response; only `NoteCard` reads it. */
@@ -63,17 +74,31 @@ export interface NotePatch {
   content?: string;
   scope?: string;
   expires_at?: string | null;
+  /** A key left out means "leave it"; `[]` and null clear. */
+  steps?: string[];
+  applies_to?: NoteTargets | null;
+  active_from?: string | null;
 }
 
 function call<T>(path: string, method: string, body?: unknown): Promise<T> {
   return netJson<T>(`/api/notes${path}`, jsonInit(method, body));
 }
 
-export const createNote = (input: { content: string; scope?: string; expires_at?: string | null }) =>
-  outbox.createNote({ content: input.content, scope: input.scope, expiresAt: input.expires_at });
+export const createNote = (input: { content: string; scope?: string; expires_at?: string | null; steps?: string[]; applies_to?: NoteTargets | null; active_from?: string | null }) =>
+  outbox.createNote({
+    content: input.content, scope: input.scope, expiresAt: input.expires_at,
+    steps: input.steps, appliesTo: input.applies_to, activeFrom: input.active_from,
+  });
 
 export const updateNote = (id: string, patch: NotePatch) =>
-  outbox.updateNote(id, { content: patch.content, scope: patch.scope, ...("expires_at" in patch ? { expiresAt: patch.expires_at ?? null } : {}) });
+  outbox.updateNote(id, {
+    content: patch.content,
+    scope: patch.scope,
+    ...("expires_at" in patch ? { expiresAt: patch.expires_at ?? null } : {}),
+    ...(patch.steps === undefined ? {} : { steps: patch.steps }),
+    ...("applies_to" in patch ? { appliesTo: patch.applies_to ?? null } : {}),
+    ...("active_from" in patch ? { activeFrom: patch.active_from ?? null } : {}),
+  });
 
 export const deleteNote = (id: string) => outbox.deleteNote(id);
 
@@ -121,6 +146,14 @@ export interface Draft {
   scope: string;
   /** `YYYY-MM-DD`, or "" for no expiry. */
   expires: string;
+  /** `YYYY-MM-DD`, or "" for live at once. */
+  activeFrom: string;
+  /** Steps that load the note; empty means every step its scope reaches. */
+  steps: string[];
+  /** Comma-separated, as typed; `parseTargets` turns them into `applies_to`. */
+  senders: string;
+  entities: string;
+  keywords: string;
   saving: boolean;
   error: string | null;
 }

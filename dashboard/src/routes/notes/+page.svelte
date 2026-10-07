@@ -6,6 +6,9 @@
   import NoteEditor from "#lib/notes/NoteEditor.svelte";
   import NoteHistory from "#lib/notes/NoteHistory.svelte";
   import NotesToolbar from "#lib/notes/NotesToolbar.svelte";
+  import NotesNarrowFilter from "#lib/notes/NotesNarrowFilter.svelte";
+  import { isDormant } from "#lib/notes/targeting.js";
+  import { utcDay } from "#lib/format.js";
   import BulkBar from "#lib/notes/BulkBar.svelte";
   import { useNoteDrafts } from "#lib/notes/useNoteDrafts.svelte.js";
   import { useNoteSelection } from "#lib/notes/useNoteSelection.svelte.js";
@@ -17,6 +20,7 @@
   import { toasts } from "#lib/toast.svelte.js";
   import { deleteNote, restoreNote, type NoteRow } from "#lib/notes/api.js";
   import { filterNotes, NOTES_SHOWN, type NotesFilter } from "#lib/offline/repo.js";
+  import { parseFilter, searchOf } from "#lib/notes/filterUrl.js";
   import { sync } from "#lib/offline/sync.js";
   import { offline } from "#lib/offline/state.svelte.js";
   import { intentIsFor } from "#lib/offline/outbox.js";
@@ -32,30 +36,6 @@
   // Behaviour spec: docs/dashboard.md "/notes".
 
   // --- filters: applied here, kept in the URL so a view is shareable and survives a reload ---
-
-  const SORTS = ["newest", "oldest", "edited"] as const;
-  const VIEWS = ["active", "deleted", "all"] as const;
-
-  function parseFilter(params: Pick<URLSearchParams, "get">): NotesFilter {
-    const sort = params.get("sort") ?? "";
-    const view = params.get("view") ?? "";
-    return {
-      scope: params.get("scope") ?? "",
-      query: params.get("q") ?? "",
-      sort: (SORTS as readonly string[]).includes(sort) ? (sort as NotesFilter["sort"]) : "newest",
-      view: (VIEWS as readonly string[]).includes(view) ? (view as NotesFilter["view"]) : "active",
-    };
-  }
-
-  function searchOf(filter: NotesFilter): string {
-    const params = new URLSearchParams();
-    if (filter.scope) params.set("scope", filter.scope);
-    if (filter.query.trim()) params.set("q", filter.query.trim());
-    if (filter.sort !== "newest") params.set("sort", filter.sort);
-    if (filter.view !== "active") params.set("view", filter.view);
-    const query = params.toString();
-    return query ? `?${query}` : "";
-  }
 
   // A written filter lives in `page.shallow`: `page.url` stays the loaded URL, and a mirror reload
   // hands it over again, which would read as the URL having changed and reset the filter.
@@ -100,24 +80,31 @@
   }
 
   const shown = $derived(filterNotes(data.notes, filter));
+  // The narrowness, step, target and dormant filters sit behind a disclosure that stays open while one of them is set.
+  const narrowActive = $derived(!!(filter.narrowness || filter.step || filter.target.trim() || filter.dormant));
 
   // A failed create has no row once a pull has put the mirror back to the server's state; it is
   // listed here instead, so it is still seen where it was made.
   const orphanedFailures = $derived(
     offline.failed.filter((i) => i.kind.startsWith("note.") && !data.notes.some((note) => intentIsFor(i, "note", note.id))),
   );
-  // One pass: the trash and active totals, and per-scope counts for the view being looked at.
+  // One pass: the trash and active totals, the dormant ones, and per-scope counts for the view being looked at.
   const counts = $derived.by(() => {
     const scopes: Record<string, number> = {};
     let active = 0;
     let deleted = 0;
+    let dormant = 0;
+    const today = utcDay();
     for (const note of data.notes) {
       if (note.deleted_at) deleted++;
-      else active++;
+      else {
+        active++;
+        if (isDormant(note, today)) dormant++;
+      }
       if (filter.view === "deleted" ? !note.deleted_at : !!note.deleted_at) continue;
       scopes[note.scope] = (scopes[note.scope] ?? 0) + 1;
     }
-    return { active, deleted, scopes };
+    return { active, deleted, dormant, scopes };
   });
 
   // What the assistant sees of this page. The focus list gives it real ids for the rows on
@@ -129,6 +116,9 @@
       digest: [
         `Notes management. View: ${filter.view === "deleted" ? "trash" : filter.view === "all" ? "all" : "active"}.`,
         `Scope filter: ${filter.scope || "all"}.`,
+        filter.narrowness || filter.step || filter.target.trim() || filter.dormant
+          ? `Targeting filter: ${[filter.narrowness, filter.step && `step ${filter.step}`, filter.target.trim() && `target "${filter.target.trim()}"`, filter.dormant && "not loaded lately"].filter(Boolean).join(", ")}.`
+          : "",
         filter.query.trim() ? `Search: "${filter.query.trim()}".` : "",
         `${shown.length} of ${counts.active} active notes visible, ${counts.deleted} in the trash.`,
       ].filter(Boolean).join(" "),
@@ -193,6 +183,14 @@
     onNew={startNew}
     onToggleSelecting={() => (selection.selecting ? selection.end() : (selection.selecting = true))}
   />
+  <details class="text-xs text-surface-400" open={narrowActive}>
+    <summary class="cursor-pointer select-none py-1 hover:text-surface-200">
+      More filters{narrowActive ? ": active" : ""}
+    </summary>
+    <div class="pt-2">
+      <NotesNarrowFilter {filter} dormantCount={counts.dormant} onchange={applyFilters} />
+    </div>
+  </details>
 
   {#each orphanedFailures as intent (intent.id)}
     <FailedWrite {intent} showTarget />

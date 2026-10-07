@@ -14,6 +14,7 @@ import { errMessage } from "$pipeline/util/text";
 import * as db from "./db.js";
 import type { MirrorStore } from "./db.js";
 import type { NoteRow } from "#lib/notes/api.js";
+import type { NoteTargets } from "$pipeline/notes/steps";
 import type { MirroredExtraction } from "./repo.js";
 import type { Fetcher, MirroredReport } from "#lib/mirror/types.js";
 
@@ -23,12 +24,34 @@ export interface NotePatchPayload {
   content?: string;
   scope?: string;
   expiresAt?: string | null;
+  steps?: string[];
+  appliesTo?: NoteTargets | null;
+  activeFrom?: string | null;
+}
+
+/** The targeting fields a note is created with; rows queued before targeting existed carry none. */
+interface TargetingPayload {
+  steps?: string[];
+  appliesTo?: NoteTargets | null;
+  activeFrom?: string | null;
+}
+
+/** The request body for a note write: the server reads snake_case, and a key the payload lacks stays absent so the server leaves that field alone. */
+function noteBody(p: NotePatchPayload & TargetingPayload): Record<string, unknown> {
+  return {
+    ...(p.content === undefined ? {} : { content: p.content }),
+    ...(p.scope === undefined ? {} : { scope: p.scope }),
+    ...("expiresAt" in p ? { expires_at: p.expiresAt ?? null } : {}),
+    ...(p.steps === undefined ? {} : { steps: p.steps }),
+    ...("appliesTo" in p ? { applies_to: p.appliesTo ?? null } : {}),
+    ...("activeFrom" in p ? { active_from: p.activeFrom ?? null } : {}),
+  };
 }
 
 /** What each kind of write carries. Intents are persisted as-is in IndexedDB, so a change to a
  *  payload shape must stay readable for already-queued rows. */
 export interface Payloads {
-  "note.create": { id: string; content: string; scope: string; expiresAt: string | null };
+  "note.create": { id: string; content: string; scope: string; expiresAt: string | null } & TargetingPayload;
   "note.update": { id: string; patch: NotePatchPayload; baseUpdatedAt: string | null };
   "note.delete": { id: string };
   "note.restore": { id: string };
@@ -77,9 +100,10 @@ const KINDS: { [K in IntentKind]: Handler<K> } = {
         id: p.id, content: p.content, scope: p.scope,
         created_at: createdAt, updated_at: null, expires_at: p.expiresAt,
         created_by: "user", updated_by: null, deleted_at: null, revision_count: 0,
+        steps: p.steps ?? [], applies_to: p.appliesTo ?? null, active_from: p.activeFrom ?? null,
+        load_count: 0, last_loaded_on: null,
       }),
-    request: ({ payload: p }, send) =>
-      send("/api/notes", jsonInit("POST", { id: p.id, content: p.content, scope: p.scope, expires_at: p.expiresAt })),
+    request: ({ payload: p }, send) => send("/api/notes", jsonInit("POST", { id: p.id, ...noteBody(p) })),
   },
   "note.update": {
     label: "Note edit",
@@ -89,11 +113,14 @@ const KINDS: { [K in IntentKind]: Handler<K> } = {
         ...(patch.content === undefined ? {} : { content: patch.content }),
         ...(patch.scope === undefined ? {} : { scope: patch.scope }),
         ...("expiresAt" in patch ? { expires_at: patch.expiresAt ?? null } : {}),
+        ...(patch.steps === undefined ? {} : { steps: patch.steps }),
+        ...("appliesTo" in patch ? { applies_to: patch.appliesTo ?? null } : {}),
+        ...("activeFrom" in patch ? { active_from: patch.activeFrom ?? null } : {}),
         updated_at: createdAt,
         updated_by: "user",
       })),
     request: ({ payload: p }, send) =>
-      send(`/api/notes/${p.id}`, jsonInit("PATCH", { ...p.patch, base_updated_at: p.baseUpdatedAt })),
+      send(`/api/notes/${p.id}`, jsonInit("PATCH", { ...noteBody(p.patch), base_updated_at: p.baseUpdatedAt })),
   },
   "note.delete": {
     label: "Note deleted",

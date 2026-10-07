@@ -168,7 +168,10 @@ async function buildNotes() {
     SELECT
       n.id, n.content, n.scope, n.created_at, n.updated_at, n.expires_at,
       n.created_by, n.updated_by, n.deleted_at, n.source_key,
-      (SELECT count(*) FROM note_revisions r WHERE r.note_id = n.id)::int AS revision_count
+      n.steps, n.applies_to, n.active_from,
+      (SELECT count(*) FROM note_revisions r WHERE r.note_id = n.id)::int AS revision_count,
+      (SELECT count(*) FROM note_loads l WHERE l.note_id = n.id)::int AS load_count,
+      (SELECT max(l.run_date) FROM note_loads l WHERE l.note_id = n.id)::text AS last_loaded_on
     FROM notes n
     ORDER BY n.created_at DESC
     LIMIT 500

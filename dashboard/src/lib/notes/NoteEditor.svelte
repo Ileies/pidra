@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The one editor, for a new note and for an open card. Scope and expiry are part of the draft, so
+   * The one editor, for a new note and for an open card. Scope, expiry and targeting are part of the draft, so
    * a tidy-up is one save and one revision rather than three. Nothing is saved on blur: the draft
    * stays open (and survives a re-render, since the page owns it) until Save or Cancel.
    */
@@ -9,6 +9,7 @@
   import { isoDay } from "#lib/format.js";
   import { autosize } from "#lib/ui/autosize.js";
   import Spinner from "#lib/components/Spinner.svelte";
+  import NoteTargeting from "#lib/notes/NoteTargeting.svelte";
   import Trash from "@lucide/svelte/icons/trash";
 
   interface Props {
@@ -141,4 +142,6 @@
   {#if draft.error}
     <p class="text-xs text-error-400">{draft.error}</p>
   {/if}
+
+  <NoteTargeting bind:draft />
 </div>

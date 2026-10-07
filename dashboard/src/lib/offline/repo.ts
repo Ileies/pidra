@@ -27,6 +27,10 @@ import type {
 import type { ExtractedJson } from "#lib/server/extractions.js";
 import type { HarvestDoc, HarvestRun } from "#lib/server/contextHarvest.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
+import { narrownessOf, reachesStepRow, type Narrowness } from "$pipeline/notes/narrowness";
+import type { NoteStep } from "$pipeline/notes/steps";
+import { isDormant } from "#lib/notes/targeting.js";
+import { utcDay } from "#lib/format.js";
 
 /**
  * A load's `depends`, or null for a read from a component (the inline source expansion, the
@@ -112,6 +116,14 @@ export interface NotesFilter {
   query: string;
   sort: "newest" | "oldest" | "edited";
   view: "active" | "deleted" | "all";
+  /** One of `NARROWNESS`, or "" for any. */
+  narrowness: string;
+  /** A `NOTE_STEPS` value: notes that step can read. "" for any. */
+  step: string;
+  /** Substring of a targeted sender, entity or keyword. "" for any. */
+  target: string;
+  /** Only notes with no load in the last `DORMANT_DAYS` days. */
+  dormant: boolean;
 }
 
 /** How many notes one view renders, as the server-rendered page did. */
@@ -119,9 +131,14 @@ export const NOTES_SHOWN = 200;
 
 export function filterNotes(all: MirroredNote[], filter: NotesFilter): MirroredNote[] {
   const query = filter.query.trim().toLowerCase();
+  const target = filter.target.trim().toLowerCase();
   const filtered = all.filter((n) => {
     if (filter.scope && n.scope !== filter.scope) return false;
     if (query && !n.content.toLowerCase().includes(query)) return false;
+    if (filter.narrowness && !narrownessOf({ steps: n.steps, appliesTo: n.applies_to, activeFrom: n.active_from, expiresAt: n.expires_at }).includes(filter.narrowness as Narrowness)) return false;
+    if (filter.step && !reachesStepRow(n, filter.step as NoteStep)) return false;
+    if (target && !Object.values(n.applies_to ?? {}).some((list) => (list ?? []).some((v: string) => v.toLowerCase().includes(target)))) return false;
+    if (filter.dormant && !isDormant(n, utcDay())) return false;
     if (filter.view === "deleted") return !!n.deleted_at;
     if (filter.view === "all") return true;
     return !n.deleted_at;

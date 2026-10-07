@@ -137,6 +137,20 @@ describe("GET /api/offline/snapshot", () => {
     expect(third.body.ids.notes).toHaveLength(1);
   });
 
+  test("a note carries its targeting and load history, and a new load alone makes it a changed row", async () => {
+    await seed();
+    await database.sql`update notes set steps = '{classify}', applies_to = '{"senders":["netcup"]}'::jsonb, active_from = '2030-01-01' where content = 'A mirrored note'`;
+    const first = await pull();
+    expect(first.body.stores.notes[0]).toMatchObject({
+      steps: ["classify"], applies_to: { senders: ["netcup"] }, load_count: 0, last_loaded_on: null,
+    });
+
+    await database.sql`insert into note_loads (note_id, step, run_date) select id, 'classify', '2030-06-15' from notes`;
+    const second = await pull(`"${first.body.etag}"`);
+    expect(second.body.mode).toBe("delta");
+    expect(second.body.stores.notes[0]).toMatchObject({ load_count: 1, last_loaded_on: "2030-06-15" });
+  });
+
   test("an ETag this process has never seen (after a restart or a deploy) gets the full snapshot", async () => {
     await seed();
     const { body } = await pull(`"from-another-build-abc"`);

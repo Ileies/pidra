@@ -2,6 +2,7 @@ import { errMessage } from "../util/text";
 import { isNotNull } from "drizzle-orm";
 import { db, sourceQuality } from "../db";
 import { ingestImapAccount } from "../ingest/imap";
+import { imapSinceForRun } from "../ingest/imap-window";
 import { ingestRssFeeds } from "../ingest/rss";
 import { ingestGoogleCalendar, ingestGoogleTasks } from "../ingest/google";
 import { loadEmailAccounts } from "../config/email-accounts";
@@ -48,9 +49,12 @@ export async function runPhase1(runDate: string): Promise<IngestResult> {
     console.warn("[Phase 1] No email accounts configured (see /settings/email-accounts)");
   }
 
+  const imapSince = await imapSinceForRun(runDate);
+  console.log(`[Ingest/IMAP] Reading mail since ${imapSince.toISOString()}`);
+
   const [imapResults, rssResult, calendarResult, todoResult] = await Promise.all([
     Promise.allSettled(accounts.map((account) =>
-      span(`ingest:imap:${account.user}`, () => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames, checkedUnsubscribeSources)),
+      span(`ingest:imap:${account.user}`, () => ingestImapAccount(account, runDate, newsletterConfig, rssSourceNames, checkedUnsubscribeSources, imapSince)),
     )),
     Promise.allSettled([span("ingest:rss", () => ingestRssFeeds(runDate, feeds))]),
     Promise.allSettled([span("ingest:calendar", () => ingestGoogleCalendar(runDate))]),

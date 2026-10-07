@@ -5,6 +5,7 @@ import { db, ingestDrops, rawItems, existingMessageIds, sourceQuality } from "..
 import { classifyEmail, isBulkMail, listHeaders, senderAddress } from "./sources";
 import { cleanEmailContent } from "./html";
 import { openImap } from "./imap-client";
+import { imapSince } from "./imap-window";
 import { findUnsubscribeLink } from "./unsubscribe";
 import type { NewsletterConfig } from "../config/newsletter-sources";
 import type { EmailAccount } from "../config/email-accounts";
@@ -42,19 +43,18 @@ function fetchMessagesSince(imap: Imap, folder: string, since: Date): Promise<Bu
 }
 
 /**
- * Phase 1 IMAP ingest for one account: fetches the last `IMAP_LOOKBACK_DAYS` (default 1) of mail into
- * `raw_items` (`message_id` dedupes) and logs discarded mails to `ingest_drops`. News accounts are
+ * Phase 1 IMAP ingest for one account: fetches mail since `since` into `raw_items` (`message_id`
+ * dedupes) and logs discarded mails to `ingest_drops`. `since` is `imapSinceForRun` (last completed
+ * run, 1 to 3 days back); omitted, it is `IMAP_LOOKBACK_DAYS` (default 1) before now. News accounts are
  * classified newsletter vs personal by ./sources.ts; the first mail of each newsletter source also
  * fills `source_quality.unsubscribe_url`. `checkedUnsubscribeSources` is shared across accounts and
  * mutated. Returns how many items were stored. Connection errors throw.
  */
-export async function ingestImapAccount(account: EmailAccount, runDate: string, newsletterConfig: NewsletterConfig, rssSourceNames: Set<string>, checkedUnsubscribeSources: Set<string>): Promise<number> {
+export async function ingestImapAccount(account: EmailAccount, runDate: string, newsletterConfig: NewsletterConfig, rssSourceNames: Set<string>, checkedUnsubscribeSources: Set<string>, sinceOverride?: Date): Promise<number> {
   console.log(`[Ingest/IMAP] [${account.user}] Connecting to ${account.host}...`);
 
   const imap = await openImap(account);
-  const lookbackDays = parseInt(process.env.IMAP_LOOKBACK_DAYS ?? "1");
-  const since = new Date();
-  since.setDate(since.getDate() - lookbackDays);
+  const since = sinceOverride ?? imapSince(new Date(), null, parseInt(process.env.IMAP_LOOKBACK_DAYS ?? "1"));
 
   let raw: Buffer[];
   try {

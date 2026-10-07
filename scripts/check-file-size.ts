@@ -14,8 +14,8 @@ const LIMITS: Record<string, number> = { ".ts": 350, ".svelte": 250 };
 const EXCEPTIONS: Record<string, number> = {
   // Synthetic snapshot data: long because the fixture has to cover every mirrored table.
   "dashboard/scripts/blackhole/fixture.ts": 390,
-  // One cohesive store (transactions, revisions, search); splitting it would only add indirection.
-  "src/notes/store.ts": 370,
+  // One cohesive store (transactions, revisions, search); targeting validation already lives in notes/targeting.ts.
+  "src/notes/store.ts": 400,
   // Pure and tested alone, one tree builder; its size is the algorithm.
   "dashboard/src/lib/runTrace.ts": 370,
   // The report page and the run page are mostly markup around one data flow.

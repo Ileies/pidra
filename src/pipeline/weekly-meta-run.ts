@@ -3,7 +3,9 @@
 // (never applied; a prompt only changes through `propose_prompt_version`, confirmed on /skills,
 // see docs/architecture-rules.md).
 import { daysAgo, addDays } from "../util/time";
-import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality, notes } from "../db";
+import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality } from "../db";
+import { createNote } from "../notes/store";
+import { PROPOSAL_PREFIX } from "../notes/select";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { PROMPT_SECTIONS, resolveActivePrompts } from "../ai/active-prompts";
@@ -155,11 +157,7 @@ export async function runWeeklyMetaRun(): Promise<void> {
   const diff = await generatePromptDiff(analytics);
 
   if (diff) {
-    await db.insert(notes).values({
-      content: `WEEKLY META-RUN PROMPT DIFF PROPOSAL (${analytics.weekStart}):\n\n${diff}`,
-      scope: "global",
-      createdBy: "system",
-    });
+    await createNote({ content: `${PROPOSAL_PREFIX} (${analytics.weekStart}):\n\n${diff}`, scope: "global" }, { by: "system" });
     console.log(`[meta-run] Prompt diff saved to notes`);
   } else {
     console.log(`[meta-run] No prompt changes suggested`);

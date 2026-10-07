@@ -1,8 +1,12 @@
-import { HttpError } from "../util/errors";
 import { isUuid, isDateKey } from "../util/ids";
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { db, notes, noteRevisions } from "../db";
 import { addDays, utcDay } from "../util/time";
+import { NoteError } from "./errors";
+import type { NoteTargets } from "./select";
+import { describeTargets, normaliseSteps, normaliseTargets, sameJson } from "./targeting";
+
+export { NoteError };
 
 /**
  * The only writer of `notes` and `note_revisions` (the mutable layer, see docs/architecture-rules.md).
@@ -20,13 +24,6 @@ export type NoteScope = (typeof NOTE_SCOPES)[number];
 export type Note = typeof notes.$inferSelect;
 export type NoteRevision = typeof noteRevisions.$inferSelect;
 
-/** "not found" messages surface as 404, every other validation failure as 400. */
-export class NoteError extends HttpError {
-  constructor(message: string) {
-    super(message, message.includes("not found") ? 404 : 400);
-  }
-}
-
 /** Who is making the change, and what to point the revision back at. */
 export interface Actor {
   by: "user" | "chat" | "system" | "harvest";
@@ -39,6 +36,12 @@ export interface NoteWrite {
   scope?: string;
   /** `null` clears the expiry; omitted leaves it untouched. */
   expiresAt?: string | null;
+  /** Steps that load the note (`NOTE_STEPS`); `[]` means every step its scope reaches. Omitted leaves it untouched. */
+  steps?: string[];
+  /** `null` or all-empty lists make the note untargeted; omitted leaves it untouched. */
+  appliesTo?: NoteTargets | null;
+  /** First live day; `null` means live at once, omitted leaves it untouched. */
+  activeFrom?: string | null;
   /** The review question(s) this note was drawn from (`absorbReviewAnswers`). Create-only. */
   sourceQuestionIds?: string[];
 }
@@ -86,6 +89,13 @@ function normaliseExpiry(value: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? assertDate(trimmed, "expires_at") : null;
 }
+
+/** The pre-change targeting for a `note_revisions` row. */
+const previousTargeting = (note: Note) => ({
+  previousSteps: note.steps,
+  previousAppliesTo: note.appliesTo,
+  previousActiveFrom: note.activeFrom,
+});
 
 /** `days` from today (UTC) as `YYYY-MM-DD`, for a caller that thinks in "a week" rather than dates. */
 export function expiryInDays(days: unknown): string {
@@ -147,6 +157,9 @@ export async function createNote(input: NoteWrite & { content: string; id?: stri
       content,
       scope: normaliseScope(input.scope ?? "global"),
       expiresAt: input.expiresAt === undefined ? null : normaliseExpiry(input.expiresAt),
+      steps: normaliseSteps(input.steps ?? []),
+      appliesTo: normaliseTargets(input.appliesTo ?? null),
+      activeFrom: input.activeFrom ? assertDate(input.activeFrom.trim(), "active_from") : null,
       ...(input.sourceQuestionIds?.length ? { sourceQuestionIds: input.sourceQuestionIds } : {}),
       // Provenance of the *creation*, and never rewritten afterwards. A later edit only sets
       // `updated_by`, so a Phase 6 note the user fixed still reads as pipeline-written.
@@ -195,6 +208,7 @@ export async function seedHarvestedNotes(items: { key: string; content: string }
         previousContent: row.content,
         previousScope: row.scope,
         previousExpiresAt: row.expiresAt,
+        ...previousTargeting(row),
         changedBy: "harvest",
       });
       await tx.update(notes).set({ content, updatedAt: sql`now()`, updatedBy: "harvest" }).where(eq(notes.id, row.id));
@@ -236,6 +250,7 @@ async function mutateNote(
       previousContent: current.content,
       previousScope: current.scope,
       previousExpiresAt: current.expiresAt,
+      ...previousTargeting(current),
       changedBy: actor.by,
       skillExecutionId: actor.skillExecutionId ?? null,
       conversationId: actor.conversationId ?? null,
@@ -263,8 +278,14 @@ export async function updateNote(id: string, patch: NoteWrite, actor: Actor): Pr
   const touchesExpiry = "expiresAt" in patch;
   const nextExpiry = touchesExpiry ? normaliseExpiry(patch.expiresAt ?? null) : undefined;
 
-  if (nextContent === undefined && nextScope === undefined && !touchesExpiry) {
-    throw new NoteError("nothing to update: pass content, scope or expires_at");
+  const nextSteps = patch.steps === undefined ? undefined : normaliseSteps(patch.steps);
+  const touchesTargets = "appliesTo" in patch;
+  const nextTargets = touchesTargets ? normaliseTargets(patch.appliesTo ?? null) : undefined;
+  const touchesActiveFrom = "activeFrom" in patch;
+  const nextActiveFrom = touchesActiveFrom && patch.activeFrom?.trim() ? assertDate(patch.activeFrom.trim(), "active_from") : null;
+
+  if (nextContent === undefined && nextScope === undefined && !touchesExpiry && nextSteps === undefined && !touchesTargets && !touchesActiveFrom) {
+    throw new NoteError("nothing to update: pass content, scope, expires_at, steps, applies_to or active_from");
   }
 
   return mutateNote(noteId, "update", actor, (current) => {
@@ -273,13 +294,19 @@ export async function updateNote(id: string, patch: NoteWrite, actor: Actor): Pr
     const unchanged =
       (nextContent === undefined || nextContent === current.content) &&
       (nextScope === undefined || nextScope === current.scope) &&
-      (!touchesExpiry || (nextExpiry ?? null) === (current.expiresAt ?? null));
+      (!touchesExpiry || (nextExpiry ?? null) === (current.expiresAt ?? null)) &&
+      (nextSteps === undefined || sameJson(nextSteps, current.steps)) &&
+      (!touchesTargets || sameJson(nextTargets, current.appliesTo)) &&
+      (!touchesActiveFrom || nextActiveFrom === (current.activeFrom ?? null));
     if (unchanged) return null;
 
     return {
       ...(nextContent === undefined ? {} : { content: nextContent }),
       ...(nextScope === undefined ? {} : { scope: nextScope }),
       ...(touchesExpiry ? { expiresAt: nextExpiry ?? null } : {}),
+      ...(nextSteps === undefined ? {} : { steps: nextSteps }),
+      ...(touchesTargets ? { appliesTo: nextTargets ?? null } : {}),
+      ...(touchesActiveFrom ? { activeFrom: nextActiveFrom } : {}),
     };
   });
 }
@@ -341,6 +368,10 @@ export async function revertToRevision(revisionId: string, actor: Actor): Promis
       content: revision.previousContent,
       scope: revision.previousScope ?? note.scope,
       expiresAt: revision.previousExpiresAt ?? null,
+      // A revision from before targeting existed records none of it, so the current targeting stays.
+      ...(revision.previousSteps === null
+        ? {}
+        : { steps: revision.previousSteps, appliesTo: revision.previousAppliesTo, activeFrom: revision.previousActiveFrom }),
     },
     actor,
   );
@@ -350,7 +381,10 @@ export async function revertToRevision(revisionId: string, actor: Actor): Promis
 export function formatNoteLine(note: Note): string {
   const flags = [
     note.scope,
+    note.activeFrom ? `from ${note.activeFrom}` : null,
     note.expiresAt ? `expires ${note.expiresAt}` : null,
+    note.steps.length > 0 ? `steps: ${note.steps.join(", ")}` : null,
+    describeTargets(note.appliesTo),
     note.deletedAt ? "deleted" : null,
     `by ${note.createdBy ?? "system"}${note.updatedBy ? `, edited by ${note.updatedBy}` : ""}`,
   ].filter(Boolean);

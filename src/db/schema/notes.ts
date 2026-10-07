@@ -36,6 +36,10 @@ export const noteRevisions = pgTable("note_revisions", {
   previousContent: text("previous_content"),
   previousScope: text("previous_scope"),
   previousExpiresAt: dateStr("previous_expires_at"),
+  /** Targeting before the change. `previousSteps` null marks a revision from before targeting existed: a revert leaves the three targeting fields alone then. */
+  previousSteps: text("previous_steps").array(),
+  previousAppliesTo: jsonb("previous_applies_to").$type<{ senders?: string[]; entities?: string[]; keywords?: string[] }>(),
+  previousActiveFrom: dateStr("previous_active_from"),
   changedBy: text("changed_by").notNull(), // user | chat | system | harvest
   skillExecutionId: uuid("skill_execution_id").references(() => skillExecutions.id, { onDelete: "set null" }),
   conversationId: uuid("conversation_id").references(() => chatConversations.id, { onDelete: "set null" }),

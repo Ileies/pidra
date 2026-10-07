@@ -5,7 +5,7 @@ import { useTestDatabase } from "./fixtures/database";
 
 const database = await useTestDatabase();
 const store = await import("../src/notes/store");
-const { selectNotes } = await import("../src/notes/select");
+const { selectNotes, PROPOSAL_PREFIX } = await import("../src/notes/select");
 
 const USER = { by: "user" } as const;
 const TODAY = "2030-06-15";
@@ -81,5 +81,13 @@ describe("selectNotes", () => {
     await store.createNote({ content: "first", scope: "intel" }, USER);
     await store.createNote({ content: "second", scope: "intel" }, USER);
     expect(await contents("news")).toEqual(["first", "second"]);
+  });
+});
+
+describe("weekly meta-run proposals", () => {
+  test("no step loads a prompt-diff proposal, even a global one", async () => {
+    await store.createNote({ content: `${PROPOSAL_PREFIX} (2030-06-10):\n\nchange x`, scope: "global" }, { by: "system" });
+    await store.createNote({ content: "a rule", scope: "global" }, USER);
+    for (const step of ["classify", "section1", "section2"] as const) expect(await contents(step)).toEqual(["a rule"]);
   });
 });

@@ -5,6 +5,7 @@ import { useTestDatabase } from "./fixtures/database";
 
 const database = await useTestDatabase();
 const store = await import("../src/notes/store");
+const targeting = await import("../src/notes/targeting");
 
 const USER = { by: "user" } as const;
 const CHAT = { by: "chat" } as const;
@@ -203,5 +204,60 @@ describe("formatNoteLine", () => {
     const note = await store.createNote({ content: "line", scope: "contact", expiresAt: "2031-02-03" }, CHAT);
     const edited = await store.updateNote(note.id, { content: "line 2" }, USER);
     expect(store.formatNoteLine(edited)).toBe(`${note.id} [contact | expires 2031-02-03 | by chat, edited by user]\nline 2`);
+  });
+});
+
+describe("targeting", () => {
+  const NETCUP = { steps: ["Classify"], appliesTo: { senders: [" netcup ", "netcup", ""], keywords: [] } };
+
+  test("create normalises steps and targets; an all-empty applies_to is stored as untargeted", async () => {
+    const note = await store.createNote({ content: "pays itself", scope: "personal", activeFrom: "2030-01-01", ...NETCUP }, CHAT);
+    expect(note).toMatchObject({ steps: ["classify"], appliesTo: { senders: ["netcup"] }, activeFrom: "2030-01-01" });
+    const plain = await store.createNote({ content: "plain", appliesTo: { senders: [" "] } }, CHAT);
+    expect(plain).toMatchObject({ steps: [], appliesTo: null, activeFrom: null });
+  });
+
+  test("rejects an unknown step, an unknown key and a malformed date", async () => {
+    await expect(store.createNote({ content: "x", steps: ["summarise"] }, USER)).rejects.toThrow(/steps must be one of/);
+    await expect(store.createNote({ content: "x", appliesTo: { colours: ["red"] } as never }, USER)).rejects.toThrow(/applies_to takes only/);
+    await expect(store.createNote({ content: "x", activeFrom: "soon" }, USER)).rejects.toThrow(/YYYY-MM-DD/);
+  });
+
+  test("update records the previous targeting, and revert restores it", async () => {
+    const note = await store.createNote({ content: "pays itself", scope: "personal", ...NETCUP }, CHAT);
+    const edited = await store.updateNote(note.id, { steps: [], appliesTo: null, activeFrom: "2030-02-02" }, USER);
+    expect(edited).toMatchObject({ steps: [], appliesTo: null, activeFrom: "2030-02-02" });
+
+    const [revision] = await revisions(note.id);
+    expect(revision).toMatchObject({ previousSteps: ["classify"], previousAppliesTo: { senders: ["netcup"] }, previousActiveFrom: null });
+
+    const reverted = await store.revertToRevision(revision.id, USER);
+    expect(reverted).toMatchObject({ steps: ["classify"], appliesTo: { senders: ["netcup"] }, activeFrom: null });
+  });
+
+  test("re-issuing the same targeting is not a revision", async () => {
+    const note = await store.createNote({ content: "pays itself", scope: "personal", ...NETCUP }, CHAT);
+    await store.updateNote(note.id, { steps: ["classify"], appliesTo: { senders: ["netcup"] } }, CHAT);
+    expect(await revisions(note.id)).toHaveLength(0);
+  });
+
+  test("a revision from before targeting existed leaves the current targeting alone on revert", async () => {
+    const note = await store.createNote({ content: "old", scope: "personal", ...NETCUP }, CHAT);
+    await store.updateNote(note.id, { content: "new" }, USER);
+    const [revision] = await revisions(note.id);
+    await database.sql`update note_revisions set previous_steps = null, previous_applies_to = null where id = ${revision.id}`;
+    expect(await store.revertToRevision(revision.id, USER)).toMatchObject({ content: "old", steps: ["classify"], appliesTo: { senders: ["netcup"] } });
+  });
+
+  test("skill parameters become lists, 'none' clears", () => {
+    expect(targeting.listFromText(" a, b ,,c")).toEqual(["a", "b", "c"]);
+    expect(targeting.listFromText("none")).toEqual([]);
+    expect(targeting.targetsFromParams({ content: "x" })).toBeUndefined();
+    expect(targeting.targetsFromParams({ senders: "netcup", keywords: "none" })).toEqual({ senders: ["netcup"], keywords: [] });
+  });
+
+  test("formatNoteLine shows steps and targets", async () => {
+    const note = await store.createNote({ content: "line", scope: "personal", ...NETCUP }, CHAT);
+    expect(store.formatNoteLine(note)).toBe(`${note.id} [personal | steps: classify | only for senders: netcup | by chat]\nline`);
   });
 });

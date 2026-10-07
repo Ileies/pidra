@@ -78,7 +78,7 @@ Also filterable: by step (show every note that can reach `classify`), by sender 
 2. **Schema + matching.** Add the three columns (migration per `docs/operations.md`), implement `steps`, `applies_to`, `active_from` in the selector. Classification passes the item.
 3. **Writers.** Extend `write_note` / `update_note` and the store; route the meta-run through the store; cap or exclude meta-run `global` notes from pipeline prompts.
 4. **Dashboard.** Edit fields, load counters, "never loaded" view, narrowness/step/target filters and badges on `/notes`, matching `list_notes` filter.
-5. **Cleanup by hand.** Narrow existing notes (netcup first) once the "never loaded" view exists. No automatic migration.
+5. **Cleanup by hand.** Narrow existing notes (netcup first) once the "never loaded" view exists. No automatic migration. Also rewrite the notes themselves: many date from the app's first days, are messily worded, or are verbatim copies of Google Keep notes. Rewrite each as a short, self-contained instruction (merge duplicates, drop stale ones) through `update_note`, so the history keeps the original, and do it together with the targeting so each note is read once.
 
 ## Out of scope
 

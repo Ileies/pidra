@@ -6,12 +6,18 @@
  * a note is live from `active_from` through its expiry day. Per-stage caps and character limits stay with
  * the caller. Matching is plain case-insensitive substring: no embeddings in the pipeline.
  */
-import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, notLike, or, sql } from "drizzle-orm";
 import { db, notes } from "../db";
 import type { Note, NoteScope } from "./store";
 
 export const NOTE_STEPS = ["classify", "section1", "section2", "news", "actions", "reconcile", "search"] as const;
 export type NoteStep = (typeof NOTE_STEPS)[number];
+
+/**
+ * Start of the weekly meta-run's prompt-diff note. It is for the reader to review on /notes, never an
+ * instruction, so no step loads a note that starts with it.
+ */
+export const PROPOSAL_PREFIX = "WEEKLY META-RUN PROMPT DIFF PROPOSAL";
 
 /** The `applies_to` shape: keys AND-combine, entries within a key OR-match. An empty list counts as absent. */
 export interface NoteTargets {
@@ -80,6 +86,7 @@ export async function selectStepNotes(step: NoteStep, runDate: string): Promise<
       or(isNull(notes.activeFrom), lte(notes.activeFrom, runDate)),
       or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
       or(eq(sql`cardinality(${notes.steps})`, 0), sql`${step} = any(${notes.steps})`),
+      notLike(notes.content, `${PROPOSAL_PREFIX}%`),
     ))
     .orderBy(asc(notes.createdAt), asc(notes.id));
 }

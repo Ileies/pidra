@@ -4,7 +4,7 @@ Rationale behind specific prompt choices, for anyone tuning the extraction or sy
 
 ## What the prompts know about the reader
 
-Nothing, by design. The repository is public, so `src/ai/prompts/style.ts` carries tone and format only. Who the reader is arrives at runtime in the payload: `long_term_context` (the Context Builder document), `notes_intel` and `notes_personal` (`notes`; the standing rules are `personal` notes). Topic priorities and exclusions belong in the `intel` notes, not in prompt code. Constraints that do shape the prompts:
+Nothing, by design. The repository is public, so `src/ai/prompts/style.ts` carries tone and format only. Who the reader is arrives at runtime in the payload: `long_term_context` (the Context Builder document), `notes_intel` and `notes_personal` (`notes`; the standing rules are `personal` notes; quick actions read them through the `actions` step instead). Topic priorities and exclusions belong in the `intel` notes, not in prompt code. Constraints that do shape the prompts:
 
 - The reader needs high novelty per paragraph, clear structure and no padding. That is functional: the briefing is read once, on a phone.
 - The reader is an experienced engineer, so anything written about their own work needs no scaffolding or boilerplate explanation.

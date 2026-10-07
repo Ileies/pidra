@@ -1,4 +1,4 @@
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createdAt, dateStr, pk, timestamptz } from "./columns";
 import { skillExecutions } from "./config";
@@ -20,6 +20,12 @@ export const notes = pgTable("notes", {
   sourceQuestionIds: uuid("source_question_ids").array().notNull().default(sql`'{}'::uuid[]`),
   /** Identity of a note seeded from Keep (`keep_rule_<note id>`), unique where set; such a row is never purged from the trash. */
   sourceKey: text("source_key"),
+  /** Pipeline steps that load this note (`NoteStep` in src/notes/select.ts); empty means every step its scope reaches. */
+  steps: text("steps").array().notNull().default(sql`'{}'::text[]`),
+  /** Narrowing to the item being processed: `{ senders?, entities?, keywords? }` (`NoteTargets` in src/notes/select.ts). Null means always. */
+  appliesTo: jsonb("applies_to").$type<{ senders?: string[]; entities?: string[]; keywords?: string[] }>(),
+  /** First day the note is live; pairs with `expiresAt`. Null means live from creation. */
+  activeFrom: dateStr("active_from"),
 });
 
 /** Append-only history for `notes`, holding the state *before* each change. */

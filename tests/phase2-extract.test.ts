@@ -51,7 +51,7 @@ const db = {
 };
 
 mock.module("../src/db", () => dbModule(db));
-mock.module("../src/notes/select", () => ({ selectNotes: async () => [] }));
+mock.module("../src/notes/select", () => ({ selectStepNotes: async () => [], notesForItem: (rows: unknown[]) => rows }));
 mock.module("../src/config/email-accounts", () => ({ loadEmailAccounts: async () => [] }));
 mock.module("../src/ai/active-prompts", () => ({
   resolveActivePrompts: async () => ({

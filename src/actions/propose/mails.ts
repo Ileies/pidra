@@ -12,6 +12,8 @@ export interface Mail {
   /** Every extraction of this mail on this run: Phase 2 can leave several, and any may be cited. */
   extractionIds: string[];
   sourceType: string;
+  /** Sender address or phone number (`raw_items.source_name`); what a note's `applies_to.senders` matches. */
+  sender: string | null;
   receivedAt: string | null;
   text: string;
   classification: Record<string, unknown>;
@@ -27,6 +29,7 @@ export async function candidateMails(runDate: string): Promise<Mail[]> {
       extractionId: extractions.id,
       rawItemId: rawItems.id,
       sourceType: rawItems.sourceType,
+      sender: rawItems.sourceName,
       receivedAt: rawItems.receivedAt,
       rawContent: rawItems.rawContent,
       json: extractions.extractedJson,
@@ -52,6 +55,7 @@ export async function candidateMails(runDate: string): Promise<Mail[]> {
       shortId: `m${byMail.size + 1}`,
       extractionIds: [row.extractionId],
       sourceType: row.sourceType,
+      sender: row.sender,
       receivedAt: row.receivedAt,
       text: stripControlChars(row.rawContent ?? "").slice(0, MAIL_CHARS),
       classification: {

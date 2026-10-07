@@ -71,7 +71,7 @@ export interface QuickActionsResult {
  * What the agent reads from Phase 3. Narrow on purpose, so `scripts/actions-dry-run.ts` can build
  * it without running Phase 3, which writes gate verdicts and spends web searches.
  */
-export type ActionInputs = Pick<ContextPayload, "calendarItems" | "notesPersonal" | "longTermContext">;
+export type ActionInputs = Pick<ContextPayload, "calendarItems" | "longTermContext">;
 
 export interface ModelAction {
   kind: ActionKind;

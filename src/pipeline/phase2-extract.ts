@@ -4,7 +4,8 @@
 // aborts the run when more than half of the items fail.
 import { squash } from "../util/text";
 import { contacts, db, extractions, rawItems, sourceQuality } from "../db";
-import { selectNotes } from "../notes/select";
+import { notesForItem, selectStepNotes } from "../notes/select";
+import type { Note } from "../notes/store";
 import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
 import { buildPersonalEmailPrompt, type ClassificationContext } from "../ai/prompts";
@@ -135,28 +136,39 @@ async function saveExtraction(item: typeof rawItems.$inferSelect, values: Extrac
   });
 }
 
+/** The run-wide part of the classification context; the notes stay unfiltered until an item picks the ones that apply to it. */
+interface RunClassificationContext {
+  knownContacts: ClassificationContext["knownContacts"];
+  noteRows: Note[];
+}
+
 /** Loaded once per run, not per item - the same reasoning as `prompts` in `runPhase2`. */
-async function loadClassificationContext(runDate: string): Promise<ClassificationContext> {
+async function loadClassificationContext(runDate: string): Promise<RunClassificationContext> {
   const [contactRows, noteRows] = await Promise.all([
     db
       .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, contextNotes: contacts.contextNotes })
       .from(contacts)
       .where(isNull(contacts.removedAt)),
-    selectNotes("classify", runDate),
+    selectStepNotes("classify", runDate),
   ]);
-
-  // `selectNotes` is oldest first; the cap keeps the newest.
-  const recentNotes = noteRows
-    .reverse()
-    .slice(0, MAX_CLASSIFICATION_NOTES)
-    .map((n) => squash(n.content, NOTE_CHARS));
 
   const knownContacts = contactRows.map((c) => ({
     ...c,
     contextNotes: c.contextNotes ? squash(c.contextNotes, CONTACT_NOTE_CHARS) : null,
   }));
 
-  return { knownContacts, notes: recentNotes };
+  return { knownContacts, noteRows };
+}
+
+/** What `item` is classified with: the notes that apply to its sender and text, newest `MAX_CLASSIFICATION_NOTES` of them (relevance filters first, recency only trims what is left). */
+function classificationContextFor(ctx: RunClassificationContext, item: typeof rawItems.$inferSelect): ClassificationContext {
+  const applicable = notesForItem(ctx.noteRows, { sender: item.sourceName, text: item.rawContent });
+  // `selectStepNotes` is oldest first; the cap keeps the newest.
+  const notes = applicable
+    .reverse()
+    .slice(0, MAX_CLASSIFICATION_NOTES)
+    .map((n) => squash(n.content, NOTE_CHARS));
+  return { knownContacts: ctx.knownContacts, notes };
 }
 
 async function extractItem(
@@ -164,7 +176,7 @@ async function extractItem(
   runDate: string,
   accountCustomInstructions: string | null,
   prompts: ExtractionPrompts,
-  classificationContext: ClassificationContext,
+  classificationContext: RunClassificationContext,
 ): Promise<boolean> {
   if (await hasSuccessfulExtraction(item.id)) return true;
 
@@ -203,7 +215,7 @@ async function extractItem(
         }];
       }
     } else if (item.sourceType === "personal_email" || item.sourceType === "sms") {
-      const prompt = buildPersonalEmailPrompt(prompts.personal_classification.text, accountCustomInstructions, classificationContext);
+      const prompt = buildPersonalEmailPrompt(prompts.personal_classification.text, accountCustomInstructions, classificationContextFor(classificationContext, item));
       const classification = await extractJson<PersonalEmailClassification>(
         prompt,
         item.rawContent ?? ""

@@ -8,7 +8,7 @@
  * say and what a tap would send, or why the code threw it out. Stores nothing and runs nothing.
  * The date must already have been through Phase 3, since the candidates are read by gate verdict.
  *
- * It reads the database (extractions, the calendar and task snapshot, notes, standing rules) and
+ * It reads the database (extractions, the calendar and task snapshot, notes via selectNotes, standing rules) and
  * Google Calendar, so on a machine off the LAN it needs the DB tunnel described in docs/operations.md.
  */
 
@@ -16,20 +16,19 @@ import { parseJsonRows } from "../src/util/json";
 import { isDateKey } from "../src/util/ids";
 
 import { utcDay } from "../src/util/time";
-import { and, eq, isNull } from "drizzle-orm";
-import { db, notes, rawItems } from "../src/db";
+import { and, eq } from "drizzle-orm";
+import { db, rawItems } from "../src/db";
 import { proposeQuickActions } from "../src/actions/propose";
 import type { CalendarEvent } from "../src/ingest/google";
 import { loadLongTermContext } from "../src/pipeline/long-term-context";
 
 const date = process.argv.slice(2).find((a) => isDateKey(a)) ?? utcDay();
 
-const [calendarRows, noteRows, longTermContext] = await Promise.all([
+const [calendarRows, longTermContext] = await Promise.all([
   db
     .select({ rawContent: rawItems.rawContent })
     .from(rawItems)
     .where(and(eq(rawItems.runDate, date), eq(rawItems.sourceType, "calendar"))),
-  db.select().from(notes).where(isNull(notes.deletedAt)),
   loadLongTermContext(),
 ]);
 
@@ -38,7 +37,6 @@ const calendarItems = parseJsonRows<CalendarEvent>(calendarRows);
 const result = await proposeQuickActions(
   {
     calendarItems,
-    notesPersonal: noteRows.filter((n) => n.scope === "personal" || n.scope === "global"),
     longTermContext,
   },
   date,

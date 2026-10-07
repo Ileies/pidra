@@ -17,6 +17,7 @@
 import { activePrompt } from "../../ai/active-prompts";
 import { extractJson, usageTally } from "../../ai/openai";
 import { calendarTimeZone } from "../../ingest/google";
+import { isTargeted, matchesItem, selectStepNotes } from "../../notes/select";
 import { localDay } from "../../util/time";
 import { check, clean, rawPreview, type Checked, type Refs } from "./check";
 import { candidateMails, openTodos, type Mail } from "./mails";
@@ -32,7 +33,15 @@ export * from "./types";
 const MAX_ACTIONS = 6;
 const MAX_PER_MAIL = 2;
 
-function buildPayload(ctx: ActionInputs, runDate: string, zone: string, mails: Mail[], refs: Pick<Refs, "events" | "tasks">) {
+/** The standing instructions for the day's mails: untargeted `actions` notes, plus targeted ones that apply to at least one of the mails. */
+async function instructionsFor(runDate: string, mails: Mail[]): Promise<string[]> {
+  const rows = await selectStepNotes("actions", runDate);
+  return rows
+    .filter((note) => !isTargeted(note.appliesTo) || mails.some((mail) => matchesItem(note.appliesTo, { sender: mail.sender, text: mail.text })))
+    .map((note) => note.content);
+}
+
+function buildPayload(ctx: ActionInputs, runDate: string, zone: string, mails: Mail[], refs: Pick<Refs, "events" | "tasks">, instructions: string[]) {
   return {
     today: `${runDate} (${weekday(runDate)})`,
     time_zone: zone,
@@ -52,9 +61,9 @@ function buildPayload(ctx: ActionInputs, runDate: string, zone: string, mails: M
       location: event.location,
     })),
     todos: [...refs.tasks].map(([id, task]) => ({ id, title: task.title, due: task.due, list: task.list_name })),
-    // Personal scope only: global notes carry the weekly meta-run's prompt proposals, which are
-    // not instructions about the reader's mail.
-    instructions: ctx.notesPersonal.filter((note) => note.scope === "personal").map((note) => note.content),
+    // Personal scope only (the `actions` step): global notes carry the weekly meta-run's prompt
+    // proposals, which are not instructions about the reader's mail.
+    instructions,
   };
 }
 
@@ -102,7 +111,7 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
     return { proposals: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 };
   }
 
-  const [openTasks, zone] = await Promise.all([openTodos(runDate), calendarTimeZone()]);
+  const [openTasks, zone, instructions] = await Promise.all([openTodos(runDate), calendarTimeZone(), instructionsFor(runDate, mails)]);
   const events = new Map(ctx.calendarItems.map((event, i) => [`c${i + 1}`, event]));
   const tasks = new Map(openTasks.map((task, i) => [`t${i + 1}`, task]));
 
@@ -110,7 +119,7 @@ export async function proposeQuickActions(ctx: ActionInputs, runDate: string): P
   const usage = usageTally();
   const answer = await extractJson<{ actions: ModelAction[] }>(
     prompt.text,
-    JSON.stringify(buildPayload(ctx, runDate, zone, mails, { events, tasks })),
+    JSON.stringify(buildPayload(ctx, runDate, zone, mails, { events, tasks }, instructions)),
     {
       schema: ACTIONS_SCHEMA,
       // Judgement is the whole job here, and a wrong "yes" is the failure that matters.

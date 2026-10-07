@@ -43,6 +43,40 @@ describe("selectNotes", () => {
     }
   });
 
+  test("a note is live from active_from and not before", async () => {
+    await database.sql`insert into notes (content, scope, active_from) values ('later', 'personal', '2030-06-16'), ('today', 'personal', ${TODAY}), ('earlier', 'personal', '2030-01-01')`;
+    expect((await contents("section2")).sort()).toEqual(["earlier", "today"]);
+  });
+
+  test("steps limit a note to the named steps; empty means every step its scope reaches", async () => {
+    await database.sql`insert into notes (content, scope, steps) values ('only classify', 'personal', '{classify}'), ('everywhere', 'personal', '{}')`;
+    expect((await contents("classify")).sort()).toEqual(["everywhere", "only classify"]);
+    expect(await contents("section2")).toEqual(["everywhere"]);
+    expect(await contents("actions")).toEqual(["everywhere"]);
+  });
+
+  test("applies_to loads a note only for a matching item, and never for a stage without one", async () => {
+    await database.sql`insert into notes (content, scope, applies_to) values
+      ('netcup pays itself', 'personal', '{"senders": ["netcup"]}'),
+      ('invoice from netcup', 'personal', '{"senders": ["netcup"], "keywords": ["invoice"]}'),
+      ('plain', 'personal', null)`;
+    const names = async (item?: Parameters<typeof selectNotes>[2]) =>
+      (await selectNotes("classify", TODAY, item)).map((n) => n.content).sort();
+
+    expect(await names()).toEqual(["plain"]);
+    expect(await names({ sender: "billing@Netcup.de", text: "Your Invoice" })).toEqual(["invoice from netcup", "netcup pays itself", "plain"]);
+    expect(await names({ sender: "billing@netcup.de", text: "Welcome" })).toEqual(["netcup pays itself", "plain"]);
+    expect(await names({ sender: "other@example.com", text: "invoice" })).toEqual(["plain"]);
+    expect(await names({ sender: null, text: "netcup invoice" })).toEqual(["plain"]);
+  });
+
+  test("entities match the item text or its entity names", async () => {
+    await database.sql`insert into notes (content, scope, applies_to) values ('about acme', 'personal', '{"entities": ["Acme"]}')`;
+    expect(await selectNotes("classify", TODAY, { text: "unrelated", entities: ["Acme Corp"] })).toHaveLength(1);
+    expect(await selectNotes("classify", TODAY, { text: "news from ACME today" })).toHaveLength(1);
+    expect(await selectNotes("classify", TODAY, { text: "nothing" })).toHaveLength(0);
+  });
+
   test("returns oldest first", async () => {
     await store.createNote({ content: "first", scope: "intel" }, USER);
     await store.createNote({ content: "second", scope: "intel" }, USER);

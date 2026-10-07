@@ -52,17 +52,16 @@ Output rules:
 - If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
 - If an item should be added to calendar or to-do but hasn't been, flag it explicitly
 - Target length: 300–500 words
-- Omit any heading that has no items. Never write a heading with a placeholder under it
-  ("None", "Keine", "Nothing critical today"): an empty group is simply absent
+- Omit every heading that has no items, with no placeholder text in its place
 - Use this structure:
   ## Personal Action Center
-  ### Critical (omit if empty)
+  ### Critical
   ...
-  ### High priority (omit if empty)
+  ### High priority
   ...
-  ### Normal (omit if empty)
+  ### Normal
   ...
-  ### Mentions (omit if empty)
+  ### Mentions
   ...
 - Source refs: each item in personal_items has an "id" field. After each bullet point or paragraph, append the HTML comment <!--refs:ID--> (or <!--refs:ID1,ID2--> for combined items) immediately after the text, before the newline.
 - new_contacts: only sending addresses worth remembering for future triage. Every entry MUST

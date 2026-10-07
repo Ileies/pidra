@@ -12,6 +12,7 @@ import { editorPayload, finishNewsSection, type NewsItem } from "../news/format"
 import type { NewsExtraction } from "../news/validate";
 import { db, extractions } from "../db";
 import { inArray } from "drizzle-orm";
+import { selectNotes } from "../notes/select";
 import { SECTION1_CAPACITY } from "./section1-handoff";
 import { forModel } from "../util/extracted";
 
@@ -171,9 +172,8 @@ export async function runNewsSection(ctx: ContextPayload, runDate: string) {
   const { payload, refs } = editorPayload(
     items,
     ctx.newsDesk.home,
-    // Only intel notes: global ones include the weekly meta-run's proposals, which are about
-    // prompts, not about what the reader wants covered.
-    ctx.notesIntel.filter((n) => n.scope === "intel").map((n) => n.content),
+    // The `news` step reads intel notes only, so the weekly meta-run's proposals never get here.
+    (await selectNotes("news", runDate)).map((n) => n.content),
     runDate,
   );
 

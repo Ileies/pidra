@@ -208,6 +208,8 @@ describe("the News section", () => {
 
   test("the editor sees the stories in desk order under short ids, the home, and only the intel notes", async () => {
     const home = { city: "Zurich", region: null, country: "CH", countryName: "Switzerland", also: [{ code: "DE", name: "Germany" }], label: "Zurich & Switzerland" };
+    await database.sql`insert into notes (content, scope, steps) values
+      ('Chips', 'intel', '{}'), ('News only', 'intel', '{news}'), ('Section 1 only', 'intel', '{section1}'), ('Tighten the prompt', 'global', '{}')`;
     await runNewsSection(baseCtx({
       newsDesk: { home },
       newsItems: [
@@ -215,7 +217,6 @@ describe("the News section", () => {
         newsItem("x-low", story("world", "Minor vote", 2)),
         newsItem("x-top", story("world", "Budget passes", 5, [{ publisher: "Example News", url: "https://news.example.com/a", title: "T" }])),
       ],
-      notesIntel: [{ content: "Chips", scope: "intel" }, { content: "Tighten the prompt", scope: "global" }],
     }), DAY);
 
     const sent = calls[0].payload;
@@ -223,7 +224,7 @@ describe("the News section", () => {
     expect(sent.stories[0].publishers).toEqual(["Example News"]);
     expect(JSON.stringify(sent.stories)).not.toContain("https://");
     expect(sent.home).toEqual({ label: "Zurich & Switzerland", also_countries: ["Germany"] });
-    expect(sent.notes_intel).toEqual(["Chips"]);
+    expect([...sent.notes_intel].sort()).toEqual(["Chips", "News only"]);
     expect(calls[0].options).toMatchObject({ reasoningEffort: "high", maxOutputTokens: 12000 });
   });
 

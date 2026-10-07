@@ -4,6 +4,7 @@ import { db, notes, noteRevisions } from "../db";
 import { addDays, utcDay } from "../util/time";
 import { NoteError } from "./errors";
 import type { NoteTargets } from "./select";
+import { targetingConditions, type TargetingFilters } from "./filters";
 import { describeTargets, normaliseSteps, normaliseTargets, sameJson } from "./targeting";
 
 export { NoteError };
@@ -46,7 +47,7 @@ export interface NoteWrite {
   sourceQuestionIds?: string[];
 }
 
-export interface ListOptions {
+export interface ListOptions extends TargetingFilters {
   scope?: string;
   /** Substring match on content. */
   query?: string;
@@ -120,6 +121,7 @@ export async function listNotes(opts: ListOptions = {}): Promise<Note[]> {
     filters.push(sql`(${notes.createdAt} AT TIME ZONE 'UTC')::date >= ${assertDate(opts.createdSince, "created_since")}::date`);
   }
   if (opts.expiresBefore) filters.push(lte(notes.expiresAt, assertDate(opts.expiresBefore, "expires_before")));
+  filters.push(...targetingConditions(opts));
 
   const order = opts.sort === "oldest"
     ? asc(notes.createdAt)

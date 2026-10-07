@@ -6,7 +6,8 @@ import { daysAgo, DAY_MS } from "../util/time";
 import { braveSearch, type BraveResult } from "./brave";
 import { extractJson } from "../ai/openai";
 import { db, entities } from "../db";
-import { selectNotes } from "../notes/select";
+import { recordLoads } from "../notes/loads";
+import { notesForItem, selectStepNotes } from "../notes/select";
 import { eq } from "drizzle-orm";
 import type { activeTopics } from "../db";
 
@@ -70,14 +71,16 @@ async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
 
 // Slot 3: self/project reputation monitoring (rotating through notes with scope="search")
 async function runSlot3(runDate: string): Promise<WebSearchResult | null> {
-  const searchTargets = await selectNotes("search", runDate);
+  const searchTargets = notesForItem(await selectStepNotes("search", runDate));
 
   if (searchTargets.length === 0) return null;
 
   // Rotate by the run date's day-of-year, so a rerun of a day searches what that day did
   const day = new Date(`${runDate}T00:00:00Z`);
   const dayOfYear = Math.floor((day.getTime() - Date.UTC(day.getUTCFullYear(), 0, 0)) / DAY_MS);
-  const target = searchTargets[dayOfYear % searchTargets.length].content;
+  const picked = searchTargets[dayOfYear % searchTargets.length];
+  const target = picked.content;
+  await recordLoads("search", runDate, [picked]);
   const query = `"${target}"`;
 
   const { results } = await braveSearch(query, 5);

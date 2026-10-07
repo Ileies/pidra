@@ -17,6 +17,7 @@
 import { activePrompt } from "../../ai/active-prompts";
 import { extractJson, usageTally } from "../../ai/openai";
 import { calendarTimeZone } from "../../ingest/google";
+import { recordLoads } from "../../notes/loads";
 import { isTargeted, matchesItem, selectStepNotes } from "../../notes/select";
 import { localDay } from "../../util/time";
 import { check, clean, rawPreview, type Checked, type Refs } from "./check";
@@ -35,10 +36,10 @@ const MAX_PER_MAIL = 2;
 
 /** The standing instructions for the day's mails: untargeted `actions` notes, plus targeted ones that apply to at least one of the mails. */
 async function instructionsFor(runDate: string, mails: Mail[]): Promise<string[]> {
-  const rows = await selectStepNotes("actions", runDate);
-  return rows
-    .filter((note) => !isTargeted(note.appliesTo) || mails.some((mail) => matchesItem(note.appliesTo, { sender: mail.sender, text: mail.text })))
-    .map((note) => note.content);
+  const rows = (await selectStepNotes("actions", runDate))
+    .filter((note) => !isTargeted(note.appliesTo) || mails.some((mail) => matchesItem(note.appliesTo, { sender: mail.sender, text: mail.text })));
+  await recordLoads("actions", runDate, rows);
+  return rows.map((note) => note.content);
 }
 
 function buildPayload(ctx: ActionInputs, runDate: string, zone: string, mails: Mail[], refs: Pick<Refs, "events" | "tasks">, instructions: string[]) {

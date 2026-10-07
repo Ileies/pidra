@@ -4,6 +4,7 @@
 // aborts the run when more than half of the items fail.
 import { squash } from "../util/text";
 import { contacts, db, extractions, rawItems, sourceQuality } from "../db";
+import { recordLoads } from "../notes/loads";
 import { notesForItem, selectStepNotes } from "../notes/select";
 import type { Note } from "../notes/store";
 import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
@@ -140,6 +141,8 @@ async function saveExtraction(item: typeof rawItems.$inferSelect, values: Extrac
 interface RunClassificationContext {
   knownContacts: ClassificationContext["knownContacts"];
   noteRows: Note[];
+  /** Ids of the notes that went into at least one classification prompt this run; flushed to `note_loads` once. */
+  usedNoteIds: Set<string>;
 }
 
 /** Loaded once per run, not per item - the same reasoning as `prompts` in `runPhase2`. */
@@ -157,18 +160,16 @@ async function loadClassificationContext(runDate: string): Promise<RunClassifica
     contextNotes: c.contextNotes ? squash(c.contextNotes, CONTACT_NOTE_CHARS) : null,
   }));
 
-  return { knownContacts, noteRows };
+  return { knownContacts, noteRows, usedNoteIds: new Set() };
 }
 
 /** What `item` is classified with: the notes that apply to its sender and text, newest `MAX_CLASSIFICATION_NOTES` of them (relevance filters first, recency only trims what is left). */
 function classificationContextFor(ctx: RunClassificationContext, item: typeof rawItems.$inferSelect): ClassificationContext {
   const applicable = notesForItem(ctx.noteRows, { sender: item.sourceName, text: item.rawContent });
   // `selectStepNotes` is oldest first; the cap keeps the newest.
-  const notes = applicable
-    .reverse()
-    .slice(0, MAX_CLASSIFICATION_NOTES)
-    .map((n) => squash(n.content, NOTE_CHARS));
-  return { knownContacts: ctx.knownContacts, notes };
+  const used = applicable.reverse().slice(0, MAX_CLASSIFICATION_NOTES);
+  for (const n of used) ctx.usedNoteIds.add(n.id);
+  return { knownContacts: ctx.knownContacts, notes: used.map((n) => squash(n.content, NOTE_CHARS)) };
 }
 
 async function extractItem(
@@ -300,6 +301,8 @@ export async function runPhase2(runDate: string): Promise<void> {
   const settled = await Promise.allSettled(workers);
   const rejected = settled.find((result) => result.status === "rejected");
   if (rejected?.status === "rejected") throw rejected.reason;
+
+  await recordLoads("classify", runDate, [...classificationContext.usedNoteIds].map((id) => ({ id })));
 
   const failed = results.filter((ok) => !ok).length;
   if (results.length > 0 && failed / results.length > 0.5) {

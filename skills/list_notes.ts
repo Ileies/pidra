@@ -1,5 +1,8 @@
 import type { Skill } from "../src/skills/loader";
 import { listNotes, formatNoteLine, NOTE_AUTHORS, NOTE_SCOPES, NOTE_SORTS } from "../src/notes/store";
+import { loadStatsFor } from "../src/notes/loads";
+import { DORMANT_DAYS, NARROWNESS } from "../src/notes/narrowness";
+import { NOTE_STEPS } from "../src/notes/select";
 
 /**
  * The assistant needs real note ids before it can edit or delete anything, and it must not guess
@@ -10,7 +13,8 @@ const skill: Skill = {
   description:
     "List notes from the briefing system notes store, with their IDs. Use this before update_note or " +
     "delete_note so the ID is real. Optional filters: scope, a substring search on content, who wrote it, " +
-    "when it was created, and which expire soon. Newest first by default.",
+    "when it was created, which expire soon, how narrow it is, which step can read it, who it targets, and which have not loaded lately. " +
+    "Each line says how often the note went into a model call. Newest first by default.",
   risk_level: "low",
   touches: [],
   parameters: {
@@ -21,6 +25,10 @@ const skill: Skill = {
     created_by: { type: "string", required: false, description: `Only notes first written by: ${NOTE_AUTHORS.join(" | ")}. Default: anyone` },
     created_since: { type: "string", required: false, description: "Only notes created on or after this day, YYYY-MM-DD. Default: no limit" },
     expires_before: { type: "string", required: false, description: "Only notes that expire on or before this day, YYYY-MM-DD. Notes without an expiry are left out. Default: no filter" },
+    narrowness: { type: "string", required: false, description: `Only notes that are: ${NARROWNESS.join(" | ")} (always = no steps and no targets, step = steps only, targeted = names a sender, entity or keyword, dated = has a start or expiry day). Default: any` },
+    step: { type: "string", required: false, description: `Only notes the step can read, by scope and steps: ${NOTE_STEPS.join(" | ")}. Default: any` },
+    target: { type: "string", required: false, description: "Only notes whose targeting names this sender, entity or keyword (substring). Default: any" },
+    not_loaded: { type: "boolean", required: false, description: `Only notes that went into no model call in the last ${DORMANT_DAYS} days, to find ones too narrow to ever fire (default: false)` },
     sort: { type: "string", required: false, description: `Order: ${NOTE_SORTS.join(" | ")} (edited = last changed first). Default: newest` },
     limit: { type: "number", required: false, description: "How many notes to return (default 50, max 200)" },
   },
@@ -39,13 +47,22 @@ const skill: Skill = {
       createdBy: params.created_by ? String(params.created_by).trim().toLowerCase() : undefined,
       createdSince: params.created_since ? String(params.created_since).trim() : undefined,
       expiresBefore: params.expires_before ? String(params.expires_before).trim() : undefined,
+      narrowness: params.narrowness ? String(params.narrowness) : undefined,
+      step: params.step ? String(params.step) : undefined,
+      target: params.target ? String(params.target) : undefined,
+      dormant: params.not_loaded === true || params.not_loaded === "true",
       sort: sort as (typeof NOTE_SORTS)[number] | undefined,
       limit,
     });
 
     if (notes.length === 0) return "No notes match.";
     const more = notes.length === limit ? `\n\n(showing the first ${limit}; narrow the filters or raise limit for more)` : "";
-    return `${notes.length} note(s):\n\n${notes.map(formatNoteLine).join("\n\n")}${more}`;
+    const stats = await loadStatsFor(notes.map((n) => n.id));
+    const loaded = (id: string) => {
+      const s = stats.get(id);
+      return s ? `\n  loaded ${s.count}x, last ${s.last}` : "\n  no load recorded";
+    };
+    return `${notes.length} note(s):\n\n${notes.map((n) => formatNoteLine(n) + loaded(n.id)).join("\n\n")}${more}`;
   },
 };
 

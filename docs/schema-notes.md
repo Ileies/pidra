@@ -6,7 +6,7 @@ The schema is split by concern and re-exported from `src/db/schema/index.ts`, so
 
 - `pipeline.ts`: `raw_items`, `extractions`, `ingest_drops`, `active_topics`, `daily_reports`, `report_audio`, `brave_daily_usage`, `report_actions`, `feedback_events`, `push_subscriptions`, `pipeline_runs`, `pipeline_run_steps`, `jev_decisions`, `run_candidates`, `notification_reads`
 - `context.ts`: `entities`, `entity_mentions`, `entity_appearances`, `source_quality`, `source_daily_scores`, `contacts`, `context_builder_runs`, `context_builder_indexed_items`, `context_corrections`
-- `notes.ts`: `notes`, `note_revisions`
+- `notes.ts`: `notes`, `note_revisions`, `note_loads`
 - `questions.ts`: `questions`, `question_events`
 - `chat.ts`: `chat_conversations`, `chat_messages`
 - `auth.ts`: `auth_credentials`, `auth_pin`, `auth_sessions`
@@ -63,6 +63,7 @@ Each table has one writer module; don't add a second writer. Tables described be
 - `context_corrections`: append-only correction layer over the harvested context; injected into both synthesis prompts and authoritative over them.
 - `notes`: user and system notes, scoped `global | intel | personal | contact | search`; editable in place, soft-deleted via `deleted_at`, optional `expires_at` (live through that day; readers skip expired notes), optional `active_from` (first live day), `steps text[]` (pipeline steps that load it, empty = all its scope reaches) and `applies_to jsonb` (`{senders?, entities?, keywords?}` narrowing to an item; semantics in `docs/architecture-rules.md`). These three were added by raw additive ALTER, so no migration file exists. `created_by`/`updated_by` can be `harvest`. `source_key` (unique where set) is the identity of a note the Context Builder seeded from Keep (`keep_rule_<note id>`); such a row is never purged from the trash, so a deleted rule is not seeded back.
 - `note_revisions`: append-only pre-change state per note mutation, with the skill execution and conversation that caused it; drives undo and the history sheet on `/notes`. Also records the previous targeting in `previous_steps text[]`, `previous_applies_to jsonb` and `previous_active_from date` (added by raw additive ALTER, no migration file); `previous_steps` null marks a revision that predates targeting, and reverting it leaves the note's targeting alone.
+- `note_loads`: `(note_id` fk `notes` on delete cascade, `step`, `run_date)`, primary key on all three. One row per note, step and day it was actually used by a pipeline stage, so a rerun does not inflate it. Written only by `src/notes/loads.ts` (a per-run log rather than a counter on `notes`, so `src/notes/store.ts` stays the only writer of `notes` and "not loaded in 30 days" is a plain query). Created on production by raw additive `CREATE TABLE IF NOT EXISTS`, so no migration file exists. Tracking began with its introduction, so for the first 30 days "never loaded" also covers notes with no history yet.
 
 ## Assistant, skills and settings
 

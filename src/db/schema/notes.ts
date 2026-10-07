@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createdAt, dateStr, pk, timestamptz } from "./columns";
 import { skillExecutions } from "./config";
@@ -45,3 +45,10 @@ export const noteRevisions = pgTable("note_revisions", {
   conversationId: uuid("conversation_id").references(() => chatConversations.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
+
+/** One row per note, step and run day it went into a model call or search; a rerun of a day upserts the same row. Only `src/notes/loads.ts` writes it. */
+export const noteLoads = pgTable("note_loads", {
+  noteId: uuid("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }),
+  step: text("step").notNull(), // NoteStep in src/notes/select.ts
+  runDate: dateStr("run_date").notNull(),
+}, (t) => [primaryKey({ columns: [t.noteId, t.step, t.runDate] })]);

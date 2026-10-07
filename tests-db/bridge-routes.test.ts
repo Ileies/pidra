@@ -234,6 +234,25 @@ describe("/api/notes", () => {
     expect((await patch(note.id, { content: "  " })).status).toBe(400);
   });
 
+  test("targeting is set on create and patch, an edit that omits it leaves it alone, and the list filters by it", async () => {
+    const note = await create("Netcup pays itself", { steps: ["classify"], applies_to: { senders: ["netcup"] }, active_from: "2030-01-01" });
+    expect(note).toMatchObject({ steps: ["classify"], appliesTo: { senders: ["netcup"] }, activeFrom: "2030-01-01" });
+
+    const renamed = (await (await patch(note.id, { content: "Netcup pays itself, automated" })).json()) as Record<string, any>;
+    expect(renamed).toMatchObject({ steps: ["classify"], appliesTo: { senders: ["netcup"] }, activeFrom: "2030-01-01" });
+
+    const widened = (await (await patch(note.id, { steps: [], applies_to: null, active_from: null })).json()) as Record<string, any>;
+    expect(widened).toMatchObject({ steps: [], appliesTo: null, activeFrom: null });
+    expect((await patch(note.id, { steps: ["lunch"] })).status).toBe(400);
+
+    await patch(note.id, { applies_to: { senders: ["netcup"] } });
+    expect(await (await call("/api/notes?narrowness=targeted&target=netcup")).json()).toHaveLength(1);
+    expect(await (await call("/api/notes?narrowness=step")).json()).toEqual([]);
+    expect(await (await call("/api/notes?step=news")).json()).toEqual([]);
+    expect(await (await call("/api/notes?dormant=1")).json()).toHaveLength(1);
+    expect((await call("/api/notes?narrowness=sideways")).status).toBe(400);
+  });
+
   test("an edit based on a stale version is applied anyway and flagged as a conflict", async () => {
     const note = await create("Version one");
     const second = (await (await patch(note.id, { content: "Version two" })).json()) as Record<string, any>;

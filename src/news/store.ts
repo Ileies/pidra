@@ -1,8 +1,9 @@
 /** What the news desk run reads from and writes to the database, so `run.ts` is only the orchestration. */
 
 import { addDays } from "../util/time";
-import { and, asc, eq, gte, inArray, isNull, lt, max, or } from "drizzle-orm";
-import { db, extractions, notes, rawItems } from "../db";
+import { and, eq, gte, inArray, lt, max } from "drizzle-orm";
+import { db, extractions, rawItems } from "../db";
+import { selectNotes } from "../notes/select";
 import { DESKS, NEWS_SOURCE_TYPE, deskMessageId, deskSource, type Desk, type DeskId, type NewsWindow } from "./config";
 import type { SearchEvidence } from "./research";
 import { storyFromStored, toExtraction, type Candidate, type DeskStory, type NewsExtraction, type ReportedStory } from "./validate";
@@ -98,16 +99,7 @@ export async function recentlyReported(runDate: string): Promise<ReportedStory[]
  * as the first priority, so the order is oldest note first (`id` breaks ties for a stable order).
  */
 export async function priorities(runDate: string): Promise<string[]> {
-  const rows = await db
-    .select({ content: notes.content })
-    .from(notes)
-    .where(and(
-      eq(notes.scope, "intel"),
-      isNull(notes.deletedAt),
-      or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
-    ))
-    .orderBy(asc(notes.createdAt), asc(notes.id));
-  return rows.map((r) => r.content);
+  return (await selectNotes("news", runDate)).map((r) => r.content);
 }
 
 export interface ReusedDesks {

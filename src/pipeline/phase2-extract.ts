@@ -3,13 +3,14 @@
 // Called by `run.ts`; the rows are judged next by `gate.ts` in Phase 3. Idempotent per raw item, and
 // aborts the run when more than half of the items fail.
 import { squash } from "../util/text";
-import { contacts, db, extractions, notes, rawItems, sourceQuality } from "../db";
+import { contacts, db, extractions, rawItems, sourceQuality } from "../db";
+import { selectNotes } from "../notes/select";
 import { resolveActivePrompts, type EffectivePrompt, type PromptSection } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
 import { buildPersonalEmailPrompt, type ClassificationContext } from "../ai/prompts";
 import { loadEmailAccounts } from "../config/email-accounts";
 import { emailEffectiveRelevance } from "./email-category";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
 import { setDetail } from "../util/trace";
 
 const CONCURRENCY = 4;
@@ -135,20 +136,18 @@ async function saveExtraction(item: typeof rawItems.$inferSelect, values: Extrac
 }
 
 /** Loaded once per run, not per item - the same reasoning as `prompts` in `runPhase2`. */
-async function loadClassificationContext(): Promise<ClassificationContext> {
+async function loadClassificationContext(runDate: string): Promise<ClassificationContext> {
   const [contactRows, noteRows] = await Promise.all([
     db
       .select({ identifier: contacts.identifier, name: contacts.name, relationship: contacts.relationship, contextNotes: contacts.contextNotes })
       .from(contacts)
       .where(isNull(contacts.removedAt)),
-    db
-      .select({ content: notes.content, createdAt: notes.createdAt })
-      .from(notes)
-      .where(and(isNull(notes.deletedAt), inArray(notes.scope, ["personal", "contact", "global"]))),
+    selectNotes("classify", runDate),
   ]);
 
-  const recentNotes = [...noteRows]
-    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
+  // `selectNotes` is oldest first; the cap keeps the newest.
+  const recentNotes = noteRows
+    .reverse()
     .slice(0, MAX_CLASSIFICATION_NOTES)
     .map((n) => squash(n.content, NOTE_CHARS));
 
@@ -250,7 +249,7 @@ export async function runPhase2(runDate: string): Promise<void> {
   const accountMap = new Map(accounts.map((a) => [a.user, a]));
 
   const prompts = await resolveActivePrompts();
-  const classificationContext = await loadClassificationContext();
+  const classificationContext = await loadClassificationContext(runDate);
 
   const disabledRows = await db
     .select({ sourceName: sourceQuality.sourceName })

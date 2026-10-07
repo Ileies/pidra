@@ -5,8 +5,9 @@
 import { daysAgo, DAY_MS } from "../util/time";
 import { braveSearch, type BraveResult } from "./brave";
 import { extractJson } from "../ai/openai";
-import { db, notes, entities } from "../db";
-import { eq, and, or, gte, isNull } from "drizzle-orm";
+import { db, entities } from "../db";
+import { selectNotes } from "../notes/select";
+import { eq } from "drizzle-orm";
 import type { activeTopics } from "../db";
 
 export interface WebSearchResult {
@@ -69,14 +70,7 @@ async function runSlot2(runDate: string): Promise<WebSearchResult | null> {
 
 // Slot 3: self/project reputation monitoring (rotating through notes with scope="search")
 async function runSlot3(runDate: string): Promise<WebSearchResult | null> {
-  const searchTargets = await db
-    .select({ content: notes.content })
-    .from(notes)
-    .where(and(
-      eq(notes.scope, "search"),
-      isNull(notes.deletedAt),
-      or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)),
-    ));
+  const searchTargets = await selectNotes("search", runDate);
 
   if (searchTargets.length === 0) return null;
 

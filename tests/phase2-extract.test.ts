@@ -27,9 +27,8 @@ let calls = 0;
 let failNext = false;
 let nextId = 0;
 
-// `loadClassificationContext` awaits `.from(contacts)`/`.from(notes)` directly, with no `.where()`
-// chained - `then` makes that resolve too, alongside the `.where()` the rawItems/extractions
-// queries chain.
+// `loadClassificationContext` awaits `.from(contacts)` directly, with no `.where()` chained -
+// `then` makes that resolve too, alongside the `.where()` the rawItems/extractions queries chain.
 const select = () => ({
   from: (table: unknown) => {
     const rows = table === schema.rawItems ? [item] : table === schema.extractions ? saved : [];
@@ -52,6 +51,7 @@ const db = {
 };
 
 mock.module("../src/db", () => dbModule(db));
+mock.module("../src/notes/select", () => ({ selectNotes: async () => [] }));
 mock.module("../src/config/email-accounts", () => ({ loadEmailAccounts: async () => [] }));
 mock.module("../src/ai/active-prompts", () => ({
   resolveActivePrompts: async () => ({

@@ -6,7 +6,8 @@
  * model's input and makes the call.
  */
 import { and, inArray, isNull } from "drizzle-orm";
-import { contacts, db, notes } from "../db";
+import { contacts, db } from "../db";
+import { selectNotes } from "../notes/select";
 import { activePrompt } from "../ai/active-prompts";
 import { extractJson, usageTally } from "../ai/openai";
 import { formatForPrompt } from "../context/corrections";
@@ -109,10 +110,7 @@ export async function reconcileQueue(
   const [longTermContext, answered, noteRows, contactRows] = await Promise.all([
     opts.longTermContext ?? loadLongTermContext(),
     listRecentlyAnswered(ANSWER_MEMORY_DAYS),
-    db
-      .select({ content: notes.content, scope: notes.scope, createdAt: notes.createdAt })
-      .from(notes)
-      .where(and(isNull(notes.deletedAt), inArray(notes.scope, ["personal", "contact"]))),
+    selectNotes("reconcile", today),
     senders.length > 0 ? db.select().from(contacts).where(and(inArray(contacts.identifier, senders), isNull(contacts.removedAt))) : Promise.resolve([]),
   ]);
 

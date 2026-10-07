@@ -3,7 +3,8 @@
 // loads notes, contacts, entities, calendar, todos and the long-term context. Called by `run.ts`.
 import { parseJsonRows } from "../util/json";
 import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
-import { eq, and, or, gte, isNull, inArray } from "drizzle-orm";
+import { selectNotes } from "../notes/select";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
 import { loadLongTermContext, type LongTermContext } from "./long-term-context";
@@ -55,7 +56,8 @@ export async function runPhase3(
   const [
     todaysExtractions,
     qualityResult,
-    allNotes,
+    notesIntel,
+    notesPersonal,
     allContacts,
     entityList,
     calendarRaw,
@@ -68,8 +70,8 @@ export async function runPhase3(
       .leftJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
       .where(eq(extractions.runDate, runDate)),
     db.select().from(sourceQuality),
-    // Soft-deleted and expired notes must not keep steering the briefing; a note is live through its expiry day.
-    db.select().from(notes).where(and(isNull(notes.deletedAt), or(isNull(notes.expiresAt), gte(notes.expiresAt, runDate)))),
+    selectNotes("section1", runDate),
+    selectNotes("section2", runDate),
     db.select().from(contacts).where(isNull(contacts.removedAt)),
     db.select().from(entities).where(eq(entities.status, "active")),
     db.select({ rawContent: rawItems.rawContent })
@@ -146,8 +148,8 @@ export async function runPhase3(
     newsItems,
     newsDesk,
     entityContexts: matchEntityContexts(newsletterItems, entityList),
-    notesIntel: allNotes.filter((n) => n.scope === "intel" || n.scope === "global"),
-    notesPersonal: allNotes.filter((n) => n.scope === "personal" || n.scope === "global"),
+    notesIntel,
+    notesPersonal,
     knownContacts: allContacts,
     sourceQualities: qualityMap,
     calendarItems,

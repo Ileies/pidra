@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
+  import MessagesSquare from "@lucide/svelte/icons/messages-square";
+  import Plus from "@lucide/svelte/icons/plus";
   import Panel from "#lib/assistant/Panel.svelte";
   import ConversationList from "#lib/assistant/ConversationList.svelte";
   import { assistant, setPageContext } from "#lib/assistant/state.svelte.js";
@@ -98,21 +100,27 @@
   <!-- Below lg: one pane at a time, with New chat always in reach. Below `lg` the page has no side
        padding so the transcript can use the full width; the rows that are not the transcript
        carry their own gutter instead. -->
-  <div class="lg:hidden flex gap-1.5 shrink-0 px-4">
+  <div class="lg:hidden flex gap-2 shrink-0 px-4">
     <button
       type="button"
       onclick={() => (view = "conversations")}
       aria-pressed={view === "conversations"}
-      class="tap nav-btn flex-1 border-surface-700 text-surface-300 hover:bg-surface-800 {view === 'conversations' ? 'bg-surface-800' : ''}"
-    >Chats</button>
+      aria-label="Chats"
+      title="Chats"
+      class="btn btn-icon btn-ghost h-11 w-11 {view === 'conversations' ? 'bg-surface-800' : ''}"
+    >
+      <MessagesSquare class="h-5 w-5" aria-hidden="true" />
+    </button>
     <button
       type="button"
       onclick={newConversation}
       disabled={assistant.streaming}
       aria-label="New chat"
       title="New chat"
-      class="tap nav-btn shrink-0 border-primary-700 text-primary-300 hover:bg-surface-800"
-    >+ New</button>
+      class="btn btn-icon btn-primary h-11 w-11"
+    >
+      <Plus class="h-5 w-5" aria-hidden="true" />
+    </button>
   </div>
 
   <!-- A flex column below lg so the visible pane is bounded by the viewport and scrolls inside

@@ -166,14 +166,14 @@
       oninput={(event) => applyFilters({ query: event.currentTarget.value })}
       placeholder="Search names, aliases, summaries…"
       aria-label="Search entities"
-      class="input-base flex-1 min-w-48"
+      class="input-base w-full sm:w-auto sm:flex-1 sm:min-w-48"
     />
 
     <select
       value={filter.status}
       onchange={(event) => applyFilters({ status: event.currentTarget.value })}
       aria-label="Status filter"
-      class="input-base"
+      class="input-base min-w-0 flex-1 sm:flex-none"
     >
       <option value="all">All statuses</option>
       <option value="active">Active</option>
@@ -186,7 +186,7 @@
         value={filter.type}
         onchange={(event) => applyFilters({ type: event.currentTarget.value })}
         aria-label="Type filter"
-        class="input-base"
+        class="input-base min-w-0 flex-1 sm:flex-none"
       >
         <option value="">All types</option>
         {#each types as type (type)}

@@ -110,15 +110,15 @@
         {data.skills.length} skills{#if filteredSkills.length !== data.skills.length}
           <span class="text-surface-400">({filteredSkills.length} shown)</span>{/if}
       </p>
-      <div class="flex flex-wrap items-center gap-2 flex-1 sm:flex-none justify-end">
+      <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:flex-none sm:justify-end">
         <input
           type="search"
           placeholder="Search skills…"
           aria-label="Search skills"
           bind:value={searchQuery}
-          class="input-base flex-1 sm:w-72 sm:flex-none"
+          class="input-base w-full sm:w-72"
         />
-        <select bind:value={sortKey} aria-label="Sort skills" class="input-base">
+        <select bind:value={sortKey} aria-label="Sort skills" class="input-base w-full sm:w-auto">
           <option value="name">Alphabetical</option>
           <option value="usage">Most used (30 days)</option>
           <option value="risk">Risk level</option>

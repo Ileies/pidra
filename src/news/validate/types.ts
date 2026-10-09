@@ -115,6 +115,8 @@ export interface ReportedStory {
   date: string;
   headline: string;
   urls: string[];
+  /** Present on recent stories only (`pipeline/told.ts`); what tells an update from a repeat. */
+  summary?: string;
 }
 
 export interface Candidate {

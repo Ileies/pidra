@@ -66,7 +66,7 @@ describe("what each desk is shown", () => {
     expect(payload("talk")).toMatchObject({ home: { country: "Switzerland" }, reader_notes: ["Quantum computing", "Sailing"] });
     expect(payload("serendipity")).toMatchObject({ avoid: ["Quantum computing", "Sailing"] });
     expect(JSON.stringify([payload("world"), payload("home"), payload("talk"), payload("serendipity")])).not.toContain("sailing");
-    expect(prompts.sort()).toEqual(["news_beat", "news_field", "news_home", "news_serendipity", "news_talk", "news_world"]);
+    expect(prompts.sort()).toEqual(["news_beat", "news_dedup", "news_field", "news_home", "news_serendipity", "news_talk", "news_world"]);
   });
 
   test("the context document is only loaded when the beat or fields desk has to run", async () => {
@@ -124,7 +124,7 @@ describe("what is stored", () => {
     await run("2026-10-06", nextMorning);
     const again = (await storedStories(database)).filter((r) => r.run_date === "2026-10-06");
     expect(again[0].json.validation.alreadyReported).toEqual({ date: "2026-10-05", headline: HEADLINES.world });
-    expect(modelCalls.at(-1)!.input.desk_input.already_reported).toEqual([{ date: "2026-10-05", headline: HEADLINES.world }]);
+    expect(modelCalls.at(-1)!.input.desk_input.already_reported).toEqual([{ date: "2026-10-05", headline: HEADLINES.world, summary: `${HEADLINES.world}, in short` }]);
 
     await database.sql`delete from extractions where run_date = '2026-10-06'`;
     await database.sql`delete from raw_items where run_date = '2026-10-06'`;

@@ -10,6 +10,8 @@ export type BraveCall = { kind: "news" | "context"; query: string; options: Any 
 
 export const modelCalls: ModelCall[] = [];
 export const braveCalls: BraveCall[] = [];
+/** The repeat judge's inputs, kept apart from `modelCalls`, which counts the desks' own calls. */
+export const judgeCalls: Any[] = [];
 export const prompts: string[] = [];
 export const contextLoads: number[] = [];
 
@@ -35,6 +37,9 @@ const defaults = {
     confidence: "confirmed", region: desk === "home" ? "Switzerland" : "global", topic: "news",
     happened_at: "2026-10-05T01:00:00Z", entities: [desk], sources: [{ id: "s1", publisher: "Example News" }],
   }],
+  // The repeat judge: by default it finds nothing, so a test that is not about it sees no change.
+  judgement: (_input: Any): Any => ({ repeats: [], groups: [] }),
+  judgeFailure: null as Error | null,
   modelFailure: null as ((call: ModelCall) => Error | null) | null,
   braveFailure: null as ((call: BraveCall) => Error | null) | null,
   braveResults: (query: string): Any[] =>
@@ -59,6 +64,12 @@ mock.module("../../src/ai/openai", () => ({
   EXTRACTION_MODEL: "test-model",
   extractJson: async (_instructions: string, input: string, options: Any) => {
     const parsed = JSON.parse(input);
+    if (options.schema.name === "news_repeat_judgement") {
+      judgeCalls.push(parsed);
+      options.onUsage?.(50, 10);
+      if (stub.judgeFailure) throw stub.judgeFailure;
+      return stub.judgement(parsed);
+    }
     const final = options.schema.name === "news_desk";
     const call: ModelCall = { kind: final ? "final" : "queries", desk: deskOf(parsed), input: parsed, options };
     modelCalls.push(call);
@@ -102,6 +113,7 @@ const ENV = ["BRAVE_SEARCH_API_KEY", "NEWS_DESKS", "NEWS_HOME_COUNTRY", "NEWS_HO
 export async function resetNewsDesks(database: TestDatabase) {
   modelCalls.length = 0;
   braveCalls.length = 0;
+  judgeCalls.length = 0;
   prompts.length = 0;
   contextLoads.length = 0;
   Object.assign(stub, defaults);

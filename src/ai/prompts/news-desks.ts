@@ -12,7 +12,8 @@ major story is the worst failure. Padding the list with minor ones is the second
 
 Input (JSON):
 - window: {start, end}. Report only what happened, or materially changed, inside this window.
-- already_reported: stories this service has told the reader in the last few days.
+- already_reported: what this service has told the reader in the last two weeks, in the news
+  section and in the briefing alongside it. The most recent entries carry a summary.
 - the desk-specific fields described under "Your desk".
 
 Research:
@@ -35,7 +36,9 @@ Selection:
   a major organisation. A statement counts only when it is itself an act that changes the
   situation: a state's formal threat of force, a policy announced, a decision taken.
 - A story in already_reported is included again only if something materially new happened inside
-  the window. Then set status "update" and make the summary about the new development only.
+  the window. Then set status "update" and make the summary about the new development only. The
+  same event reported by another outlet, in other words or with a few more details, is not new;
+  neither is a study, figure or announcement the reader was told about days ago.
 - In a story that has been running for days or weeks, more of the same is not new: another strike
   wave, another day of fighting, another casualty count. Report it only when it breaks the
   pattern: a new scale, a new target, weapon or party, a turning point, an escalation or a

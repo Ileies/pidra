@@ -5,6 +5,7 @@ import {
   JEV_NEWS_IMPACT_PROMPT,
   JEV_NEWS_NOVELTY_PROMPT,
   NEWS_BEAT_PROMPT,
+  NEWS_DEDUP_PROMPT,
   NEWS_FIELD_PROMPT,
   NEWS_HOME_PROMPT,
   NEWS_SECTION_PROMPT,
@@ -37,6 +38,7 @@ export const PROMPT_SECTIONS = [
   "news_field",
   "news_talk",
   "news_serendipity",
+  "news_dedup",
   "jev_news_impact",
   "jev_news_novelty",
 ] as const;
@@ -68,6 +70,7 @@ const BASELINES: Record<PromptSection, string> = {
   news_field: NEWS_FIELD_PROMPT,
   news_talk: NEWS_TALK_PROMPT,
   news_serendipity: NEWS_SERENDIPITY_PROMPT,
+  news_dedup: NEWS_DEDUP_PROMPT,
   jev_news_impact: JEV_NEWS_IMPACT_PROMPT,
   jev_news_novelty: JEV_NEWS_NOVELTY_PROMPT,
 };

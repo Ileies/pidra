@@ -17,6 +17,7 @@ export {
   NEWS_SERENDIPITY_PROMPT,
 } from "./news-desks";
 export { NEWS_SECTION_PROMPT } from "./news-editor";
+export { NEWS_DEDUP_PROMPT } from "./news-dedup";
 export { SECTION2_SYSTEM_PROMPT } from "./section2";
 export { QUICK_ACTIONS_PROMPT } from "./actions";
 export { QUESTIONS_PROMPT } from "./questions";

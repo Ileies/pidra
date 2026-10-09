@@ -25,7 +25,9 @@ import {
   type Desk, type DeskId, type HomeConfig, type NewsWindow,
 } from "./config";
 import { shadowNewsJev } from "./jev-shadow";
-import { lastScanEnd, loadReusedDesks, persist, priorities, recentlyReported, type DeskAnswer } from "./store";
+import { lastScanEnd, loadReusedDesks, persist, priorities, type DeskAnswer } from "./store";
+import { judgeRepeats } from "./judge";
+import { recentlyTold } from "../pipeline/told";
 import {
   findAlreadyReported, heldBack, isAbroad, markDuplicates, tidyStory, verifySources, withinWindow,
   type Candidate, type DeskStory, type ReportedStory,
@@ -89,7 +91,7 @@ interface DeskInputs {
 function deskPayload(desk: Desk, inputs: DeskInputs): Record<string, unknown> {
   const base = {
     window: inputs.window,
-    already_reported: inputs.reported.map((r) => ({ date: r.date, headline: r.headline })),
+    already_reported: inputs.reported.map((r) => ({ date: r.date, headline: r.headline, ...(r.summary ? { summary: r.summary } : {}) })),
   };
   const home = inputs.home;
 
@@ -190,7 +192,7 @@ export async function runNewsDesk(
   const reused = plan.desks.filter((desk) => earlier.desks.has(desk.id));
 
   const [reported, ltc, notesList] = await Promise.all([
-    recentlyReported(runDate),
+    recentlyTold(runDate),
     toRun.some((desk) => desk.id === "field" || desk.id === "beat") ? loadContext() : Promise.resolve(null),
     priorities(runDate),
   ]);
@@ -242,6 +244,10 @@ export async function runNewsDesk(
     trustScore: 1,
     sourceCount: 1,
   }).passed);
+
+  // After the word-overlap checks, which are certain but narrow: the judge catches the same event
+  // in other words or from another outlet, today and on any of the last two weeks.
+  await span("news:repeat-judge", () => judgeRepeats(candidates, inputs.reported, outcome));
 
   if (dryRun) {
     outcome.preview = answers.flatMap(({ answer, candidates: own }) =>

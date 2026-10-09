@@ -1,6 +1,5 @@
 // src/news/store.ts against real SQL: a desk's delivery and stories are stored whole or not at all,
-// a desk stored by an earlier run is reused, and what the reader was told feeds the next day's
-// duplicate check. No mocks.
+// and a desk stored by an earlier run is reused. No mocks.
 import { beforeEach, describe, expect, test } from "bun:test";
 import { useTestDatabase } from "./fixtures/database";
 
@@ -133,28 +132,6 @@ describe("lastScanEnd", () => {
     await db.insert(rawItems).values({ runDate: "2026-10-04", sourceType: "email", sourceName: "x", messageId: "mail-1", rawContent: "x", receivedAt: "2026-10-04T23:00:00.000Z" });
 
     expect((await store.lastScanEnd(DAY))!.toISOString()).toBe("2026-10-04T05:30:00.000Z");
-  });
-});
-
-describe("recentlyReported", () => {
-  test("returns only stories the reader saw, from the three days before the run date", async () => {
-    const days = ["2026-10-01", "2026-10-02", "2026-10-04", DAY];
-    for (const day of days) await persistDesk("world", [`Story of ${day}`, `Unseen of ${day}`], day, { start: `${day}T00:00:00.000Z`, end: `${day}T05:00:00.000Z` });
-    await database.sql`update extractions set included_in_report = true where extracted_json->>'headline' like 'Story of %'`;
-
-    const told = await store.recentlyReported(DAY);
-    expect(told.map((t) => [t.date, t.headline]).sort()).toEqual([
-      ["2026-10-02", "Story of 2026-10-02"],
-      ["2026-10-04", "Story of 2026-10-04"],
-    ]);
-    expect(told[0]!.urls[0]).toStartWith("https://news.example.com/");
-  });
-
-  test("ignores a reported item that is not a news story", async () => {
-    await persistDesk("world", ["Seen"], "2026-10-04");
-    await database.sql`update extractions set included_in_report = true`;
-    await database.sql`update raw_items set source_type = 'newsletter'`;
-    expect(await store.recentlyReported(DAY)).toEqual([]);
   });
 });
 

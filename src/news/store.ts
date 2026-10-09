@@ -1,15 +1,11 @@
 /** What the news desk run reads from and writes to the database, so `run.ts` is only the orchestration. */
 
-import { addDays } from "../util/time";
-import { and, eq, gte, inArray, lt, max } from "drizzle-orm";
+import { and, eq, inArray, lt, max } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
 import { selectNotes } from "../notes/select";
 import { DESKS, NEWS_SOURCE_TYPE, deskMessageId, deskSource, type Desk, type DeskId, type NewsWindow } from "./config";
 import type { SearchEvidence } from "./research";
-import { storyFromStored, toExtraction, type Candidate, type DeskStory, type NewsExtraction, type ReportedStory } from "./validate";
-
-/** How many days of what the reader was already told each desk is shown, and dedup compares against. */
-const REPORTED_LOOKBACK_DAYS = 3;
+import { storyFromStored, toExtraction, type Candidate, type DeskStory, type NewsExtraction } from "./validate";
 
 export interface DeskAnswer {
   desk: Desk;
@@ -72,26 +68,6 @@ export async function lastScanEnd(runDate: string): Promise<Date | null> {
     .from(rawItems)
     .where(and(eq(rawItems.sourceType, NEWS_SOURCE_TYPE), lt(rawItems.runDate, runDate)));
   return row?.end ? new Date(row.end) : null;
-}
-
-/** What the reader actually saw on the last few days: cited in a report, not merely researched. */
-export async function recentlyReported(runDate: string): Promise<ReportedStory[]> {
-  const rows = await db
-    .select({ runDate: extractions.runDate, json: extractions.extractedJson })
-    .from(extractions)
-    .innerJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
-    .where(and(
-      eq(rawItems.sourceType, NEWS_SOURCE_TYPE),
-      eq(extractions.includedInReport, true),
-      gte(extractions.runDate, addDays(runDate, -REPORTED_LOOKBACK_DAYS)),
-      lt(extractions.runDate, runDate),
-    ));
-
-  return rows.flatMap((row) => {
-    const json = row.json as Partial<NewsExtraction> | null;
-    if (!json?.headline) return [];
-    return [{ date: row.runDate, headline: json.headline, urls: (json.sources ?? []).map((s) => s.url) }];
-  });
 }
 
 /**

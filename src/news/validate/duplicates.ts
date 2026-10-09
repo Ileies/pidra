@@ -61,6 +61,19 @@ export function sameStory(
 }
 
 /**
+ * The order in which copies of one story are kept: stored stories first, whatever their rank (their
+ * verdict is on record and may already be in a report, so a fresh copy matching one is the
+ * duplicate), then the more significant copy, then the desk earlier in the section.
+ */
+export function keepOrder(candidates: Candidate[]): Candidate[] {
+  const rank = (c: Candidate) => c.story.significance * 10 - c.deskOrder;
+  return [
+    ...candidates.filter((c) => c.stored),
+    ...candidates.filter((c) => !c.stored).sort((a, b) => rank(b) - rank(a)),
+  ];
+}
+
+/**
  * Marks cross-desk duplicates within one run. The more significant copy is kept, and on a tie the
  * desk that comes first in the section. A candidate already stored by an earlier run of the day is
  * never re-judged, only compared against, because its verdict is on record.
@@ -74,13 +87,7 @@ export function markDuplicates(
   candidates: Candidate[],
   passes: (candidate: Candidate) => boolean = (candidate) => !heldBack(candidate.validation),
 ): void {
-  const rank = (c: Candidate) => c.story.significance * 10 - c.deskOrder;
-  // Stored stories first, whatever their rank: their verdict is on record and may already be in a
-  // report, so when a fresh copy matches one, the fresh copy is the duplicate.
-  const ordered = [
-    ...candidates.filter((c) => c.stored),
-    ...candidates.filter((c) => !c.stored).sort((a, b) => rank(b) - rank(a)),
-  ];
+  const ordered = keepOrder(candidates);
   const kept: Candidate[] = [];
 
   for (const candidate of ordered) {

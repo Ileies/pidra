@@ -2,7 +2,7 @@
 
 See `docs/todo/README.md` for the conventions this list follows.
 
-- **[FEATURE]** Questions queue: a "topic/desk drift" candidate source. Ask only when a news desk's items are measurably and consistently rated low over time, never on a fixed interval. Needs enough real ratings (`feedback_events`) and quick-action outcomes (`report_actions`) to measure first, which depends on the week of use in `docs/todo/user.md`. It then joins the queue like the existing candidate sources (`src/pipeline/entity-questions.ts`, `src/pipeline/stale-context-questions.ts`)
+- **[FEATURE]** Questions queue: a "topic/desk drift" candidate source. Ask only when a news desk's items are measurably and consistently rated low over time, never on a fixed interval. Needs enough real ratings (`feedback_events`) and quick-action outcomes (`report_actions`) to measure first, which depends on the week of use in `docs/todo/user.md`. It then joins the queue like the existing candidate sources (`src/pipeline/stale-context-questions.ts`)
 
 ## Phase 7: passive context sources
 

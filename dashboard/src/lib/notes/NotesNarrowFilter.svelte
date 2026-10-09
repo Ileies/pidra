@@ -57,12 +57,12 @@
     >Not loaded in {DORMANT_DAYS} days <span class="tabular-nums opacity-70">{dormantCount}</span></button>
   </div>
 
-  <div class="flex items-center gap-2 lg:ml-auto">
+  <div class="flex min-w-0 items-center gap-2 lg:ml-auto">
     <select
       value={filter.step}
       onchange={(event) => onchange({ step: event.currentTarget.value })}
       aria-label="Notes a step can read"
-      class="input-base py-1 text-xs"
+      class="input-base min-w-0 flex-1 py-1 text-xs lg:flex-none"
     >
       <option value="">Any step</option>
       {#each NOTE_STEPS as step (step)}
@@ -75,7 +75,7 @@
       oninput={(event) => onchange({ target: event.currentTarget.value })}
       placeholder="Sender or entity…"
       aria-label="Filter by targeted sender, entity or keyword"
-      class="input-base min-w-0 py-1 text-xs [&::-webkit-search-cancel-button]:appearance-none"
+      class="input-base min-w-0 flex-1 py-1 text-xs lg:flex-none [&::-webkit-search-cancel-button]:appearance-none"
     />
   </div>
 </div>

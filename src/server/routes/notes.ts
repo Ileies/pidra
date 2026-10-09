@@ -64,7 +64,8 @@ notes.patch("/api/notes/:id", async (c) => {
   if ("expires_at" in body) patch.expiresAt = body.expires_at ?? null;
 
   // `base_updated_at` only arrives from the offline outbox; `_conflict` (the row moved meanwhile) is
-  // false for live edits. The edit is applied either way (last write wins); the flag is informational.
+  // false for live edits. The edit is applied either way (last write wins, deliberate for a
+  // single-user notes layer); the outbox stores the flag and `NoteCard.svelte` shows it.
   const conflict = "base_updated_at" in body
     ? await wasUpdatedSince(c.req.param("id"), body.base_updated_at ?? null)
     : false;

@@ -20,8 +20,9 @@ export interface Mail {
 }
 
 /**
- * The mails the agent may act on. Grouped by raw item, because a re-run of Phase 2 leaves one
- * extraction row per attempt (`docs/todo/now.md`) and the report may cite any of them.
+ * The mails the agent may act on. Grouped by raw item, because one mail can still carry several
+ * extraction rows (Phase 2 replaces failed attempts but keeps a successful one) and the report may
+ * cite any of them.
  */
 export async function candidateMails(runDate: string): Promise<Mail[]> {
   const rows = await db

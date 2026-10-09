@@ -9,7 +9,7 @@
   import Legend from "#lib/components/Legend.svelte";
   import CostShareBar from "#lib/components/CostShareBar.svelte";
   import UsageTable from "#lib/components/UsageTable.svelte";
-  import TimelineBar, { pct } from "#lib/components/TimelineBar.svelte";
+  import TimelineBar from "#lib/components/TimelineBar.svelte";
   import { timelineSegments } from "#lib/runTimeline.js";
   import StepTimeList from "#lib/components/StepTimeList.svelte";
   import InlineStats from "#lib/components/InlineStats.svelte";
@@ -210,15 +210,6 @@
           "Shrink the wait" for true scale.
         </p>
       {/if}
-
-      <div class="relative h-4 text-xs text-surface-400 tabular-nums" aria-hidden="true">
-        {#each scale.ticks(4) as tick, i (tick)}
-          <span
-            class="absolute top-0 whitespace-nowrap"
-            style="left:{pct(scale.at(tick))};transform:translateX({i === 0 ? '0' : scale.at(tick) > 0.92 ? '-100%' : '-50%'})"
-          >{tick === 0 ? "0" : `+${fmtMs(tick)}`}</span>
-        {/each}
-      </div>
 
       <TimelineBar {segments} {scale} />
       <Legend items={legend} />

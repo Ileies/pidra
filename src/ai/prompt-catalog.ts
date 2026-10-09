@@ -1,5 +1,6 @@
 import {
   ANSWER_CLASSIFICATION_PROMPT,
+  ENTITY_ENRICHMENT_PROMPT,
   ENTITY_EXTRACTION_PROMPT,
   JEV_NEWS_IMPACT_PROMPT,
   JEV_NEWS_NOVELTY_PROMPT,
@@ -28,6 +29,7 @@ export const PROMPT_SECTIONS = [
   "answer_classification",
   "extraction",
   "entity_extraction",
+  "entity_enrichment",
   "personal_classification",
   "news_world",
   "news_home",
@@ -47,7 +49,7 @@ export type PromptSection = (typeof PROMPT_SECTIONS)[number];
  * matches on (entities, topics, dedupe), the news desks research in English and the editor writes
  * the section, and the answer classification only feeds a label into the sender directory.
  */
-export const LANGUAGE_SECTIONS: readonly PromptSection[] = ["section1", "section2", "news", "quick_actions", "questions"];
+export const LANGUAGE_SECTIONS: readonly PromptSection[] = ["section1", "section2", "news", "quick_actions", "questions", "entity_enrichment"];
 
 const BASELINES: Record<PromptSection, string> = {
   section1: SECTION1_SYSTEM_PROMPT,
@@ -58,6 +60,7 @@ const BASELINES: Record<PromptSection, string> = {
   answer_classification: ANSWER_CLASSIFICATION_PROMPT,
   extraction: NEWSLETTER_EXTRACTION_PROMPT,
   entity_extraction: ENTITY_EXTRACTION_PROMPT,
+  entity_enrichment: ENTITY_ENRICHMENT_PROMPT,
   personal_classification: PERSONAL_EMAIL_PROMPT,
   news_world: NEWS_WORLD_PROMPT,
   news_home: NEWS_HOME_PROMPT,

@@ -103,13 +103,11 @@ describe("which mail becomes a candidate", () => {
     expect(await queue()).toHaveLength(1);
   });
 
-  test("an entity the graph keeps citing without placing is a candidate too", async () => {
-    await database.sql`insert into entities (name, type, status, mention_count, first_seen) values ('Mystery Corp', 'organization', 'active', 4, '2026-09-01'), ('Known Corp', 'organization', 'active', 4, '2026-09-01')`;
-    await database.sql`update entities set domain = 'Finance' where name = 'Known Corp'`;
+  test("an undescribed entity is no candidate: the enrichment agent owns those", async () => {
+    await database.sql`insert into entities (name, type, status, mention_count, first_seen) values ('Mystery Corp', 'org', 'active', 4, '2026-09-01')`;
     await gate();
 
-    expect(calls[0].candidates).toHaveLength(1);
-    expect(calls[0].candidates[0]).toMatchObject({ about: { type: "entity", from: "Mystery Corp" } });
+    expect(calls.every((c) => c.candidates.length === 0)).toBe(true);
   });
 });
 

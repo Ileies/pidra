@@ -20,5 +20,6 @@ export { NEWS_SECTION_PROMPT } from "./news-editor";
 export { SECTION2_SYSTEM_PROMPT } from "./section2";
 export { QUICK_ACTIONS_PROMPT } from "./actions";
 export { QUESTIONS_PROMPT } from "./questions";
+export { ENTITY_ENRICHMENT_PROMPT } from "./entity-enrichment";
 export { JEV_NEWS_IMPACT_PROMPT, JEV_NEWS_NOVELTY_PROMPT } from "./jev";
 export { ANSWER_CLASSIFICATION_PROMPT } from "./answer-classification";

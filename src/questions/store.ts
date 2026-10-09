@@ -243,3 +243,65 @@ export async function markAbsorbed(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   await db.update(questions).set({ absorbedAt: sql`now()` }).where(inArray(questions.id, ids));
 }
+
+/** Open questions about entities at once, so a run that cannot place many of them cannot flood the queue. */
+const MAX_OPEN_ENTITY_QUESTIONS = 3;
+
+/** The `extraction_id` an entity question carries, which is also what keeps it from being raised twice. */
+export const entitySourceId = (entityId: string): string => `entity:${entityId}`;
+
+/**
+ * The entity enrichment agent's questions (`pipeline/entity-enrichment.ts`): worded by the model for
+ * that one entity. `full` means the queue already holds enough of them. `unplaced` records, as a
+ * closed row, that the agent looked and found nothing worth asking, so `askedExtractionIds` keeps
+ * it from trying again every morning.
+ */
+export async function raiseEntityQuestion(
+  entity: { id: string; name: string },
+  text: string | null,
+  why: string,
+  today: string,
+): Promise<"asked" | "duplicate" | "full" | "unplaced"> {
+  const wording = text?.trim() ?? "";
+  const source: QuestionSource = { extraction_id: entitySourceId(entity.id), from: entity.name, subject: null, source_type: "entity", run_date: today };
+  await closeEntityQuestions(entity.id, "Replaced by the enrichment agent's own judgment on this entity");
+  if (!wording) {
+    const [row] = await db.insert(questions).values({ kind: "item", question: entity.name, status: "resolved", statusDetail: why, sources: [source], firstAsked: today, lastAsked: today }).returning({ id: questions.id });
+    await logEvent(db, row!.id, "dropped", why, { by: "entity-enrichment" });
+    return "unplaced";
+  }
+  const open = await listOpen();
+  if (open.some((q) => normaliseText(q.question) === normaliseText(wording))) return "duplicate";
+  if (open.filter((q) => q.sources.some((s) => s.source_type === "entity")).length >= MAX_OPEN_ENTITY_QUESTIONS) return "full";
+  const [row] = await db.insert(questions).values({ kind: "item", question: wording, sources: [source], firstAsked: today, lastAsked: today }).returning({ id: questions.id });
+  await logEvent(db, row!.id, "asked", why, { by: "entity-enrichment" });
+  return "asked";
+}
+
+/** Closes the open questions about an entity once its description is filled in some other way. */
+export async function closeEntityQuestions(entityId: string, reason: string): Promise<number> {
+  const mine = (await listOpen()).filter((q) => q.sources.some((s) => s.extraction_id === entitySourceId(entityId)));
+  let closed = 0;
+  for (const q of mine) {
+    if (await transitionQuestion(q.id, ["open"], { status: "resolved", statusDetail: reason }, "resolved", reason)) closed++;
+  }
+  return closed;
+}
+
+/**
+ * Entities the enrichment agent has finished with: any question about them that is closed, or one
+ * the agent itself asked. An open question from the retired fixed-template source does not count,
+ * so the agent takes those entities over and closes the question when it records them.
+ */
+export async function settledEntityIds(): Promise<Set<string>> {
+  const rows = await db.select({ id: questions.id, status: questions.status, sources: questions.sources }).from(questions).where(eq(questions.kind, "item"));
+  const byAgent = new Set(
+    (await db.select({ id: questionEvents.questionId }).from(questionEvents).where(sql`${questionEvents.detail} ->> 'by' = 'entity-enrichment'`)).map((r) => r.id),
+  );
+  const settled = new Set<string>();
+  for (const q of rows) {
+    if (q.status === "open" && !byAgent.has(q.id)) continue;
+    for (const s of q.sources) if (s.extraction_id?.startsWith("entity:")) settled.add(s.extraction_id.slice("entity:".length));
+  }
+  return settled;
+}

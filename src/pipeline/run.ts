@@ -1,6 +1,6 @@
 // Daily pipeline orchestrator, called by src/job.ts ("pipeline"). Order: news desks (parallel with
 // phase 1-2) -> phase 3 context -> section 1 / news editor / quick actions / question gate (parallel)
-// -> section 2 -> phase 6 memory -> push. Writes `pipeline_runs`; step spans go to `pipeline_run_steps`.
+// -> section 2 -> phase 6 memory -> entity enrichment -> push. Writes `pipeline_runs`; step spans go to `pipeline_run_steps`.
 // Retry and failure model: docs/operations.md.
 import { utcDay } from "../util/time";
 import { errMessage } from "../util/text";
@@ -10,6 +10,7 @@ import { runPhase1 } from "./phase1-ingest";
 import { runPhase2 } from "./phase2-extract";
 import { runPhase3 } from "./phase3-context";
 import { runQuestionGate } from "./phase4-questiongate";
+import { runEntityEnrichment } from "./entity-enrichment";
 import { newsItemsOf, runNewsSection, runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
 import { withRetry, tolerant, StepError } from "./withRetry";
@@ -173,6 +174,16 @@ async function executePipeline(date: string, run: { id: string }, start: number)
       })
       .where(eq(pipelineRuns.id, run.id));
 
+    // After the report, so the agent never delays a briefing; before the pushes, so a question it
+    // raises is counted in the questions notification. It never throws and costs nothing on a day
+    // with no undescribed entity.
+    const enrichment = await span("entity-enrichment", () =>
+      runEntityEnrichment(date, ctx.longTermContext).catch((err) => {
+        console.error("[Enrichment] Skipped:", err);
+        return { enriched: 0, asked: 0, gaveUp: 0, tokensIn: 0, tokensOut: 0 };
+      }),
+    );
+
     // The top story when there is one: it is what the reader most needs from a lock screen, and
     // it is public news rather than anything personal.
     const notificationSummary = topStory(synthesis.news) ?? synthesis.section1
@@ -200,8 +211,8 @@ async function executePipeline(date: string, run: { id: string }, start: number)
     // A second, distinct push: new questions are new state the reader has not seen, not a lesser
     // version of the briefing above, so they get their own notification rather than a mention
     // folded into the summary. Awaited for the same reason the briefing push is (see above).
-    if (gate.newQuestionCount > 0) {
-      await span("push-questions", () => sendNewQuestionsNotification(date, gate.newQuestionCount).catch(console.error));
+    if (gate.newQuestionCount + enrichment.asked > 0) {
+      await span("push-questions", () => sendNewQuestionsNotification(date, gate.newQuestionCount + enrichment.asked).catch(console.error));
     }
 
     console.log(`\n=== Pipeline complete in ${Math.round(durationMs / 1000)}s ===\n`);

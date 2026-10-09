@@ -2,10 +2,9 @@
  * Phase 4: the question gate, over the standing question queue (`src/questions/`).
  *
  * The run no longer opens a session of its own. Its candidates - personal mail the classifier
- * flagged as missing context, entities the graph keeps citing without ever placing
- * (`entity-questions.ts`), and known contacts a mail now sits oddly against
+ * flagged as missing context, and known contacts a mail now sits oddly against
  * (`stale-context-questions.ts`) - go through the reconcile call against every question still
- * open, so a sender or entity asked about already is not asked again, and an open question that a
+ * open, so a sender asked about already is not asked again, and an open question that a
  * note or a correction has settled in the meantime is closed. Nothing waits on the questions:
  * Section 2 used to hold for up to 45 minutes for an answer nobody gave in time, which made
  * unattended mornings 45 minutes long. The reader answers one at a time on `/questions`, whenever
@@ -17,7 +16,6 @@
 import { squash } from "../util/text";
 import { and, eq } from "drizzle-orm";
 import { db, extractions, rawItems } from "../db";
-import { lowConfidenceEntityCandidates } from "./entity-questions";
 import { staleContextCandidates } from "./stale-context-questions";
 import { capCreated, mechanicalPlan } from "../questions/plan";
 import { reconcileQueue, type CandidateInput } from "../questions/reconcile";
@@ -113,12 +111,11 @@ function tolerantAbsorb(errors: StepAttemptError[]) {
  */
 async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepAttemptError[]) {
   const asked = await askedExtractionIds();
-  const [mailCandidates, entityCandidates, staleCandidates] = await Promise.all([
+  const [mailCandidates, staleCandidates] = await Promise.all([
     candidatesFor(runDate, asked),
-    lowConfidenceEntityCandidates(runDate, asked),
     staleContextCandidates(runDate, asked),
   ]);
-  const candidates = [...mailCandidates, ...entityCandidates, ...staleCandidates];
+  const candidates = [...mailCandidates, ...staleCandidates];
   const absorbed = await tolerantAbsorb(errors);
 
   const reconciled = await tolerant(

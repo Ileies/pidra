@@ -1,6 +1,6 @@
 import webpush from "web-push";
-import { inArray } from "drizzle-orm";
-import { db, pushSubscriptions } from "./db";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { db, pushSubscriptions, questions, reportActions } from "./db";
 
 /**
  * Web Push sender (reads `push_subscriptions`; the dashboard writes them). Callers: the pipeline end
@@ -62,6 +62,16 @@ export async function sendPushNotifications(
   summary: string | null,
   failedSources: string[] = [],
 ): Promise<void> {
+  const [pending] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(reportActions)
+    .where(and(eq(reportActions.runDate, date), eq(reportActions.status, "proposed")))
+    .catch(() => [{ n: 0 }]);
+  const [open] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(questions)
+    .where(eq(questions.status, "open"))
+    .catch(() => [{ n: 0 }]);
   const body = summary?.slice(0, 120) ?? "Today's briefing is ready.";
   // Named up to three (actionable from the lock screen), then counted.
   const degraded =
@@ -71,16 +81,50 @@ export async function sendPushNotifications(
         ? `${failedSources.join(", ")} missing`
         : `${failedSources.length} sources missing`;
 
-  // `date` is carried separately from `url` so the service worker can offer the "Personal
-  // first" action and tag the notification per day, instead of stacking one per run (E5).
+  // `date` is carried separately from `url` so the service worker can tag the notification per
+  // day, instead of stacking one per run (E5).
   await deliver(
     JSON.stringify({
       title: degraded ? `PIDRA - ${date} (${degraded})` : `PIDRA - ${date}`,
       body,
       url: `/${date}`,
       date,
+      actions: pickBriefingActions({
+        date,
+        failedSources: failedSources.length,
+        pendingActions: pending?.n ?? 0,
+        openQuestions: open?.n ?? 0,
+      }),
     }),
   );
+}
+
+/** A notification button: `url` is where the service worker sends a tap on it (relative to the origin). */
+export type PushAction = { action: string; title: string; url: string };
+
+/**
+ * The two buttons on the briefing push (Android shows two, iOS none, so the slots are priority
+ * order). Slot 1 is always "Play briefing" (`?play=1` makes the report page start the player). Slot 2
+ * is the most specific thing waiting: failed sources, then proposed quick actions, then open
+ * questions, then the News section. The service worker renders whatever list it receives, so a new
+ * button never needs a worker change.
+ */
+export function pickBriefingActions(ctx: {
+  date: string;
+  failedSources: number;
+  pendingActions: number;
+  openQuestions: number;
+}): PushAction[] {
+  const play: PushAction = { action: "play", title: "Play briefing", url: `/${ctx.date}?play=1` };
+  const second: PushAction =
+    ctx.failedSources > 0
+      ? { action: "runs", title: "Run issues", url: "/runs" }
+      : ctx.pendingActions > 0
+        ? { action: "review", title: `Review actions (${ctx.pendingActions})`, url: `/${ctx.date}#personal` }
+        : ctx.openQuestions > 0
+          ? { action: "questions", title: `Questions (${ctx.openQuestions})`, url: "/questions" }
+          : { action: "news", title: "News", url: `/${ctx.date}#news` };
+  return [play, second];
 }
 
 /**

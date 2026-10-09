@@ -27,6 +27,10 @@ async function cachedIcon(): Promise<string | undefined> {
 
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? {};
+  const buttons: { action: string; title: string; url: string }[] = Array.isArray(data.actions)
+    ? data.actions.filter((a: { action?: unknown; title?: unknown; url?: unknown }) =>
+        typeof a?.action === "string" && typeof a.title === "string" && typeof a.url === "string" && a.url.startsWith("/"))
+    : [];
   // The pull runs beside the notification, never before it: a push that shows nothing for long is
   // one iOS counts against the subscription. `waitUntil` keeps the worker alive for both.
   event.waitUntil(workerSync("always").catch(() => {}));
@@ -39,13 +43,10 @@ self.addEventListener("push", (event) => {
         // Its own tag: a questions push shares its date with the briefing push, so without a
         // distinct tag one would replace the other instead of both surfacing.
         tag: data.kind === "questions" ? `questions-${data.date}` : data.date ? `report-${data.date}` : "pidra",
-        data: { url: data.url ?? "/" },
-        actions: data.date && data.kind !== "questions"
-          ? [
-              { action: "personal", title: "Personal first" },
-              { action: "open", title: "Open report" },
-            ]
-          : [],
+        // The server picks the buttons and where each one leads (`pickBriefingActions`), so the
+        // click handler only looks the tapped action up here.
+        data: { url: data.url ?? "/", actions: buttons },
+        actions: buttons.map(({ action, title }) => ({ action, title })),
       }),
     ),
   );
@@ -53,9 +54,12 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const base = event.notification.data?.url ?? "/";
-  // The Personal Action Center leads the report, so its anchor is where an action jumps to.
-  const target = event.action === "personal" ? `${base}#personal` : base;
+  const data = event.notification.data ?? {};
+  const button = (data.actions ?? []).find((a: { action: string }) => a.action === event.action);
+  const target: string = button?.url ?? data.url ?? "/";
+  // A play tap must reach the page as a navigation: a window already open on the report would
+  // otherwise just be focused and never see `?play=1`.
+  const fresh = target.includes("?play=");
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
@@ -63,6 +67,8 @@ self.addEventListener("notificationclick", (event) => {
       for (const client of list) {
         if (client.url === url && "focus" in client) return client.focus();
       }
+      const open = list.find((c) => "navigate" in c && "focus" in c);
+      if (fresh && open) return (open as WindowClient).navigate(url).then((c) => c?.focus());
       return self.clients.openWindow(url);
     }),
   );

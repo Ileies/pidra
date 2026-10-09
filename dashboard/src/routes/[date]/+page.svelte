@@ -28,6 +28,7 @@
 	import ReportSidebar from '#lib/report/ReportSidebar.svelte';
 	import { buildReportDigest } from '#lib/report/digest.js';
 	import { usePipelinePoll } from '#lib/report/usePipelinePoll.svelte.js';
+	import { usePlayParam } from '#lib/report/usePlayParam.svelte.js';
 	import { useReadReceipt } from '#lib/report/useReadReceipt.svelte.js';
 	import { URGENCY_META } from '#lib/report/types.js';
 	import { domainTargets, placeActions, runStats, sectionTargets } from '#lib/report/view.js';
@@ -40,6 +41,8 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	$effect(() => toastFormResult(form));
+
+	usePlayParam(() => ({ date: data.date, structured: !!data.structured }));
 
 	/**
 	 * `/` lands on the newest mirrored day when today's is not mirrored yet. When a background

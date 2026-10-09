@@ -71,6 +71,7 @@ Budgets include reading the body.
 - Mirrored paths get the shell (the route-agnostic HTML of any mirrored route, marked `x-pidra-shell`) cache-first, online or not. Other navigations race the network against 3 s (`NAV_BUDGET_MS`), then boot the shell, whose load fails into `OfflineNotice`.
 - Every request the worker makes is aborted at its budget. It never touches `/api/**` or `__data.json`.
 - It syncs as well: on the push (so the 06:30 briefing is in the mirror before it is opened), on Background Sync (`pidra-outbox`) when a write is still queued, and on periodic sync (`pidra-mirror`) where the browser grants one. It runs the pages' own `intents.ts` and `snapshot.ts` under two Web Locks, so a page and the worker never send one intent twice. iOS has neither Background Sync nor periodic sync: there the push and the app's own start do the syncing.
+- It renders the notification buttons the server sends (`actions: [{action,title,url}]` in the payload, chosen by `pickBriefingActions` in `src/push.ts`; entries whose url does not start with `/` are dropped) and opens the tapped button's url from notification data, so a new button needs no worker change. A tap on a `?play=` url navigates an already-open window so the page sees the param. Failure and questions pushes carry no buttons; Android shows two, iOS none.
 - `/service-worker.js` must be served `Cache-Control: no-cache` (nginx; see `docs/operations.md`).
 
 ## The proof: `dashboard/scripts/blackhole/`

@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** A stacked bar of each phase's share of a run's spend (or tokens, when nothing is priced). */
+  /** A stacked bar of each phase's share of a run's spend (or tokens, when nothing is priced). Same size and shape as `TimelineBar`. */
   import { fmtCost, fmtNum } from "#lib/format.js";
   import { PRICING_CONFIGURED } from "#lib/pricing.js";
   import { groupInfo, type GroupId } from "#lib/runTrace.js";
@@ -14,11 +14,11 @@
   const sum = $derived(shown.reduce((total, entry) => total + entry.weight, 0));
 </script>
 
-<div class="flex h-3 w-full overflow-hidden rounded" role="img" aria-label="Cost share by phase">
+<div class="flex h-4 w-full overflow-hidden rounded bg-surface-800" role="img" aria-label="Cost share by phase">
   {#each shown as entry (entry.group)}
     <span
-      class="h-full first:rounded-l last:rounded-r min-w-[3px]"
-      style="width:{(entry.weight / sum) * 100}%;background:{groupInfo(entry.group).color};margin-right:2px"
+      class="h-full min-w-[2px]"
+      style="width:{(entry.weight / sum) * 100}%;background:{groupInfo(entry.group).color}"
       title="{groupInfo(entry.group).label}: {PRICING_CONFIGURED ? fmtCost(entry.weight) : `${fmtNum(entry.weight)} tokens`}"
     ></span>
   {/each}

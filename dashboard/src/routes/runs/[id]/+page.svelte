@@ -11,7 +11,8 @@
   import UsageTable from "#lib/components/UsageTable.svelte";
   import TimelineBar, { pct } from "#lib/components/TimelineBar.svelte";
   import { timelineSegments } from "#lib/runTimeline.js";
-  import { stepHint } from "#lib/runStepHints.js";
+  import StepTimeList from "#lib/components/StepTimeList.svelte";
+  import InlineStats from "#lib/components/InlineStats.svelte";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtMs, fmtTime } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
@@ -67,10 +68,22 @@
   const degraded = $derived(!failed && data.run.stepErrors.length > 0);
 
   const segments = $derived(timelineSegments(tree));
-  const hasParallel = $derived(segments.some((segment) => segment.groups.length > 1));
 
   const phaseRows = $derived(groupWeights.filter((entry) => entry.group !== "wait"));
   const cost = (value: number | null) => (PRICING_CONFIGURED ? fmtCost(value) : "-");
+  const timeStats = $derived<[string, string][]>([
+    ["Total", fmtDuration(runMs)],
+    ...(waitSpan ? ([["Without the wait", fmtDuration(activeMs)]] as [string, string][]) : []),
+    ["Steps", fmtNum(tree.spans.length)],
+    ...(failedSpans.length > 0 ? ([["Failed attempts", fmtNum(failedSpans.length)]] as [string, string][]) : []),
+  ]);
+  const costStats = $derived<[string, string][]>([
+    ["Total", cost(totalCost)],
+    ["Tokens in", tokensIn != null ? fmtNum(tokensIn) : "-"],
+    ["Tokens out", tokensOut != null ? fmtNum(tokensOut) : "-"],
+    ["Model calls", fmtNum(stepSum.aiCalls)],
+    ["Searches", fmtNum(stepSum.searchCalls)],
+  ]);
 
   const phaseColumns = [
     { header: "Calls", value: (entry: GroupTotal) => fmtNum(entry.aiCalls) },
@@ -189,7 +202,7 @@
         {/if}
       </div>
 
-      <Legend items={legend} />
+      <InlineStats items={timeStats} />
 
       {#if compressWait && scale.compressed}
         <p class="text-xs text-surface-400">
@@ -208,39 +221,11 @@
       </div>
 
       <TimelineBar {segments} {scale} />
-
-      {#if hasParallel}
-        <p class="text-xs text-surface-400">Striped stretches are where several phases ran at the same time, one colour per phase.</p>
-      {/if}
+      <Legend items={legend} />
 
       <details class="group">
         <summary class="tap text-xs text-surface-400 select-none hover:text-surface-200">Details</summary>
-        <ul class="mt-2 flex flex-col gap-1">
-          {#each tree.spans as node (node.id)}
-            <li
-              class="flex items-baseline gap-2 text-xs min-w-0"
-              style="padding-left:{Math.min(node.depth - 1, 4) * 0.75}rem"
-              title="Starts at +{fmtMs(node.offsetMs)}"
-            >
-              <span class="shrink-0">{@render swatch(groupInfo(node.group).color)}</span>
-              {#if stepHint(node.step)}
-                <span
-                  class="text-surface-200 min-w-0 cursor-help underline decoration-dashed decoration-surface-500 underline-offset-4"
-                  title={stepHint(node.step)}
-                >{stepLabel(node.step)}<span class="ml-0.5 text-surface-400" aria-hidden="true">?</span></span>
-              {:else}
-                <span class="text-surface-200 min-w-0">{stepLabel(node.step)}</span>
-              {/if}
-              <span class="text-surface-100 font-medium tabular-nums shrink-0">{fmtMs(node.lengthMs)}</span>
-              {#if node.attempt > 1}<span class="text-surface-400 shrink-0">attempt {node.attempt}</span>{/if}
-              {#if node.status === "failed"}
-                <span class="text-error-400 shrink-0">failed</span>
-              {:else if node.status === "running"}
-                <span class="text-primary-400 shrink-0">unfinished</span>
-              {/if}
-            </li>
-          {/each}
-        </ul>
+        <StepTimeList nodes={tree.spans} />
       </details>
 
       {#if failedSpans.length > 0}
@@ -257,10 +242,7 @@
       {#if weightSum <= 0}
         <p class="text-xs text-surface-400">No model usage was recorded for the traced steps.</p>
       {:else}
-        <p class="text-xs text-surface-400 max-w-prose">
-          {PRICING_CONFIGURED ? "Share of the run's spend" : "Share of the run's tokens (no prices configured)"} per phase.
-          Brave searches have no token cost and are counted in the table.
-        </p>
+        <InlineStats items={costStats} />
 
         <CostShareBar entries={groupWeights} />
         <Legend items={costLegend} />

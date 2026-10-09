@@ -15,7 +15,7 @@ The gate is one pure function with a named `GateReason` per outcome (see "Every 
 
 **`personal_email` / `sms`:** category-based, not score-based. `spam` and `general_news` are dropped; `automated` passes only at `critical` or `high` urgency; anything else passes on a positive score.
 
-**`web_news` (the news desks):** the validation checks written by `src/news/validate/` run first, in this order: unverified source, outside the window, duplicate of another desk, already reported on an earlier day. Then a significance threshold of 3, or 4 for a story about somewhere other than the reader's home.
+**`web_news` (the news desks):** the validation checks written by `src/news/validate/` run first, in this order: unverified source, outside the window, duplicate of another desk, already reported on an earlier day (word overlap, then the `news_dedup` judge call, which also marks same-event duplicates across desks). Then a significance threshold of 3, or 4 for a story about somewhere other than the reader's home.
 
 ## Source trust score (`src/pipeline/weekly-source-scoring.ts`)
 

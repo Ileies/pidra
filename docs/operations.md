@@ -116,6 +116,8 @@ Every pipeline step is wrapped in `withRetry` (`src/pipeline/withRetry.ts`):
 - Steps the run can do without (quick actions, news editor, news repeat judge (fails open on its own), review absorb, question reconcile) use `tolerant(step, fn, fallback, errors, message)` from the same file: retries as above, but on exhaustion the attempts are pushed to `step_errors`, `message` is logged and `fallback()` stands in, so the run continues.
 - `withRetry`, `withFlexRetry` (`src/ai/openai.ts`) and the Brave request loop (`src/search/brave.ts`) are thin callers of the one generic `retry()` in `src/util/retry.ts`; add no new hand-written retry loops.
 
+`sweepStaleRuns()` (`src/pipeline/stale-runs.ts`) runs at the start of `runPipeline`, before the new run row is inserted: any `pipeline_runs` row still `running` more than `STALE_RUN_HOURS` (6) after `started_at` becomes `failed` with `failed_step` "abandoned", a `step_errors` entry, `completed_at` and `duration_ms`, so a run whose process died stops showing as running on `/runs`. A failure of the sweep is logged and never stops the run.
+
 When adding a pipeline phase, always call it as `withRetry("phaseN", () => runPhaseN(...))`, never directly in `run.ts`.
 
 IMAP ingest reads from the last completed run's `started_at` (earlier `run_date`), floored at `IMAP_LOOKBACK_DAYS` (default 1) and capped at 3 days (`src/ingest/imap-window.ts`, computed once per run in Phase 1), so a delayed or skipped run does not lose mail from the gap; `message_id` dedup makes the overlap safe.

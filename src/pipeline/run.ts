@@ -13,6 +13,7 @@ import { runQuestionGate } from "./phase4-questiongate";
 import { runEntityEnrichment } from "./entity-enrichment";
 import { newsItemsOf, runNewsSection, runSection1, runSection2 } from "./phase5-synthesis";
 import { runPhase6 } from "./phase6-memory";
+import { sweepStaleRuns } from "./stale-runs";
 import { withRetry, tolerant, StepError } from "./withRetry";
 import type { StepAttemptError } from "./withRetry";
 import { sendPushNotifications, sendFailureNotification, sendNewQuestionsNotification } from "../push";
@@ -71,6 +72,9 @@ export async function runPipeline(runDate?: string): Promise<string> {
   console.log(`\n=== PIDRA Pipeline - ${date} ===\n`);
 
   const start = Date.now();
+
+  // Housekeeping must never keep the briefing from running.
+  await sweepStaleRuns().catch((err) => console.error("[Pipeline] Could not sweep abandoned runs:", err));
 
   const [run] = await db
     .insert(pipelineRuns)

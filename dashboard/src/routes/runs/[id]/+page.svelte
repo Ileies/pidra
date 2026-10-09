@@ -11,6 +11,7 @@
   import UsageTable from "#lib/components/UsageTable.svelte";
   import TimelineBar, { pct } from "#lib/components/TimelineBar.svelte";
   import { timelineSegments } from "#lib/runTimeline.js";
+  import { stepHint } from "#lib/runStepHints.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtMs, fmtTime } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
@@ -50,6 +51,9 @@
 
   const steps = $derived(busySteps(stepTotals(tree)));
   const groupWeights = $derived(withWeights(groups));
+  const costLegend = $derived(
+    groupWeights.filter((entry) => entry.weight > 0).map((entry) => ({ id: entry.group, label: groupInfo(entry.group).label, color: groupInfo(entry.group).color })),
+  );
   const weightSum = $derived(groupWeights.reduce((sum, entry) => sum + entry.weight, 0));
   const stepSum = $derived(sumUsage(steps));
 
@@ -218,15 +222,22 @@
               style="padding-left:{Math.min(node.depth - 1, 4) * 0.75}rem"
               title="Starts at +{fmtMs(node.offsetMs)}"
             >
-              {@render swatch(groupInfo(node.group).color)}
-              <span class="text-surface-200 truncate min-w-0">{stepLabel(node.step)}</span>
+              <span class="shrink-0">{@render swatch(groupInfo(node.group).color)}</span>
+              {#if stepHint(node.step)}
+                <span
+                  class="text-surface-200 min-w-0 cursor-help underline decoration-dashed decoration-surface-500 underline-offset-4"
+                  title={stepHint(node.step)}
+                >{stepLabel(node.step)}<span class="ml-0.5 text-surface-400" aria-hidden="true">?</span></span>
+              {:else}
+                <span class="text-surface-200 min-w-0">{stepLabel(node.step)}</span>
+              {/if}
+              <span class="text-surface-100 font-medium tabular-nums shrink-0">{fmtMs(node.lengthMs)}</span>
               {#if node.attempt > 1}<span class="text-surface-400 shrink-0">attempt {node.attempt}</span>{/if}
               {#if node.status === "failed"}
                 <span class="text-error-400 shrink-0">failed</span>
               {:else if node.status === "running"}
                 <span class="text-primary-400 shrink-0">unfinished</span>
               {/if}
-              <span class="ml-auto text-surface-400 tabular-nums shrink-0">{fmtMs(node.lengthMs)}</span>
             </li>
           {/each}
         </ul>
@@ -252,7 +263,11 @@
         </p>
 
         <CostShareBar entries={groupWeights} />
+        <Legend items={costLegend} />
 
+        <details>
+        <summary class="tap text-xs text-surface-400 select-none hover:text-surface-200">Details</summary>
+        <div class="mt-3 flex flex-col gap-4">
         <UsageTable
           caption="Usage and cost per phase"
           first="Phase"
@@ -290,6 +305,8 @@
             {stepLabel(entry.step)}{#if entry.attempts > 1}<span class="text-surface-400"> x{entry.attempts}</span>{/if}
           {/snippet}
         </UsageTable>
+        </div>
+        </details>
       {/if}
     </Card>
   {/if}

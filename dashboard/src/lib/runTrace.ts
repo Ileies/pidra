@@ -97,6 +97,8 @@ const STEP_LABELS: Record<string, string> = {
   phase1: "Ingest",
   phase2: "Extraction",
   phase3: "Context",
+  "news:repeat-judge": "Repeat judge",
+  "news:jev-shadow": "Jev shadow scoring",
   "phase3-websearch": "Web search slots",
   phase4: "Question gate: reconcile",
   "phase4-review": "Question gate: absorb review answers",

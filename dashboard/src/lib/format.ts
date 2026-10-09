@@ -98,6 +98,18 @@ export function fmtAgo(value: DateInput): string {
   });
 }
 
+/** Day-granular recency for date-only values: "today", "yesterday", "5d ago", then "12 Sep 2026". */
+export function fmtDaysAgo(value: DateInput): string {
+  const date = toDate(value);
+  if (!date) return EMPTY;
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOf(new Date()) - startOf(date)) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days}d ago`;
+  return fmtDate(value);
+}
+
 /**
  * When something happens: "Tue 30 Sep, 14:00–15:00", "Tue 30 Sep, 22:00 – Wed 1 Oct, 02:00", or
  * for whole days "Tue 30 Sep" and "Tue 30 Sep – Thu 2 Oct". A whole-day `end` is the last day.

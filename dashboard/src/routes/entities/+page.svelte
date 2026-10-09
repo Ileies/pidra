@@ -1,5 +1,5 @@
 <script lang="ts">
-  // `/entities`: mirrored (offline-capable) filterable DataTable fed by `+page.ts`; status/type/query
+  // `/entities`: mirrored (offline-capable) filterable DataTable (cards on phones) fed by `+page.ts`; status/type/query
   // filters live in the URL, rows link to `/entities/[id]`.
   import { beforeNavigate, goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -9,7 +9,7 @@
   import Badge from "#lib/components/Badge.svelte";
   import DataTable from "#lib/components/DataTable.svelte";
   import type { Column } from "#lib/components/table.js";
-  import { fmtDate } from "#lib/format.js";
+  import { fmtDaysAgo } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
   import type { MirroredEntity } from "#lib/offline/repo.js";
   import type { PageData } from "./$types";
@@ -142,7 +142,7 @@
     <div class="text-xs text-surface-400 mt-0.5">{entity.aliases.slice(0, 3).join(", ")}</div>
   {/if}
   {#if entity.summary}
-    <div class="text-xs text-surface-400 mt-0.5 max-w-xs lg:max-w-sm 2xl:max-w-lg truncate" title={entity.summary}>{entity.summary}</div>
+    <div class="text-xs text-surface-400 mt-0.5 line-clamp-2 md:max-w-xs lg:max-w-sm 2xl:max-w-lg" title={entity.summary}>{entity.summary}</div>
   {/if}
 {/snippet}
 
@@ -202,23 +202,22 @@
     </div>
   {/if}
 
-  <!-- Scroll mode, not cards: this is a dense reference table where the grid is the
-       information, and progressive columns already made it work on a phone (M-5). -->
+  <!-- Cards below `md` so a phone never scrolls sideways; the full table from `md` up. -->
   <DataTable
     rows={shown}
     key={(entity) => entity.id}
-    mode="scroll"
+    mode="cards"
     caption="Entity graph"
     emptyTitle="No entities match."
     emptyHint="Entities accumulate from the pipeline and from the Context Builder harvest."
     columns={[
-      { key: "name", header: "Name", cell: nameCell },
-      { key: "type", header: "Type", value: (e) => e.type ?? "-", class: "text-surface-300 whitespace-nowrap" },
-      { key: "domain", header: "Domain", showAt: "sm", value: (e) => e.domain ?? "-", class: "text-surface-400" },
-      { key: "mentions", header: "Mentions", align: "right", value: (e) => String(e.mentionCount), class: "tabular-nums text-surface-200" },
-      { key: "status", header: "Status", cell: statusCell },
-      { key: "importance", header: "Importance", showAt: "md", cell: importanceCell },
-      { key: "last", header: "Last seen", align: "right", showAt: "lg", value: (e) => fmtDate(e.lastMentioned), class: "text-surface-400 text-xs whitespace-nowrap" },
+      { key: "name", header: "Name", card: "title", cell: nameCell },
+      { key: "type", header: "Type", card: "row", value: (e) => e.type ?? "-", class: "text-surface-300 whitespace-nowrap" },
+      { key: "last", header: "Last mentioned", card: "row", value: (e) => fmtDaysAgo(e.lastMentioned), class: "text-surface-200 whitespace-nowrap" },
+      { key: "mentions", header: "Mentions", align: "right", card: "row", value: (e) => String(e.mentionCount), class: "tabular-nums text-surface-200" },
+      { key: "domain", header: "Domain", showAt: "sm", card: "row", value: (e) => e.domain ?? "-", class: "text-surface-400" },
+      { key: "importance", header: "Importance", showAt: "md", card: "row", cell: importanceCell },
+      { key: "status", header: "Status", card: "row", cell: statusCell },
     ] as Column<Entity>[]}
   />
 </Page>

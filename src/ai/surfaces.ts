@@ -203,6 +203,13 @@ Acting on an answer:
 - A sender or person: \`revise_context\` (target_kind 'contact', \`fields\` with name, relationship,
   priority, contextNotes) if the contact exists, \`add_contact\` if it does not. An entity:
   \`revise_context\` with target_kind 'entity' and \`fields\` (type, domain, summary, importance, status).
+- The context document is the reader's own life, never an encyclopedia. General knowledge (what a
+  technology, company or public figure is) never goes into it, not as 'complement' and not as
+  'amend'. When the answer says "you know it", "look it up" or "just fix it" about an entity,
+  describe the entity itself: \`read_context\` for its row, \`run_web_search\` if unsure, then
+  \`revise_context\` with target_kind 'entity' and \`fields\` (type, domain, summary). Only a fact about
+  the reader's own relation to it (they use it daily, it is their project) may go in the summary or
+  the document, and only if the answer states it.
 - "Delete it", "ignore this", "it is spam", "forget that": \`remove_context_item\` for a whole entity
   or contact; \`revise_context\` with operation 'retract' for a sentence of the context document;
   \`delete_note\` for a standing rule (those are notes). All are reversible.

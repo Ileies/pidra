@@ -15,6 +15,7 @@ import { inArray } from "drizzle-orm";
 import { selectNotes } from "../notes/select";
 import { SECTION1_CAPACITY } from "./section1-handoff";
 import { forModel } from "../util/extracted";
+import { recentlyTold } from "./told";
 
 // Null rather than an empty array, matching how every other optional block in the payload
 // signals "nothing here" - the prompts already say to proceed unchanged when a field is null.
@@ -38,7 +39,21 @@ export function newsItemsOf(items: ExtractionWithSource[]): NewsItem[] {
   return items.map((i) => ({ id: i.extraction.id, story: i.extraction.extractedJson as NewsExtraction }));
 }
 
-function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
+/**
+ * What the reader was told on the last days, for Section 1 to skip. The memory is a convenience: a
+ * failed read costs the repeat guard for one run, never the briefing.
+ */
+async function alreadyTold(runDate: string): Promise<{ date: string; headline: string; summary?: string }[] | null> {
+  try {
+    const told = await recentlyTold(runDate);
+    return told.length > 0 ? told.map(({ date, headline, summary }) => ({ date, headline, ...(summary ? { summary } : {}) })) : null;
+  } catch (err) {
+    console.error("[Phase 5] Could not read what was already told, Section 1 runs without it:", err);
+    return null;
+  }
+}
+
+function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaited<ReturnType<typeof alreadyTold>>): string {
   const slot1 = ctx.webSearchResults.find((r) => r.slot === 1);
   const slot2 = ctx.webSearchResults.find((r) => r.slot === 2);
 
@@ -79,6 +94,9 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string): string {
     news_headlines: ctx.newsItems.length > 0
       ? ctx.newsItems.map((i) => (i.extraction.extractedJson as NewsExtraction).headline)
       : null,
+    // Earlier days' news stories and briefing items, so a newsletter repeating last week's deal is
+    // skipped or reduced to what is new. `news_headlines` above is today's News section only.
+    already_told: told,
     // Interests and technical profile from the Context Builder document: what the user cares
     // about, for judging which of today's items actually matter to them.
     long_term_context: ctx.longTermContext.intelSections || null,
@@ -147,7 +165,8 @@ async function synthesizeSection(
 /** Side effect: marks the items sent (the first SECTION1_CAPACITY) with `extractions.synthesis_handoff = 'sent'`. */
 export async function runSection1(ctx: ContextPayload, runDate: string) {
   const selected = ctx.newsletterItems.slice(0, SECTION1_CAPACITY);
-  const result = await synthesizeSection("Section 1", "section1", buildSection1Payload(ctx, runDate), BRIEFING_SECTION_OPTS);
+  const payload = buildSection1Payload(ctx, runDate, await alreadyTold(runDate));
+  const result = await synthesizeSection("Section 1", "section1", payload, BRIEFING_SECTION_OPTS);
   if (selected.length > 0) {
     await db.update(extractions)
       .set({ synthesisHandoff: "sent" })

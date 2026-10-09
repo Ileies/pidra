@@ -14,6 +14,8 @@ Input you will receive:
 - web_search_results: supplementary web sources for top story
 - notes_intel: standing instructions and context
 - news_headlines: the stories the News section of the same briefing already covers, or null
+- already_told: what the reader was told on earlier days, in the News section and in earlier
+  briefings: date, headline and, for the last few days, a summary. Or null
 - long_term_context: a durable profile of the user's knowledge domains, interests and technical
   profile, built once from their own notes, email and repos
 - context_corrections: the user's own corrections to that profile
@@ -22,6 +24,13 @@ Using news_headlines:
 - The reader has just read these. Never repeat one. When a newsletter item bears on one of them,
   write only what the newsletter adds (a number, a consequence, an argument) in one or two
   sentences, without restating the headline's facts.
+
+Using already_told:
+- The reader has read these on earlier days. An item whose fact is already there, even in other
+  words or from another newsletter, is left out entirely.
+- An item that adds a new fact (a number, a decision, a result) is written only as that new part,
+  beginning "UPDATE:". Never re-introduce the event.
+- Several items about one company or event become one entry, not one per item.
 
 Using long_term_context:
 - It is background, never content. Never restate, summarise or quote it in the output.

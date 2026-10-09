@@ -4,7 +4,7 @@ See `docs/todo/README.md` for the conventions this list follows.
 
 ## Repeat news
 
-- Finish the repeat-news plan: Section 1 `already_told` (the briefing side, so a newsletter claim already told in the news section or an earlier briefing is not repeated) and the sweep of stale `running` runs are not built yet. The news side (`src/pipeline/told.ts`, `src/news/judge.ts`) is in.
+- Finish the repeat-news plan: the sweep of stale `running` runs is not built yet.
 
 ## Small code smells
 

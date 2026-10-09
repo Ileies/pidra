@@ -81,6 +81,7 @@ describe("Section 1", () => {
       entity_contexts: [{ name: "Acme", type: "company", summary: "Makes anvils", mention_count: 9 }],
       notes_intel: ["Watch chips"],
       news_headlines: ["Parliament approves the budget"],
+      already_told: null,
       long_term_context: "Interested in chips",
       context_corrections: null,
       web_search: { slot1_topic_deepdive: null, slot2_dormant_entity: null },
@@ -90,7 +91,37 @@ describe("Section 1", () => {
 
   test("an empty day sends nulls where the prompt is told to proceed unchanged", async () => {
     await runSection1(baseCtx(), DAY);
-    expect(calls[0].payload).toMatchObject({ todays_items: [], news_headlines: null, long_term_context: null, context_corrections: null });
+    expect(calls[0].payload).toMatchObject({ todays_items: [], news_headlines: null, already_told: null, long_term_context: null, context_corrections: null });
+  });
+
+  test("already_told carries earlier days' news and briefing items, never today's", async () => {
+    const insertTold = async (sourceType: string, runDate: string, json: Any, i: number) => {
+      const [raw] = await database.sql`insert into raw_items (run_date, source_type, source_name, message_id, raw_content, received_at)
+        values (${runDate}, ${sourceType}, 'x', ${`told-${i}`}, 'x', ${`${runDate}T05:00:00Z`}) returning id`;
+      await database.sql`insert into extractions (raw_item_id, run_date, extracted_json, included_in_report, ai_failed)
+        values (${raw.id}, ${runDate}, ${json}, true, false)`;
+    };
+    await insertTold("newsletter", "2026-10-04", { headline: "Grid storage startup raises a round", key_claim: "It raised 50 million" }, 1);
+    await insertTold("web_news", "2026-10-03", { headline: "Parliament approves the budget", sources: [] }, 2);
+    await insertTold("newsletter", DAY, { headline: "Today's own item" }, 3);
+
+    await runSection1(baseCtx(), DAY);
+    expect(calls[0].payload.already_told).toEqual([
+      { date: "2026-10-03", headline: "Parliament approves the budget" },
+      { date: "2026-10-04", headline: "Grid storage startup raises a round", summary: "It raised 50 million" },
+    ]);
+  });
+
+  test("a failed read of what was told costs the repeat guard, not the briefing", async () => {
+    await database.sql`alter table extractions rename to extractions_gone`;
+    try {
+      reply = { text: "## Section 1", tokensIn: 1, tokensOut: 1 };
+      const result = await runSection1(baseCtx(), DAY);
+      expect(calls[0].payload.already_told).toBeNull();
+      expect(result.text).toBe("## Section 1");
+    } finally {
+      await database.sql`alter table extractions_gone rename to extractions`;
+    }
   });
 
   test("the user's corrections go beside the profile in the shape the prompt reads", async () => {

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { buildTree, groupOf, groupTotals, stepTotals, TimeScale, unionMs, waitWindow, type StepRow } from "../src/lib/runTrace.js";
+import { timelineSegments } from "../src/lib/runTimeline.js";
 
 const T0 = Date.parse("2026-10-01T06:00:00.000Z");
 
@@ -57,6 +58,18 @@ test("groups and totals", () => {
 
   const steps = stepTotals(buildTree(rows));
   expect(steps.reduce((sum, entry) => sum + entry.tokensIn, 0)).toBe(6000);
+});
+
+test("timeline segments mark overlapping groups and merge equal neighbours", () => {
+  const segments = timelineSegments(buildTree(rows));
+  expect(segments.map((s) => [s.startMs / 1000, s.endMs / 1000, s.groups.join("+")])).toEqual([
+    [0, 10, "news"],
+    [10, 40, "news+extract"],
+    [40, 60, "news"],
+    [60, 80, "questions"],
+    [80, 2780, "wait"],
+    [2780, 2880, "synthesis"],
+  ]);
 });
 
 test("union of intervals", () => {

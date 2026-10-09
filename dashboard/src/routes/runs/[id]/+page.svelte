@@ -5,12 +5,12 @@
   import Card from "#lib/components/Card.svelte";
   import StatCard from "#lib/components/StatCard.svelte";
   import ErrorCard from "#lib/components/ErrorCard.svelte";
-  import Disclosure from "#lib/components/Disclosure.svelte";
   import JevDecisionsCard from "#lib/components/JevDecisionsCard.svelte";
   import Legend from "#lib/components/Legend.svelte";
   import CostShareBar from "#lib/components/CostShareBar.svelte";
   import UsageTable from "#lib/components/UsageTable.svelte";
-  import TraceBar, { pct } from "#lib/components/TraceBar.svelte";
+  import TimelineBar, { pct } from "#lib/components/TimelineBar.svelte";
+  import { timelineSegments } from "#lib/runTimeline.js";
   import { setPageContext } from "#lib/assistant/state.svelte.js";
   import { fmtCost, fmtDate, fmtDuration, fmtNum, fmtMs, fmtTime } from "#lib/format.js";
   import { label as displayLabel, toneFor } from "#lib/labels.js";
@@ -26,7 +26,6 @@
     TimeScale,
     waitWindow,
     type GroupTotal,
-    type SpanNode,
     type StepTotal,
   } from "#lib/runTrace.js";
   import type { PageData } from "./$types";
@@ -63,7 +62,8 @@
   const failed = $derived(data.run.status === "failed");
   const degraded = $derived(!failed && data.run.stepErrors.length > 0);
 
-  let openRow = $state<string | null>(null);
+  const segments = $derived(timelineSegments(tree));
+  const hasParallel = $derived(segments.some((segment) => segment.groups.length > 1));
 
   const phaseRows = $derived(groupWeights.filter((entry) => entry.group !== "wait"));
   const cost = (value: number | null) => (PRICING_CONFIGURED ? fmtCost(value) : "-");
@@ -85,17 +85,6 @@
     { header: "Flex retries", value: (entry: StepTotal) => fmtNum(entry.flexRetries) },
     { header: "Cost", value: (entry: StepTotal) => cost(costUsd(entry.tokensIn, entry.tokensOut)) },
   ];
-
-  function rowTitle(node: SpanNode): string {
-    return `${stepLabel(node.step)}${node.attempt > 1 ? ` (attempt ${node.attempt})` : ""}: ${fmtMs(node.lengthMs)}, starts at +${fmtMs(node.offsetMs)}`;
-  }
-
-  function detailEntries(node: SpanNode): [string, string][] {
-    return Object.entries(node.detail ?? {}).map(([key, value]) => [
-      key,
-      typeof value === "object" ? JSON.stringify(value) : String(value),
-    ]);
-  }
 
   $effect(() => {
     setPageContext({
@@ -214,41 +203,34 @@
         {/each}
       </div>
 
-      <ul class="flex flex-col gap-1">
-        {#each tree.spans as node (node.id)}
-          <li class="min-w-0">
-            <Disclosure
-              open={openRow === node.id}
-              ontoggle={(open) => (openRow = open ? node.id : null)}
-              title={rowTitle(node)}
-              class="flex flex-col gap-1 rounded px-1 py-1 hover:bg-surface-800 min-w-0"
+      <TimelineBar {segments} {scale} />
+
+      {#if hasParallel}
+        <p class="text-xs text-surface-400">Dashed stripes mark stretches where several phases ran at the same time.</p>
+      {/if}
+
+      <details class="group">
+        <summary class="tap text-xs text-surface-400 select-none hover:text-surface-200">Details</summary>
+        <ul class="mt-2 flex flex-col gap-1">
+          {#each tree.spans as node (node.id)}
+            <li
+              class="flex items-baseline gap-2 text-xs min-w-0"
+              style="padding-left:{Math.min(node.depth - 1, 4) * 0.75}rem"
+              title="Starts at +{fmtMs(node.offsetMs)}"
             >
-              {#snippet header()}<TraceBar {node} {scale} />{/snippet}
-              <dl class="mt-1 mb-2 ml-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs text-surface-300">
-                <dt class="text-surface-400">Starts</dt>
-                <dd class="tabular-nums">+{fmtMs(node.offsetMs)}</dd>
-                <dt class="text-surface-400">Step id</dt>
-                <dd class="font-mono break-all">{node.step}</dd>
-                {#if node.total.aiCalls + node.total.searchCalls > 0}
-                  <dt class="text-surface-400">Model calls</dt>
-                  <dd class="tabular-nums">
-                    {fmtNum(node.total.aiCalls)} ({fmtNum(node.total.tokensIn)} in, {fmtNum(node.total.tokensOut)} out)
-                    {#if PRICING_CONFIGURED}, {fmtCost(costUsd(node.total.tokensIn, node.total.tokensOut))}{/if}
-                  </dd>
-                  <dt class="text-surface-400">Searches</dt>
-                  <dd class="tabular-nums">{fmtNum(node.total.searchCalls)}</dd>
-                  <dt class="text-surface-400">Flex retries</dt>
-                  <dd class="tabular-nums">{fmtNum(node.total.flexRetries)}</dd>
-                {/if}
-                {#each detailEntries(node) as [key, value] (key)}
-                  <dt class="text-surface-400">{key}</dt>
-                  <dd class="break-words">{value}</dd>
-                {/each}
-              </dl>
-            </Disclosure>
-          </li>
-        {/each}
-      </ul>
+              {@render swatch(groupInfo(node.group).color)}
+              <span class="text-surface-200 truncate min-w-0">{stepLabel(node.step)}</span>
+              {#if node.attempt > 1}<span class="text-surface-400 shrink-0">attempt {node.attempt}</span>{/if}
+              {#if node.status === "failed"}
+                <span class="text-error-400 shrink-0">failed</span>
+              {:else if node.status === "running"}
+                <span class="text-primary-400 shrink-0">unfinished</span>
+              {/if}
+              <span class="ml-auto text-surface-400 tabular-nums shrink-0">{fmtMs(node.lengthMs)}</span>
+            </li>
+          {/each}
+        </ul>
+      </details>
 
       {#if failedSpans.length > 0}
         <p class="text-xs text-surface-400">

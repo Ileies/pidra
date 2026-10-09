@@ -46,7 +46,8 @@ test("rolls descendants into the parent's total, once", () => {
 test("groups and totals", () => {
   expect(groupOf("ingest:imap:a")).toBe("ingest");
   expect(groupOf("phase4-wait")).toBe("wait");
-  expect(groupOf("phase5-news")).toBe("news");
+  expect(groupOf("phase5-news")).toBe("synthesis");
+  expect(groupOf("news:world")).toBe("news");
   expect(groupOf("something-new")).toBe("finish");
 
   const totals = groupTotals(buildTree(rows));
@@ -70,6 +71,19 @@ test("timeline segments mark overlapping groups and merge equal neighbours", () 
     [80, 2780, "wait"],
     [2780, 2880, "synthesis"],
   ]);
+});
+
+test("a group running across two parallel stretches keeps its stripe slot", () => {
+  const tree = buildTree([
+    row("r", null, "run", 0, 100),
+    row("a", "r", "phase1", 0, 20),
+    row("b", "r", "phase2", 20, 20),
+    row("n", "r", "news", 0, 60),
+  ]);
+  const [first, second] = timelineSegments(tree);
+  expect(first.groups).toEqual(["ingest", "news"]);
+  expect(second.groups).toEqual(["extract", "news"]);
+  expect(second.groups.indexOf("news")).toBe(first.groups.indexOf("news"));
 });
 
 test("union of intervals", () => {

@@ -210,7 +210,7 @@
       <TimelineBar {segments} {scale} />
 
       {#if hasParallel}
-        <p class="text-xs text-surface-400">Dashed stripes mark stretches where several phases ran at the same time.</p>
+        <p class="text-xs text-surface-400">Striped stretches are where several phases ran at the same time, one colour per phase.</p>
       {/if}
 
       <details class="group">

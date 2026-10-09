@@ -67,7 +67,7 @@ export const GROUPS: readonly GroupInfo[] = [
   { id: "news", label: "News desks", color: "#d95926" },
   { id: "extract", label: "Extraction", color: "#199e70" },
   { id: "context", label: "Context and search", color: "#9085e9" },
-  { id: "questions", label: "Question gate", color: "#d55181" },
+  { id: "questions", label: "Question gate", color: "#c64fc4" },
   { id: "synthesis", label: "Synthesis", color: "#008300" },
   { id: "finish", label: "Memory and push", color: "var(--color-surface-400)" },
   { id: "wait", label: "Waiting for answers", color: "var(--color-warning-500)" },
@@ -83,11 +83,12 @@ export function groupInfo(id: GroupId): GroupInfo {
 export function groupOf(step: string): GroupId {
   if (step === "phase4-wait") return "wait";
   if (step.startsWith("ingest:") || step === "phase1") return "ingest";
-  if (step === "news" || step.startsWith("news:") || step === "phase5-news") return "news";
+  if (step === "news" || step.startsWith("news:")) return "news";
   if (step === "phase2") return "extract";
   if (step === "phase3" || step === "phase3-websearch") return "context";
   if (step.startsWith("phase4")) return "questions";
-  if (step === "phase5-section1" || step === "phase5-section2" || step === "phase5-actions") return "synthesis";
+  // The news editor writes the report's News section: synthesis, not the desks' research.
+  if (["phase5-section1", "phase5-section2", "phase5-news", "phase5-actions"].includes(step)) return "synthesis";
   return "finish";
 }
 
@@ -104,8 +105,8 @@ const STEP_LABELS: Record<string, string> = {
   "phase4-review": "Question gate: absorb review answers",
   "phase4-questions": "Question gate: reconcile queue",
   "phase4-wait": "Question gate: waiting for your answers",
-  "phase5-section1": "Section 1",
-  "phase5-section2": "Section 2",
+  "phase5-section1": "Intelligence briefing (Section 1)",
+  "phase5-section2": "Personal briefing (Section 2)",
   "phase5-news": "News editor",
   "phase5-actions": "Quick actions",
   phase6: "Memory",

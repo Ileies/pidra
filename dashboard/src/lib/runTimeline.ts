@@ -7,7 +7,7 @@ import { GROUPS, type GroupId, type RunTree } from "#lib/runTrace.js";
 export interface TimelineSegment {
   startMs: number;
   endMs: number;
-  /** Groups running during the stretch, in `GROUPS` order. Never empty. */
+  /** Groups running during the stretch, one per stripe slot (a group keeps its slot from the previous stretch). Never empty. */
   groups: GroupId[];
 }
 
@@ -32,10 +32,23 @@ export function timelineSegments(tree: RunTree): TimelineSegment[] {
       if (node.offsetMs < endMs && node.offsetMs + node.lengthMs > startMs) active.add(node.group);
     }
     if (active.size === 0) continue;
-    const groups = GROUPS.filter((group) => active.has(group.id)).map((group) => group.id);
     const last = out[out.length - 1];
+    const groups = slotOrder(active, last?.groups ?? []);
     if (last && last.endMs === startMs && last.groups.join() === groups.join()) last.endMs = endMs;
     else out.push({ startMs, endMs, groups });
   }
   return out;
+}
+
+/**
+ * Orders the active groups so one that was also active in the previous stretch keeps its position,
+ * which lets the bar draw its stripes in the same place across neighbouring parallel stretches.
+ */
+function slotOrder(active: ReadonlySet<GroupId>, previous: readonly GroupId[]): GroupId[] {
+  const slots: (GroupId | null)[] = Array(active.size).fill(null);
+  previous.forEach((id, i) => {
+    if (active.has(id) && i < slots.length) slots[i] = id;
+  });
+  const fresh = GROUPS.map((group) => group.id).filter((id) => active.has(id) && !slots.includes(id));
+  return slots.map((slot) => slot ?? fresh.shift()!);
 }

@@ -7,7 +7,7 @@
 <script lang="ts">
   /**
    * One bar for the whole run: each stretch is coloured by the phase that ran. Where two or three
-   * phases ran at once, the first one is the solid base and the others lie over it as dashed stripes.
+   * phases ran at once, the stretch is cut into equal diagonal stripes, one colour per phase.
    */
   import { fmtMs } from "#lib/format.js";
   import { groupInfo, type TimeScale } from "#lib/runTrace.js";
@@ -20,11 +20,13 @@
 
   let { segments, scale }: Props = $props();
 
-  function overlay(segment: TimelineSegment): string | undefined {
-    const rest = segment.groups.slice(1).map((id) => groupInfo(id).color);
-    if (rest.length === 0) return undefined;
-    // Stripes cycle through the other groups; the gaps show the base colour through.
-    const stops = rest.flatMap((color, i) => [`${color} ${i * 10}px ${i * 10 + 6}px`, `transparent ${i * 10 + 6}px ${(i + 1) * 10}px`]);
+  const STRIPE_PX = 6;
+
+  /** One colour for a lone group; equal-width diagonal stripes of every running group otherwise. */
+  function fill(segment: TimelineSegment): string {
+    const colors = segment.groups.map((id) => groupInfo(id).color);
+    if (colors.length === 1) return colors[0];
+    const stops = colors.map((color, i) => `${color} ${i * STRIPE_PX}px ${(i + 1) * STRIPE_PX}px`);
     return `repeating-linear-gradient(135deg, ${stops.join(", ")})`;
   }
 
@@ -34,18 +36,21 @@
   }
 </script>
 
-<div class="relative h-4 w-full overflow-hidden rounded bg-surface-800" role="img" aria-label="Run timeline by phase">
+<div
+  class="relative h-4 w-full overflow-hidden rounded bg-surface-800"
+  style="container-type:inline-size"
+  role="img"
+  aria-label="Run timeline by phase"
+>
   {#each segments as segment (segment.startMs)}
     {@const left = scale.at(segment.startMs)}
     {@const right = scale.at(segment.endMs)}
+    <!-- Each stripe fill is a window onto a gradient sized to the whole bar (100cqw), so a colour that
+         spans two neighbouring stretches continues across them at any screen width. -->
     <span
       class="absolute top-0 h-full"
-      style="left:{pct(left)};width:max(2px, {pct(Math.max(0, right - left))});background:{groupInfo(segment.groups[0]).color}"
+      style="left:{pct(left)};width:max(2px, {pct(Math.max(0, right - left))});background:{fill(segment)};background-size:100cqw 100%;background-position:calc({-left} * 100cqw) 0"
       title={title(segment)}
-    >
-      {#if segment.groups.length > 1}
-        <span class="absolute inset-0" style="background:{overlay(segment)}"></span>
-      {/if}
-    </span>
+    ></span>
   {/each}
 </div>

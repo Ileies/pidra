@@ -14,6 +14,8 @@ const HINTS: Record<string, string> = {
   "phase4-review": "Absorbs answers given to review questions.",
   "phase4-questions": "Reconciles the question queue.",
   "phase4-wait": "Section 2 waits for answers to this run's questions, up to the timeout.",
+  "phase5-section1": "Writes the newsletter digest, ranked against your priorities.",
+  "phase5-section2": "Writes the personal part: email, calendar, tasks and SMS, with urgency labels.",
   "phase5-news": "The news editor assembles the desks' stories into the News section.",
   "phase5-actions": "Derives the quick actions offered with the report.",
   phase6: "Updates entities, source trust and other long-term state from the run.",

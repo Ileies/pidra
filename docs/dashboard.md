@@ -22,7 +22,7 @@ Intelligence:
 
 - `/sources` - source quality list (trust scores, include rates, last delivery). Each row links to "Details"; "Enable" appears only for disabled sources. Enable writes straight to Postgres (`dashboard/src/lib/server/sources.ts`), so it works without the pipeline server; failures come back as a toast.
 - `/sources/[name]` - every delivery from one source and what extraction made of it. The only place a source can be hard-deleted: its scores and polling/matching settings are erased, past reports and their data are not. Optional "also open unsubscribe link" when one was found at ingest.
-- `/entities` - entity explorer (filterable table); search matches name, aliases and summary.
+- `/entities` - entity explorer (filterable table from `md` up, `DataTable` cards below it so a phone never scrolls sideways); search matches name, aliases and summary. "Last mentioned" is always visible and day-granular (`fmtDaysAgo`: "today", "yesterday", "5d ago", then the date).
 - `/entities/[id]` - one entity: a Watch control (sets `importance = 'high'` through the correction path, feeding the monitoring search slot) and its appearances as a timeline.
 - `/topics` - `active_topics` with resolve and archive. Curation only: no skill may write this table.
 - `/contacts` - the sender directory. Edits go through `recordCorrection`, so they behave exactly as the assistant's do.

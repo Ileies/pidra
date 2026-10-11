@@ -58,6 +58,7 @@
   function kindBadge(q: PageData["open"][number]): string {
     if (q.kind === "review") return "Weekly review";
     if (q.kind === "chat") return "Asked by the assistant";
+    if (q.kind === "context") return "About you";
     // Questions the retired entity enrichment raised can still sit in the queue.
     return q.sources[0]?.source_type === "entity" ? "Question" : "Mail";
   }
@@ -126,7 +127,7 @@
                 rows="2"
                 bind:value={drafts[q.id]}
                 onkeydown={sendOnShortcut}
-                placeholder={q.kind === "review" ? "A sentence or two is plenty" : "e.g. my landlord, handles the flat's repairs"}
+                placeholder={q.kind === "review" || q.kind === "context" ? "A sentence or two is plenty" : "e.g. my landlord, handles the flat's repairs"}
                 class="input-base-flush w-full resize-y"
               ></textarea>
             </label>

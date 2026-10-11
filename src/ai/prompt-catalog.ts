@@ -12,6 +12,7 @@ import {
   NEWS_WORLD_PROMPT,
   NEWSLETTER_EXTRACTION_PROMPT,
   PERSONAL_EMAIL_PROMPT,
+  QUESTION_DISCOVERY_PROMPT,
   QUESTIONS_PROMPT,
   QUICK_ACTIONS_PROMPT,
   SECTION1_SYSTEM_PROMPT,
@@ -25,6 +26,7 @@ export const PROMPT_SECTIONS = [
   "news",
   "quick_actions",
   "questions",
+  "question_discovery",
   "answer_classification",
   "extraction",
   "personal_classification",
@@ -47,7 +49,7 @@ export type PromptSection = (typeof PROMPT_SECTIONS)[number];
  * matches on (entities, topics, dedupe), the news desks research in English and the editor writes
  * the section, and the answer classification only feeds a label into the sender directory.
  */
-export const LANGUAGE_SECTIONS: readonly PromptSection[] = ["section1", "section2", "news", "quick_actions", "questions"];
+export const LANGUAGE_SECTIONS: readonly PromptSection[] = ["section1", "section2", "news", "quick_actions", "questions", "question_discovery"];
 
 const BASELINES: Record<PromptSection, string> = {
   section1: SECTION1_SYSTEM_PROMPT,
@@ -55,6 +57,7 @@ const BASELINES: Record<PromptSection, string> = {
   news: NEWS_SECTION_PROMPT,
   quick_actions: QUICK_ACTIONS_PROMPT,
   questions: QUESTIONS_PROMPT,
+  question_discovery: QUESTION_DISCOVERY_PROMPT,
   answer_classification: ANSWER_CLASSIFICATION_PROMPT,
   extraction: NEWSLETTER_EXTRACTION_PROMPT,
   personal_classification: PERSONAL_EMAIL_PROMPT,

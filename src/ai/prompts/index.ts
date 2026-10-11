@@ -20,5 +20,6 @@ export { NEWS_DEDUP_PROMPT } from "./news-dedup";
 export { SECTION2_SYSTEM_PROMPT } from "./section2";
 export { QUICK_ACTIONS_PROMPT } from "./actions";
 export { QUESTIONS_PROMPT } from "./questions";
+export { QUESTION_DISCOVERY_PROMPT } from "./question-discovery";
 export { JEV_NEWS_IMPACT_PROMPT, JEV_NEWS_NOVELTY_PROMPT } from "./jev";
 export { ANSWER_CLASSIFICATION_PROMPT } from "./answer-classification";

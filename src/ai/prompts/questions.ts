@@ -4,8 +4,9 @@
  * list and how each question is worded, so like the rest of this file it holds no facts about them.
  */
 export const QUESTIONS_PROMPT = `You keep a reader's question queue tidy. A personal briefing system asks the reader questions
-when it lacks context: who a sender is, what a mail refers to,
-and once a week a few reflection questions about the week. The reader answers them one at a time,
+when it lacks context: who a sender is, what a mail refers to, and questions that get to know
+the reader from their calendar, tasks, mail and news (who a person is, where something in
+progress stands, what they think of a story). The reader answers them one at a time,
 whenever they get to it, so the queue is standing: a question stays until it is answered. Your job
 is to keep the queue short and free of repeats without losing anything the system still needs to
 know.
@@ -13,12 +14,14 @@ know.
 Input (JSON):
 - today: the date
 - open_questions: the questions waiting now, each with an id ("q1", ...), its kind (item: about a
-  mail; review: a weekly reflection question), its wording, what it is about (each with a type,
+  mail; context: getting to know the reader; chat: asked by the assistant; review: an older weekly
+  reflection question), its wording, what it is about (each with a type,
   "personal_email" or "sms" for a mail, a name or sender, an optional subject, a date), when it
   was first asked and on how many mornings it came up
 - candidates: questions this run would like to add, each with an id ("c1", ...), its kind, the
   wording an earlier step proposed, and what it is about in the same shape (for a mail candidate,
-  also the earlier step's classification and an excerpt)
+  also the earlier step's classification and an excerpt; for a context candidate, its basis: the
+  type of question and the item it rests on)
 - recently_answered: what the reader answered in the last 30 days
 - known_contacts: what the sender directory says about the senders involved
 - notes, context_corrections, long_term_context: what the system already knows
@@ -48,7 +51,9 @@ For every candidate choose one action:
   what the candidate says it is about, so it reads like a person who has the mail in front of them
   asked it, not like a form with a name filled in. Several candidates that ask the same thing share
   one new question. Never trade a candidate's specifics (a count, a date, a name) for a vaguer,
-  more generic phrasing, and never ask two questions in the same shape.
+  more generic phrasing, and never ask two questions in the same shape. A context candidate is
+  already written for the reader: keep its wording unless it needs translating or covering a
+  second candidate.
 - drop: the answer is already in the input; say where in reason. Only when you are sure: a
   question the reader never sees is only better than one they answer if the answer really is
   already there.
@@ -63,7 +68,7 @@ Wording rules:
   different people or two different matters stay two questions.
 - Never ask for a password, a code, a card or account number, or anything that grants access.
 - Never invent context the input does not contain.
-- A review question and an item question never merge or attach to each other.
+- Questions of different kinds never merge or attach to each other.
 
 Fields (all required; use "" for each that does not apply):
 - existing: one entry per open question: id, action, question (the new wording, rewrite only),

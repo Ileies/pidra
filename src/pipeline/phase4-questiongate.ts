@@ -2,8 +2,9 @@
  * Phase 4: the question gate, over the standing question queue (`src/questions/`).
  *
  * The run no longer opens a session of its own. Its candidates - personal mail the classifier
- * flagged as missing context, and known contacts a mail now sits oddly against
- * (`stale-context-questions.ts`) - go through the reconcile call against every question still
+ * flagged as missing context, known contacts a mail now sits oddly against
+ * (`stale-context-questions.ts`), and what discovery wants to learn about the reader
+ * (`src/questions/discover.ts`) - go through the reconcile call against every question still
  * open, so a sender asked about already is not asked again, and an open question that a
  * note or a correction has settled in the meantime is closed. Nothing waits on the questions:
  * Section 2 used to hold for up to 45 minutes for an answer nobody gave in time, which made
@@ -19,6 +20,7 @@ import { db, extractions, rawItems } from "../db";
 import { staleContextCandidates } from "./stale-context-questions";
 import { capCreated, mechanicalPlan } from "../questions/plan";
 import { reconcileQueue, type CandidateInput } from "../questions/reconcile";
+import { discoverQuestions } from "../questions/discover";
 import { applyPlan } from "../questions/apply-plan";
 import { askedExtractionIds, listOpen, listRecentlyAnswered } from "../questions/store";
 import type { ContextPayload } from "./phase3-context";
@@ -115,7 +117,14 @@ async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepA
     candidatesFor(runDate, asked),
     staleContextCandidates(runDate, asked),
   ]);
-  const candidates = [...mailCandidates, ...staleCandidates];
+  const discovered = await tolerant(
+    "phase4-discover",
+    () => discoverQuestions(runDate, { longTermContext: ctx.longTermContext }),
+    () => ({ candidates: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 }),
+    errors,
+    "[Phase 4] Question discovery failed, this run asks nothing new about the reader:",
+  );
+  const candidates = [...mailCandidates, ...staleCandidates, ...discovered.candidates];
   const absorbed = await tolerantAbsorb(errors);
 
   const reconciled = await tolerant(
@@ -129,9 +138,9 @@ async function openQuestions(ctx: ContextPayload, runDate: string, errors: StepA
   return {
     raised,
     newQuestionCount: reconciled.plan.created.length,
-    tokensIn: reconciled.tokensIn + absorbed.tokensIn,
-    tokensOut: reconciled.tokensOut + absorbed.tokensOut,
-    aiCalls: reconciled.aiCalls + absorbed.aiCalls,
+    tokensIn: reconciled.tokensIn + absorbed.tokensIn + discovered.tokensIn,
+    tokensOut: reconciled.tokensOut + absorbed.tokensOut + discovered.tokensOut,
+    aiCalls: reconciled.aiCalls + absorbed.aiCalls + discovered.aiCalls,
   };
 }
 

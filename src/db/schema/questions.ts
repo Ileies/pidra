@@ -26,7 +26,7 @@ export interface QuestionRevision {
  */
 export const questions = pgTable("questions", {
   id: pk(),
-  kind: text("kind").notNull(), // item | review | chat (asked by the assistant mid-conversation)
+  kind: text("kind").notNull(), // item | review | chat (asked by the assistant mid-conversation) | context (src/questions/discover.ts)
   question: text("question").notNull(),
   // open | answered | dismissed | resolved | merged
   status: text("status").notNull().default("open"),

@@ -13,7 +13,7 @@ import { logEvent } from "./events";
 import { teachContact } from "./teach-contact";
 
 export type Question = typeof questions.$inferSelect;
-export type QuestionKind = "item" | "review" | "chat";
+export type QuestionKind = "item" | "review" | "chat" | "context";
 
 /** Open questions the assistant itself may have in the queue at once, so a chatty model cannot flood it. */
 const MAX_OPEN_CHAT_QUESTIONS = 10;
@@ -32,6 +32,8 @@ export interface Candidate {
   kind: QuestionKind;
   question: string;
   source: QuestionSource | null;
+  /** What it rests on, logged as the "asked" event's reason, which the answer's processing reads. */
+  why?: string;
 }
 
 export async function listOpen(): Promise<Question[]> {
@@ -39,7 +41,7 @@ export async function listOpen(): Promise<Question[]> {
 }
 
 export const QUESTION_STATUSES = ["open", "answered", "dismissed", "resolved", "merged"] as const;
-export const QUESTION_KINDS = ["item", "review", "chat"] as const;
+export const QUESTION_KINDS = ["item", "review", "chat", "context"] as const;
 
 export interface ListQuestionsOptions {
   /** One status, or `all`. Default `open`. */

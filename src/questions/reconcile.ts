@@ -132,7 +132,7 @@ export async function reconcileQueue(
       kind: c.kind,
       question: c.question,
       about: c.source ? { type: c.source.source_type, from: c.source.from, subject: c.source.subject, date: c.source.run_date } : null,
-      ...(c.detail ? { mail: c.detail } : {}),
+      ...(c.detail ? { [c.kind === "context" ? "basis" : "mail"]: c.detail } : {}),
     })),
     recently_answered: answered.map((q) => ({
       question: q.question,

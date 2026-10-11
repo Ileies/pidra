@@ -22,6 +22,16 @@ mock.module("../src/ai/openai", () => ({
   },
   synthesize: async () => { throw new Error("not expected"); },
 }));
+// Discovery makes its own call (tests-db/question-discovery.test.ts); here it only hands over candidates.
+let discovered: Any[] = [];
+let discoveryFailure: Error | null = null;
+mock.module("../src/questions/discover", () => ({
+  discoverQuestions: async () => {
+    if (discoveryFailure) throw discoveryFailure;
+    const calls = discovered.length > 0 ? 1 : 0;
+    return { candidates: discovered, unused: [], tokensIn: 50 * calls, tokensOut: 5 * calls, aiCalls: calls };
+  },
+}));
 mock.module("../src/util/retry", () => ({
   retry: async (fn: (attempt: number) => Promise<unknown>, opts: { attempts: number }) => {
     for (let attempt = 1; ; attempt++) {
@@ -41,6 +51,8 @@ beforeEach(async () => {
   calls.length = 0;
   reply = { existing: [], candidates: [], new_questions: [] };
   failure = null;
+  discovered = [];
+  discoveryFailure = null;
   await database.sql`truncate raw_items, extractions, questions, notes cascade`;
 });
 
@@ -182,6 +194,31 @@ describe("what the run does with them", () => {
     const rows = await queue();
     expect(rows).toHaveLength(1);
     expect(rows[0].sources).toHaveLength(2);
+  });
+
+  test("discovery's questions go through the same reconcile, and its evidence becomes the asked event's reason", async () => {
+    await mail();
+    discovered = [{ kind: "context", question: "Who is Alex, whom you paid 20 EUR?", source: null, why: "person: a payment to Alex", detail: { type: "person", evidence: "a payment to Alex" } }];
+    const result = await gate();
+
+    expect(calls[0].candidates.map((c: Any) => [c.kind, c.about, c.basis ?? c.mail?.type])).toEqual([
+      ["item", expect.objectContaining({ from: "sam@example.com" }), "request"],
+      ["context", null, { type: "person", evidence: "a payment to Alex" }],
+    ]);
+    expect(result).toMatchObject({ newQuestionCount: 2, tokensIn: 170, tokensOut: 35, aiCalls: 2 });
+    const [row] = await database.sql`select q.sources, e.reason from questions q join question_events e on e.question_id = q.id where q.kind = 'context' and e.event = 'asked'`;
+    expect(row).toEqual({ sources: [], reason: "person: a payment to Alex" });
+  });
+
+  test("a failing discovery costs only its own questions: the mail is still asked and the attempts are recorded", async () => {
+    await mail();
+    discoveryFailure = new Error("discovery down");
+    const errors: Any[] = [];
+    const result = await gate(errors);
+
+    expect(errors.map((e) => e.step)).toEqual(["phase4-discover", "phase4-discover", "phase4-discover"]);
+    expect(result).toMatchObject({ fired: true, newQuestionCount: 1 });
+    expect((await queue()).map((q) => q.kind)).toEqual(["item"]);
   });
 
   test("review answers given since the last run become notes before the questions are reconciled", async () => {

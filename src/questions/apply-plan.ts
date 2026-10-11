@@ -95,7 +95,7 @@ export async function applyPlan(plan: QueuePlan, today: string): Promise<string[
         .insert(questions)
         .values({ kind: c.kind, question: c.question, sources: sourcesOf(c.candidates), firstAsked: today, lastAsked: today })
         .returning({ id: questions.id });
-      await logEvent(tx, row!.id, "asked");
+      await logEvent(tx, row!.id, "asked", c.candidates.flatMap((x) => (x.why ? [x.why] : [])).join(" | ") || null);
       touched.add(row!.id);
     }
 

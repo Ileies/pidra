@@ -38,10 +38,10 @@ describe("emptyPlan and capCreated", () => {
     expect(emptyPlan()).toEqual({ rewrites: [], resolves: [], merges: [], attaches: [], created: [], dropped: [] });
   });
 
-  test("at most three new questions a run, the first three kept and nothing else touched", () => {
+  test("at most four new questions a run, the first four kept and nothing else touched", () => {
     const plan = { ...emptyPlan(), dropped: [{ candidate: candidate(), reason: "r" }], created: Array.from({ length: 5 }, (_, i) => ({ kind: "item" as const, question: `New ${i}`, candidates: [candidate()] })) };
     const capped = capCreated(plan);
-    expect(capped.created.map((c) => c.question)).toEqual(["New 0", "New 1", "New 2"]);
+    expect(capped.created.map((c) => c.question)).toEqual(["New 0", "New 1", "New 2", "New 3"]);
     expect(capped.dropped).toEqual(plan.dropped);
     expect(capCreated(plan, 1).created).toHaveLength(1);
     expect(capCreated(plan, 5)).toBe(plan);

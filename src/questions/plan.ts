@@ -13,8 +13,8 @@ import type { Candidate, Question } from "./store";
 
 const MAX_QUESTION_CHARS = 400;
 const MAX_REASON_CHARS = 300;
-/** Cap on brand-new questions per run (11 landed in one night on 2026-10-01). Excess candidates stay out of the plan, so the next run reconsiders them. */
-const MAX_NEW_QUESTIONS_PER_RUN = 3;
+/** Cap on brand-new questions per run, all sources together (11 landed in one night on 2026-10-01; the owner set 4 a day, 2026-10-11). Excess candidates stay out of the plan, so the next run reconsiders them. */
+const MAX_NEW_QUESTIONS_PER_RUN = 4;
 
 export interface ModelAnswer {
   existing: { id: string; action: "keep" | "rewrite" | "resolve" | "merge"; question: string; into: string; reason: string }[];

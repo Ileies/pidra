@@ -96,18 +96,18 @@ describe("what becomes of the proposals", () => {
     reply = { questions: [proposal("person", "P1?"), proposal("person", "P2?"), proposal("thread", "T1?"), proposal("thread", "T2?"), proposal("opinion", "O1?")] };
     const result = await discover();
 
-    expect(result.candidates.map((c) => c.question)).toEqual(["P1?", "T1?", "O1?"]);
+    expect(result.candidates.map((c) => c.question)).toEqual(["P1?", "P2?", "T1?", "O1?"]);
     expect(result.candidates[0]).toMatchObject({ kind: "context", source: null, why: "person: seen: P1? (teaches: something)", detail: { type: "person", evidence: "seen: P1?" } });
-    expect(result.unused).toEqual(["person: P2?", "thread: T2?"]);
+    expect(result.unused).toEqual(["thread: T2?"]);
     expect(result).toMatchObject({ tokensIn: 100, tokensOut: 10, aiCalls: 1 });
   });
 
-  test("makes no call while enough context questions wait, and asks only up to that limit", async () => {
+  test("makes no call while enough context questions wait; one below that, the day's full ceiling still applies", async () => {
     const insert = (n: number) =>
       database.sql`insert into questions (kind, question, first_asked, last_asked) select 'context', 'Q' || g, ${today}::date, ${today}::date from generate_series(1, ${n}) g`;
     await insert(MAX_OPEN_CONTEXT_QUESTIONS - 1);
     reply = { questions: [proposal("person", "P1?"), proposal("thread", "T1?")] };
-    expect((await discover()).candidates.map((c) => c.question)).toEqual(["P1?"]);
+    expect((await discover()).candidates.map((c) => c.question)).toEqual(["P1?", "T1?"]);
 
     await insert(1);
     expect(await discover()).toMatchObject({ candidates: [], aiCalls: 0 });

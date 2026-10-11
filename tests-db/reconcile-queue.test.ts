@@ -124,14 +124,15 @@ describe("reconcileQueue", () => {
         { id: "c3", action: "ask", target: "n2", reason: "" },
         { id: "c4", action: "ask", target: "n3", reason: "" },
         { id: "c5", action: "ask", target: "n4", reason: "" },
+        { id: "c6", action: "ask", target: "n5", reason: "" },
       ],
-      new_questions: [1, 2, 3, 4].map((i) => ({ id: `n${i}`, question: `New question ${i}?` })),
+      new_questions: [1, 2, 3, 4, 5].map((i) => ({ id: `n${i}`, question: `New question ${i}?` })),
     };
-    const result = await reconcileQueue(["a", "b", "c", "d", "e"].map((s) => candidate(`Question ${s}?`)), TODAY, noContext);
+    const result = await reconcileQueue(["a", "b", "c", "d", "e", "f"].map((s) => candidate(`Question ${s}?`)), TODAY, noContext);
 
     expect(result.plan.rewrites).toEqual([{ id: q.id, question: "Who runs the shop?", reason: "clearer" }]);
     expect(result.plan.attaches.map((a) => a.to)).toEqual([q.id]);
-    expect(result.plan.created.map((c) => c.question)).toEqual(["New question 1?", "New question 2?", "New question 3?"]);
+    expect(result.plan.created.map((c) => c.question)).toEqual(["New question 1?", "New question 2?", "New question 3?", "New question 4?"]);
     expect([result.tokensIn, result.tokensOut, result.aiCalls, result.openCount]).toEqual([120, 30, 1, 1]);
   });
 

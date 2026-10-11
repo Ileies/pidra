@@ -1,12 +1,13 @@
 /**
  * Tunes the question queue's reconcile call without a pipeline run.
  *
- *   bun run scripts/questions-dry-run.ts [--discover] [--apply]
+ *   bun run scripts/questions-dry-run.ts [--discover [--force]] [--apply]
  *
  * Runs the reconcile for real over the open questions, with no new candidates - one model call,
  * what a quiet morning's Phase 4 costs - and prints what it would do to each: keep, rephrase,
  * merge, or close with the reason. `--discover` first runs question discovery
- * (`src/questions/discover.ts`) and reconciles its candidates too, as Phase 4 does. Stores nothing unless `--apply` is given, in which case the
+ * (`src/questions/discover.ts`) and reconciles its candidates too, as Phase 4 does; `--force`
+ * runs discovery even while enough context questions are open for it to pause. Stores nothing unless `--apply` is given, in which case the
  * plan is written exactly as Phase 4 would write it (useful once after a migration, or to tidy
  * the queue now rather than tomorrow morning).
  *
@@ -22,10 +23,11 @@ import { discoverQuestions } from "../src/questions/discover";
 
 const apply = process.argv.includes("--apply");
 const discover = process.argv.includes("--discover");
+const force = process.argv.includes("--force");
 const today = utcDay();
 
 const open = new Map((await listOpen()).map((q) => [q.id, q]));
-const discovered = discover ? await discoverQuestions(today) : { candidates: [], unused: [], tokensIn: 0, tokensOut: 0 };
+const discovered = discover ? await discoverQuestions(today, { ignorePause: force }) : { candidates: [], unused: [], tokensIn: 0, tokensOut: 0 };
 if (discover) {
   console.log(`\nDiscovery: ${discovered.candidates.length} candidate(s), ${discovered.tokensIn} tokens in, ${discovered.tokensOut} out`);
   for (const c of discovered.candidates) console.log(`  "${c.question}"\n    ${c.why}`);

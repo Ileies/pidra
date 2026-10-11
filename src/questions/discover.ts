@@ -14,9 +14,13 @@ import { addDays, daysAgo } from "../util/time";
 import { squash } from "../util/text";
 import type { CandidateInput } from "./reconcile";
 
-/** Open `context` questions at which discovery pauses, so an unanswered queue does not keep growing. */
-export const MAX_OPEN_CONTEXT_QUESTIONS = 6;
-const MAX_PER_RUN = 3;
+/**
+ * Open `context` questions at which discovery makes no call. The reliable way to a quiet day: a
+ * prompt alone rarely gets a model to return nothing, so the pace follows how fast the reader answers.
+ */
+export const MAX_OPEN_CONTEXT_QUESTIONS = 3;
+/** A ceiling, not a target: the prompt asks for one or two on most days (owner, 2026-10-11). */
+const MAX_PER_RUN = 4;
 
 const ASKED_DAYS = 90;
 const CALENDAR_PAST_DAYS = 30;
@@ -191,17 +195,18 @@ export function pickVaried<T extends { type: string }>(proposed: T[], n: number)
 /**
  * Up to `MAX_PER_RUN` `context` candidates for this run. Makes no call when `MAX_OPEN_CONTEXT_QUESTIONS`
  * are already waiting: the reader has not caught up, so more would only bury the ones there.
+ * Below that the full ceiling applies, so the queue can briefly hold more than the pause threshold.
  */
 export async function discoverQuestions(
   today: string,
-  opts: { longTermContext?: LongTermContext } = {},
+  opts: { longTermContext?: LongTermContext; ignorePause?: boolean } = {},
 ): Promise<DiscoveryResult> {
   const none = { candidates: [], unused: [], tokensIn: 0, tokensOut: 0, aiCalls: 0 };
   const waiting = await db
     .select({ id: questions.id })
     .from(questions)
     .where(and(eq(questions.status, "open"), eq(questions.kind, "context")));
-  if (waiting.length >= MAX_OPEN_CONTEXT_QUESTIONS) {
+  if (waiting.length >= MAX_OPEN_CONTEXT_QUESTIONS && !opts.ignorePause) {
     console.log(`[Questions] ${waiting.length} context question(s) still open, discovery skipped`);
     return none;
   }
@@ -247,7 +252,7 @@ export async function discoverQuestions(
   });
 
   const proposed = answer.questions.filter((q) => q.question.trim());
-  const candidates: CandidateInput[] = pickVaried(proposed, Math.min(MAX_PER_RUN, MAX_OPEN_CONTEXT_QUESTIONS - waiting.length))
+  const candidates: CandidateInput[] = pickVaried(proposed, MAX_PER_RUN)
     .map((q) => ({
       kind: "context" as const,
       question: squash(q.question, 400),

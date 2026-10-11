@@ -50,11 +50,16 @@ Rules:
 - Never ask for a password, a code, a card or account number, or anything that grants access.
   Naming an amount or a payment's recipient is fine.
 - Never invent anything the input does not contain.
-- Mix the kinds: at most two questions of the same type. When the material has a person, a thread
-  and a story worth asking about, ask one of each.
+- Value comes first. Only between two questions about equally worth asking, prefer the type that
+  the last days' questions in asked_before did not use.
 - One question per entry, at most 30 words, in {{language}}, addressing the reader directly and
   informally, the way a friend would. Answerable in a sentence or two.
-- Up to 5 questions, best first. Fewer, or none, when the input has nothing worth asking.
+
+How many: this runs every morning and the reader answers whatever you ask, so every question costs
+them a minute. Ask only what clears a high bar: something new since the earlier questions, whose
+answer the system would really use. On most days that is one or two questions. Zero is a good
+answer on a day with nothing new. Three or four only on a day with unusually much that is new
+and worth asking. Never fill up to a number. Best first.
 
 Fields (all required):
 - questions: for each, type (person, thread, opinion or experience), question, evidence (the item

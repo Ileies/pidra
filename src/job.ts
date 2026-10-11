@@ -10,7 +10,6 @@
  *   bun run src/job.ts feedback [YYYY-MM-DD]
  *   bun run src/job.ts source-scoring
  *   bun run src/job.ts meta-run
- *   bun run src/job.ts review
  *   bun run src/job.ts prune
  *   bun run src/job.ts context-builder
  */
@@ -20,7 +19,6 @@ import { runPipeline } from "./pipeline/run";
 import { runImplicitFeedback } from "./pipeline/implicit-feedback";
 import { runWeeklySourceScoring } from "./pipeline/weekly-source-scoring";
 import { runWeeklyMetaRun } from "./pipeline/weekly-meta-run";
-import { runWeeklyReview } from "./pipeline/weekly-review";
 import { pruneDeletedNotes } from "./notes/store";
 import { runContextBuilder } from "../context-builder/run";
 
@@ -33,7 +31,6 @@ const JOBS: Record<string, (date: string) => Promise<unknown>> = {
   "feedback": (date) => runImplicitFeedback(date),
   "source-scoring": () => runWeeklySourceScoring(),
   "meta-run": () => runWeeklyMetaRun(),
-  "review": () => runWeeklyReview(),
   "prune": async () => {
     await pruneDeletedNotes();
   },

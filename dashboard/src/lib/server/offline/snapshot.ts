@@ -7,14 +7,7 @@ import { loadHarvestDocument } from "#lib/server/contextHarvest.js";
 import { reportNotificationKey } from "#lib/server/notifications.js";
 import { ingestFailures, withoutDetail, type StepAttempt } from "#lib/pipeline.js";
 import { entriesOf, type ActionPreview, type ActionStatus, type QuickAction, type ReportJson } from "#lib/report/types.js";
-import type {
-  MirroredAppearance,
-  MirroredContact,
-  MirroredCorrection,
-  MirroredEntity,
-  MirroredReport,
-  MirroredTopic,
-} from "#lib/mirror/types.js";
+import type { MirroredContact, MirroredCorrection, MirroredReport, MirroredTopic } from "#lib/mirror/types.js";
 import type { NoteRow } from "#lib/notes/api.js";
 import type { MirroredContextDoc } from "#lib/offline/repo.js";
 
@@ -191,7 +184,6 @@ async function buildContextCounts() {
   const [counts] = await sql()<MirroredContextDoc["counts"][]>`
     SELECT
       (SELECT count(*) FROM contacts WHERE removed_at IS NULL)::int AS contacts,
-      (SELECT count(*) FROM entities)::int                        AS entities,
       (SELECT count(*) FROM context_builder_indexed_items
         WHERE source = 'email')::int                              AS indexed_email,
       (SELECT count(*) FROM context_builder_indexed_items
@@ -200,29 +192,7 @@ async function buildContextCounts() {
   return counts;
 }
 
-// Reference tables are mirrored whole (well under 100 kB on 2026-09-25, slow-moving); appearances
-// grow per report day, so they are bounded to the report window like extractions.
-
-async function buildEntities() {
-  return sql()<MirroredEntity[]>`
-    SELECT id, name, coalesce(aliases, '{}') AS aliases, type, domain, summary,
-           first_seen::text AS "firstSeen", last_mentioned::text AS "lastMentioned",
-           coalesce(mention_count, 0) AS "mentionCount", coalesce(status, 'active') AS status,
-           coalesce(importance, 'normal') AS importance, coalesce(locked, false) AS locked
-    FROM entities
-  `;
-}
-
-async function buildEntityAppearances() {
-  return sql()<MirroredAppearance[]>`
-    SELECT id, entity_id AS "entityId", report_date::text AS "reportDate",
-           context_snippet AS "contextSnippet", relevance_score AS "relevanceScore"
-    FROM entity_appearances
-    WHERE report_date >= (
-      SELECT min(report_date) FROM (SELECT report_date FROM daily_reports ORDER BY report_date DESC LIMIT ${MIRROR_DAYS}) win
-    )
-  `;
-}
+// Reference tables are mirrored whole (well under 100 kB on 2026-09-25, slow-moving).
 
 async function buildContacts() {
   return sql()<MirroredContact[]>`
@@ -250,8 +220,6 @@ export async function assemble(): Promise<SnapshotStores> {
     corrections,
     counts,
     harvest,
-    entities,
-    entityAppearances,
     contacts,
     topics,
   ] = await Promise.all([
@@ -260,8 +228,6 @@ export async function assemble(): Promise<SnapshotStores> {
     buildCorrections(),
     buildContextCounts(),
     loadHarvestDocument(),
-    buildEntities(),
-    buildEntityAppearances(),
     buildContacts(),
     buildTopics(),
   ]);
@@ -288,8 +254,6 @@ export async function assemble(): Promise<SnapshotStores> {
     notes,
     corrections,
     contextDoc: [contextDoc],
-    entities,
-    entityAppearances,
     contacts,
     topics,
   };

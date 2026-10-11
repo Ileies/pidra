@@ -9,9 +9,9 @@ const database = await useTestDatabase();
 setPrivateEnv();
 const sql = database.sql;
 const load = (path: string) => import(`../dashboard/src/routes/${path}/+page.server`);
-const [date, detail, corrections, sources, source, entity, runs, topics, contacts, chat, closed] = await Promise.all([
+const [date, detail, corrections, sources, source, runs, topics, contacts, chat, closed] = await Promise.all([
   load("[date]"), load("[date]/detail/[ids]"), load("context-builder/corrections"), load("sources"), load("sources/[name]"),
-  load("entities/[id]"), load("runs"), load("topics"), load("contacts"), load("chat"), load("questions/closed"),
+  load("runs"), load("topics"), load("contacts"), load("chat"), load("questions/closed"),
 ]);
 
 interface Sent { url: string; init: RequestInit }
@@ -86,16 +86,6 @@ describe("bridge-only actions", () => {
     expect(sent[0]!.url).toBe(`http://bridge.test/api/context/corrections/${UUID}/revert`);
     expect(await corrections.actions.revertCorrection(ask({ id: "../../x" }))).toMatchObject({ status: 400 });
     expect(sent).toHaveLength(1);
-  });
-
-  test("watching an entity amends its importance, un-watching sets it back to normal", async () => {
-    await entity.actions.watch(ask({ name: "Acme Corp", watched: "true" }));
-    expect(bodyOf(sent[0]!)).toMatchObject({ target_kind: "entity", target_key: "Acme Corp", operation: "amend", fields: { importance: "high" }, source: "dashboard" });
-    expect(bodyOf(sent[0]!).statement).toContain("is watched");
-    await entity.actions.watch(ask({ name: "Acme Corp" }));
-    expect(bodyOf(sent[1]!)).toMatchObject({ fields: { importance: "normal" }, statement: "Acme Corp is no longer watched." });
-    expect(await entity.actions.watch(ask({}))).toMatchObject({ status: 400 });
-    expect(sent).toHaveLength(2);
   });
 
   test("a contact edit sends only the fields the form carried, blank ones as null", async () => {

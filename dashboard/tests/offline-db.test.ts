@@ -156,6 +156,8 @@ describe("upgrade", () => {
       notes: [{ id: "n1" }],
       rules: [{ id: "r1" }],
       entityRelations: [{ id: "x1" }],
+      entities: [{ id: "e1" }],
+      entityAppearances: [{ id: "a1", entityId: "e1" }],
     });
 
     expect(await ids("outbox")).toEqual(["q2"]);
@@ -171,18 +173,9 @@ describe("upgrade", () => {
     });
     expect(names).not.toContain("rules");
     expect(names).not.toContain("entityRelations");
+    expect(names).not.toContain("entities");
+    expect(names).not.toContain("entityAppearances");
     expect(names.sort()).toEqual([...db.STORES].sort());
-  });
-
-  test("version 5 indexes appearances that an older build already stored", async () => {
-    await seedOlderVersion(4, {
-      entityAppearances: [
-        { id: "a1", entityId: "e1" },
-        { id: "a2", entityId: "e2" },
-      ] as { id: string }[],
-    });
-    const found = await db.getAllBy<db.Keyed>("entityAppearances", "entityId", "e1");
-    expect(found.map((r) => r.id)).toEqual(["a1"]);
   });
 });
 

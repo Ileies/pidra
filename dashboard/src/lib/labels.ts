@@ -21,9 +21,8 @@ const LABELS: Record<string, string> = {
   high: "High priority",
   normal: "Normal",
   low: "Low",
-  mentions: "Mentions",
 
-  // entity status and importance
+  // topic status
   active: "Active",
   dormant: "Dormant",
   archived: "Archived",

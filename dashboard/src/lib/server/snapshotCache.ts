@@ -88,9 +88,6 @@ async function computeFingerprint(): Promise<string> {
       (SELECT md5(coalesce(string_agg(c::text, ',' ORDER BY c.id), '')) FROM context_corrections c),
       (SELECT md5(coalesce(string_agg(r::text, ',' ORDER BY r.id), '')) FROM context_builder_runs r),
       (SELECT md5(coalesce(string_agg(ct::text, ',' ORDER BY ct.id), '')) FROM contacts ct),
-      (SELECT md5(coalesce(string_agg(e::text, ',' ORDER BY e.id), '')) FROM entities e),
-      (SELECT md5(coalesce(string_agg(ea::text, ',' ORDER BY ea.id), ''))
-         FROM entity_appearances ea WHERE ea.report_date >= (SELECT min(report_date) FROM win)),
       (SELECT md5(coalesce(string_agg(t::text, ',' ORDER BY t.id), '')) FROM active_topics t),
       (SELECT count(*)::text FROM context_builder_indexed_items)
     ) AS fp

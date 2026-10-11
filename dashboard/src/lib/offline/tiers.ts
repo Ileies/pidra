@@ -20,8 +20,6 @@ export const MIRRORED_ROUTES: ReadonlySet<string> = new Set([
   "/notes",
   "/context-builder",
   "/context-builder/corrections",
-  "/entities",
-  "/entities/[id]",
   "/contacts",
   "/topics",
   "/settings",

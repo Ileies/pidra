@@ -58,7 +58,8 @@
   function kindBadge(q: PageData["open"][number]): string {
     if (q.kind === "review") return "Weekly review";
     if (q.kind === "chat") return "Asked by the assistant";
-    return q.sources[0]?.source_type === "entity" ? "Entity" : "Mail";
+    // Questions the retired entity enrichment raised can still sit in the queue.
+    return q.sources[0]?.source_type === "entity" ? "Question" : "Mail";
   }
 </script>
 
@@ -86,7 +87,7 @@
   {#if data.open.length === 0}
     <EmptyState
       title="No open questions."
-      hint="Questions come in when mail arrives from a sender the system cannot place, when an entity keeps recurring without the system ever placing it, and with the weekly review. They wait here until you answer them."
+      hint="Questions come in when mail arrives from a sender the system cannot place, and with the weekly review. They wait here until you answer them."
     />
   {:else}
     <div class="flex flex-col gap-1">
@@ -95,7 +96,7 @@
       </h1>
       <p class="text-surface-400 text-xs">
         Answer in any order, one at a time. The briefings never wait for them. The assistant acts on
-        each answer right away - it can edit contacts, entities and the context, remove them, write
+        each answer right away - it can edit contacts and the context, remove contacts, write
         notes and to-dos - and says what it did under Recently closed questions.
       </p>
     </div>

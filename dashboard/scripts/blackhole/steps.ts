@@ -186,35 +186,6 @@ export const CONTROLS: Record<string, Control[]> = {
       },
     },
   ],
-  "/entities": [
-    {
-      name: "search the entities",
-      async run(page, deadline) {
-        await page.getByLabel("Search entities").fill("Project");
-        await page.getByLabel("Search entities").press("Enter");
-        await visible(page.getByText(F.TEXT.otherEntity), deadline);
-        await page.getByText(F.TEXT.entity, { exact: true }).waitFor({ state: "hidden", timeout: remaining(deadline) });
-      },
-    },
-    {
-      name: "open an entity",
-      async run(page, deadline) {
-        await tap(page.getByRole("link", { name: F.TEXT.otherEntity }).first(), deadline);
-        await visible(page.getByRole("heading", { name: F.TEXT.otherEntity }), deadline);
-      },
-    },
-  ],
-  "/entities/[id]": [
-    {
-      name: "watching is online-only",
-      async run(page, deadline) {
-        await visible(page.getByText(/^Watching needs the connection/), deadline);
-        const watch = page.locator('button[title="Needs the connection"]').first();
-        await visible(watch, deadline);
-        if (await watch.isEnabled()) throw new Error("the watch button is enabled offline");
-      },
-    },
-  ],
   "/contacts": [
     {
       name: "editing is online-only",

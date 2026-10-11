@@ -3,7 +3,7 @@
  * The race is forced, not hoped for: a readwrite transaction on `meta` holds the reload's
  * `mirrorEmpty()` read for 800 ms, so the reload after the write is still running when the page
  * writes its filter into the URL (250 ms debounce). Pins the `shownUrl()` reading in
- * `routes/notes` and `routes/entities`: from `page.url` alone, that reload reset the filter.
+ * `routes/notes`: from `page.url` alone, that reload reset the filter.
  *
  *   bun run scripts/blackhole/race.ts          against the existing build/, a few seconds
  *   bun run scripts/blackhole/race.ts --fast   restore clicked at once, so the URL write lands mid-reload

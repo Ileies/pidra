@@ -28,7 +28,7 @@
       <li>Google Calendar event details and Google Tasks lists, tasks, due dates, and completion status.</li>
       <li>Google Keep notes through a separate integration, GitHub activity, SMS messages, news feeds, and web search results.</li>
       <li>Notes, corrections, preferences, questions and answers, feedback, chat messages, and actions entered in PIDRA.</li>
-      <li>Derived material such as summaries, reports, extracted facts, entity and contact records, source scores, and audit logs.</li>
+      <li>Derived material such as summaries, reports, extracted facts, contact records, source scores, and audit logs.</li>
       <li>Operational data such as access tokens, connection settings, request and error logs, device push subscriptions, and local offline copies.</li>
     </ul>
     <p>

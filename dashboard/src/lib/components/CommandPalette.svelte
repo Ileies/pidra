@@ -143,7 +143,6 @@
     report: "Report",
     extraction: "Item",
     note: "Note",
-    entity: "Entity",
     rule: "Rule",
   };
 </script>
@@ -166,7 +165,7 @@
           value={query}
           oninput={onInput}
           onkeydown={onKeydown}
-          placeholder="Search reports, items, notes and entities, or jump to a page…"
+          placeholder="Search reports, items and notes, or jump to a page…"
           aria-label="Search"
           class="flex-1 bg-transparent border-none py-3 text-base sm:text-sm text-surface-100 placeholder-surface-400 outline-none"
         />

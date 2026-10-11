@@ -15,15 +15,7 @@
 import * as db from "./db.js";
 import { getLastSyncedAt, sync } from "./sync.js";
 import { mirrorKey, type MirrorKey, type MirrorStore } from "./deps.js";
-import type {
-  EntityAppearance,
-  MirroredAppearance,
-  MirroredContact,
-  MirroredCorrection,
-  MirroredEntity,
-  MirroredReport,
-  MirroredTopic,
-} from "#lib/mirror/types.js";
+import type { MirroredContact, MirroredCorrection, MirroredReport, MirroredTopic } from "#lib/mirror/types.js";
 import type { ExtractedJson } from "#lib/server/extractions.js";
 import type { HarvestDoc, HarvestRun } from "#lib/server/contextHarvest.js";
 import type { NoteRow as MirroredNote } from "#lib/notes/api.js";
@@ -48,7 +40,7 @@ export async function mirrorEmpty(): Promise<boolean> {
   return (await getLastSyncedAt()) === null;
 }
 
-export type { EntityAppearance, MirroredAppearance, MirroredContact, MirroredCorrection, MirroredEntity, MirroredReport, MirroredTopic };
+export type { MirroredContact, MirroredCorrection, MirroredReport, MirroredTopic };
 
 export async function report(depends: Depends, date: string): Promise<MirroredReport | null> {
   watch(depends, "reports");
@@ -160,7 +152,7 @@ export interface MirroredContextDoc {
   docError: string | null;
   skipped: { startedAt: string; mode: string; reason: string }[];
   corrections: MirroredCorrection[];
-  counts: { contacts: number; entities: number; indexed_email: number; indexed_keep: number };
+  counts: { contacts: number; indexed_email: number; indexed_keep: number };
 }
 
 const EMPTY_CONTEXT_DOC: MirroredContextDoc = {
@@ -170,7 +162,7 @@ const EMPTY_CONTEXT_DOC: MirroredContextDoc = {
   docError: null,
   skipped: [],
   corrections: [],
-  counts: { contacts: 0, entities: 0, indexed_email: 0, indexed_keep: 0 },
+  counts: { contacts: 0, indexed_email: 0, indexed_keep: 0 },
 };
 
 export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> {
@@ -179,32 +171,6 @@ export async function contextDoc(depends: Depends): Promise<MirroredContextDoc> 
 }
 
 // Reference tables below are read-only here: corrections and topic curation are online-only.
-
-/** Most mentioned first. */
-export async function entities(depends: Depends): Promise<MirroredEntity[]> {
-  watch(depends, "entities");
-  const rows = await db.getAll<MirroredEntity>("entities");
-  return rows.sort(
-    (a, b) => b.mentionCount - a.mentionCount || (b.lastMentioned ?? "").localeCompare(a.lastMentioned ?? ""),
-  );
-}
-
-/** One entity and its appearances inside the report window. Null when the mirror has no such entity. */
-export async function entity(
-  depends: Depends,
-  id: string,
-): Promise<{ entity: MirroredEntity; appearances: EntityAppearance[] } | null> {
-  watch(depends, "entities", "entityAppearances");
-  const [row, appearanceRows] = await Promise.all([
-    db.get<MirroredEntity>("entities", id),
-    db.getAllBy<MirroredAppearance>("entityAppearances", "entityId", id),
-  ]);
-  if (!row) return null;
-
-  const appearances = appearanceRows.sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? ""));
-
-  return { entity: row, appearances };
-}
 
 const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1 };
 

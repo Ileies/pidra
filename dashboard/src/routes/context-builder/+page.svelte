@@ -29,7 +29,7 @@
       route: "/context-builder",
       digest: [
         "Harvested long-term context.",
-        `${data.counts.entities} entities, ${data.counts.contacts} contacts,`,
+        `${data.counts.contacts} contacts,`,
         `${data.corrections.length} active corrections (see /context-builder/corrections).`,
         data.doc ? "The context document exists." : "There is no context document yet.",
       ].join(" "),

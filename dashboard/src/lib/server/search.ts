@@ -8,7 +8,7 @@
 import { sql } from "#lib/server/postgres.js";
 import { sanitizeSnippet } from "#lib/markdown.js";
 
-export type SearchKind = "report" | "extraction" | "note" | "entity";
+export type SearchKind = "report" | "extraction" | "note";
 
 export interface SearchHit {
   /** Unique within a kind. The report's id is its date, which is also its route. */
@@ -19,7 +19,7 @@ export interface SearchHit {
   snippet: string;
   score: number;
   href: string;
-  /** Whatever locates the hit for a human: a date, a scope, an entity type. */
+  /** Whatever locates the hit for a human: a date, a scope. */
   meta?: string;
 }
 
@@ -118,19 +118,6 @@ const SOURCES: Record<SearchKind, Source> = {
       href: `/notes?q=${encodeURIComponent(query)}`,
       meta: `Note · ${row.scope}`,
     }),
-  ),
-  entity: source(
-    "entity",
-    (db, tsQuery, limit) => db<{ id: string; name: string; type: string | null; snippet: string; score: number }[]>`
-      SELECT id::text AS id, name, type, mention_count,
-             ts_headline('simple', coalesce(summary, name), to_tsquery('simple', ${tsQuery}), ${HEADLINE}) AS snippet,
-             ts_rank(search_tsv, to_tsquery('simple', ${tsQuery})) AS score
-      FROM entities
-      WHERE search_tsv @@ to_tsquery('simple', ${tsQuery})
-      ORDER BY score DESC, mention_count DESC NULLS LAST
-      LIMIT ${limit}
-    `,
-    (row) => ({ id: row.id, title: row.name, href: `/entities/${row.id}`, meta: row.type ?? "Entity" }),
   ),
 };
 

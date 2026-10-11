@@ -6,7 +6,7 @@ export const LOCAL_SKILLS: (Pick<SkillInfo, "name" | "description" | "risk_level
   { name: "add_contact", description: "Add a sender to the contacts directory", risk_level: "medium" },
   { name: "create_question", description: "Queue a question for the owner on /questions", risk_level: "low" },
   { name: "list_questions", description: "List the questions waiting for the owner on /questions", risk_level: "low" },
-  { name: "remove_context_item", description: "Archive an entity or contact so it can be restored later", risk_level: "medium" },
+  { name: "remove_context_item", description: "Archive a contact so it can be restored later", risk_level: "medium" },
   { name: "add_todo_item", description: "Add a task to Google Tasks", risk_level: "low" },
   { name: "complete_todo_item", description: "Mark a Google Tasks item as completed", risk_level: "low" },
   { name: "create_file", description: "Create a file at a given path with specified content", risk_level: "medium" },

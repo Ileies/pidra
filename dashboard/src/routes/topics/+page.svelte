@@ -59,7 +59,7 @@
 
   $effect(() => {
     setPageContext({
-      surface: "entities",
+      surface: "global",
       route: "/topics",
       digest: `Topics: ${shown.length} shown (${countOf.active} active, ${countOf.dormant} dormant, ${countOf.archived} archived, ${countOf.resolved} resolved). Filter: ${statusFilter}.`,
       focus: focusFrom(shown, "topic", (topic) => ({ id: topic.id, label: topic.headline })),

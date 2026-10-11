@@ -1,16 +1,16 @@
 /**
  * The command palette's offline search. Online the palette asks `/api/search` (Postgres `tsvector`,
- * `lib/server/search.ts`); offline it uses this plain-text scan of the mirrored reports, notes and
- * entities (no stemming, ranking is a match count, only the mirrored window), and the palette says
+ * `lib/server/search.ts`); offline it uses this plain-text scan of the mirrored reports and notes
+ * (no stemming, ranking is a match count, only the mirrored window), and the palette says
  * which one answered. No local index at this size; see docs/todo/later.md (semantic search).
  */
 
 import * as db from "./db.js";
-import type { MirroredEntity, MirroredReport } from "./repo.js";
+import type { MirroredReport } from "./repo.js";
 import type { NoteRow } from "#lib/notes/api.js";
 import { entriesOf } from "#lib/report/types.js";
 
-export type OfflineHitKind = "report" | "note" | "entity";
+export type OfflineHitKind = "report" | "note";
 
 export interface OfflineHit {
   id: string;
@@ -81,11 +81,7 @@ export async function searchMirror(query: string, limit = 20): Promise<OfflineHi
   const terms = termsOf(query);
   if (terms.length === 0) return [];
 
-  const [reports, notes, entities] = await Promise.all([
-    db.getAll<MirroredReport>("reports"),
-    db.getAll<NoteRow>("notes"),
-    db.getAll<MirroredEntity>("entities"),
-  ]);
+  const [reports, notes] = await Promise.all([db.getAll<MirroredReport>("reports"), db.getAll<NoteRow>("notes")]);
 
   const hits: OfflineHit[] = [];
   const consider = (hit: Omit<OfflineHit, "score" | "snippet">, text: string) => {
@@ -102,12 +98,6 @@ export async function searchMirror(query: string, limit = 20): Promise<OfflineHi
     consider(
       { id: note.id, kind: "note", title: note.content.slice(0, 60) || "Note", href: `/notes?q=${encodeURIComponent(query)}`, meta: `Note · ${note.scope}` },
       note.content,
-    );
-  }
-  for (const entity of entities) {
-    consider(
-      { id: entity.id, kind: "entity", title: entity.name, href: `/entities/${entity.id}`, meta: entity.type ?? "Entity" },
-      [entity.name, ...entity.aliases, entity.summary ?? ""].join(" "),
     );
   }
 

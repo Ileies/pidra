@@ -8,10 +8,8 @@
  */
 
 import type {
-  MirroredAppearance,
   MirroredContact,
   MirroredContextDoc,
-  MirroredEntity,
   MirroredExtraction,
   MirroredReport,
   MirroredTopic,
@@ -32,8 +30,6 @@ export const EXTRACTION = {
 
 export const NOTE_ID = "00000000-0000-4000-8000-0000000000a1";
 export const TRASHED_NOTE_ID = "00000000-0000-4000-8000-0000000000a2";
-export const ENTITY_ID = "00000000-0000-4000-8000-0000000000c1";
-const OTHER_ENTITY_ID = "00000000-0000-4000-8000-0000000000c2";
 export const CONTACT_ID = "00000000-0000-4000-8000-0000000000d1";
 export const TOPIC_ID = "00000000-0000-4000-8000-0000000000e1";
 
@@ -47,8 +43,6 @@ export const TEXT = {
   note: "Example note: bring the placeholder folder.",
   trashedNote: "Example note that was deleted.",
   harvest: "Example harvested interests section.",
-  entity: "Example Organisation",
-  otherEntity: "Example Project",
   contact: "sender@example.com",
   topic: "Example standing story",
   correction: "Example correction statement.",
@@ -204,43 +198,8 @@ const contextDoc: MirroredContextDoc = {
       created_at: NOW,
     },
   ],
-  counts: { contacts: 1, entities: 2, indexed_email: 10, indexed_keep: 2 },
+  counts: { contacts: 1, indexed_email: 10, indexed_keep: 2 },
 };
-
-const entities: MirroredEntity[] = [
-  {
-    id: ENTITY_ID,
-    name: TEXT.entity,
-    aliases: [],
-    type: "organisation",
-    domain: "technology",
-    summary: "An example organisation for the offline suite.",
-    firstSeen: YESTERDAY,
-    lastMentioned: TODAY,
-    mentionCount: 5,
-    status: "active",
-    importance: "normal",
-    locked: false,
-  },
-  {
-    id: OTHER_ENTITY_ID,
-    name: TEXT.otherEntity,
-    aliases: [],
-    type: "project",
-    domain: "technology",
-    summary: null,
-    firstSeen: YESTERDAY,
-    lastMentioned: TODAY,
-    mentionCount: 2,
-    status: "active",
-    importance: "normal",
-    locked: false,
-  },
-];
-
-const entityAppearances: MirroredAppearance[] = [
-  { id: "00000000-0000-4000-8000-0000000000c4", entityId: ENTITY_ID, reportDate: TODAY, contextSnippet: "Example snippet.", relevanceScore: 6 },
-];
 
 const contacts: MirroredContact[] = [
   {
@@ -277,8 +236,6 @@ const stores = {
   notes,
   corrections: contextDoc.corrections,
   contextDoc: [contextDoc],
-  entities,
-  entityAppearances,
   contacts,
   topics,
 } satisfies Record<string, { id: string }[]>;
@@ -369,14 +326,6 @@ const layoutStores = {
   ],
   corrections: layoutContextDoc.corrections,
   contextDoc: [layoutContextDoc],
-  entities: [
-    ...entities,
-    ...bulk((i): MirroredEntity => ({ ...entities[1], id: bulkId(0x14, i), name: `Example Bulk Entity ${i}`, summary: i % 2 ? "An example summary." : null, mentionCount: i })),
-  ],
-  entityAppearances: [
-    ...entityAppearances,
-    ...bulk((i): MirroredAppearance => ({ ...entityAppearances[0], id: bulkId(0x15, i), reportDate: daysAgo(i), contextSnippet: `Example snippet ${i}.` })),
-  ],
   contacts: [...contacts, ...bulk((i): MirroredContact => ({ ...contacts[0], id: bulkId(0x16, i), identifier: `sender${i}@example.com`, name: `Example Sender ${i}` }))],
   topics: [...topics, ...bulk((i): MirroredTopic => ({ ...topics[0], id: bulkId(0x17, i), headline: `Example bulk story ${i}` }))],
 } satisfies Record<string, { id: string }[]>;

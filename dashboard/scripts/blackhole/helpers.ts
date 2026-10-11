@@ -30,7 +30,6 @@ const PATHS: Record<string, string> = {
   "/[date]": `/${F.TODAY}`,
   "/[date]/detail/[ids]": `/${F.TODAY}/detail/${F.EXTRACTION.personal}`,
   "/[date]/triage": `/${F.TODAY}/triage`,
-  "/entities/[id]": `/entities/${F.ENTITY_ID}`,
   "/sources/[name]": "/sources/example-source",
   "/runs/[id]": "/runs/00000000-0000-4000-8000-000000000000",
 };
@@ -53,8 +52,6 @@ export function expectedText(id: string): string {
     "/notes": F.TEXT.note,
     "/context-builder": F.TEXT.harvest,
     "/context-builder/corrections": F.TEXT.correction,
-    "/entities": F.TEXT.entity,
-    "/entities/[id]": F.TEXT.entity,
     "/contacts": F.TEXT.contact,
     "/topics": F.TEXT.topic,
     "/settings": "Settings",

@@ -5,7 +5,7 @@ import { sql } from "#lib/server/postgres.js";
  * Hard delete of everything `/sources` knows about a source: its quality row, daily scores and
  * polling/matching config, in one transaction. Nothing remembers it afterwards, so a later mail
  * from the same sender starts a brand-new entry. Past reports and the data behind them
- * (`raw_items`, `extractions`, feedback, entity mentions) are pipeline history and stay.
+ * (`raw_items`, `extractions`, feedback) are pipeline history and stay.
  */
 export async function deleteSource(sourceName: string): Promise<void> {
   await sql().begin(async (tx) => {

@@ -18,7 +18,7 @@ const HINTS: Record<string, string> = {
   "phase5-section2": "Writes the personal part: email, calendar, tasks and SMS, with urgency labels.",
   "phase5-news": "The news editor assembles the desks' stories into the News section.",
   "phase5-actions": "Derives the quick actions offered with the report.",
-  phase6: "Updates entities, source trust and other long-term state from the run.",
+  phase6: "Updates topics, source trust and other long-term state from the run.",
 };
 
 /** A short explanation for a step, or null when its name already says enough. */

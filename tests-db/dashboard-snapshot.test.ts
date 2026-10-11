@@ -43,13 +43,12 @@ async function seed() {
   await sql`insert into auth_sessions (id, expires_at, user_agent) values ('s1', now() + interval '1 day', 'SESSION-AGENT-MARKER')`;
   await sql`insert into notes (content, scope, created_by) values ('A mirrored note', 'global', 'user')`;
   await sql`insert into contacts (identifier, name) values ('anna@example.test', 'Anna')`;
-  await sql`insert into entities (name) values ('Acme Corp')`;
   await sql`insert into active_topics (headline, domain, first_seen, last_updated) values ('A topic', 'tech', '2026-10-01', '2026-10-05')`;
   return { extractionId: ext!.id as string };
 }
 
 beforeEach(async () => {
-  await database.sql`truncate daily_reports, pipeline_runs, report_actions, raw_items, extractions, chat_conversations, skill_executions, push_subscriptions, email_accounts, questions, auth_pin, auth_sessions, notes, contacts, entities, active_topics, notification_reads, feedback_events cascade`;
+  await database.sql`truncate daily_reports, pipeline_runs, report_actions, raw_items, extractions, chat_conversations, skill_executions, push_subscriptions, email_accounts, questions, auth_pin, auth_sessions, notes, contacts, active_topics, notification_reads, feedback_events cascade`;
 });
 
 describe("what may never leave the server", () => {
@@ -59,7 +58,6 @@ describe("what may never leave the server", () => {
     const wire = JSON.stringify(stores);
     for (const marker of MARKERS) expect(wire, marker).not.toContain(marker);
     expect(wire).toContain("A mirrored note");
-    expect(wire).toContain("Acme Corp");
     expect(wire).toContain("anna@example.test");
   });
 
@@ -103,7 +101,7 @@ describe("GET /api/offline/snapshot", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("etag")).toBe(`"${body.etag}"`);
     expect(body).toMatchObject({ mode: "full", base: null });
-    expect(Object.keys(body.stores).sort()).toEqual(["contacts", "contextDoc", "corrections", "entities", "entityAppearances", "extractions", "notes", "reports", "topics"]);
+    expect(Object.keys(body.stores).sort()).toEqual(["contacts", "contextDoc", "corrections", "extractions", "notes", "reports", "topics"]);
     for (const marker of MARKERS) expect(JSON.stringify(body), marker).not.toContain(marker);
   });
 

@@ -29,7 +29,6 @@
   const SURFACE_LABEL: Record<string, string> = {
     notes: "Notes",
     context: "Context",
-    entities: "Entities",
     report: "Briefing",
     sources: "Sources",
     prompts: "Prompts",

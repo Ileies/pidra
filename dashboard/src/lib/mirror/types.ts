@@ -80,32 +80,6 @@ export interface MirroredCorrection {
   created_at: string;
 }
 
-export interface MirroredEntity {
-  id: string;
-  name: string;
-  aliases: string[];
-  type: string | null;
-  domain: string | null;
-  summary: string | null;
-  firstSeen: string | null;
-  lastMentioned: string | null;
-  mentionCount: number;
-  status: string;
-  importance: string;
-  locked: boolean;
-}
-
-export interface EntityAppearance {
-  id: string;
-  reportDate: string | null;
-  contextSnippet: string | null;
-  relevanceScore: number | null;
-}
-
-export interface MirroredAppearance extends EntityAppearance {
-  entityId: string;
-}
-
 export interface MirroredContact {
   id: string;
   identifier: string;

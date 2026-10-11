@@ -15,11 +15,9 @@ const DB_NAME = "pidra-offline";
  *  2: reference tables (entities, relations, appearances, contacts, topics).
  *  3: `entityRelations` dropped (relation graph removed, see docs/scoring-formulas.md).
  *  4: `rules` store dropped and queued/failed `rule.*` writes deleted (rules became notes).
- *  5: `entityAppearances` gets an `entityId` index. */
-const DB_VERSION = 5;
-
-/** Secondary indexes, by store. Created on upgrade; `getAllBy` reads them. */
-const INDEXES: Partial<Record<Store, string[]>> = { entityAppearances: ["entityId"] };
+ *  5: `entityAppearances` gets an `entityId` index.
+ *  6: `entities` and `entityAppearances` dropped (the entities feature was removed; notes carry name background). */
+const DB_VERSION = 6;
 
 export const STORES = [
   "reports",
@@ -27,8 +25,6 @@ export const STORES = [
   "notes",
   "corrections",
   "contextDoc",
-  "entities",
-  "entityAppearances",
   "contacts",
   "topics",
   "meta",
@@ -45,8 +41,6 @@ export const MIRROR_STORES = [
   "notes",
   "corrections",
   "contextDoc",
-  "entities",
-  "entityAppearances",
   "contacts",
   "topics",
 ] as const satisfies readonly Store[];
@@ -78,12 +72,9 @@ function openDb(): Promise<IDBDatabase> {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
-      for (const [name, fields] of Object.entries(INDEXES)) {
-        const os = req.transaction!.objectStore(name);
-        for (const field of fields) if (!os.indexNames.contains(field)) os.createIndex(field, field);
+      for (const gone of ["entityRelations", "entities", "entityAppearances", "rules"]) {
+        if (db.objectStoreNames.contains(gone)) db.deleteObjectStore(gone);
       }
-      if (db.objectStoreNames.contains("entityRelations")) db.deleteObjectStore("entityRelations");
-      if (db.objectStoreNames.contains("rules")) db.deleteObjectStore("rules");
       // A queued or failed rule write has nowhere to go any more; leaving it would jam the drain.
       const tx = req.transaction;
       if (tx) {
@@ -146,11 +137,6 @@ export function getAll<T extends Keyed>(store: Store): Promise<T[]> {
 /** Every key of a store without cloning its rows. A row's key is its `id`. */
 export async function keys(store: Store): Promise<string[]> {
   return (await run(store, "readonly", (os) => os.getAllKeys())).map(String);
-}
-
-/** The rows whose `field` equals `value`; only the fields in `INDEXES` can be asked for. */
-export function getAllBy<T extends Keyed>(store: Store, field: string, value: string): Promise<T[]> {
-  return run(store, "readonly", (os) => os.index(field).getAll(value) as IDBRequest<T[]>);
 }
 
 export async function put<T extends Keyed>(store: Store, value: T): Promise<void> {

@@ -5,14 +5,14 @@
    * prop: a prop would let each page decide what the header looks like, which is the problem
    * this component exists to remove.
    *
-   * Two forms (entries come from `ROUTES` in `lib/routes.ts`; see docs/dashboard.md "Navigation"):
+   * Two forms, chosen by input device (the `mouse:`/`touch:` variants in `app.css`), not width
+   * (entries come from `ROUTES` in `lib/routes.ts`; see docs/dashboard.md "Navigation"):
    *
-   * - **`lg` (1024px) and up:** one row showing only the non-`secondary` entries; the rest sit
-   *   behind a "More" menu of tiles, each with its own count, the button showing the sum. The
-   *   row would not fit on one line below `lg`, and between `lg` and `xl` it is compacted
-   *   (smaller padding, wordmark hidden) to still fit at 1024px. Settings is an icon-only button.
-   * - **Below `lg`:** only icon, page title, sync state and settings stay here; navigation is
-   *   `TabBar` and its More sheet.
+   * - **Mouse:** one row showing only the non-`secondary` entries; the rest sit behind a "More"
+   *   menu of tiles, each with its own count, the button showing the sum. Settings is an
+   *   icon-only button.
+   * - **Touch:** only icon, wordmark, page title, sync state and settings stay here; navigation
+   *   is `TabBar` and its More sheet.
    *
    * Badge counts come from `navBadges` (`/api/nav-badges`), keyed by href. Log out, passkeys and
    * the legal pages live in /settings.
@@ -77,11 +77,10 @@
          pt-[var(--safe-t)] pl-[var(--safe-l)] pr-[var(--safe-r)]"
 >
   <div class="relative flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2">
-    <!-- The logo is the sync control; the wordmark next to it is the way home. Between `lg` and `xl`
-         the wordmark is hidden and the Report button in the row is the way home instead. -->
+    <!-- The logo is the sync control; the wordmark next to it is the way home, at every width. -->
     <div class="flex items-center gap-1 shrink-0">
       <SyncLogo />
-      <a href="/" class="font-bold tracking-widest text-lg text-surface-50 no-underline hover:opacity-90 transition-opacity lg:max-xl:hidden">PIDRA<span class="sr-only"> - home</span></a>
+      <a href="/" class="font-bold tracking-widest text-lg text-surface-50 no-underline hover:opacity-90 transition-opacity">PIDRA<span class="sr-only"> - home</span></a>
     </div>
 
     {#if subtitle}
@@ -93,7 +92,7 @@
     {/if}
 
     <!-- Desktop: the primary entries, then everything secondary behind one menu. Settings follows, last. -->
-    <nav aria-label="Main" class="hidden lg:flex items-center justify-end gap-3 lg:ml-auto">
+    <nav aria-label="Main" class="hidden mouse:flex items-center justify-end gap-2 sm:gap-3 mouse:ml-auto">
       {#each byGroup as group (group[0].href)}
         {#each group as entry (entry.href)}
           <NavLink {entry} variant="icon" current={isCurrentEntry(entry)} />
@@ -133,7 +132,7 @@
       href="/settings"
       aria-label="Settings"
       aria-current={current?.href === "/settings" ? "page" : undefined}
-      class="tap {appUpdate.ready ? 'md:ml-auto' : 'ml-auto'} lg:ml-0 flex h-10 w-10 items-center justify-center rounded-lg border no-underline transition-colors
+      class="tap {appUpdate.ready ? 'md:ml-auto' : 'ml-auto'} mouse:ml-0 flex h-10 w-10 items-center justify-center rounded-lg border no-underline transition-colors
         {current?.href === '/settings'
           ? 'border-primary-800 bg-primary-950 text-primary-300'
           : 'border-surface-700 bg-surface-950 text-surface-300 hover:border-surface-500 hover:text-surface-100'}"

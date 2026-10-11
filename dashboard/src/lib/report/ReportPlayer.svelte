@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The audio player UI for a report, docked to the bottom (above the tab bar on a phone). Mounted
+   * The audio player UI for a report, docked to the bottom (above the tab bar on a touch device). Mounted
    * once in the root layout (logged in only) and driven entirely by the `reportPlayer` singleton
    * (`player.svelte.ts`); the Play button lives on `/[date]`. The chapter seek bar is SeekBar.svelte.
    */
@@ -52,7 +52,7 @@
   <section
     aria-label="Report audio player"
     class="fixed inset-x-2 z-40 mx-auto flex max-w-2xl flex-col gap-2 rounded-xl border border-surface-700 bg-surface-900 p-3 shadow-2xl
-      bottom-[calc(3.5rem+var(--safe-b)+0.5rem)] lg:bottom-4"
+      bottom-[calc(3.5rem+var(--safe-b)+0.5rem)] mouse:bottom-4"
   >
     {#if minimized}
       <div class="flex items-center gap-2">

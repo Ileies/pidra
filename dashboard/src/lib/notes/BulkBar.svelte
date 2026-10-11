@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Fixed above the mobile tab bar (3.5rem plus the safe area), centred on desktop. */
+  /** Fixed above the tab bar on touch devices (3.5rem plus the safe area), lower without it. */
   import { NOTE_SCOPES, deleteNote, restoreNote, updateNote } from "#lib/notes/api.js";
   import type { NoteSelection } from "#lib/notes/useNoteSelection.svelte.js";
   import { label } from "#lib/labels.js";
@@ -14,7 +14,7 @@
 <div
   role="toolbar"
   aria-label="Selected notes"
-  class="fixed inset-x-3 bottom-[calc(4.25rem+var(--safe-b))] z-30 mx-auto flex max-w-xl flex-wrap items-center gap-2 rounded-lg border border-surface-500 bg-surface-800 px-3 py-2 text-sm shadow-2xl lg:bottom-6"
+  class="fixed inset-x-3 bottom-[calc(4.25rem+var(--safe-b))] z-30 mx-auto flex max-w-xl flex-wrap items-center gap-2 rounded-lg border border-surface-500 bg-surface-800 px-3 py-2 text-sm shadow-2xl mouse:bottom-6"
 >
   <span class="px-1 text-surface-100">{selection.count} selected</span>
   <button

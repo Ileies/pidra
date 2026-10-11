@@ -5,12 +5,12 @@
   import Panel from "#lib/assistant/Panel.svelte";
 
   /**
-   * The floating assistant: one button, bottom right, on every page from `lg` up. Mounted once
-   * in the root layout, so a turn keeps streaming while the user navigates.
+   * The floating assistant: one button, bottom right, on every page of a `mouse:` device. Mounted
+   * once in the root layout, so a turn keeps streaming while the user navigates. The panel's
+   * shape is a width question instead: full screen below `lg`, a floating card from `lg` up.
    *
-   * Below `lg` there is no launcher. The panel already took the whole screen
-   * there, so the button bought nothing and collided with the bottom bar, the toast and the iOS
-   * home indicator; the bottom bar's Chat tab is the mobile entry point instead.
+   * On `touch:` devices there is no launcher: it collided with the bottom bar, the toast and the
+   * iOS home indicator, and the bottom bar's Chat tab is the entry point there instead.
    *
    * Pages declare what they are showing with `setPageContext`; this only falls back to the route
    * so the header and the hints are right even on a page that declares nothing.
@@ -89,7 +89,7 @@
     onclick={() => assistant.toggle()}
     aria-label="Open assistant"
     title="Assistant (Ctrl+J)"
-    class="group fixed z-50 hidden lg:flex h-14 w-14 p-0 border-none bg-transparent
+    class="group fixed z-50 hidden mouse:flex h-14 w-14 p-0 border-none bg-transparent
            bottom-[calc(1.25rem+var(--safe-b))] right-5
            items-center justify-center
            drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] transition-transform duration-150

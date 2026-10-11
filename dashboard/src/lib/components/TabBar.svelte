@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
-   * The mobile bottom bar and its More sheet (a 3-column grid of the same tiles as the desktop
+   * The touch-device bottom bar (`touch:` in `app.css`, any width) and its More sheet (a 3-column grid of the same tiles as the desktop
    * More menu, so every destination is visible without scrolling). Destinations are the `tab` entries of `ROUTES`
    * (Report, Notes, Chat) plus More, each a full-height target (44px minimum). Chat being a tab
-   * is why the floating assistant launcher is hidden on phones.
+   * is why the floating assistant launcher is hidden on touch devices.
    *
    * `h-14` plus the safe-area inset, so the bar sits above the iOS home indicator.
    */
@@ -38,7 +38,7 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-40 bg-(--app-scrim) lg:hidden" aria-hidden="true"></div>
+  <div class="fixed inset-0 z-40 bg-(--app-scrim) mouse:hidden" aria-hidden="true"></div>
 
   <div
     role="dialog"
@@ -46,7 +46,7 @@
     use:swipeToClose={() => onOpenChange(false)}
     aria-label="More"
     aria-modal="true"
-    class="fixed inset-x-0 bottom-0 z-50 lg:hidden max-h-[80dvh] overflow-y-auto
+    class="fixed inset-x-0 bottom-0 z-50 mouse:hidden max-h-[80dvh] overflow-y-auto
            rounded-t-2xl border-t border-surface-700 bg-surface-900
            px-3 pt-3 pb-[calc(1rem+var(--safe-b))] shadow-2xl"
   >
@@ -64,7 +64,7 @@
 
 <nav
   aria-label="Primary"
-  class="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-surface-700 bg-surface-900
+  class="mouse:hidden fixed inset-x-0 bottom-0 z-30 border-t border-surface-700 bg-surface-900
          pb-[var(--safe-b)] grid grid-cols-4"
 >
   {#each TABS as tab (tab.href)}

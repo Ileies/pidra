@@ -39,7 +39,7 @@ export interface LayoutResult {
   error?: string;
 }
 
-/** 1024 is the first width with the full navbar, 1280 where the report rail appears, 1366 the common laptop, 1920 past the 1600px cap. */
+/** No touch emulation, so every width gets the mouse navbar (`app.css`). 1024 is `lg`, 1280 where the report rail appears, 1366 the common laptop, 1920 past the 1600px cap. */
 const VIEWPORTS = [
   { width: 1024, height: 768 },
   { width: 1280, height: 720 },

@@ -5,6 +5,13 @@
 
 @source "../node_modules/@skeletonlabs/skeleton-svelte";
 
+/* Navigation chrome follows the input device, not the width: `touch:` (primary pointer is a
+   finger) gets the bottom tab bar, `mouse:` the header nav row and the floating assistant. The
+   header row is a few icon buttons and fits any width, so width only decides content layout.
+   Every place that has to agree with the tab bar's presence uses these two, never `lg:`. */
+@custom-variant touch (@media (pointer: coarse));
+@custom-variant mouse (@media not all and (pointer: coarse));
+
 /* ==========================================================================
    Fonts
 

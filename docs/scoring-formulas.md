@@ -1,6 +1,6 @@
 # Scoring formulas
 
-The gate, trust-score, pruning and topic-lifecycle math as implemented, checked against the code on 2026-10-02. **If this drifts from the code, trust the code**: these numbers change during tuning without anyone updating a doc.
+The gate, trust-score and topic-lifecycle math as implemented, checked against the code on 2026-10-02. **If this drifts from the code, trust the code**: these numbers change during tuning without anyone updating a doc.
 
 ## Relevance gate (`src/pipeline/gate.ts`)
 
@@ -25,16 +25,6 @@ The daily composite per source (`src/pipeline/source-signal.ts`, written by `pha
 
 This replaced an earlier conditional-bump design (`if include_rate > 0.6 and avg_relevance > 3.8, +0.10 ...`). Do not reintroduce it without checking why it changed.
 
-## Entity lifecycle
-
-Entities move through three stages, with the first running at the end of each pipeline run and the others in the Sunday 02:00 `prune` job (`src/pipeline/entity-pruning.ts`):
-
-- **Dormant:** an `active` entity not mentioned for 14 days (`src/pipeline/phase6/dormant.ts`). A new mention reactivates a dormant or archived entity. Entities locked by a correction are skipped in both directions.
-- **Archived:** a dormant entity not mentioned for 60 days, unless `importance = high`.
-- **Deleted:** an archived entity absent for 180 days with `mention_count <= 2`. `entity_mentions` cascades on delete via FK.
-
-There is no relation graph (`entity_relations` was dropped: zero confirmed edges, zero evidence, never read by synthesis), so pruning only deals with the `entities` row itself.
-
 ## Topic lifecycle (`src/pipeline/topic-lifecycle.ts`)
 
 - An active topic with no story update for 7 days becomes dormant (`TOPIC_DORMANT_DAYS`); a dormant one with none for 30 days becomes archived (`TOPIC_ARCHIVE_DAYS`). Archived topics and their summaries are retained.
@@ -48,10 +38,9 @@ Implicit behavioral detection (calendar and to-do writes correlating with a repo
 
 ## Web search slots (`src/search/slots.ts`)
 
-Three Brave-search slots feed Section 1:
+Two Brave-search slots feed Section 1 (the ids 1 and 3 are kept, the watched-entity slot 2 was removed with the entities feature):
 
 1. **Topic deep-dive:** the active topic with the highest `update_count`.
-2. **Watched entity monitor:** entities with `importance = high` (the Watch control on `/entities/[id]`) that have gone 10 or more days unmentioned. Rotates by least recently searched (`last_watch_search`) so one target cannot monopolise the shared Brave quota.
 3. **Self/project reputation:** one target per day, rotating by the run date's day of year (so a rerun of a past day searches what that day did) through `notes` with scope `search`.
 
 Slots 4 (pre-meeting research) and 5 (user-specified search intent) are deliberately unbuilt (see "What's next" in `CLAUDE.md`).

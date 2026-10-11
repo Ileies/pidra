@@ -5,7 +5,7 @@
 The schema is split by concern and re-exported from `src/db/schema/index.ts`, so every `../db/schema` import and `drizzle.config.ts` (`schema: "./src/db/schema"`) resolve to the directory. `columns.ts` holds the shared `pk()` / `createdAt()` / `updatedAt()` helpers; schema comments are one line per table, so the rationale lives here.
 
 - `pipeline.ts`: `raw_items`, `extractions`, `ingest_drops`, `active_topics`, `daily_reports`, `report_audio`, `brave_daily_usage`, `report_actions`, `feedback_events`, `push_subscriptions`, `pipeline_runs`, `pipeline_run_steps`, `jev_decisions`, `run_candidates`, `notification_reads`
-- `context.ts`: `entities`, `entity_mentions`, `entity_appearances`, `source_quality`, `source_daily_scores`, `contacts`, `context_builder_runs`, `context_builder_indexed_items`, `context_corrections`
+- `context.ts`: `source_quality`, `source_daily_scores`, `contacts`, `context_builder_runs`, `context_builder_indexed_items`, `context_corrections`
 - `notes.ts`: `notes`, `note_revisions`, `note_loads`
 - `questions.ts`: `questions`, `question_events`
 - `chat.ts`: `chat_conversations`, `chat_messages`
@@ -23,9 +23,9 @@ Each table has one writer module; don't add a second writer. Tables described be
 - **Source enable/disable and delete** are dashboard-only writes straight to Postgres (`dashboard/src/lib/server/sources.ts`); the pipeline server has no endpoint for either.
   - `setSourceActive` upserts `source_quality`.
   - `deleteSource` (from `/sources/[name]`) removes the source from `source_daily_scores`, `source_quality`, `rss_feeds` and `newsletter_sender_rules` in one transaction. A later mail from the same sender starts a fresh entry with default trust and no score.
-  - `raw_items`, `extractions`, `feedback_events`, `entity_mentions`, `ingest_drops` and `daily_reports` are kept on purpose, so past reports and provenance do not change. Because a source's lifetime stats and delivery list are computed from them by source name, a re-created source's detail page shows its old deliveries.
+  - `raw_items`, `extractions`, `feedback_events`, `ingest_drops` and `daily_reports` are kept on purpose, so past reports and provenance do not change. Because a source's lifetime stats and delivery list are computed from them by source name, a re-created source's detail page shows its old deliveries.
 - **DB:** `src/db/index.ts`. Re-export everything from there and never open a new connection elsewhere.
-- **Search columns are not in the Drizzle schema.** `daily_reports`, `extractions`, `notes` and `entities` each carry a generated `search_tsv` tsvector with a GIN index, used by `/api/search`. They live only in `src/db/search-columns.sql` (idempotent `ADD COLUMN IF NOT EXISTS ... GENERATED ALWAYS AS ... STORED` plus the indexes), because declared in the schema each tsvector would come back in every `select()` row. A database built from `src/db/schema/` alone needs that file applied, or `/api/search` fails with "column does not exist". The db-test harness applies it after the exported schema.
+- **Search columns are not in the Drizzle schema.** `daily_reports`, `extractions` and `notes` each carry a generated `search_tsv` tsvector with a GIN index, used by `/api/search`. They live only in `src/db/search-columns.sql` (idempotent `ADD COLUMN IF NOT EXISTS ... GENERATED ALWAYS AS ... STORED` plus the indexes), because declared in the schema each tsvector would come back in every `select()` row. A database built from `src/db/schema/` alone needs that file applied, or `/api/search` fails with "column does not exist". The db-test harness applies it after the exported schema.
 
 ## Pipeline data
 
@@ -50,9 +50,8 @@ Each table has one writer module; don't add a second writer. Tables described be
   - `answer_status` (`running | done | failed`), `answer_outcome` and `answer_conversation_id` record what the assistant did with the answer; they are null for open, closed-without-answer and review questions.
 - `question_events`: append-only outcome log, one row per asked / reasked / rewritten / answered / dismissed / reopened / merged / resolved / dropped event with its reason, so history survives a later event overwriting `questions.status_detail`.
 
-## Entities, contacts and sources
+## Contacts and sources
 
-- `entities` / `entity_mentions` / `entity_appearances`: entities seen across newsletters and harvested sources. `entities.name` is unique. `entity_mentions` is the one-row-per-source provenance behind `mention_count` (one per newsletter, one per harvested item); `entity_appearances` is the timeline of report days an entity was actually cited in.
 - `contacts`: the email sender directory (not a general address book); a check constraint requires the address to look like an email. `removed_at` marks a contact the owner had removed (row kept and locked, every reader skips it, reverting the correction clears it).
 - `source_quality` / `source_daily_scores`: per-source trust scores and 30-day rolling history.
 

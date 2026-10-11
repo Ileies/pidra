@@ -1,19 +1,21 @@
 import { HttpError } from "../util/errors";
-import { db, contextCorrections, contacts, entities } from "../db";
+import { db, contextCorrections, contacts } from "../db";
 import { and, desc, eq, sql } from "drizzle-orm";
 
 /**
  * The only writer of `context_corrections`: the correction layer over the harvested long-term context
  * (harvested-context immutability, docs/architecture-rules.md). The context document is never
  * rewritten; corrections are injected beside it (`formatForPrompt`) and the prompts say they win.
- * Exception: `entities`/`contacts` rows are read directly by phase3-context and Section 2, so a
- * correction field-merges into the row, snapshots it into `previous_state` and sets `locked`
- * (re-seeds skip locked rows). Keep rules are notes (src/notes/store.ts), not covered here.
+ * Exception: `contacts` rows are read directly by Section 2, so a correction field-merges into the
+ * row, snapshots it into `previous_state` and sets `locked` (re-seeds skip locked rows). Keep rules
+ * and background on named things are notes (src/notes/store.ts), not covered here.
  * Callers: the revise_context / revert_context_revision / remove_context_item / add_contact skills.
  * Throws `CorrectionError` (HttpError; 409 for revert state conflicts).
+ * Rows with `target_kind = 'entity'` predate the removal of the entities table: they still read as
+ * statements (`listActiveCorrections`) and a revert only retires them, there is no row to restore.
  */
 
-export const TARGET_KINDS = ["document", "entity", "contact"] as const;
+export const TARGET_KINDS = ["document", "contact"] as const;
 export const OPERATIONS = ["amend", "complement", "retract"] as const;
 
 export type TargetKind = (typeof TARGET_KINDS)[number];
@@ -29,8 +31,8 @@ export interface CorrectionInput {
   /** Field-level merge for structured targets, e.g. `{ relationship: "girlfriend" }`. */
   fields?: Record<string, unknown> | null;
   /**
-   * Take the entity (archive it) or the contact (set `removed_at`) out of use. Never a delete: the
-   * row stays, locked, with its pre-removal state on the correction so a revert puts it back.
+   * Take the contact out of use (set `removed_at`). Never a delete: the row stays, locked, with its
+   * pre-removal state on the correction so a revert puts it back.
    */
   remove?: boolean;
   source?: string;
@@ -110,40 +112,6 @@ const ROW_KINDS = {
     },
   },
 
-  entity: {
-    mergeable: ["type", "domain", "summary", "importance", "status"],
-
-    async merge(key: string, candidate: Fields, remove: boolean): Promise<MergeResult> {
-      // Entity names are matched case-insensitively: the graph holds "Acme" where a user says "acme".
-      const [row] = await db.select().from(entities).where(sql`lower(${entities.name}) = lower(${key})`).limit(1);
-      if (!row) throw new CorrectionError(`no entity named "${key}"`);
-      if (remove) {
-        if (row.status === "archived") throw new CorrectionError(`entity ${row.name} is already removed`);
-        await db.update(entities).set({ status: "archived", locked: true }).where(eq(entities.id, row.id));
-        return { previousState: row as Fields, applied: `removed entity ${row.name} (archived and locked; it comes back if this correction is reverted)` };
-      }
-      const patch = diffFromRow(candidate, row as Fields);
-      const none = noChange("entity", patch);
-      if (none) return none;
-      await db.update(entities).set({ ...patch, locked: true }).where(eq(entities.id, row.id));
-      return { previousState: row as Fields, applied: `updated entity ${row.name}: ${Object.keys(patch).join(", ")} (row locked against re-seed)` };
-    },
-
-    async restore(prev: Fields, key: string): Promise<string> {
-      await db
-        .update(entities)
-        .set({
-          type: (prev.type as string) ?? null,
-          domain: (prev.domain as string) ?? null,
-          summary: (prev.summary as string) ?? null,
-          importance: (prev.importance as string) ?? null,
-          status: (prev.status as string) ?? null,
-          locked: (prev.locked as boolean) ?? false,
-        })
-        .where(eq(entities.id, prev.id as string));
-      return `, entity ${key} restored`;
-    },
-  },
 };
 
 type RowKind = keyof typeof ROW_KINDS;
@@ -199,7 +167,7 @@ export async function recordCorrection(input: CorrectionInput): Promise<{ id: st
   let previousState: Record<string, unknown> | null = null;
   let applied = "recorded as a correction over the harvested context";
 
-  if (input.targetKind === "entity" || input.targetKind === "contact") {
+  if (input.targetKind === "contact") {
     const merge = await mergeStructuredRow(input.targetKind, targetKey, input.fields ?? null, input.remove ?? false);
     previousState = merge.previousState;
     applied = merge.applied;

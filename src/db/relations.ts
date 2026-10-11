@@ -13,22 +13,6 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     feedbackEvents: r.many.feedbackEvents(),
   },
-  entities: {
-    appearances: r.many.entityAppearances(),
-    mentions: r.many.entityMentions(),
-  },
-  entityMentions: {
-    entity: r.one.entities({
-      from: r.entityMentions.entityId,
-      to: r.entities.id,
-    }),
-  },
-  entityAppearances: {
-    entity: r.one.entities({
-      from: r.entityAppearances.entityId,
-      to: r.entities.id,
-    }),
-  },
   feedbackEvents: {
     extraction: r.one.extractions({
       from: r.feedbackEvents.extractionId,

@@ -26,7 +26,7 @@ const skill: Skill = {
     active_from: { type: "string", required: false, description: "New first day the note applies, YYYY-MM-DD, or 'none' to apply at once. Default: unchanged" },
     steps: { type: "string", required: false, description: `Comma-separated pipeline steps that load the note, from: ${NOTE_STEPS.join(", ")}, or 'none' for every step its scope reaches. Replaces the old list. Default: unchanged` },
     senders: { type: "string", required: false, description: "Comma-separated senders (substring match). Passing any of senders, entities or keywords replaces the note's whole targeting, so give every list to keep; 'none' clears one. Default: targeting unchanged" },
-    entities: { type: "string", required: false, description: "Comma-separated entity names (substring match). See senders. Default: targeting unchanged" },
+    entities: { type: "string", required: false, description: "Comma-separated names (substring match). See senders. Default: targeting unchanged" },
     keywords: { type: "string", required: false, description: "Comma-separated words that must appear in the item text. See senders. Default: targeting unchanged" },
   },
   execute: async (params, ctx) => {

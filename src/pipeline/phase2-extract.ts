@@ -42,11 +42,6 @@ interface NewsletterExtraction {
     relevance_score: number;
   }[];
   skip_reason: string | null;
-  entities_graph: EntityExtraction;
-}
-
-interface EntityExtraction {
-  entities: { name: string; aliases: string[]; type: string; domain: string }[];
 }
 
 const STRING = { type: "string" };
@@ -76,17 +71,8 @@ const NEWSLETTER_SCHEMA = {
       }),
     },
     skip_reason: { type: ["string", "null"] },
-    entities_graph: strictObject({
-      entities: {
-        type: "array",
-        items: strictObject({ name: STRING, aliases: { type: "array", items: STRING }, type: STRING, domain: STRING }),
-      },
-    }),
   }),
 };
-
-// The claims alone fit the 2000 default; the graph is on top, and a dense issue lists many entities.
-const NEWSLETTER_MAX_OUTPUT = 3000;
 
 interface PersonalEmailClassification {
   type: string;
@@ -105,7 +91,7 @@ interface PersonalEmailClassification {
 
 // Resolved once per run, not per item: the whole point is that every item in a run is extracted
 // with the same prompt, and 300 items must not mean 900 lookups.
-type ExtractionPrompts = Record<Extract<PromptSection, "extraction" | "entity_extraction" | "personal_classification">, EffectivePrompt>;
+type ExtractionPrompts = Record<Extract<PromptSection, "extraction" | "personal_classification">, EffectivePrompt>;
 type ExtractionValues = typeof extractions.$inferInsert;
 
 async function hasSuccessfulExtraction(rawItemId: string): Promise<boolean> {
@@ -185,17 +171,16 @@ async function extractItem(
   let succeeded = true;
   try {
     if (item.sourceType === "newsletter") {
-      // One call: the body is billed once, and the entity graph rides along as a top-level field.
-      const { entities_graph: entityData, ...newsletterData } = await extractJson<NewsletterExtraction>(
-        `${prompts.extraction.text}\n\n${prompts.entity_extraction.text}`,
+      const newsletterData = await extractJson<NewsletterExtraction>(
+        prompts.extraction.text,
         item.rawContent ?? "",
-        { schema: NEWSLETTER_SCHEMA, maxOutputTokens: NEWSLETTER_MAX_OUTPUT },
+        { schema: NEWSLETTER_SCHEMA },
       );
 
       values = newsletterData.items.map((extracted) => ({
         rawItemId: item.id,
         runDate,
-        extractedJson: { ...extracted, entities_graph: entityData },
+        extractedJson: extracted,
         relevanceScore: extracted.relevance_score,
         effectiveRelevance: extracted.relevance_score,
         novelty: "new",

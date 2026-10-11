@@ -6,8 +6,7 @@
  * except when the reader supplies a new answer. `contacts.updated_at`, by contrast, is bumped on
  * every single mail from that sender (`incrementContactEmailCounts`, `phase6/contacts.ts`), so it
  * says nothing about whether the file's *content* is still current - a contact who writes weekly
- * always looks freshly updated. `firstSeen` is used instead, the same proxy `entity-questions.ts`
- * uses for the same reason: a contact captured more than `MIN_AGE_DAYS` ago is not one whose file
+ * always looks freshly updated. `firstSeen` is used instead: a contact captured more than `MIN_AGE_DAYS` ago is not one whose file
  * is still being filled in, so if it now conflicts with what a new mail says, that is worth asking
  * about rather than assuming the file will catch up on its own.
  *
@@ -15,8 +14,7 @@
  * notes - is made once, for free, inside the existing personal-mail classification call
  * (`context_conflict`/`context_conflict_detail`, `PERSONAL_EMAIL_PROMPT`), not here. This module
  * only turns a flagged extraction, for a contact old and described enough to have something to
- * conflict with, into a candidate - the same split `entity-questions.ts` makes between a model
- * decision made elsewhere and a mechanical, no-quota read of its result.
+ * conflict with, into a candidate: a model decision made elsewhere, read mechanically here.
  */
 import { daysAgo } from "../util/time";
 import { and, eq, or, isNull, sql as drizzleSql } from "drizzle-orm";

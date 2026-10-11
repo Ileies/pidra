@@ -1,6 +1,6 @@
 # PIDRA - Personal Ingestive Daily Report Agent
 
-AI-powered morning briefing. Every morning it pulls from the configured IMAP mailboxes, newsletter RSS feeds, Google Calendar and Google Tasks (SMS arrives separately by webhook), and six web-search news desks research the day's news. The result is a structured three-section report, pushed to the phone. It improves over time through feedback loops, an entity knowledge graph and weekly self-improvement runs.
+AI-powered morning briefing. Every morning it pulls from the configured IMAP mailboxes, newsletter RSS feeds, Google Calendar and Google Tasks (SMS arrives separately by webhook), and six web-search news desks research the day's news. The result is a structured three-section report, pushed to the phone. It improves over time through feedback loops and weekly self-improvement runs.
 
 ## Output
 
@@ -31,9 +31,9 @@ World-facing intelligence from the newsletters, organised by topic domain (AI, C
 ## Architecture
 
 - **Map-reduce spine:** every item is extracted independently into structured JSON, then merged into a synthesis payload.
-- **Structured memory:** continuity lives in explicit Postgres tables (active topics, entity graph, source quality, prompt versions), not in a vector store.
-- **Topic-graph output:** Section 1 is organised by domain, not by source, and the entity graph adds relationship context to synthesis.
-- **Compounding loop:** feedback, source trust scoring, entity graph growth and a weekly self-improvement run. Every prompt change needs human approval.
+- **Structured memory:** continuity lives in explicit Postgres tables (active topics, source quality, prompt versions), not in a vector store.
+- **Topic-graph output:** Section 1 is organised by domain, not by source,.
+- **Compounding loop:** feedback, source trust scoring and a weekly self-improvement run. Every prompt change needs human approval.
 
 ## Key design decisions
 
@@ -52,8 +52,8 @@ Three tools share one Postgres database:
 | Tool | Entry point | Purpose |
 |---|---|---|
 | **Daily pipeline** | `bun run job pipeline` | The morning briefing, 06:30 |
-| **Dashboard** | `bun run dashboard` (dev) | SvelteKit UI for reading reports, rating, notes, entities, runs and approvals |
-| **Context Builder** | `bun run context-builder` | Scans all personal data and seeds entities, contacts and standing rules (as notes). Runs monthly in update mode; `--full` rebuilds, `--dry-run` reports the inventory and exits. See [`context-builder/README.md`](./context-builder/README.md) |
+| **Dashboard** | `bun run dashboard` (dev) | SvelteKit UI for reading reports, rating, notes, runs and approvals |
+| **Context Builder** | `bun run context-builder` | Scans all personal data and seeds contacts and standing rules (as notes). Runs monthly in update mode; `--full` rebuilds, `--dry-run` reports the inventory and exits. See [`context-builder/README.md`](./context-builder/README.md) |
 
 ## Scheduled jobs
 

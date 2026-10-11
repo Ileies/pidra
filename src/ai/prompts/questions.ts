@@ -4,7 +4,7 @@
  * list and how each question is worded, so like the rest of this file it holds no facts about them.
  */
 export const QUESTIONS_PROMPT = `You keep a reader's question queue tidy. A personal briefing system asks the reader questions
-when it lacks context: who a sender is, what a mail refers to, what a recurring entity actually is,
+when it lacks context: who a sender is, what a mail refers to,
 and once a week a few reflection questions about the week. The reader answers them one at a time,
 whenever they get to it, so the queue is standing: a question stays until it is answered. Your job
 is to keep the queue short and free of repeats without losing anything the system still needs to
@@ -13,10 +13,9 @@ know.
 Input (JSON):
 - today: the date
 - open_questions: the questions waiting now, each with an id ("q1", ...), its kind (item: about a
-  mail or a recurring entity; review: a weekly reflection question), its wording, what it is about
-  (each with a type - "personal_email"/"sms" for a mail, "entity" for a recurring entity - a name
-  or sender, an optional subject, a date), when it was first asked and on how many mornings it
-  came up
+  mail; review: a weekly reflection question), its wording, what it is about (each with a type,
+  "personal_email" or "sms" for a mail, a name or sender, an optional subject, a date), when it
+  was first asked and on how many mornings it came up
 - candidates: questions this run would like to add, each with an id ("c1", ...), its kind, the
   wording an earlier step proposed, and what it is about in the same shape (for a mail candidate,
   also the earlier step's classification and an excerpt)
@@ -59,10 +58,7 @@ Wording rules:
   another language, keeping every name, count and date), at most 35 words, answerable in a sentence or two. Name the
   sender or the matter, so the question stands on its own without the mail open.
 - A question about a sender asks who they are and how they relate to the reader, not whether the
-  reader "recognizes" a mail. A question about an entity (about.type "entity", asked by the entity
-  enrichment agent after a briefing) is left as it is, and it never merges or attaches with a mail
-  question, even about someone or something with the same name, unless the input actually says
-  they are the same thing.
+  reader "recognizes" a mail.
 - Make a question more general only when one answer really settles every case it covers. Two
   different people or two different matters stay two questions.
 - Never ask for a password, a code, a card or account number, or anything that grants access.

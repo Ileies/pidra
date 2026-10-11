@@ -21,7 +21,6 @@ import { runImplicitFeedback } from "./pipeline/implicit-feedback";
 import { runWeeklySourceScoring } from "./pipeline/weekly-source-scoring";
 import { runWeeklyMetaRun } from "./pipeline/weekly-meta-run";
 import { runWeeklyReview } from "./pipeline/weekly-review";
-import { pruneEntityGraph } from "./pipeline/entity-pruning";
 import { pruneDeletedNotes } from "./notes/store";
 import { runContextBuilder } from "../context-builder/run";
 
@@ -36,7 +35,6 @@ const JOBS: Record<string, (date: string) => Promise<unknown>> = {
   "meta-run": () => runWeeklyMetaRun(),
   "review": () => runWeeklyReview(),
   "prune": async () => {
-    await pruneEntityGraph();
     await pruneDeletedNotes();
   },
   // Monthly re-harvest, always as an update: the index and the previous document are what make it

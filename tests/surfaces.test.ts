@@ -17,8 +17,6 @@ describe("surfaceForRoute", () => {
       ["/chat", "context"],
       ["/rules", "context"],
       ["/contacts", "context"],
-      ["/entities", "entities"],
-      ["/entities/some-name", "entities"],
       ["/sources", "sources"],
       ["/sources/Some%20Source", "sources"],
       ["/", "report"],
@@ -36,7 +34,7 @@ describe("surfaceForRoute", () => {
   });
 
   test("a route nobody mapped falls back to the least privileged surface, global", () => {
-    for (const route of ["/runs", "/skills", "/settings", "/setup", "/nonsense", "/2026-10", "/not-a-date/x"]) {
+    for (const route of ["/runs", "/skills", "/settings", "/setup", "/entities", "/nonsense", "/2026-10", "/not-a-date/x"]) {
       expect([route, surfaceForRoute(route)]).toEqual([route, "global"]);
     }
   });
@@ -56,7 +54,7 @@ describe("resolveSurface: the client cannot widen its own capabilities", () => {
 
   test("a claim that is not a surface, or is missing, is ignored", () => {
     for (const claimed of ["admin", "", "__proto__", "constructor", undefined, null, 5, {}, ["notes"]]) {
-      expect(resolveSurface(claimed, "/entities")).toBe("entities");
+      expect(resolveSurface(claimed, "/notes")).toBe("notes");
     }
   });
 

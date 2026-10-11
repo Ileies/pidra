@@ -30,16 +30,6 @@ ALTER TABLE notes
   ADD COLUMN IF NOT EXISTS search_tsv tsvector
   GENERATED ALWAYS AS (to_tsvector('simple', coalesce(content, ''))) STORED;
 
--- Aliases are deliberately not in here: `array_to_string` is STABLE rather than IMMUTABLE, so
--- Postgres refuses it in a generated column. An alias hit almost always also matches on the name or
--- the summary, and /entities' own filter searches aliases exactly.
-ALTER TABLE entities
-  ADD COLUMN IF NOT EXISTS search_tsv tsvector
-  GENERATED ALWAYS AS (
-    to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(summary, ''))
-  ) STORED;
-
 CREATE INDEX IF NOT EXISTS daily_reports_search_idx ON daily_reports USING GIN (search_tsv);
 CREATE INDEX IF NOT EXISTS extractions_search_idx ON extractions USING GIN (search_tsv);
 CREATE INDEX IF NOT EXISTS notes_search_idx ON notes USING GIN (search_tsv);
-CREATE INDEX IF NOT EXISTS entities_search_idx ON entities USING GIN (search_tsv);

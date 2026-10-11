@@ -4,8 +4,8 @@ import { createChatQuestion } from "../src/questions/store";
 const skill: Skill = {
   name: "create_question",
   description:
-    "Put a question to the user in the /questions queue. Use it when you find something only the user can settle - a contact with no name, an entity whose type is unclear, two facts that contradict each other - instead of guessing or leaving it as a remark in prose. " +
-    "Run list_questions first so you do not ask what is already open. The question must stand on its own, because it is answered later without this conversation: name the exact contact address, entity or sentence it is about. " +
+    "Put a question to the user in the /questions queue. Use it when you find something only the user can settle - a contact with no name, a name you cannot place, two facts that contradict each other - instead of guessing or leaving it as a remark in prose. " +
+    "Run list_questions first so you do not ask what is already open. The question must stand on its own, because it is answered later without this conversation: name the exact contact address, name or sentence it is about. " +
     "When the user answers, an assistant with edit skills acts on the answer, so ask for the decision, not for a description.",
   risk_level: "low",
   touches: ["questions"],

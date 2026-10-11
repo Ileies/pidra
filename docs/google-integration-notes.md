@@ -26,7 +26,7 @@ Keep has about 1,000 notes. The Context Builder (`context-builder/sources/keep.t
 | Category | Value |
 |---|---|
 | Memories | High: specific information not to forget, may hold contact context or commitments |
-| Favorites | High: curated "best of" lists, relevant to entity importance |
+| Favorites | High: curated "best of" lists, relevant to item importance |
 | Shower Ideas | Medium: project and product ideas ahead of their time |
 | Recommendations | Medium: products, services, travel destinations |
 | Full Travel Plans | Medium: future trips (a China trip should set the China pre-trip window) |

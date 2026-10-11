@@ -1,7 +1,7 @@
 // Phase 6: writes the day's report and the memory derived from it, after all synthesis. Called by
 // `run.ts`. Order matters: refs are resolved first (they decide `included_in_report`), the report
-// row is written, then the Section 1/2 SYSTEM blocks, source scores, entities, appearances and
-// contact counts are updated from it. Re-runnable: `daily_reports` is upserted and
+// row is written, then the Section 1/2 SYSTEM blocks, source scores and contact counts are
+// updated from it. Re-runnable: `daily_reports` is upserted and
 // `included_in_report` is reset before it is set. Details: docs/operations.md.
 import { db, dailyReports, extractions } from "../db";
 import { eq, inArray } from "drizzle-orm";
@@ -10,9 +10,6 @@ import { parseReport } from "./report-json";
 import { resolveReportRefs } from "./phase6/refs";
 import { parseSystemBlock, applySection1SystemBlock, applySection2SystemBlock, type Section1System, type Section2System } from "./phase6/system-block";
 import { writeSourceDailyScores } from "./phase6/source-scoring";
-import { upsertEntitiesFromExtractions } from "./phase6/entities";
-import { markDormantEntities } from "./phase6/dormant";
-import { writeEntityAppearances } from "./phase6/appearances";
 import { ageTopics } from "./topic-lifecycle";
 import { incrementContactEmailCounts } from "./phase6/contacts";
 
@@ -82,7 +79,7 @@ export async function runPhase6(
   });
 
   // The SYSTEM blocks are machine-readable HTML comments the model appends to each section
-  // (topic and entity updates); `report-json.ts` strips them from the displayed report.
+  // (topic updates and skill suggestions); `report-json.ts` strips them from the displayed report.
   const s1System = parseSystemBlock<Section1System>(synthesis.section1);
   if (s1System) await applySection1SystemBlock(s1System, runDate);
   await ageTopics(runDate);
@@ -91,9 +88,6 @@ export async function runPhase6(
   if (s2System) await applySection2SystemBlock(s2System);
 
   await writeSourceDailyScores(runDate, refsUsable);
-  await upsertEntitiesFromExtractions(runDate);
-  await markDormantEntities(runDate);
-  await writeEntityAppearances(runDate, includedIds);
   await incrementContactEmailCounts(runDate);
 
   console.log("[Phase 6] Done");

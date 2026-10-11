@@ -41,7 +41,7 @@ beforeEach(async () => {
   calls.length = 0;
   reply = { existing: [], candidates: [], new_questions: [] };
   failure = null;
-  await database.sql`truncate raw_items, extractions, questions, notes, entities cascade`;
+  await database.sql`truncate raw_items, extractions, questions, notes cascade`;
 });
 
 async function mail(over: { source?: string | null; content?: string | null; json?: Any; question?: string | null; unknown?: boolean; date?: string; type?: string } = {}) {
@@ -101,13 +101,6 @@ describe("which mail becomes a candidate", () => {
     expect(calls.every((c) => c.candidates.length === 0)).toBe(true);
     expect(second).toMatchObject({ fired: false, newQuestionCount: 0 });
     expect(await queue()).toHaveLength(1);
-  });
-
-  test("an undescribed entity is no candidate: the enrichment agent owns those", async () => {
-    await database.sql`insert into entities (name, type, status, mention_count, first_seen) values ('Mystery Corp', 'org', 'active', 4, '2026-09-01')`;
-    await gate();
-
-    expect(calls.every((c) => c.candidates.length === 0)).toBe(true);
   });
 });
 

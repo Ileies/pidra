@@ -9,7 +9,7 @@ const database = await useTestDatabase();
 const attempt = (run: () => PromiseLike<unknown>) => (async () => { await run(); })();
 
 beforeEach(async () => {
-  await database.sql`truncate user_settings, contacts, entities, source_daily_scores, newsletter_sender_rules, context_builder_indexed_items cascade`;
+  await database.sql`truncate user_settings, contacts, source_daily_scores, newsletter_sender_rules, context_builder_indexed_items cascade`;
 });
 
 describe("user_settings", () => {
@@ -50,24 +50,6 @@ describe("contacts", () => {
 });
 
 describe("unique keys the upserts rely on", () => {
-  test("an entity name", async () => {
-    await database.sql`insert into entities (name) values ('Acme')`;
-    await expect(attempt(() => database.sql`insert into entities (name) values ('Acme')`)).rejects.toThrow(/entities_name_key/);
-  });
-
-  test("one mention per entity and source item", async () => {
-    const [{ id }] = await database.sql`insert into entities (name) values ('Acme') returning id`;
-    await database.sql`insert into entity_mentions (entity_id, source_kind, source_ref) values (${id}, 'newsletter', 'r1')`;
-    await database.sql`insert into entity_mentions (entity_id, source_kind, source_ref) values (${id}, 'newsletter', 'r2'), (${id}, 'context_builder', 'r1')`;
-    await expect(attempt(() => database.sql`insert into entity_mentions (entity_id, source_kind, source_ref) values (${id}, 'newsletter', 'r1')`)).rejects.toThrow(/entity_mentions_entity_source/);
-  });
-
-  test("one appearance per entity and report date", async () => {
-    const [{ id }] = await database.sql`insert into entities (name) values ('Acme') returning id`;
-    await database.sql`insert into entity_appearances (entity_id, report_date) values (${id}, '2026-10-05')`;
-    await expect(attempt(() => database.sql`insert into entity_appearances (entity_id, report_date) values (${id}, '2026-10-05')`)).rejects.toThrow(/entity_appearances_entity_date/);
-  });
-
   test("one score per source and day", async () => {
     await database.sql`insert into source_daily_scores (source_name, run_date) values ('Daily Digest', '2026-10-05'), ('Daily Digest', '2026-10-06')`;
     await expect(attempt(() => database.sql`insert into source_daily_scores (source_name, run_date) values ('Daily Digest', '2026-10-05')`)).rejects.toThrow(/source_daily_scores_source_date/);

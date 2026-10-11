@@ -2,48 +2,6 @@ import { boolean, check, integer, pgTable, real, text, unique, uuid } from "driz
 import { sql } from "drizzle-orm";
 import { createdAt, dateStr, jsonb, pk, timestamptz, updatedAt } from "./columns";
 
-export const entities = pgTable("entities", {
-  id: pk(),
-  // Unique: every entity write is an upsert keyed on the name, and `onConflictDoNothing()` silently duplicated rows without it.
-  name: text("name").unique().notNull(),
-  aliases: text("aliases").array(),
-  type: text("type"), // person | org | tech | law | event | concept | place
-  domain: text("domain"),
-  summary: text("summary"),
-  firstSeen: dateStr("first_seen"),
-  lastMentioned: dateStr("last_mentioned"),
-  // Cached count of `entity_mentions` rows; only increment alongside a real insert there (pipeline/phase6/entities.ts).
-  mentionCount: integer("mention_count").default(1),
-  status: text("status").default("active"), // active | dormant | archived
-  importance: text("importance").default("normal"), // high | normal | low
-  // Set by a `revise_context` correction; re-seeds and bulk writers must leave the corrected fields alone.
-  locked: boolean("locked").default(false),
-  // Rotation cursor for the watch search slot (`src/search/slots.ts`): oldest (or null) is searched next.
-  lastWatchSearch: dateStr("last_watch_search"),
-});
-
-/**
- * One entity mentioned once in one source item. The unique key makes a retry or same-date rerun a
- * no-op. `source_ref` points back at the source, never copies it: `raw_items.id` for a newsletter,
- * `"<email|keep>:<item_id>"` for a harvested one.
- */
-export const entityMentions = pgTable("entity_mentions", {
-  id: pk(),
-  entityId: uuid("entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
-  sourceKind: text("source_kind").notNull(), // newsletter | context_builder
-  sourceRef: text("source_ref").notNull(),
-  mentionDate: dateStr("mention_date"),
-  createdAt: createdAt(),
-}, (t) => [unique("entity_mentions_entity_source").on(t.entityId, t.sourceKind, t.sourceRef)]);
-
-export const entityAppearances = pgTable("entity_appearances", {
-  id: pk(),
-  entityId: uuid("entity_id").references(() => entities.id, { onDelete: "cascade" }),
-  reportDate: dateStr("report_date"),
-  contextSnippet: text("context_snippet"),
-  relevanceScore: integer("relevance_score"),
-}, (t) => [unique("entity_appearances_entity_date").on(t.entityId, t.reportDate)]);
-
 export const sourceQuality = pgTable("source_quality", {
   sourceName: text("source_name").primaryKey(),
   trustScore: real("trust_score").default(1.0),
@@ -135,8 +93,8 @@ export const contextBuilderIndexedItems = pgTable("context_builder_indexed_items
 /** The append-only correction layer over the harvested context: rows are never deleted or edited except to flip `status`. Only `src/context/corrections.ts` writes it. */
 export const contextCorrections = pgTable("context_corrections", {
   id: pk(),
-  targetKind: text("target_kind").notNull(), // document | entity | contact (standing_context on rows from before 0038)
-  // Document heading, entity name, or contact identifier.
+  targetKind: text("target_kind").notNull(), // document | contact (rows from before the entities removal can say entity, standing_context rows from before 0038)
+  // Document heading, or contact identifier.
   targetKey: text("target_key").notNull(),
   operation: text("operation").notNull(), // amend | complement | retract
   /** The correct fact in the user's voice, injected verbatim into the daily synthesis payload. */

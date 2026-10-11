@@ -56,7 +56,7 @@ async function seedOnlyRun(): Promise<void> {
   console.log(`Re-seeding from ${emails.length} stored email and ${notes.length} stored note extractions.\n`);
   // errors.json persists across runs, so count only what this invocation added.
   const errorsBefore = getErrors().length;
-  await runDbSeeding(batchContacts(emails), emails, notes);
+  await runDbSeeding(batchContacts(emails), notes);
   const added = getErrors().length - errorsBefore;
   console.log(added > 0 ? `Seeding finished with ${added} new error(s) - see errors.json` : "Seeding complete.");
 }

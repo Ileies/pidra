@@ -57,7 +57,7 @@ There is no `migrations/` directory: the owner has one database and every past c
 |---|---|
 | `pipeline` | daily 06:30 (the timer is what schedules it; implicit feedback takes the run's start from the earliest `pipeline_runs.started_at` for the run date, falling back to midnight UTC) |
 | `feedback` (implicit feedback) | daily 22:00 |
-| `prune` (entity graph pruning, trashed-note purge) | Sunday 02:00 |
+| `prune` (trashed-note purge) | Sunday 02:00 |
 | `review` (weekly review conversation) | Sunday 20:00 |
 | `source-scoring` | Sunday 23:00 |
 | `meta-run` (analytics and prompt diff) | Sunday 23:30 |
@@ -103,7 +103,7 @@ It never throws, needs a traced run id (`currentRunId()` in `src/util/trace.ts`,
 
 ## Synthesis output parsing
 
-Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses it to drive all memory writes (new topics, entity upserts, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic. The block is model output, so parsing is defensive: a block that is not a JSON object is treated as absent, list fields that are not lists and entries that are not objects are dropped, and an entry missing its required text (a new topic's headline or domain, a new entity's name, a skill suggestion's skill) is skipped. Invalid entries never fail the step or the rest of the block.
+Both synthesis calls append a machine-readable `<!--SYSTEM ... -->` JSON block at the end of their output. Phase 6 parses it to drive all memory writes (new topics, contact updates, skill suggestions). Do not add a separate model call for Phase 6 logic. The block is model output, so parsing is defensive: a block that is not a JSON object is treated as absent, list fields that are not lists and entries that are not objects are dropped, and an entry missing its required text (a new topic's headline or domain, a skill suggestion's skill) is skipped. Invalid entries never fail the step or the rest of the block.
 
 ## Error handling model
 

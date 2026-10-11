@@ -1,16 +1,16 @@
-import { db, entities, contacts, contextCorrections, dailyReports } from "../db";
+import { db, contacts, contextCorrections, dailyReports } from "../db";
 import { and, desc, eq, gte, lte, sql as drizzleSql, type SQL } from "drizzle-orm";
 import { loadLongTermContext } from "../pipeline/long-term-context";
 
 /**
  * Read side of the context revision loop: what the assistant looks at before proposing a correction
- * (used by the read_context and read_report skills). Keyword lookup over `entities`, `contacts`,
+ * (used by the read_context and read_report skills). Keyword lookup over `contacts`,
  * `context_corrections`, `daily_reports` and the harvested document (via loadLongTermContext); no
  * vector store (docs/architecture-rules.md).
  */
 
 export interface ContextHit {
-  kind: "document" | "entity" | "contact" | "correction";
+  kind: "document" | "contact" | "correction";
   key: string;
   text: string;
 }
@@ -70,7 +70,7 @@ export interface SearchOptions {
   limit?: number;
   /** Characters of each document section returned, 100 to 5000. Default 700. */
   excerptChars?: number;
-  /** Also return removed contacts. Default false (removed entities are always shown, marked REMOVED). */
+  /** Also return removed contacts. Default false. */
   includeRemoved?: boolean;
 }
 
@@ -93,20 +93,6 @@ export async function searchContext(query: string, kind?: string, opts: SearchOp
     const ctx = await loadLongTermContext();
     // Both halves joined: the split is a daily-prompt concern.
     hits.push(...searchDocument([ctx.personalSections, ctx.intelSections].filter(Boolean).join("\n\n"), tokens, perKind, excerptChars));
-  }
-
-  if (want("entity")) {
-    const rows = await db
-      .select({ name: entities.name, type: entities.type, summary: entities.summary, importance: entities.importance, locked: entities.locked, status: entities.status })
-      .from(entities)
-      .where(matchAllTokens([drizzleSql`${entities.name}`, drizzleSql`${entities.summary}`], tokens))
-      .orderBy(desc(entities.mentionCount))
-      .limit(perKind);
-    hits.push(...rows.map((r) => ({
-      kind: "entity" as const,
-      key: r.name,
-      text: `type=${r.type ?? "-"} importance=${r.importance ?? "-"}${r.status === "archived" ? " REMOVED" : ""}${r.locked ? " locked" : ""} -${r.summary ?? "no summary"}`,
-    })));
   }
 
   if (want("contact")) {

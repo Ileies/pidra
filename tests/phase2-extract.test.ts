@@ -56,7 +56,6 @@ mock.module("../src/config/email-accounts", () => ({ loadEmailAccounts: async ()
 mock.module("../src/ai/active-prompts", () => ({
   resolveActivePrompts: async () => ({
     extraction: { text: "Extract newsletter" },
-    entity_extraction: { text: "Extract entities" },
     personal_classification: { text: "Classify email" },
   }),
 }));
@@ -73,7 +72,6 @@ mock.module("../src/ai/openai", () => ({
         { headline: "Two", topic_tags: [], key_claim: "Second", entities: [], relevance_score: 3 },
       ],
       skip_reason: null,
-      entities_graph: { entities: [{ name: "Acme", aliases: [], type: "org", domain: "Dev" }] },
     };
   },
 }));
@@ -98,11 +96,10 @@ test("a rerun preserves extraction IDs and downstream verdicts without adding st
   expect(saved).toHaveLength(2);
   expect(saved[0].gatePassed).toBe(true);
   expect(saved[0].includedInReport).toBe(true);
-  // One call per newsletter: claims and entity graph come back together, and the graph stays on every claim row.
+  // One call per newsletter, and each claim row stores the claim as the model returned it.
   expect(calls).toBe(1);
-  expect((saved[0].extractedJson as { entities_graph: unknown }).entities_graph).toEqual({
-    entities: [{ name: "Acme", aliases: [], type: "org", domain: "Dev" }],
-  });
+  expect(saved[0].extractedJson).toMatchObject({ headline: "One", key_claim: "First", entities: [] });
+  expect("entities_graph" in (saved[0].extractedJson as object)).toBe(false);
 });
 
 test("a retry replaces a failed placeholder with the complete newsletter result", async () => {

@@ -9,7 +9,7 @@
  */
 
 export const SURFACES_LIST = [
-  "notes", "context", "entities", "report", "sources", "questions", "global",
+  "notes", "context", "report", "sources", "questions", "global",
 ] as const;
 
 export type Surface = (typeof SURFACES_LIST)[number];
@@ -89,7 +89,7 @@ changes. One note per call. If the user's wording could mean two different notes
       "revise_context", "revert_context_revision", "remove_context_item", "add_contact", ...NOTE_SKILLS,
     ),
     prompt: `The user is on the harvested long-term context: the Context Builder's document, the
-sender directory on /contacts, or the context chat. The document, entities and contacts are never
+sender directory on /contacts, or the context chat. The document and the contacts are never
 overwritten. \`revise_context\` records a correction that outranks the harvest in every future
 briefing, and the wrong text is deliberately kept on the correction so the model can see what it
 is being told to disregard. The standing rules the Context Builder found in Keep are ordinary
@@ -100,10 +100,16 @@ Look before you write: \`read_context\` to find the exact wrong wording and a re
 wrong text in \`supersedes\` verbatim. Corrections are reversible with \`revert_context_revision\`.
 
 Removing things: a sentence of the context document is dropped with
-\`revise_context\` (operation 'retract', the sentence in \`supersedes\`). A whole entity or contact is
-dropped with \`remove_context_item\`, which keeps the row (archived or marked removed) so it can come
-back. A sender the directory lacks is added with \`add_contact\`; an existing one is changed with
-\`revise_context\` and \`fields\`.
+\`revise_context\` (operation 'retract', the sentence in \`supersedes\`). A whole contact is dropped
+with \`remove_context_item\`, which keeps the row (marked removed) so it can come back. A sender the
+directory lacks is added with \`add_contact\`; an existing one is changed with \`revise_context\` and
+\`fields\`.
+
+Background on a name the system cannot know (a private person, a client, an internal project, an
+obscure organisation) is a note, not a correction: \`write_note\` in scope 'intel' with
+\`entities\` set to the name, so Section 1 loads it only on a day when that name appears in one of
+its items. Never write one for something well known (a major company, a common technology, a
+publication): the model already knows it.
 
 Users usually bring something they read in a briefing. The long-term context does not contain
 briefings, so when a name or fact is missing from it, search the briefings with \`read_report\`
@@ -117,24 +123,6 @@ Appointments and tasks work from here too: \`list_calendar_events\`, \`get_calen
       "Actually, ",
       "Add to the context that ",
       "Forget that ",
-    ],
-  },
-
-  entities: {
-    label: "Entities",
-    skills: surfaceSkills("revise_context", "revert_context_revision", "remove_context_item"),
-    prompt: `The user is on /entities, the knowledge graph. Entity rows come from the pipeline and
-from the Context Builder harvest, so they are not edited directly: a \`revise_context\` call with
-target_kind 'entity' records the correction and merges only the named fields into the row, keeping
-a snapshot and locking it against a re-seed. Mergeable fields: type, domain, summary, importance,
-status. Find the exact entity name with \`read_context\` before correcting it. To get rid of an
-entity (noise, a duplicate, something that is not real), use \`remove_context_item\`: the row is
-archived and kept, and \`revert_context_revision\` brings it back.`,
-    hints: [
-      "What do you know about ",
-      "Who is ",
-      "Where did you see ",
-      "Remove the entity ",
     ],
   },
 
@@ -201,18 +189,20 @@ Acting on an answer:
 - Do what the answer says, with the skills you have, and nothing beyond it. Read first
   (\`read_context\`, \`list_notes\`, \`read_report\`) so names, addresses and quotes are real.
 - A sender or person: \`revise_context\` (target_kind 'contact', \`fields\` with name, relationship,
-  priority, contextNotes) if the contact exists, \`add_contact\` if it does not. An entity:
-  \`revise_context\` with target_kind 'entity' and \`fields\` (type, domain, summary, importance, status).
+  priority, contextNotes) if the contact exists, \`add_contact\` if it does not.
+- A name the answer explains (a private person, a client, an internal project, an obscure
+  organisation): \`write_note\` in scope 'intel' with \`entities\` set to the name and the content
+  stating what it is to the reader, so Section 1 loads it only when that name comes up in a
+  briefing item. Write one only for a name the system cannot know. For something well known (a
+  major company, a common technology, a publication) write nothing: the model already knows it.
+  When the answer says "you know it" or "look it up", change nothing and say so.
 - The context document is the reader's own life, never an encyclopedia. General knowledge (what a
   technology, company or public figure is) never goes into it, not as 'complement' and not as
-  'amend'. When the answer says "you know it", "look it up" or "just fix it" about an entity,
-  describe the entity itself: \`read_context\` for its row, \`run_web_search\` if unsure, then
-  \`revise_context\` with target_kind 'entity' and \`fields\` (type, domain, summary). Only a fact about
-  the reader's own relation to it (they use it daily, it is their project) may go in the summary or
-  the document, and only if the answer states it.
-- "Delete it", "ignore this", "it is spam", "forget that": \`remove_context_item\` for a whole entity
-  or contact; \`revise_context\` with operation 'retract' for a sentence of the context document;
-  \`delete_note\` for a standing rule (those are notes). All are reversible.
+  'amend'. Only a fact about the reader's own relation to something (they use it daily, it is their
+  project) may go in a note or the document, and only if the answer states it.
+- "Delete it", "ignore this", "it is spam", "forget that": \`remove_context_item\` for a contact;
+  \`revise_context\` with operation 'retract' for a sentence of the context document;
+  \`delete_note\` for a standing rule or a note about a name (those are notes). All are reversible.
 - Something to keep in mind for the briefings: \`write_note\` ('intel' for Section 1, 'personal' for
   Section 2). A task or appointment: \`add_todo_item\`, \`add_calendar_event\`.
 - A source to switch off: \`set_source_active\`.
@@ -263,7 +253,6 @@ const ROUTE_SURFACES: [RegExp, Surface][] = [
   [/^\/notes/, "notes"],
   [/^\/questions/, "questions"],
   [/^\/(context-builder|chat|rules|contacts)/, "context"],
-  [/^\/entities/, "entities"],
   [/^\/sources/, "sources"],
   // The report routes, including the bare date and the item detail view.
   [/^\/(\d{4}-\d{2}-\d{2})(\/|$)/, "report"],

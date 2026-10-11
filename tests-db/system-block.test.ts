@@ -23,7 +23,7 @@ const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0
 
 beforeEach(async () => {
   suggestions.length = 0;
-  await database.sql`truncate active_topics, entities, contacts, notes cascade`;
+  await database.sql`truncate active_topics, contacts, notes cascade`;
 });
 
 async function topic(over: Partial<typeof activeTopics.$inferInsert> = {}) {
@@ -166,13 +166,7 @@ describe("applySection1SystemBlock: new topics and the capacity of 15", () => {
   });
 });
 
-describe("applySection1SystemBlock: entities and skills", () => {
-  test("new entities are stored once, a name that exists is left alone", async () => {
-    await block.applySection1SystemBlock({ new_entities: [{ name: "Example Bank", type: "org", domain: "Finance" }, { name: "Example Bank", type: "person" }] }, DAY);
-    const rows = (await database.sql`select name, type, domain, mention_count, first_seen::text from entities`) as { name: string; type: string; domain: string; mention_count: number; first_seen: string }[];
-    expect(rows).toEqual([{ name: "Example Bank", type: "org", domain: "Finance", mention_count: 1, first_seen: DAY }]);
-  });
-
+describe("applySection1SystemBlock: skills", () => {
   test("skill suggestions are handed on as report-section suggestions", async () => {
     const list = [{ skill: "add_todo_item", reason: "r", parameters: { title: "t" } }];
     await block.applySection1SystemBlock({ skill_suggestions: list }, DAY);
@@ -185,19 +179,16 @@ describe("applySection1SystemBlock: a malformed block never stops the good entri
     await block.applySection1SystemBlock(
       {
         new_topics: [{ domain: "AI", summary: "no headline" }, { headline: "No domain", summary: "s" }, null, "text", { headline: "Valid", domain: "AI", summary: "s" }] as never,
-        new_entities: [{ type: "org" }, { name: "   " }, { name: "Valid Entity" }] as never,
         updated_topics: [null, 7, { id: uuid(1), status: "active", new_summary: "x" }] as never,
       },
       DAY,
     );
     expect((await topics()).map((t) => t.headline)).toEqual(["Valid"]);
-    const names = (await database.sql`select name from entities`) as { name: string }[];
-    expect(names.map((e) => e.name)).toEqual(["Valid Entity"]);
   });
 
   test("a field that is not a list is ignored instead of failing the block", async () => {
     await block.applySection1SystemBlock(
-      { updated_topics: "none" as never, new_topics: { headline: "x" } as never, new_entities: 5 as never, skill_suggestions: "all" as never },
+      { updated_topics: "none" as never, new_topics: { headline: "x" } as never, skill_suggestions: "all" as never },
       DAY,
     );
     expect(await topics()).toEqual([]);

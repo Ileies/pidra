@@ -3,7 +3,7 @@
 // (never applied; a prompt only changes through `propose_prompt_version`, confirmed on /skills,
 // see docs/architecture-rules.md).
 import { daysAgo, addDays } from "../util/time";
-import { db, dailyReports, extractions, feedbackEvents, entities, activeTopics, sourceQuality } from "../db";
+import { db, dailyReports, extractions, feedbackEvents, activeTopics, sourceQuality } from "../db";
 import { createNote } from "../notes/store";
 import { PROPOSAL_PREFIX } from "../notes/select";
 import { and, gte, lte, eq, sql as drizzleSql, desc, count, type SQL } from "drizzle-orm";
@@ -26,8 +26,6 @@ export interface WeeklyAnalytics {
   bottomSources: { name: string; avgComposite: number }[];
   feedbackPlus: number;
   feedbackMinus: number;
-  newEntities: number;
-  dormantEntities: number;
   activeTopicCount: number;
   resolvedTopicCount: number;
 }
@@ -40,7 +38,7 @@ async function countWhere(table: PgTable, where: SQL | undefined): Promise<numbe
 async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytics> {
   const weekEnd = addDays(weekStart, 6);
 
-  const [reports, [feedbackRow], newEntities, dormantEntities, activeTopicCount, resolvedTopicCount, sourcesAll] = await Promise.all([
+  const [reports, [feedbackRow], activeTopicCount, resolvedTopicCount, sourcesAll] = await Promise.all([
     db
       .select()
       .from(dailyReports)
@@ -55,8 +53,6 @@ async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytic
         gte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekStart}::date`),
         lte(drizzleSql`(created_at AT TIME ZONE 'UTC')::date`, drizzleSql`${weekEnd}::date`),
       )),
-    countWhere(entities, and(gte(entities.firstSeen, weekStart), lte(entities.firstSeen, weekEnd))),
-    countWhere(entities, eq(entities.status, "dormant")),
     countWhere(activeTopics, eq(activeTopics.status, "active")),
     countWhere(activeTopics, and(
       eq(activeTopics.status, "resolved"),
@@ -97,8 +93,6 @@ async function computeWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytic
     bottomSources,
     feedbackPlus: Number(feedbackRow?.plus ?? 0),
     feedbackMinus: Number(feedbackRow?.minus ?? 0),
-    newEntities,
-    dormantEntities,
     activeTopicCount,
     resolvedTopicCount,
   };
@@ -117,7 +111,6 @@ Weekly PIDRA Analytics (${analytics.weekStart} to ${analytics.weekEnd}):
 - Tokens in: ${analytics.totalTokensIn.toLocaleString()} | Tokens out: ${analytics.totalTokensOut.toLocaleString()} | AI calls: ${analytics.totalAiCalls}
 - Web searches: ${analytics.totalWebSearches}
 - User feedback: +${analytics.feedbackPlus} / -${analytics.feedbackMinus}
-- New entities this week: ${analytics.newEntities} | Dormant total: ${analytics.dormantEntities}
 - Active topics: ${analytics.activeTopicCount} | Resolved this week: ${analytics.resolvedTopicCount}
 - Top sources: ${analytics.topSources.map((s) => `${s.name} (${s.avgComposite.toFixed(1)})`).join(", ")}
 - Bottom sources: ${analytics.bottomSources.map((s) => `${s.name} (${s.avgComposite.toFixed(1)})`).join(", ")}
@@ -152,7 +145,7 @@ export async function runWeeklyMetaRun(): Promise<void> {
 
   const analytics = await computeWeeklyAnalytics(weekStart);
 
-  console.log(`[meta-run] ${analytics.runsCompleted} runs | +${analytics.feedbackPlus}/-${analytics.feedbackMinus} feedback | ${analytics.newEntities} new entities`);
+  console.log(`[meta-run] ${analytics.runsCompleted} runs | +${analytics.feedbackPlus}/-${analytics.feedbackMinus} feedback`);
 
   const diff = await generatePromptDiff(analytics);
 

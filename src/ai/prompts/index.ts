@@ -1,7 +1,6 @@
 export { BRIEFING_STYLE } from "./style";
 export {
   NEWSLETTER_EXTRACTION_PROMPT,
-  ENTITY_EXTRACTION_PROMPT,
   PERSONAL_EMAIL_PROMPT,
   buildPersonalEmailPrompt,
   type ClassificationContext,
@@ -21,6 +20,5 @@ export { NEWS_DEDUP_PROMPT } from "./news-dedup";
 export { SECTION2_SYSTEM_PROMPT } from "./section2";
 export { QUICK_ACTIONS_PROMPT } from "./actions";
 export { QUESTIONS_PROMPT } from "./questions";
-export { ENTITY_ENRICHMENT_PROMPT } from "./entity-enrichment";
 export { JEV_NEWS_IMPACT_PROMPT, JEV_NEWS_NOVELTY_PROMPT } from "./jev";
 export { ANSWER_CLASSIFICATION_PROMPT } from "./answer-classification";

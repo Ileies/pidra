@@ -24,8 +24,6 @@ export interface ExtractedJson {
   headline?: string;
   key_claim?: string;
   topic_tags?: string[];
-  /** Newsletter extractions only: the entity graph Phase 2 copies onto every claim of one source item. */
-  entities_graph?: { entities?: { name: string; aliases?: string[]; type?: string; domain?: string }[] };
   /** Set instead of the claim fields when a newsletter was judged not worth extracting. */
   skip_reason?: string | null;
   /** Personal mail and SMS classification (`PersonalEmailClassification` in phase2-extract.ts). */
@@ -89,7 +87,6 @@ export const activeTopics = pgTable("active_topics", {
   importance: text("importance").default("normal"), // high | normal | low
   updateCount: integer("update_count").default(1),
   sources: text("sources").array(),
-  entityIds: uuid("entity_ids").array(),
 });
 
 export const dailyReports = pgTable("daily_reports", {

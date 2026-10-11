@@ -1,30 +1,22 @@
-// context-builder/output/db-writer.ts against real SQL: the three seed writers are re-runnable
-// (seed twice, no duplicates), never undo a correction or the daily pipeline's live counts, and
-// keep model noise out of the graph. Nothing is mocked: the writers make no model call.
+// context-builder/output/db-writer.ts against real SQL: the two seed writers are re-runnable
+// (seed twice, no duplicates) and never undo a correction. Nothing is mocked: the writers make no model call.
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { useTestDatabase } from "./fixtures/database";
 
 const database = await useTestDatabase();
-const { seedContacts, seedEntities, seedRuleNotes } = await import("../context-builder/output/db-writer");
+const { seedContacts, seedRuleNotes } = await import("../context-builder/output/db-writer");
 
 beforeEach(async () => {
-  await database.sql`truncate contacts, entities, notes cascade`;
+  await database.sql`truncate contacts, notes cascade`;
 });
 
 const profile = (email: string, over: Record<string, unknown> = {}) => ({
   email, name: "Anna Example", emailCount: 12, categories: ["work"], importance: "high" as const, entities: [], lastSeen: "2026-09-01", actionCount: 3, ...over,
 });
-const mail = (messageId: string, entities: string[], date = "2026-09-10T08:00:00Z") => ({
-  messageId, from: "anna@example.com", fromName: "Anna", date, category: "work", importance: "high", summary: "s", actionRequired: null, entities, sentiment: "neutral",
-});
 const note = (id: string, entities: string[] = []) => ({ id, title: "", labels: [], category: "rules", summary: "", entities, type: "note", importance: "high", rawText: "" });
 
 const contactRows = async () =>
   (await database.sql`select identifier, name, priority, first_seen::text as first_seen, email_count, categories, action_count, updated_at from contacts order by identifier`) as Record<string, any>[];
-const entityRows = async () =>
-  (await database.sql`select name, mention_count, first_seen::text as first_seen, last_mentioned::text as last_mentioned, status, importance from entities order by name`) as Record<string, any>[];
-const mentionRows = async () =>
-  (await database.sql`select e.name, m.source_kind, m.source_ref, m.mention_date::text as mention_date from entity_mentions m join entities e on e.id = m.entity_id order by e.name, m.source_ref`) as Record<string, any>[];
 
 describe("seedContacts", () => {
   test("seeds high and medium contacts with their corpus metrics and skips low ones and non-addresses", async () => {
@@ -74,84 +66,6 @@ describe("seedContacts", () => {
     await seedContacts(all);
     await seedContacts(all);
     expect(await database.sql`select count(*)::int as n from contacts`).toEqual([{ n: 1200 }]);
-  });
-});
-
-describe("seedEntities", () => {
-  test("counts mentions across emails and Keep notes, once per item, merging spellings case-insensitively", async () => {
-    await seedEntities(
-      [mail("m1", ["Acme Corp", "acme corp", "Bravo Labs"]), mail("m2", ["ACME  CORP"], "2026-09-20T08:00:00Z"), mail("m3", ["Acme Corp"], "2026-09-05T08:00:00Z")],
-      [note("n1", ["Acme Corp", "Acme Corp"]), note("n2", ["Charlie Works"])],
-    );
-
-    const rows = await entityRows();
-    expect(rows.map((r) => [r.name, r.mention_count])).toEqual([["Acme Corp", 4], ["Bravo Labs", 1], ["Charlie Works", 1]]);
-    expect(rows[0]).toMatchObject({ first_seen: "2026-09-05", last_mentioned: "2026-09-20", status: "active", importance: "normal" });
-  });
-
-  test("a note-only entity has no last-mentioned date and first-seen falls back to today", async () => {
-    await seedEntities([], [note("n1", ["Charlie Works"])]);
-    const [row] = await entityRows();
-    const [{ today }] = await database.sql`select (now() at time zone 'utc')::date::text as today`;
-    expect(row).toMatchObject({ last_mentioned: null, first_seen: today });
-  });
-
-  test("keeps one provenance row per contributing item, with the mail's date and none for a note", async () => {
-    await seedEntities([mail("m1", ["Acme Corp", "Acme Corp"]), mail("m2", ["Acme Corp"], "2026-09-20T08:00:00Z")], [note("n1", ["Acme Corp"])]);
-    expect(await mentionRows()).toEqual([
-      { name: "Acme Corp", source_kind: "context_builder", source_ref: "email:m1", mention_date: "2026-09-10" },
-      { name: "Acme Corp", source_kind: "context_builder", source_ref: "email:m2", mention_date: "2026-09-20" },
-      { name: "Acme Corp", source_kind: "context_builder", source_ref: "keep:n1", mention_date: null },
-    ]);
-  });
-
-  test("leaves model noise out: short and over-long names, bare numbers, phone numbers and dates, but not names that merely start like a month", async () => {
-    await seedEntities(
-      [mail("m1", [
-        "AI", "x".repeat(81), "1234", "+41 79 123 45 67", "12.5 %", "2026-09-10", "10.09.2026", "10. September 2026", "September 10, 2026", "Sep 2026",
-        "Martin Keller", "Marriott Group", "Jannik Sinner", "May Day Project", "Apricot Labs", "  Real Name  ", "Nul\u0000l Byte Inc",
-      ])],
-      [],
-    );
-    expect((await entityRows()).map((r) => r.name)).toEqual(["Apricot Labs", "Jannik Sinner", "Marriott Group", "Martin Keller", "May Day Project", "Null Byte Inc", "Real Name"]);
-  });
-
-  test("seeding twice adds no entity and no mention; counts are not overwritten, not even after the daily pipeline raised them", async () => {
-    const mails = [mail("m1", ["Acme Corp"]), mail("m2", ["Acme Corp"])];
-    await seedEntities(mails, []);
-    await database.sql`update entities set mention_count = 9, importance = 'high', status = 'dormant', last_mentioned = '2026-10-01'`;
-    await seedEntities(mails, [note("n1", ["Acme Corp"])]);
-
-    expect(await entityRows()).toEqual([expect.objectContaining({ name: "Acme Corp", mention_count: 9, importance: "high", status: "dormant", last_mentioned: "2026-10-01" })]);
-    expect((await mentionRows()).map((m) => m.source_ref)).toEqual(["email:m1", "email:m2"]);
-  });
-
-  test("an entity the daily pipeline created first gets no corpus provenance, a new one beside it does", async () => {
-    await database.sql`insert into entities (name, mention_count) values ('Acme Corp', 5)`;
-    await seedEntities([mail("m1", ["Acme Corp", "Bravo Labs"])], []);
-    expect((await mentionRows()).map((m) => m.name)).toEqual(["Bravo Labs"]);
-    expect((await entityRows()).find((r) => r.name === "Acme Corp")!.mention_count).toBe(5);
-  });
-
-  test("another spelling of a stored entity is not inserted as a second row", async () => {
-    await database.sql`insert into entities (name, mention_count) values ('ACME Corp', 5)`;
-    await seedEntities([mail("m1", ["Acme  Corp", "Bravo Labs"])], []);
-    expect((await entityRows()).map((r) => [r.name, r.mention_count])).toEqual([["ACME Corp", 5], ["Bravo Labs", 1]]);
-    expect((await mentionRows()).map((m) => m.name)).toEqual(["Bravo Labs"]);
-  });
-
-  test("a full build is written in batches: 1200 entities with their mentions, and again without duplicates", async () => {
-    const mails = Array.from({ length: 1200 }, (_, i) => mail(`m${i}`, [`Entity number ${i}`]));
-    await seedEntities(mails, []);
-    await seedEntities(mails, []);
-    expect(await database.sql`select count(*)::int as n from entities`).toEqual([{ n: 1200 }]);
-    expect(await database.sql`select count(*)::int as n from entity_mentions`).toEqual([{ n: 1200 }]);
-  });
-
-  test("nothing to seed writes nothing", async () => {
-    await seedEntities([], []);
-    await seedEntities([mail("m1", ["AI", "2026-09-10"])], []);
-    expect(await entityRows()).toEqual([]);
   });
 });
 

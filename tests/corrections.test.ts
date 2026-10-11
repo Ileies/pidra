@@ -75,15 +75,22 @@ test("reverting an added contact takes it out of use again instead of restoring 
   expect(Object.keys(removed.values).sort()).toEqual(["removedAt", "updatedAt"]);
 });
 
-test("reverting an entity correction restores the entity row by id", async () => {
+test("a correction left over from the removed entities table is only retired by a revert", async () => {
   tables.set(schema.contextCorrections, [correction({
     targetKind: "entity",
     targetKey: "Acme",
     previousState: { id: "e1", type: "org", domain: null, summary: "S", importance: "normal", status: "active", locked: false },
   })]);
-  expect(await revertCorrection("c1")).toBe("Correction c1 reverted, entity Acme restored.");
-  const [restore] = only(schema.entities);
-  expect(restore.values).toEqual({ type: "org", domain: null, summary: "S", importance: "normal", status: "active", locked: false });
+  expect(await revertCorrection("c1")).toBe("Correction c1 reverted.");
+  expect(updates).toHaveLength(1);
+  expect(updates[0].table).toBe(schema.contextCorrections);
+});
+
+test("entity is no longer a correction target", async () => {
+  await expect(
+    recordCorrection({ targetKind: "entity" as never, targetKey: "Acme", operation: "amend", statement: "Acme makes anvils." }),
+  ).rejects.toThrow("target_kind must be one of document, contact");
+  expect(inserts).toHaveLength(0);
 });
 
 test("a missing or already reverted correction cannot be reverted, and answers 409", async () => {
@@ -112,27 +119,28 @@ test("correcting a contact field merges it, locks the row and snapshots the prev
 });
 
 test("a correction whose fields change nothing is recorded without touching the row", async () => {
-  tables.set(schema.entities, [{ id: "e1", name: "Acme", status: "active", importance: "normal" }]);
+  tables.set(schema.contacts, [{ identifier: "a@example.com", name: "A", priority: "normal", removedAt: null }]);
   const result = await recordCorrection({
-    targetKind: "entity",
-    targetKey: "acme",
+    targetKind: "contact",
+    targetKey: "a@example.com",
     operation: "amend",
-    statement: "Acme is normal.",
-    fields: { importance: "normal" },
+    statement: "A is normal.",
+    fields: { priority: "normal" },
   });
-  expect(result.applied).toContain("no entity field actually changed");
+  expect(result.applied).toContain("no contact field actually changed");
   expect(updates).toHaveLength(0);
   expect(inserts.at(-1)!.values.previousState).toBeNull();
 });
 
-test("removing an entity archives and locks it, and an unknown field is rejected", async () => {
-  tables.set(schema.entities, [{ id: "e1", name: "Acme", status: "active" }]);
-  await recordCorrection({ targetKind: "entity", targetKey: "Acme", operation: "retract", statement: "Drop Acme.", remove: true });
-  expect(only(schema.entities)[0].values).toEqual({ status: "archived", locked: true });
+test("removing a contact marks it removed and locks it, and an unknown field is rejected", async () => {
+  tables.set(schema.contacts, [{ identifier: "a@example.com", name: "A", removedAt: null }]);
+  await recordCorrection({ targetKind: "contact", targetKey: "a@example.com", operation: "retract", statement: "Drop A.", remove: true });
+  expect(only(schema.contacts)[0].values).toMatchObject({ locked: true });
+  expect("removedAt" in only(schema.contacts)[0].values).toBe(true);
 
   await expect(
-    recordCorrection({ targetKind: "entity", targetKey: "Acme", operation: "amend", statement: "x", fields: { name: "Other" } }),
-  ).rejects.toThrow('field "name" cannot be corrected on a entity');
+    recordCorrection({ targetKind: "contact", targetKey: "a@example.com", operation: "amend", statement: "x", fields: { identifier: "b@example.com" } }),
+  ).rejects.toThrow('field "identifier" cannot be corrected on a contact');
 });
 
 test("adding a contact creates a locked row marked as created, and a repeat is refused", async () => {

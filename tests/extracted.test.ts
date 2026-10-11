@@ -1,4 +1,4 @@
-// forModel keeps the entity graph out of model payloads without touching the stored row.
+// forModel keeps the legacy entity graph of old rows out of model payloads without touching the stored row.
 import { expect, test } from "bun:test";
 import { forModel } from "../src/util/extracted";
 

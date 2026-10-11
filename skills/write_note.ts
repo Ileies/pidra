@@ -11,6 +11,8 @@ const skill: Skill = {
     "Make a note as narrow as it really is, because every note that loads costs tokens and clutters the stage it loads in. " +
     "A fact about one sender or company ('Netcup payments are automated') belongs to the classify step and that sender: " +
     "steps=classify, senders=netcup. A rule about how a report is written belongs to the section that writes it. " +
+    "Background on a name the system cannot know (a private person, a client, an internal project, an obscure organisation) is a note in scope intel with entities=<name>: " +
+    "Section 1 loads it only on a day when that name appears in one of its items. Never write one for something well known (a major company, a common technology, a publication): the model already knows it and the note is only noise. " +
     "Leave steps and the targeting empty only for a rule that holds for everything. " +
     "Say in your reply which steps and targets you chose, so the user can correct them.",
   risk_level: "low",
@@ -23,7 +25,7 @@ const skill: Skill = {
     active_from: { type: "string", required: false, description: "First day the note applies, YYYY-MM-DD, for something that starts later. Default: at once" },
     steps: { type: "string", required: false, description: `Comma-separated pipeline steps that load the note, from: ${NOTE_STEPS.join(", ")}. Default: every step the scope reaches` },
     senders: { type: "string", required: false, description: "Comma-separated sender names, addresses, domains or phone numbers (substring match, any one is enough). The note then loads only for items from a matching sender. Default: any sender" },
-    entities: { type: "string", required: false, description: "Comma-separated entity names (substring match against the item text and its entities, any one is enough). Default: any" },
+    entities: { type: "string", required: false, description: "Comma-separated names (substring match against the item text and the names it carries, any one is enough). Default: any" },
     keywords: { type: "string", required: false, description: "Comma-separated words that must appear in the item text (any one is enough). Combined with senders and entities by AND. Default: any" },
   },
   execute: async (params, ctx) => {

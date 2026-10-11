@@ -1,10 +1,10 @@
 // Applies the machine-readable `<!--SYSTEM {json}-->` block each synthesis section appends (Section 1:
-// topic and entity updates, skill suggestions; Section 2: new contacts, notes). Called by
+// topic updates, skill suggestions; Section 2: new contacts, notes). Called by
 // `phase6-memory.ts`. The block is model output and untrusted: invalid entries are skipped, never
-// fatal. Writes `active_topics`, `entities`, `contacts`, notes and `skill_executions`.
+// fatal. Writes `active_topics`, `contacts`, notes and `skill_executions`.
 import { isUuid } from "../../util/ids";
 import { errMessage } from "../../util/text";
-import { db, activeTopics, entities, contacts } from "../../db";
+import { db, activeTopics, contacts } from "../../db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createNote } from "../../notes/store";
 import { validateNewContacts } from "../contact-suggestions";
@@ -27,16 +27,9 @@ interface NewTopic {
   importance?: string;
 }
 
-interface NewEntity {
-  name: string;
-  type?: string;
-  domain?: string;
-}
-
 export interface Section1System {
   updated_topics?: Partial<TopicUpdate>[];
   new_topics?: NewTopic[];
-  new_entities?: NewEntity[];
   skill_suggestions?: Parameters<typeof processSkillSuggestions>[0];
 }
 
@@ -165,20 +158,6 @@ export async function applySection1SystemBlock(s1System: Section1System, runDate
         active.splice(active.indexOf(weakest), 1, { id: "", importance: candidate.importance, updateCount: 1, lastUpdated: runDate });
       }
     }
-  }
-
-  for (const entity of records(s1System.new_entities)) {
-    const name = text(entity.name);
-    if (!name) continue;
-    await db.insert(entities).values({
-      name,
-      type: text(entity.type),
-      domain: text(entity.domain),
-      firstSeen: runDate,
-      lastMentioned: runDate,
-      mentionCount: 1,
-      status: "active",
-    }).onConflictDoNothing();
   }
 
   const suggestions = records(s1System.skill_suggestions).flatMap((entry) => {

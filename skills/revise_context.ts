@@ -11,26 +11,22 @@ const skill: Skill = {
   name: "revise_context",
   description:
     "Correct one fact in the harvested long-term context. The harvest is never overwritten - the correction is layered over it and outranks it in every daily briefing. " +
-    "Record exactly one fact per call. Always run read_context first so target_key is real and supersedes quotes the actual wrong wording.",
+    "Record exactly one fact per call. Always run read_context first so target_key is real and supersedes quotes the actual wrong wording. " +
+    "Background on a name (what a person, client or project is) is not a correction: write it as a note with write_note, entities=<name>.",
   risk_level: "medium",
-  touches: ["context", "entities", "contacts"],
+  touches: ["context", "contacts"],
   parameters: {
     target_kind: { type: "string", required: true, description: `One of: ${TARGET_KINDS.join(" | ")}` },
-    target_key: { type: "string", required: true, description: "Document heading, entity name, or contact email address" },
+    target_key: { type: "string", required: true, description: "Document heading, or contact email address" },
     operation: { type: "string", required: true, description: "amend (harvest is wrong) | complement (harvest is incomplete) | retract (harvest states something false)" },
     statement: { type: "string", required: true, description: "The correct fact, written as a plain statement about the user. This is injected verbatim into daily briefings." },
     supersedes: { type: "string", required: false, description: "The wrong text, quoted from the harvest. Required in practice for amend and retract - it is how the briefing knows what to disregard." },
     rationale: { type: "string", required: false, description: "Why this correction was made, from the conversation" },
-    fields: { type: "string", required: false, description: 'JSON object of row fields to merge, for entity (type, domain, summary, importance, status) or contact (name, relationship, priority, contextNotes) targets. Example: {"relationship":"girlfriend"}. The single-field parameters below are an easier way to say the same' },
+    fields: { type: "string", required: false, description: 'JSON object of row fields to merge, for contact (name, relationship, priority, contextNotes) targets. Example: {"relationship":"girlfriend"}. The single-field parameters below are an easier way to say the same' },
     relationship: { type: "string", required: false, description: "Contact target: new relationship, e.g. landlord. Default: unchanged" },
     priority: { type: "string", required: false, description: "Contact target: new priority, e.g. critical | high | normal | low. Default: unchanged" },
     context_notes: { type: "string", required: false, description: "Contact target: new notes that help triage their mail. Default: unchanged" },
     name: { type: "string", required: false, description: "Contact target: new display name. Default: unchanged" },
-    type: { type: "string", required: false, description: "Entity target: new type, e.g. person, organization. Default: unchanged" },
-    domain: { type: "string", required: false, description: "Entity target: new domain or field. Default: unchanged" },
-    summary: { type: "string", required: false, description: "Entity target: new one-line summary. Default: unchanged" },
-    importance: { type: "string", required: false, description: "Entity target: new importance. Default: unchanged" },
-    status: { type: "string", required: false, description: "Entity target: new status. Default: unchanged" },
   },
   execute: async (params, ctx) => {
     let fields: Record<string, unknown> | null = null;
@@ -53,7 +49,6 @@ const skill: Skill = {
     // a field the target kind cannot take is rejected by recordCorrection with the allowed list.
     const FIELD_PARAMS: [string, string][] = [
       ["name", "name"], ["relationship", "relationship"], ["priority", "priority"], ["context_notes", "contextNotes"],
-      ["type", "type"], ["domain", "domain"], ["summary", "summary"], ["importance", "importance"], ["status", "status"],
     ];
     for (const [param, column] of FIELD_PARAMS) {
       const value = params[param];

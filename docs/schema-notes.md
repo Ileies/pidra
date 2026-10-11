@@ -45,7 +45,7 @@ Each table has one writer module; don't add a second writer. Tables described be
 ## Questions
 
 - `questions`: the standing queue.
-  - `status`: `open | answered | dismissed | resolved | merged`. `kind`: `item | review | chat` (the last asked by the assistant).
+  - `status`: `open | answered | dismissed | resolved | merged`. `kind`: `item | review | chat | context` (chat asked by the assistant; context raised by question discovery; review no longer created).
   - Also holds the mails behind each question, earlier wordings in `history`, and the reason a question was closed.
   - `answer_status` (`running | done | failed`), `answer_outcome` and `answer_conversation_id` record what the assistant did with the answer; they are null for open, closed-without-answer and review questions.
 - `question_events`: append-only outcome log, one row per asked / reasked / rewritten / answered / dismissed / reopened / merged / resolved / dropped event with its reason, so history survives a later event overwriting `questions.status_detail`.

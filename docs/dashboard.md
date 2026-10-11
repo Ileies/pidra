@@ -33,7 +33,7 @@ Memory:
 
 Questions and assistant:
 
-- `/questions` - the open question queue. Each question is answered or dismissed on its own; recently closed ones show the reason and a reopen. Item questions sort first, then newest asked; assistant-raised ones are badged "Asked by the assistant". Briefings never wait for answers, and answering makes the assistant act right away (the `questions` surface).
+- `/questions` - the open question queue. Each question is answered or dismissed on its own; recently closed ones show the reason and a reopen. Item questions sort first, then newest asked; assistant-raised ones are badged "Asked by the assistant", discovery's "About you". Briefings never wait for answers, and answering makes the assistant act right away (the `questions` surface).
 - `/questions/closed` - recently closed questions. An answered one shows what the assistant did (`running`, applied or failed), its own account of the change, a "See every step" link to the chat transcript (`/chat?c=<id>`), and "Run again" unless it already succeeded.
 - `/chat` - the assistant full screen: the same `Panel` as the floating widget, sharing its live conversation. `?c=<id>` opens that conversation; no param (or `?c=new`) is an empty composer, so a reload or direct visit starts a new chat. The open id lives only in in-memory assistant state, so a client-side navigation to bare `/chat` redirects onto the live conversation with `replaceState` (keeps Back from looping).
 

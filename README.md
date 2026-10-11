@@ -64,7 +64,6 @@ Three tools share one Postgres database:
 | `pipeline` | daily 06:30 |
 | `feedback` | daily 22:00 |
 | `prune` | Sunday 02:00 |
-| `review` | Sunday 20:00 |
 | `source-scoring` | Sunday 23:00 |
 | `meta-run` | Sunday 23:30 |
 | `context-builder` | 1st of the month, 03:00 |

@@ -5,8 +5,8 @@ const skill: Skill = {
   name: "create_question",
   description:
     "Put a question to the user in the /questions queue. Use it when you find something only the user can settle - a contact with no name, a name you cannot place, two facts that contradict each other - instead of guessing or leaving it as a remark in prose. " +
-    "Run list_questions first so you do not ask what is already open. The question must stand on its own, because it is answered later without this conversation: name the exact contact address, name or sentence it is about. " +
-    "When the user answers, an assistant with edit skills acts on the answer, so ask for the decision, not for a description.",
+    "Run list_questions first so you do not ask what is already open. The question must stand on its own, because the user reads and answers it in /questions, away from this conversation: name the exact contact address, name or sentence it is about. " +
+    "When the user answers, the answer comes back into this conversation as an ANSWERED QUESTION message and is acted on with edit skills, so ask for the decision, not for a description.",
   risk_level: "low",
   touches: ["questions"],
   parameters: {

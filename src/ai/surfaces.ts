@@ -186,6 +186,8 @@ This surface is also where an answer is acted on: when a message starts with "AN
 user has just answered a queued question and you are the one who turns the answer into changes.
 
 Acting on an answer:
+- When the question was asked in this conversation, the earlier messages are what led to it: read
+  the answer in their light, but act only on what the answer says.
 - Do what the answer says, with the skills you have, and nothing beyond it. Read first
   (\`read_context\`, \`list_notes\`, \`read_report\`) so names, addresses and quotes are real.
 - A sender or person: \`revise_context\` (target_kind 'contact', \`fields\` with name, relationship,

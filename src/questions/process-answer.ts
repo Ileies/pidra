@@ -1,12 +1,13 @@
 /**
  * Acts on an answered question by running one chat turn on the `questions` surface (src/ai/surfaces.ts),
  * so every change is an ordinary gated, audited skill call. Writes the result to
- * `questions.answer_status/answer_outcome/answer_conversation_id`. `review` questions are skipped:
- * `absorbReviewAnswers` turns those into notes.
+ * `questions.answer_status/answer_outcome/answer_conversation_id`. A question raised in a chat
+ * (`create_question`) is acted on in that same conversation, so a follow-up question the turn asks
+ * continues the thread too. `review` questions are skipped: `absorbReviewAnswers` turns those into notes.
  */
 import { errMessage, squash } from "../util/text";
 import { sendMessage } from "../ai/chat";
-import { askedReason, getAnsweredQuestion, setAnswerOutcome, type Question } from "./store";
+import { askedFrom, getAnsweredQuestion, setAnswerOutcome, type Question } from "./store";
 
 const MAX_SOURCES = 5;
 const MAX_FIELD = 200;
@@ -43,8 +44,13 @@ export async function processAnswer(id: string): Promise<void> {
 
   await setAnswerOutcome(id, "running", null);
   try {
-    const reason = await askedReason(id);
-    const turn = await sendMessage(describe(question, reason), undefined, { route: "/questions", surface: "questions" }, "question");
+    const asked = await askedFrom(id);
+    const turn = await sendMessage(
+      describe(question, asked.reason),
+      asked.conversationId ?? undefined,
+      { route: "/questions", surface: "questions" },
+      "question",
+    );
     const changed = turn.toolCalls.filter((c) => c.status === "executed").length;
     const outcome = turn.reply || (changed > 0 ? `${changed} change(s) made.` : "Nothing needed changing.");
     await setAnswerOutcome(id, "done", outcome, turn.conversationId);

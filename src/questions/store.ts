@@ -8,7 +8,7 @@
 import { HttpError } from "../util/errors";
 import { utcDay } from "../util/time";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { db, questionEvents, questions, type QuestionSource } from "../db";
+import { chatConversations, db, questionEvents, questions, type QuestionSource } from "../db";
 import { logEvent } from "./events";
 import { teachContact } from "./teach-contact";
 
@@ -114,14 +114,19 @@ export async function createChatQuestion(
   return { question: row!, duplicate: false };
 }
 
-/** Why a question was asked, from its "asked" event: the assistant's note on what it saw. */
-export async function askedReason(id: string): Promise<string | null> {
+/**
+ * Why a question was asked, from its "asked" event: the assistant's note on what it saw, and for a
+ * question raised in a chat the conversation it came from, while that conversation still exists.
+ * `process-answer.ts` acts on the answer in that conversation, so the turn sees what led to the question.
+ */
+export async function askedFrom(id: string): Promise<{ reason: string | null; conversationId: string | null }> {
   const [row] = await db
-    .select({ reason: questionEvents.reason })
+    .select({ reason: questionEvents.reason, conversationId: chatConversations.id })
     .from(questionEvents)
+    .leftJoin(chatConversations, sql`${chatConversations.id}::text = ${questionEvents.detail} ->> 'conversation_id'`)
     .where(and(eq(questionEvents.questionId, id), eq(questionEvents.event, "asked")))
     .limit(1);
-  return row?.reason ?? null;
+  return { reason: row?.reason ?? null, conversationId: row?.conversationId ?? null };
 }
 
 /** Records how acting on an answer went (`process-answer.ts`). */

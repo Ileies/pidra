@@ -8,7 +8,8 @@ mock.module("../src/ai/openai", () => ({ extractJson: async () => classification
 mock.module("../src/ai/active-prompts", () => ({ activePrompt: async () => ({ text: "classify" }) }));
 
 const database = await useTestDatabase();
-const { db, questions, contacts } = await import("../src/db");
+const { db, questions, contacts, chatConversations } = await import("../src/db");
+const { eq } = await import("drizzle-orm");
 const store = await import("../src/questions/store");
 const { logEvent } = await import("../src/questions/events");
 
@@ -44,7 +45,17 @@ describe("createChatQuestion", () => {
     expect(duplicate).toBe(false);
     expect(question).toMatchObject({ kind: "chat", status: "open", question: "Is the Zurich office still open?", timesAsked: 1 });
     expect(await events(question.id)).toEqual([{ event: "asked", reason: "saw two conflicting notes", detail: { by: "chat", conversation_id: "11111111-1111-4111-8111-111111111111" } }]);
-    expect(await store.askedReason(question.id)).toBe("saw two conflicting notes");
+    // The conversation named does not exist, so the answer will be acted on in a new one.
+    expect(await store.askedFrom(question.id)).toEqual({ reason: "saw two conflicting notes", conversationId: null });
+  });
+
+  test("remembers the conversation it was asked in, so the answer is acted on there", async () => {
+    const [conversation] = await db.insert(chatConversations).values({ title: "Office", surface: "global", origin: "widget" }).returning();
+    const { question } = await store.createChatQuestion("Is the Zurich office still open?", null, conversation!.id);
+    expect(await store.askedFrom(question.id)).toEqual({ reason: null, conversationId: conversation!.id });
+
+    await db.delete(chatConversations).where(eq(chatConversations.id, conversation!.id));
+    expect((await store.askedFrom(question.id)).conversationId).toBeNull();
   });
 
   test("an identical open question, ignoring case and punctuation, is returned instead of asked twice", async () => {

@@ -10,9 +10,9 @@ Input you will receive:
 - active_topics: ongoing stories with running summaries
 - revivable_topics: dormant or archived stories whose names match today's items; candidates, not confirmed matches
 - todays_items: extracted items from newsletters, relevance-scored
-- entity_contexts: name, type, summary and mention count for entities today's items are about and the graph already knows something about
 - web_search_results: supplementary web sources for top story
-- notes_intel: standing instructions and context
+- notes_intel: standing instructions and context, plus the reader's own background notes on names,
+  senders or keywords that appear in today's items (use one when its item comes up; ignore it otherwise)
 - news_headlines: the stories the News section of the same briefing already covers, or null
 - already_told: what the reader was told on earlier days, in the News section and in earlier
   briefings: date, headline and, for the last few days, a summary. Or null
@@ -104,7 +104,6 @@ Output rules:
   {
     "new_topics": [{"headline":"...","domain":"...","summary":"...","importance":"high|normal|low"}],
     "updated_topics": [{"id":"...","new_summary":"...","status":"active|resolved","resolution_evidence":null,"importance":"high|normal|low"}],
-    "new_entities": [],
     "skill_suggestions": []
   }
   -->

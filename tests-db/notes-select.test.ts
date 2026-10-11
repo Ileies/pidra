@@ -5,7 +5,7 @@ import { useTestDatabase } from "./fixtures/database";
 
 const database = await useTestDatabase();
 const store = await import("../src/notes/store");
-const { selectNotes, PROPOSAL_PREFIX } = await import("../src/notes/select");
+const { selectNotes, selectNotesForItems, MAX_ITEM_NOTES, PROPOSAL_PREFIX } =await import("../src/notes/select");
 
 const USER = { by: "user" } as const;
 const TODAY = "2030-06-15";
@@ -75,6 +75,31 @@ describe("selectNotes", () => {
     expect(await selectNotes("classify", TODAY, { text: "unrelated", entities: ["Acme Corp"] })).toHaveLength(1);
     expect(await selectNotes("classify", TODAY, { text: "news from ACME today" })).toHaveLength(1);
     expect(await selectNotes("classify", TODAY, { text: "nothing" })).toHaveLength(0);
+  });
+
+  test("selectNotesForItems adds a targeted note only when one of the items matches, and records its load", async () => {
+    await database.sql`insert into notes (content, scope, applies_to) values
+      ('always', 'intel', null),
+      ('about acme', 'intel', '{"entities": ["Acme"]}'),
+      ('about globex', 'intel', '{"entities": ["Globex"]}')`;
+    const pick = async (items: Parameters<typeof selectNotesForItems>[2]) =>
+      (await selectNotesForItems("section1", TODAY, items)).map((n) => n.content).sort();
+
+    expect(await pick([])).toEqual(["always"]);
+    expect(await pick([{ sender: "a", text: "x", entities: ["Acme Corp"] }])).toEqual(["about acme", "always"]);
+    expect(await pick([{ text: "Globex ships" }, { text: "Acme ships" }])).toEqual(["about acme", "about globex", "always"]);
+
+    const loaded = await database.sql`select n.content from note_loads l join notes n on n.id = l.note_id where l.step = 'section1' order by n.content`;
+    expect(loaded.map((r: { content: string }) => r.content)).toEqual(["about acme", "about globex", "always"]);
+  });
+
+  test("selectNotesForItems caps targeted notes, oldest first", async () => {
+    for (let i = 0; i < MAX_ITEM_NOTES + 3; i++) {
+      await store.createNote({ content: `acme ${i}`, scope: "intel", appliesTo: { entities: ["Acme"] } }, USER);
+    }
+    const picked = await selectNotesForItems("section1", TODAY, [{ text: "Acme" }]);
+    expect(picked).toHaveLength(MAX_ITEM_NOTES);
+    expect(picked[0]!.content).toBe("acme 0");
   });
 
   test("returns oldest first", async () => {

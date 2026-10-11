@@ -46,7 +46,7 @@ const newsItem = (id: string, s: Any) => ({ extraction: { id, extractedJson: s }
 
 const baseCtx = (over: Any = {}) => ({
   volumeSignal: "normal", highRelevanceCount: 2, activeTopics: [], revivableTopics: [], newsletterItems: [], personalItems: [],
-  newsItems: [], newsDesk: { home: null }, entityContexts: [], notesIntel: [], notesPersonal: [], knownContacts: [],
+  newsItems: [], newsDesk: { home: null }, notesIntel: [], notesPersonal: [], knownContacts: [],
   calendarItems: [], todoItems: [], webSearchResults: [],
   longTermContext: { corrections: [], intelSections: "", personalSections: "", interestSections: "", generatedAt: null, problem: null },
   ...over,
@@ -65,7 +65,6 @@ describe("Section 1", () => {
       activeTopics: [{ id: "t1", headline: "Chip export rules", domain: "Geopolitics", runningSummary: "Rules tighten", updateCount: 4, status: "active" }],
       revivableTopics: [{ id: "t2", headline: "Old merger", domain: "Finance", runningSummary: "Stalled", updateCount: 1, status: "dormant" }],
       newsletterItems: [extraction("11111111-1111-4111-8111-111111111111", { headline: "A claim", entities: ["Acme"] }, { effectiveRelevance: 4.2, novelty: "continuation" })],
-      entityContexts: [{ name: "Acme", type: "company", summary: "Makes anvils", mentionCount: 9 }],
       notesIntel: [{ content: "Watch chips", scope: "intel" }],
       newsItems: [newsItem("n1", story("world", "Parliament approves the budget", 4))],
       longTermContext: { corrections: [], intelSections: "Interested in chips", personalSections: "Private", interestSections: "", generatedAt: null, problem: null },
@@ -78,13 +77,12 @@ describe("Section 1", () => {
       active_topics: [{ id: "t1", headline: "Chip export rules", domain: "Geopolitics", summary: "Rules tighten", update_count: 4 }],
       revivable_topics: [{ id: "t2", headline: "Old merger", domain: "Finance", summary: "Stalled", status: "dormant" }],
       todays_items: [{ id: "11111111-1111-4111-8111-111111111111", source: "Example Weekly", effective_relevance: 4.2, novelty: "continuation", headline: "A claim", entities: ["Acme"] }],
-      entity_contexts: [{ name: "Acme", type: "company", summary: "Makes anvils", mention_count: 9 }],
       notes_intel: ["Watch chips"],
       news_headlines: ["Parliament approves the budget"],
       already_told: null,
       long_term_context: "Interested in chips",
       context_corrections: null,
-      web_search: { slot1_topic_deepdive: null, slot2_dormant_entity: null },
+      web_search: { slot1_topic_deepdive: null },
     });
     expect(JSON.stringify(calls[0].payload)).not.toContain("Private");
   });
@@ -127,26 +125,24 @@ describe("Section 1", () => {
   test("the user's corrections go beside the profile in the shape the prompt reads", async () => {
     await runSection1(baseCtx({
       longTermContext: {
-        corrections: [{ id: "c1", targetKind: "entity", targetKey: "Acme", operation: "amend", statement: "Acme makes rockets", supersedesText: "Acme makes anvils", createdAt: null }],
+        corrections: [{ id: "c1", targetKind: "document", targetKey: "Identity", operation: "amend", statement: "I live in Bern", supersedesText: "I live in Zurich", createdAt: null }],
         intelSections: "", personalSections: "", interestSections: "", generatedAt: null, problem: null,
       },
     }), DAY);
     expect(calls[0].payload.context_corrections).toEqual([
-      { about: "entity:Acme", operation: "amend", correct: "Acme makes rockets", incorrect: "Acme makes anvils" },
+      { about: "document:Identity", operation: "amend", correct: "I live in Bern", incorrect: "I live in Zurich" },
     ]);
   });
 
-  test("slot 1 and slot 2 of the web search arrive under their own keys, slot 3 does not", async () => {
+  test("slot 1 of the web search arrives under its own key, slot 3 does not", async () => {
     await runSection1(baseCtx({
       webSearchResults: [
         { slot: 3, query: "q3", target: "Someone", results: [{ title: "three" }] },
-        { slot: 2, query: "q2", entityName: "Dormant Co", results: [{ title: "two" }] },
         { slot: 1, query: "q1", topicId: "t1", results: [{ title: "one" }] },
       ],
     }), DAY);
     expect(calls[0].payload.web_search).toEqual({
       slot1_topic_deepdive: { query: "q1", topic_id: "t1", results: [{ title: "one" }] },
-      slot2_dormant_entity: { query: "q2", entity: "Dormant Co", results: [{ title: "two" }] },
     });
     expect(JSON.stringify(calls[0].payload)).not.toContain("q3");
   });

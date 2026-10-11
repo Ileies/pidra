@@ -74,7 +74,26 @@ export function notesForItem(rows: Note[], item?: NoteItem): Note[] {
   return rows.filter((n) => matchesItem(n.appliesTo, item));
 }
 
-/** Live notes for `step` on `runDate`. Pass the `item` the stage is about to process; a stage with no single item (Section 1 and 2, news, reconcile) passes none and so never loads targeted notes. */
+/** How many matched targeted notes a stage that sees many items at once takes, oldest first. */
+export const MAX_ITEM_NOTES = 15;
+
+/**
+ * Notes for a stage that reads many items in one call (Section 1): every untargeted note, then each
+ * targeted one that matches at least one of `items`, capped at `MAX_ITEM_NOTES` (oldest first). A
+ * targeted note matching no item stays out and is not recorded as loaded.
+ */
+export async function selectNotesForItems(step: NoteStep, runDate: string, items: NoteItem[]): Promise<Note[]> {
+  const rows = await selectStepNotes(step, runDate);
+  const untargeted = rows.filter((n) => !isTargeted(n.appliesTo));
+  const matched = rows
+    .filter((n) => isTargeted(n.appliesTo) && items.some((item) => matchesItem(n.appliesTo, item)))
+    .slice(0, MAX_ITEM_NOTES);
+  const used = [...untargeted, ...matched];
+  await recordLoads(step, runDate, used);
+  return used;
+}
+
+/** Live notes for `step` on `runDate`. Pass the `item` the stage is about to process; a stage with no single item (Section 2, news, reconcile) passes none and so never loads targeted notes; Section 1 uses `selectNotesForItems`. */
 export async function selectNotes(step: NoteStep, runDate: string, item?: NoteItem): Promise<Note[]> {
   const rows = notesForItem(await selectStepNotes(step, runDate), item);
   await recordLoads(step, runDate, rows);

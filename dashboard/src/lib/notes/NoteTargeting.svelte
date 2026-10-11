@@ -72,6 +72,6 @@
       {/if}
     </label>
 
-    <p>A note with a sender, entity or keyword loads only for items that match all the lists you fill in. Stages without a single item, such as the two sections, never load it.</p>
+    <p>A note with a sender, entity or keyword loads only for items that match all the lists you fill in. Section 1 loads it when it matches at least one of today's items. Section 2, News and the question check have no single item and never load it.</p>
   </div>
 </details>

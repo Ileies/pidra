@@ -55,7 +55,6 @@ async function alreadyTold(runDate: string): Promise<{ date: string; headline: s
 
 function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaited<ReturnType<typeof alreadyTold>>): string {
   const slot1 = ctx.webSearchResults.find((r) => r.slot === 1);
-  const slot2 = ctx.webSearchResults.find((r) => r.slot === 2);
 
   return JSON.stringify({
     report_date: runDate,
@@ -82,12 +81,6 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaite
       novelty: i.extraction.novelty,
       ...forModel(i.extraction.extractedJson),
     })),
-    entity_contexts: ctx.entityContexts.map((e) => ({
-      name: e.name,
-      type: e.type,
-      summary: e.summary,
-      mention_count: e.mentionCount,
-    })),
     notes_intel: ctx.notesIntel.map((n) => n.content),
     // What the News section of the same briefing already tells the reader. Without it Section 1
     // restates a headline the reader read a screen earlier, as analysis nobody asked for.
@@ -105,7 +98,6 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaite
     context_corrections: corrections(ctx),
     web_search: {
       slot1_topic_deepdive: slot1 ? { query: slot1.query, topic_id: slot1.topicId, results: slot1.results } : null,
-      slot2_dormant_entity: slot2 ? { query: slot2.query, entity: slot2.entityName, results: slot2.results } : null,
     },
   });
 }

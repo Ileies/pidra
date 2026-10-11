@@ -1,9 +1,9 @@
 // Phase 3: assembles the `ContextPayload` that every Phase 4/5 step reads. Runs the relevance gate
 // (`gate-items.ts`, persists the verdicts on `extractions`), the Section 1 web-search slots, and
-// loads notes, contacts, entities, calendar, todos and the long-term context. Called by `run.ts`.
+// loads notes, contacts, calendar, todos and the long-term context. Called by `run.ts`.
 import { parseJsonRows } from "../util/json";
-import { db, extractions, activeTopics, sourceQuality, contacts, notes, entities, rawItems } from "../db";
-import { selectNotes } from "../notes/select";
+import { db, extractions, activeTopics, sourceQuality, contacts, notes, rawItems } from "../db";
+import { selectNotes, selectNotesForItems, type NoteItem } from "../notes/select";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import type { CalendarEvent, TodoItem } from "../ingest/google";
 import { runAllSlots, type WebSearchResult } from "../search/slots";
@@ -13,7 +13,6 @@ import { EMPTY_NEWS_DESK, type NewsDeskOutcome } from "../news/run";
 import { orderNewsletterItems, SECTION1_CAPACITY } from "./section1-handoff";
 import { revivableTopics } from "./topic-lifecycle";
 import { span } from "../util/trace";
-import { matchEntityContexts } from "./entity-context";
 import { gateExtractions, persistGate, type ExtractionWithSource } from "./gate-items";
 import { prioritiseTodos } from "./todos";
 
@@ -29,7 +28,6 @@ export interface ContextPayload {
   newsItems: ExtractionWithSource[];
   /** How the news desks did on this run: the window, the home, which desks failed. */
   newsDesk: NewsDeskOutcome;
-  entityContexts: (typeof entities.$inferSelect)[];
   notesIntel: (typeof notes.$inferSelect)[];
   notesPersonal: (typeof notes.$inferSelect)[];
   knownContacts: (typeof contacts.$inferSelect)[];
@@ -39,6 +37,17 @@ export interface ContextPayload {
   webSearchResults: WebSearchResult[];
   /** Context Builder output: standing rules plus the pre-split long-term context document. */
   longTermContext: LongTermContext;
+}
+
+/** What a targeted note is matched against for one Section 1 claim: its source, its wording and the names it carries. */
+function itemForNotes(item: ExtractionWithSource): NoteItem {
+  const json = item.extraction.extractedJson ?? {};
+  const names: string[] = Array.isArray(json.entities) ? json.entities.map(String) : [];
+  return {
+    sender: item.sourceName,
+    text: [json.headline, json.key_claim, ...names].filter(Boolean).join("\n"),
+    entities: names,
+  };
 }
 
 export async function runPhase3(
@@ -56,10 +65,8 @@ export async function runPhase3(
   const [
     todaysExtractions,
     qualityResult,
-    notesIntel,
     notesPersonal,
     allContacts,
-    entityList,
     calendarRaw,
     todoRaw,
     webSearchResults,
@@ -70,10 +77,8 @@ export async function runPhase3(
       .leftJoin(rawItems, eq(rawItems.id, extractions.rawItemId))
       .where(eq(extractions.runDate, runDate)),
     db.select().from(sourceQuality),
-    selectNotes("section1", runDate),
     selectNotes("section2", runDate),
     db.select().from(contacts).where(isNull(contacts.removedAt)),
-    db.select().from(entities).where(eq(entities.status, "active")),
     db.select({ rawContent: rawItems.rawContent })
       .from(rawItems)
       .where(and(eq(rawItems.runDate, runDate), eq(rawItems.sourceType, "calendar"))),
@@ -102,6 +107,14 @@ export async function runPhase3(
   );
   const newsletterOrder = new Map(newsletterItems.map((item, index) => [item.extraction.id, index + 1]));
   await persistGate(items, newsletterOrder);
+
+  // Section 1's notes need the items it will receive: a note targeted at a name, sender or keyword
+  // loads when it matches at least one of them, so it is selected here and not with the others.
+  const notesIntel = await selectNotesForItems(
+    "section1",
+    runDate,
+    newsletterItems.slice(0, SECTION1_CAPACITY).map(itemForNotes),
+  );
 
   // The remaining sections receive every item the gate passed.
   const personalItems = items.filter(
@@ -147,7 +160,6 @@ export async function runPhase3(
     personalItems,
     newsItems,
     newsDesk,
-    entityContexts: matchEntityContexts(newsletterItems, entityList),
     notesIntel,
     notesPersonal,
     knownContacts: allContacts,

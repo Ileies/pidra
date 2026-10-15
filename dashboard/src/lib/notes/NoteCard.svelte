@@ -173,7 +173,7 @@
     >
       <span class="badge border {SCOPE_INFO[note.scope]?.classes ?? SCOPE_FALLBACK_CLASS}">{displayLabel(note.scope)}</span>
       {#each badges as badge (badge.text)}
-        <span class="badge border border-surface-700 text-surface-300 [overflow-wrap:anywhere]" title={badge.title}>{badge.text}</span>
+        <span class="badge border border-surface-700 text-surface-300 max-w-full whitespace-normal rounded-xl text-left [overflow-wrap:anywhere]" title={badge.title}>{badge.text}</span>
       {/each}
       {#if expiry}
         <span class={expiry.tone}>{expiry.text}</span>

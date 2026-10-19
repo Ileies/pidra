@@ -109,6 +109,17 @@ export function markDuplicates(
  * A story the reader already saw is held back unless the desk marked it as an update, which is its
  * claim that something new happened inside the window.
  */
+/**
+ * A desk's "update" that the repeat judge tied to nothing the reader was told would print as
+ * "UPDATE:" over a story the reader never saw, so it runs as a new story. `updates` holds the
+ * candidates the judge found to add a new fact to a told story. Stored stories are left alone.
+ */
+export function demoteUnlinkedUpdates(candidates: Candidate[], updates: Set<Candidate>): void {
+  for (const candidate of candidates) {
+    if (!candidate.stored && candidate.story.status === "update" && !updates.has(candidate)) candidate.story.status = "new";
+  }
+}
+
 export function findAlreadyReported(story: DeskStory, reported: ReportedStory[]): NewsValidation["alreadyReported"] {
   if (story.status === "update") return null;
   const urls = story.sources.map((s) => s.url);

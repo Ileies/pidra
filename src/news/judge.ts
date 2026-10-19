@@ -8,9 +8,10 @@
 import { activePrompt } from "../ai/active-prompts";
 import { extractJson } from "../ai/openai";
 import { errMessage, squash } from "../util/text";
-import { heldBack, keepOrder, type Candidate, type ReportedStory } from "./validate";
+import { demoteUnlinkedUpdates, heldBack, keepOrder, type Candidate, type ReportedStory } from "./validate";
 
-const SCHEMA = {
+/** Also used by Section 1's repeat judge (`pipeline/section1-repeats.ts`), with the same prompt. */
+export const REPEAT_SCHEMA = {
   name: "news_repeat_judgement",
   schema: {
     type: "object", additionalProperties: false, required: ["repeats", "groups"],
@@ -53,14 +54,18 @@ export function applyJudgement(candidates: Candidate[], told: ReportedStory[], j
   const byId = new Map(pool.map((c, i) => [`c${i + 1}`, c]));
   const toldById = new Map(told.map((t, i) => [`t${i + 1}`, t]));
   let held = 0;
+  const updatesSomething = new Set<Candidate>();
 
   for (const { id, told_id, adds_new_fact } of judgement.repeats ?? []) {
     const candidate = byId.get(id);
     const prior = toldById.get(told_id);
+    if (candidate && prior && adds_new_fact) updatesSomething.add(candidate);
     if (!candidate || !prior || candidate.stored || adds_new_fact || !inPlay(candidate)) continue;
     candidate.validation.alreadyReported = { date: prior.date, headline: prior.headline };
     held++;
   }
+
+  demoteUnlinkedUpdates(pool, updatesSomething);
 
   for (const { ids } of judgement.groups ?? []) {
     const members = [...new Set(ids)].flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(inPlay);
@@ -97,7 +102,7 @@ export async function judgeRepeats(candidates: Candidate[], told: ReportedStory[
     const prompt = await activePrompt("news_dedup");
     usage.aiCalls++;
     const judgement = await extractJson<Judgement>(prompt.text, payload(pool, told), {
-      schema: SCHEMA, maxOutputTokens: 6000, reasoningEffort: "medium",
+      schema: REPEAT_SCHEMA, maxOutputTokens: 6000, reasoningEffort: "medium",
       onUsage: (input, output) => { usage.tokensIn += input; usage.tokensOut += output; },
     });
     const held = applyJudgement(candidates, told, judgement);

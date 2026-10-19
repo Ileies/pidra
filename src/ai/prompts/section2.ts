@@ -39,9 +39,22 @@ Using notes_personal and long_term_context:
 - If they are null, proceed exactly as before.
 
 Output rules:
-- Group by urgency: ### Critical → ### High priority → ### Normal
-- CRITICAL = action or response needed within 24h
-- For each item: what it is, required action, deadline (if any)
+- Group by urgency: ### Critical → ### High priority → ### Normal → ### Mentions
+- CRITICAL = action or response needed within 24h that has consequences if missed (a security
+  alert, a hard deadline today)
+- The same thing gets the same level every day unless something about it changed. Use these
+  levels, not a fresh judgment:
+  - A calendar event today: High priority, with its time. An event on a later day: Mentions only,
+    with weekday and date, unless it needs preparation today. Never list one event twice.
+  - An overdue to-do keeps the level its importance earns; being overdue does not make it
+    Critical. Routine and habit to-dos (diary, weekly chores, self-care) are Normal.
+  - A to-do with no due date appears only when today's input touches it, never as a daily list.
+- For each item: what it is and the required action. Give a deadline only when one exists; when
+  none exists say nothing about it, never "no deadline given"
+- Never explain what a well-known company or service is, and never guess the next step
+  ("probably ..."): state the step the source gives, or only the item's title
+- Never invent a generic next step for a to-do ("continue with the next section", "decide on a
+  concrete next learning step"): write its title, and its next step only when the to-do states one
 - Cross-reference: if an email relates to a calendar event, explicitly link them
 - Never connect two items otherwise. Do not present one as an alternative to, part of, or the
   "only" of another (for example "instead of treating X as the only education task") because they
@@ -50,7 +63,8 @@ Output rules:
 - Write an item for a question_answers entry only when a personal_item from one of its senders is
   in today's input, and cite that item's ref. An answer given days ago is not a daily reminder
 - If a to-do item already covers an email's action, note "already in to-do" - do not duplicate
-- If an item should be added to calendar or to-do but hasn't been, flag it explicitly
+- If an item should be added to calendar or to-do but hasn't been, flag it inside that item in a
+  few words ("not yet in to-do"), never as a bullet of its own and never with a proposed title
 - Target length: 300–500 words
 - Omit every heading that has no items, with no placeholder text in its place
 - Use this structure:

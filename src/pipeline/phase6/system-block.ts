@@ -64,6 +64,16 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+/** Topic domains are English labels whatever the output language, so one subject never splits across two names. */
+const DOMAIN_ALIASES: Record<string, string> = {
+  ki: "AI", sicherheit: "Security", verteidigung: "Defense", energie: "Energy", wissenschaft: "Science",
+  gesundheit: "Health", finanzen: "Finance", geopolitik: "Geopolitics", halbleiter: "Semiconductors",
+};
+
+export function canonicalDomain(domain: string): string {
+  return DOMAIN_ALIASES[domain.toLowerCase()] ?? domain;
+}
+
 function isValidTopicUpdate(update: Partial<TopicUpdate>): update is TopicUpdate {
   if (!isUuid(update.id)) return false;
   if (update.status !== "active" && update.status !== "resolved") return false;
@@ -92,7 +102,7 @@ export async function applySection1SystemBlock(s1System: Section1System, runDate
     const headline = text(entry.headline);
     const domain = text(entry.domain);
     // `active_topics` requires both; a topic without them is skipped rather than failing the block.
-    return headline && domain ? [{ headline, domain, summary: text(entry.summary), importance: normalizeTopicImportance(entry.importance) }] : [];
+    return headline && domain ? [{ headline, domain: canonicalDomain(domain), summary: text(entry.summary), importance: normalizeTopicImportance(entry.importance) }] : [];
   });
   const targetIds = updates.filter((u) => u.status === "active").map((u) => u.id);
   const statusById = new Map(

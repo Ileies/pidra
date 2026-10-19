@@ -17,7 +17,8 @@ export const NEWSLETTER_TOLD_DAYS = 7;
 const NEWSLETTER_TOLD_CAP = 150;
 /** Only recent items carry their summary: it is what tells an update from a repeat, and it costs tokens. */
 const SUMMARY_DAYS = 4;
-const SUMMARY_CHARS = 160;
+/** Long enough to keep the figures (a price, a count) that tell an update from a repeat. */
+const SUMMARY_CHARS = 240;
 
 interface StoredClaim { headline?: string; key_claim?: string; sources?: { url: string }[] }
 

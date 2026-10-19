@@ -2,7 +2,8 @@
 // (`pipeline/phase3-context.ts`) via `runAllSlots`. Each slot costs one Brave call from the shared
 // daily quota (see brave.ts). The numbers are stable ids that the payloads and the dashboard use:
 // slot 2 (watched entities) is gone and its number is not reused; slots 4 and 5 are deliberately not built.
-import { DAY_MS } from "../util/time";
+import { DAY_MS, addDays } from "../util/time";
+import { rankTopicImportance } from "../pipeline/topic-lifecycle";
 import { braveSearch, type BraveResult } from "./brave";
 import { extractJson } from "../ai/openai";
 import { recordLoads } from "../notes/loads";
@@ -17,14 +18,32 @@ export interface WebSearchResult {
   results: BraveResult[];
 }
 
-// Slot 1: top active topic deep-dive
+/** A topic updated this recently gets news through the newsletters already and is not searched. */
+const SLOT1_REST_DAYS = 2;
+
+/**
+ * Slot 1's topic: the most important active topic that has rested, least recently updated first.
+ * Never "most updates": every searched topic gained an update, won again the next day, and the
+ * briefing re-told the same launch for two weeks.
+ */
+export function pickSlot1Topic<T extends Pick<typeof activeTopics.$inferSelect, "status" | "importance" | "lastUpdated">>(
+  topics: T[],
+  runDate: string,
+): T | undefined {
+  const active = topics.filter((t) => t.status === "active");
+  const restedSince = addDays(runDate, -SLOT1_REST_DAYS);
+  const rested = active.filter((t) => !t.lastUpdated || t.lastUpdated < restedSince);
+  return (rested.length > 0 ? rested : active).sort((a, b) =>
+    rankTopicImportance(b.importance) - rankTopicImportance(a.importance) ||
+    (a.lastUpdated ?? "").localeCompare(b.lastUpdated ?? ""))[0];
+}
+
+// Slot 1: topic deep-dive
 async function runSlot1(
   topics: (typeof activeTopics.$inferSelect)[],
   runDate: string,
 ): Promise<WebSearchResult | null> {
-  const candidate = topics
-    .filter((t) => t.status === "active")
-    .sort((a, b) => (b.updateCount ?? 0) - (a.updateCount ?? 0))[0];
+  const candidate = pickSlot1Topic(topics, runDate);
 
   if (!candidate) return null;
 

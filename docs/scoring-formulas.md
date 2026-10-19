@@ -40,7 +40,7 @@ Implicit behavioral detection (calendar and to-do writes correlating with a repo
 
 Two Brave-search slots feed Section 1 (the ids 1 and 3 are kept, the watched-entity slot 2 was removed with the entities feature):
 
-1. **Topic deep-dive:** the active topic with the highest `update_count`.
+1. **Topic deep-dive:** the most important active topic (by `importance`) not updated in the last 2 days, least recently updated first (`pickSlot1Topic`); if every active topic updated recently, the same ranking over all of them. Never "most updates": that looped (search, update, more updates, searched again).
 3. **Self/project reputation:** one target per day, rotating by the run date's day of year (so a rerun of a past day searches what that day did) through `notes` with scope `search`.
 
 Slots 4 (pre-meeting research) and 5 (user-specified search intent) are deliberately unbuilt (see "What's next" in `CLAUDE.md`).

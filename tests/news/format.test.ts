@@ -84,15 +84,26 @@ describe("the News section", () => {
     expect(out.indexOf("Headline odd")).toBeGreaterThan(out.indexOf("### Something different"));
   });
 
-  test("a lone single-story group joins the group above it, labelled", () => {
+  test("a lone single-story group goes into In brief, labelled, never into the group above", () => {
     const out = foldSingleStoryGroups(
       "## News\n\n### Top stories\n\n- **A.** Facts. <!--refs:n1-->\n- **B.** Facts. <!--refs:n2-->\n\n" +
         "### Talk of the day\n\n- plain bullet <!--refs:n4-->\n\n" +
         "### Something different\n\n- **D.** <!--refs:n5-->\n- **E.** <!--refs:n6-->",
     );
     expect(out).not.toContain("### Talk of the day");
-    expect(out).toContain("- **B.** Facts. <!--refs:n2-->\n- **Talk of the day:** plain bullet <!--refs:n4-->\n\n### Something different");
+    expect(out).toContain("- **B.** Facts. <!--refs:n2-->\n\n### In brief\n\n- **Talk of the day:** plain bullet <!--refs:n4-->\n\n### Something different");
     expect(out).toContain("### Something different\n\n- **D.**");
+  });
+
+  test("a single story after the home group does not land under it, and home keeps its heading", () => {
+    const out = foldSingleStoryGroups(
+      "## News\n\n### Top stories\n\n- **A.** <!--refs:n1-->\n- **B.** <!--refs:n2-->\n\n" +
+        "### Zurich\n\n- **H.** Facts. <!--refs:n3-->\n\n### China\n\n- **C.** Facts. <!--refs:n4-->\n\n" +
+        "### AI\n\n- **D.** <!--refs:n5-->\n- **E.** <!--refs:n6-->\n\n### Something different\n\n- **S.** <!--refs:n7-->",
+      ["Zurich"],
+    );
+    expect(out).toContain("### Zurich\n\n- **H.** Facts. <!--refs:n3-->\n\n### In brief\n\n- **China: C.** Facts. <!--refs:n4-->\n\n### AI");
+    expect(out).toContain("- **E.** <!--refs:n6-->\n\n### In brief\n\n- **Something different: S.** <!--refs:n7-->");
   });
 
   test("several single-story groups in a row share one In brief heading", () => {

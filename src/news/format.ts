@@ -162,37 +162,41 @@ function labelledLines(group: Group): string[] {
   });
 }
 
+/** The groups that keep their heading even with one story: top stories, home and its countries. */
+export function fixedGroups(home: HomeConfig | null): string[] {
+  return home ? [home.label, ...home.also.map((c) => c.name)] : [];
+}
+
 /**
  * A `###` group holding a single story loses its heading, labelled inline instead ("**Talk of
- * the day: ...**"). Asked for by the owner (2026-10-01): one heading per story turned a short
- * section into a column of headings. A lone one joins the group above it; two or more in a row
- * share one "In brief" heading, since three labelled AI, markets and startups stories under the
- * home heading read as home news. The first group always keeps its heading, since there is
- * nothing above it to join.
+ * the day: ...**"), and goes into an "In brief" group (asked for by the owner, 2026-10-01: one
+ * heading per story turned a short section into a column of headings). Consecutive ones share one
+ * "In brief". A single story never joins the group above it: a China story under the home heading
+ * read as home news. The first group, Top stories, "In brief" itself and the `keep` groups (home
+ * and its countries) always keep their heading.
  */
-export function foldSingleStoryGroups(markdown: string): string {
+export function foldSingleStoryGroups(markdown: string, keep: string[] = []): string {
   const { preamble, groups } = parseGroups(markdown.split("\n"));
 
-  const single = (group: Group) => group.lines.filter((line) => BULLET_START.test(line)).length === 1;
+  const name = (group: Group) => group.heading.replace(/\*/g, "").trim().toLowerCase();
+  const fixed = new Set(["top stories", IN_BRIEF, ...keep].map((n) => n.toLowerCase()));
+  const folds = (group: Group, i: number) =>
+    i > 0 && !fixed.has(name(group)) && group.lines.filter((line) => BULLET_START.test(line)).length === 1;
+
   const kept: Group[] = [];
-  for (let i = 0; i < groups.length; i++) {
-    if (i === 0 || !single(groups[i])) {
-      kept.push(groups[i]);
-      continue;
+  groups.forEach((group, i) => {
+    if (!folds(group, i)) {
+      kept.push(group);
+      return;
     }
-    let end = i;
-    while (end + 1 < groups.length && single(groups[end + 1])) end++;
-    const run = groups.slice(i, end + 1);
-    const lines = run.flatMap(labelledLines);
-    if (run.length === 1) {
-      const target = kept[kept.length - 1];
-      while (target.lines.length > 0 && target.lines[target.lines.length - 1].trim() === "") target.lines.pop();
-      target.lines.push(...lines, "");
-    } else {
-      kept.push({ heading: IN_BRIEF, lines: ["", ...lines, ""] });
+    let brief = kept[kept.length - 1];
+    if (name(brief) !== IN_BRIEF.toLowerCase()) {
+      brief = { heading: IN_BRIEF, lines: [""] };
+      kept.push(brief);
     }
-    i = end;
-  }
+    while (brief.lines.length > 1 && brief.lines[brief.lines.length - 1].trim() === "") brief.lines.pop();
+    brief.lines.push(...labelledLines(group), "");
+  });
 
   return [...preamble, ...kept.flatMap((group) => [`### ${group.heading}`, ...group.lines])].join("\n").trim();
 }
@@ -296,7 +300,7 @@ export function finishNewsSection(markdown: string, refs: Map<string, NewsItem>,
   });
 
   text = NEWS_HEADING.test(text) ? text.replace(NEWS_HEADING, "## News") : `## News\n\n${text}`;
-  return foldSingleStoryGroups(text);
+  return foldSingleStoryGroups(text, fixedGroups(home));
 }
 
 function bullet(item: NewsItem): string {
@@ -338,5 +342,5 @@ export function renderNewsFallback(items: NewsItem[], home: HomeConfig | null): 
     .filter(([, group]) => group.length > 0)
     .map(([heading, group]) => `### ${heading}\n\n${group.map(bullet).join("\n")}`)
     .join("\n\n");
-  return foldSingleStoryGroups(`## News\n\n${body}`);
+  return foldSingleStoryGroups(`## News\n\n${body}`, fixedGroups(home));
 }

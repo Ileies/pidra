@@ -60,6 +60,18 @@ describe("parseReport", () => {
     expect(parseReport("nothing structured here", "2026-09-11")).toBeNull();
   });
 
+  test("a Section 1 with a heading and no entries still parses, as an empty briefing", () => {
+    const empty = parseReport(
+      "## Personal Action Center\n\n### Critical\n\n- x <!--refs:a-->\n\n---\n\n## News\n\n### Top stories\n\n- n <!--refs:b-->\n\n---\n\n## Intelligence Briefing\n\n<!--SYSTEM\n{ \"new_topics\": [] }\n-->",
+      "2026-09-11",
+    )!;
+    expect(empty).not.toBeNull();
+    expect(empty.intel).toEqual([]);
+    expect(empty.alsoNoted).toEqual([]);
+    expect(empty.news).toHaveLength(1);
+    expect(empty.personal).toHaveLength(1);
+  });
+
   test("groups Section 2 by urgency, in a fixed order", () => {
     expect(parsed.personal.map((group) => group.urgency)).toEqual(["critical", "high", "normal", "mentions"]);
   });

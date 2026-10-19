@@ -94,6 +94,11 @@ function blocks(markdown: string): Block[] {
   return out;
 }
 
+/** Every `##` heading, empty or not: `blocks` drops a section with no content, which is not a drifted one. */
+function sectionHeadings(markdown: string): string[] {
+  return [...markdown.matchAll(/^##\s+(?!#)(.+?)\s*$/gm)].map((match) => match[1]);
+}
+
 /**
  * One entry per bullet or per paragraph, which is the granularity the prompt anchors refs at.
  * Indented continuation lines stay with the bullet that owns them.
@@ -150,14 +155,17 @@ function urgencyFor(heading: string): Urgency {
  * `resolveReportRefs` has dropped ids that point at nothing.
  *
  * Returns null when either section heading is missing, which is the signal that the prompt and
- * this parser have drifted apart.
+ * this parser have drifted apart. A heading with nothing under it is not missing: that is a light day.
  */
 export function parseReport(fullReport: string, date: string): ReportJson | null {
   const markdown = fullReport.replace(SYSTEM_BLOCK, "");
 
   const parsed = blocks(markdown);
-  const hasPersonal = parsed.some((block) => /personal action center/i.test(block.section));
-  const hasIntel = parsed.some((block) => /intelligence briefing/i.test(block.section));
+  // Judged on the headings, not on the blocks: a day with no newsletter items leaves Section 1 as a
+  // bare heading, and reading that as drift lost the whole structured report (2026-10-19).
+  const headings = sectionHeadings(markdown);
+  const hasPersonal = headings.some((section) => /personal action center/i.test(section));
+  const hasIntel = headings.some((section) => /intelligence briefing/i.test(section));
   if (!hasPersonal || !hasIntel) return null;
 
   const personal = new Map<Urgency, ReportEntry[]>();

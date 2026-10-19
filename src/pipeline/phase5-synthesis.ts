@@ -1,5 +1,6 @@
 // Phase 5: stage two of the extraction/synthesis split. Builds the JSON payloads for Section 1,
-// Section 2 and the News editor from the Phase 3 `ContextPayload` and calls `synthesize`; called by
+// Section 2 and the News editor from the Phase 3 `ContextPayload` and calls `synthesize` (Section 1
+// after its repeat judge, `section1-repeats.ts`, has left out what the reader was told); called by
 // `run.ts`. The prompts are the active versions (`activePrompt`), not imported constants. The
 // section outputs must keep the heading shape `report-json.ts` parses.
 import { activePrompt, type PromptSection } from "../ai/active-prompts";
@@ -16,6 +17,9 @@ import { selectNotes } from "../notes/select";
 import { SECTION1_CAPACITY } from "./section1-handoff";
 import { forModel } from "../util/extracted";
 import { recentlyTold } from "./told";
+import { judgeSection1Repeats, type Section1Verdict } from "./section1-repeats";
+import type { ReportedStory } from "../news/validate";
+import { squash } from "../util/text";
 
 // Null rather than an empty array, matching how every other optional block in the payload
 // signals "nothing here" - the prompts already say to proceed unchanged when a field is null.
@@ -43,17 +47,30 @@ export function newsItemsOf(items: ExtractionWithSource[]): NewsItem[] {
  * What the reader was told on the last days, for Section 1 to skip. The memory is a convenience: a
  * failed read costs the repeat guard for one run, never the briefing.
  */
-async function alreadyTold(runDate: string): Promise<{ date: string; headline: string; summary?: string }[] | null> {
+async function alreadyTold(runDate: string): Promise<ReportedStory[]> {
   try {
-    const told = await recentlyTold(runDate);
-    return told.length > 0 ? told.map(({ date, headline, summary }) => ({ date, headline, ...(summary ? { summary } : {}) })) : null;
+    return await recentlyTold(runDate);
   } catch (err) {
     console.error("[Phase 5] Could not read what was already told, Section 1 runs without it:", err);
-    return null;
+    return [];
   }
 }
 
-function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaited<ReturnType<typeof alreadyTold>>): string {
+/** Today's News section as told stories: the reader reads it a screen before Section 1. */
+function todaysNews(ctx: ContextPayload, runDate: string): ReportedStory[] {
+  return ctx.newsItems.map((i) => {
+    const story = i.extraction.extractedJson as NewsExtraction;
+    return { date: runDate, headline: story.headline, urls: [], summary: squash(story.key_claim, 240) };
+  });
+}
+
+function buildSection1Payload(
+  ctx: ContextPayload,
+  runDate: string,
+  items: ExtractionWithSource[],
+  told: ReportedStory[],
+  verdict: Section1Verdict | null,
+): string {
   const slot1 = ctx.webSearchResults.find((r) => r.slot === 1);
 
   return JSON.stringify({
@@ -74,13 +91,21 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaite
       summary: t.runningSummary,
       status: t.status,
     })),
-    todays_items: ctx.newsletterItems.slice(0, SECTION1_CAPACITY).map((i) => ({
-      id: i.extraction.id,
-      source: i.sourceName,
-      effective_relevance: i.extraction.effectiveRelevance,
-      novelty: i.extraction.novelty,
-      ...forModel(i.extraction.extractedJson),
-    })),
+    todays_items: items.map((i) => {
+      const update = verdict?.updates.get(i.extraction.id);
+      const group = verdict?.groups.get(i.extraction.id);
+      return {
+        id: i.extraction.id,
+        source: i.sourceName,
+        // Items sharing it were split out of one newsletter article.
+        article: i.extraction.rawItemId,
+        effective_relevance: i.extraction.effectiveRelevance,
+        novelty: i.extraction.novelty,
+        ...(update ? { already_told_as: update } : {}),
+        ...(group ? { same_story_group: group } : {}),
+        ...forModel(i.extraction.extractedJson),
+      };
+    }),
     notes_intel: ctx.notesIntel.map((n) => n.content),
     // What the News section of the same briefing already tells the reader. Without it Section 1
     // restates a headline the reader read a screen earlier, as analysis nobody asked for.
@@ -89,7 +114,9 @@ function buildSection1Payload(ctx: ContextPayload, runDate: string, told: Awaite
       : null,
     // Earlier days' news stories and briefing items, so a newsletter repeating last week's deal is
     // skipped or reduced to what is new. `news_headlines` above is today's News section only.
-    already_told: told,
+    already_told: told.length > 0
+      ? told.map(({ date, headline, summary }) => ({ date, headline, ...(summary ? { summary } : {}) }))
+      : null,
     // Interests and technical profile from the Context Builder document: what the user cares
     // about, for judging which of today's items actually matter to them.
     long_term_context: ctx.longTermContext.intelSections || null,
@@ -154,17 +181,27 @@ async function synthesizeSection(
   return result;
 }
 
-/** Side effect: marks the items sent (the first SECTION1_CAPACITY) with `extractions.synthesis_handoff = 'sent'`. */
+/**
+ * Side effect: marks the first SECTION1_CAPACITY items `extractions.synthesis_handoff = 'sent'`,
+ * except those the repeat judge left out as already told, which are marked `already_told`.
+ */
 export async function runSection1(ctx: ContextPayload, runDate: string) {
   const selected = ctx.newsletterItems.slice(0, SECTION1_CAPACITY);
-  const payload = buildSection1Payload(ctx, runDate, await alreadyTold(runDate));
+  const told = await alreadyTold(runDate);
+  const judgeUsage = { tokensIn: 0, tokensOut: 0 };
+  const verdict = await judgeSection1Repeats(selected, [...told, ...todaysNews(ctx, runDate)], judgeUsage);
+  const sent = verdict ? selected.filter((i) => !verdict.repeats.has(i.extraction.id)) : selected;
+  const payload = buildSection1Payload(ctx, runDate, sent, told, verdict);
   const result = await synthesizeSection("Section 1", "section1", payload, BRIEFING_SECTION_OPTS);
-  if (selected.length > 0) {
+  const mark = async (items: ExtractionWithSource[], handoff: string) => {
+    if (items.length === 0) return;
     await db.update(extractions)
-      .set({ synthesisHandoff: "sent" })
-      .where(inArray(extractions.id, selected.map((item) => item.extraction.id)));
-  }
-  return result;
+      .set({ synthesisHandoff: handoff })
+      .where(inArray(extractions.id, items.map((item) => item.extraction.id)));
+  };
+  await mark(sent, "sent");
+  await mark(selected.filter((i) => !sent.includes(i)), "already_told");
+  return { ...result, tokensIn: result.tokensIn + judgeUsage.tokensIn, tokensOut: result.tokensOut + judgeUsage.tokensOut };
 }
 
 export function runSection2(ctx: ContextPayload, runDate: string, questionAnswers: QuestionAnswer[] = []) {

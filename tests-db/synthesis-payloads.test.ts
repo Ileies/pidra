@@ -9,7 +9,11 @@ const calls: Call[] = [];
 let reply = { text: "", tokensIn: 100, tokensOut: 20 };
 let failure: Error | null = null;
 
+// Section 1's repeat judge: no verdicts unless a test sets them.
+let judgement: Any = { repeats: [], groups: [] };
+
 mock.module("../src/ai/openai", () => ({
+  extractJson: async () => judgement,
   synthesize: async (prompt: string, payload: string, options: Any) => {
     calls.push({ prompt, payload: JSON.parse(payload), options });
     if (failure) throw failure;
@@ -28,6 +32,7 @@ beforeEach(async () => {
   calls.length = 0;
   reply = { text: "", tokensIn: 100, tokensOut: 20 };
   failure = null;
+  judgement = { repeats: [], groups: [] };
   await database.sql`truncate raw_items, extractions, prompt_versions, notes cascade`;
 });
 
@@ -155,6 +160,27 @@ describe("Section 1", () => {
     const marked = await database.sql`select id, synthesis_handoff from extractions`;
     expect(marked.filter((r: Any) => r.synthesis_handoff === "sent").map((r: Any) => r.id).sort()).toEqual(ids.slice(0, SECTION1_CAPACITY).sort());
     expect(marked.filter((r: Any) => r.synthesis_handoff === null)).toHaveLength(3);
+  });
+
+  test("the repeat judge leaves out a repeat, marks it already_told and flags an update", async () => {
+    const ids = await insertExtractions(3);
+    judgement = {
+      repeats: [{ id: "c1", told_id: "t1", adds_new_fact: false }, { id: "c2", told_id: "t1", adds_new_fact: true }],
+      groups: [{ ids: ["c2", "c3"] }],
+    };
+    await runSection1(baseCtx({
+      newsletterItems: ids.map((id) => extraction(id, { headline: `Item ${id}` })),
+      newsItems: [newsItem("n1", story("world", "Parliament approves the budget", 4))],
+    }), DAY);
+
+    const items = calls[0].payload.todays_items;
+    expect(items.map((i: Any) => i.id)).toEqual([ids[1], ids[2]]);
+    expect(items[0]).toMatchObject({ already_told_as: { date: DAY, headline: "Parliament approves the budget" }, same_story_group: "g1" });
+    expect(items[1]).toMatchObject({ same_story_group: "g1" });
+    expect(items[1].already_told_as).toBeUndefined();
+    const marked = await database.sql`select id, synthesis_handoff from extractions`;
+    expect(marked.find((r: Any) => r.id === ids[0]).synthesis_handoff).toBe("already_told");
+    expect(marked.filter((r: Any) => r.synthesis_handoff === "sent")).toHaveLength(2);
   });
 
   test("runs at high effort with room for the reasoning, and returns the model's text and usage", async () => {

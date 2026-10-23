@@ -71,7 +71,7 @@ export const handle: Handle = async ({ event, resolve }) => {
  * `RESOURCE_CSP` stays Report-Only because it can silently break a feature: flip `CSP_REPORT_ONLY`
  * to `false` after a day of real use shows no console violations.
  *
- * Prerendered pages (`/privacy`, `/terms`) are served by adapter-node's static server and bypass
+ * Prerendered pages (`/privacy`, `/terms`) are served by the adapter's static server and bypass
  * this hook entirely, so they get neither the gate nor these headers.
  */
 const CSP_REPORT_ONLY = true;

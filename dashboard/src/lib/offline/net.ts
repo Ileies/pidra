@@ -270,7 +270,7 @@ function formActionError(err: NetError): Response {
 /**
  * Bounds SvelteKit's `updated.check()`, which every navigation ending at status >= 400 awaits
  * before rendering; over a blackhole it never ended and the error page (`OfflineNotice`) never
- * appeared. Not through `net()`: `version.json` is served by adapter-node before the hooks, so it
+ * appeared. Not through `net()`: `version.json` is served by the adapter before the hooks, so it
  * has no `x-pidra` stamp and would read as "someone else answered". Any failure means "no update".
  */
 function versionCheck(input: RequestInfo | URL, init: RequestInit | undefined): Promise<Response> {

@@ -1,15 +1,14 @@
 /**
- * Graceful shutdown for the long-lived streams adapter-node cannot close on its own.
+ * Graceful shutdown for long-lived assistant streams during process shutdown.
  *
- * adapter-node closes only *idle* connections on SIGTERM. The assistant's SSE proxy holds a client
- * connection plus an outbound fetch to the skills bridge for a whole turn, which kept the loop
- * alive until systemd SIGKILLed after 90 s. So registered streams are ended here at once with one
- * `error` frame the widget renders, and the exit is backstopped. Installed from `hooks.server.ts`;
+ * The assistant's SSE proxy holds a client connection plus an outbound fetch to the skills bridge
+ * for a whole turn. Registered streams are ended here at once with one `error` frame the widget
+ * renders, and the exit is backstopped. Installed from `hooks.server.ts`;
  * streams register via `registerStream` (see below). Ordering is deliberate:
  *
  *   0 s   this handler ends every registered stream and aborts its upstream fetch
  *   3 s   EXIT_GRACE_MS - hard exit, unless the loop already drained and the process left earlier
- *   5 s   adapter-node's own SHUTDOWN_TIMEOUT (set in `hosts/pronix/pidra.nix`)
+ *   5 s   systemd's service stop timeout (set in `hosts/pronix/pidra.nix`)
  *  15 s   systemd's TimeoutStopSec, i.e. SIGKILL
  *
  * Each number has to be smaller than the next or the one after it is what actually ends the
@@ -50,8 +49,7 @@ export function registerStream(close: StreamCloser): () => void {
 }
 
 /**
- * Install the signal handlers (once, from `hooks.server.ts`). adapter-node's own handlers stay in
- * place; these only end the streams adapter-node cannot know about.
+ * Install the signal handlers once, from `hooks.server.ts`, to end active assistant streams.
  */
 export function installShutdownHandlers(): void {
   if (installed) return;

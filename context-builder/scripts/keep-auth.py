@@ -55,6 +55,7 @@ def main():
     with open(TOKEN_PATH, "w") as f:
         json.dump({"email": email, "master_token": master_token}, f)
     print(f"Token saved to {TOKEN_PATH}")
+    print("On pronix, run `bun run deploy` afterwards: it hands the token to the pidra user.")
     print(f"\nAdd to .env:\nGKEEPAPI_MASTER_TOKEN={master_token}")
     return 0
 

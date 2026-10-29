@@ -4,7 +4,8 @@
  *
  * The server runs from a clone of the public GitHub repo, so a deploy is a reset to this HEAD there
  * plus what a pull cannot carry: gitignored harvest files (SYNC), the dependency install and the
- * dashboard build. Order: local preflight, check, pull, sync, install+build, restart, verify.
+ * dashboard build, and the ownership of the files the pidra user writes. Order: local preflight,
+ * check, pull, sync, hand state to pidra, install+build, restart, verify.
  * Procedure and server layout: docs/operations.md.
  *
  * Usage:
@@ -189,6 +190,22 @@ for (const { path, filters = [] } of SYNC) {
   const label = DRY ? `[dry-run] ${path}` : path;
   console.log(changes ? `  ${label}:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : `  ${label}: already current`);
 }
+
+// The units run as the `pidra` user, but the pull, the sync and keep-auth.py all write as root, so
+// the paths pidra writes come back root-owned. Hand them over here, before the restart. Missing state
+// files are created empty: errors.ts tolerates an empty file and the checkpoint is write-only.
+// pidra.nix lists the same paths in contextBuilderState; a new state file needs an entry in both.
+step("Handing the Context Builder's state to pidra");
+const CB = `${REMOTE_ROOT}/context-builder`;
+await remote(
+  [
+    `install -d -m 0750 -o pidra -g pidra ${CB}/output`,
+    `chown -R pidra:pidra ${CB}/output`,
+    `for f in .checkpoint.json errors.json .dashboard-run.log; do [ -e ${CB}/$f ] || install -m 0640 -o pidra -g pidra /dev/null ${CB}/$f; chown pidra:pidra ${CB}/$f; done`,
+    `[ ! -e ${CB}/.keep-token.json ] || { chown pidra:pidra ${CB}/.keep-token.json && chmod 0600 ${CB}/.keep-token.json; }`,
+  ].join(" && "),
+);
+if (!DRY) console.log("  output and state files owned by pidra");
 
 step("Installing dependencies and building the dashboard");
 // One Bun workspace: the root install covers the dashboard too, and the build needs it first.

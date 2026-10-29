@@ -2,7 +2,7 @@
 
 Scans personal data sources (email, Google Keep, Google Tasks, GitHub), compresses each item into structured JSON and synthesises a long-term context document. Seeds `contacts` and `standing_context`. How it works, the run modes and the document contract are in [`docs/context-builder.md`](../docs/context-builder.md); this file covers setup, commands and recovery.
 
-It runs by hand for a full harvest, and by itself in update mode on the 1st of each month at 03:00 as the `pidra-context-builder` systemd job (`hosts/pronix/pidra.nix`). The harvest is stored in `context_builder_runs.document`, so it does not matter which machine ran it; only `.checkpoint.json`, `errors.json` and the archival JSON/MD files stay local to that machine.
+It runs by hand for a full harvest, and by itself in update mode on the 1st of each month at 03:00 as the `pidra-context-builder` systemd job (`hosts/pronix/pidra.nix`). The harvest is stored in `context_builder_runs.document`, so it does not matter which machine ran it; only `.checkpoint.json`, `errors.json` and the archival JSON/MD files stay local to that machine, under `DATA_DIR/context-builder` (default `./data/context-builder`; `/var/lib/pidra/context-builder` on pronix).
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ It runs by hand for a full harvest, and by itself in update mode on the 1st of e
 - `GITHUB_TOKEN` in `.env` (PAT with `repo` scope). Falls back to `gh auth token`; without either, GitHub contributes nothing.
 - `GKEEPAPI_MASTER_TOKEN` in `.env` (see below).
 
-Optional tuning: `CONTEXT_BUILDER_EMAIL_YEARS` (lookback, default 3), `CONTEXT_BUILDER_EXTRACT_CONCURRENCY` (default 8), `CONTEXT_BUILDER_MAX_RSS_MB` (memory watchdog, default 4096), `CONTEXT_BUILDER_OUTPUT_DIR`.
+`DATA_DIR` (default `data`, relative to the repo root) is the root for the harvest output, progress and error logs and the Keep token. Optional tuning: `CONTEXT_BUILDER_EMAIL_YEARS` (lookback, default 3), `CONTEXT_BUILDER_EXTRACT_CONCURRENCY` (default 8), `CONTEXT_BUILDER_MAX_RSS_MB` (memory watchdog, default 4096), `CONTEXT_BUILDER_OUTPUT_DIR` (overrides only the output directory).
 
 ## Excluded Keep labels
 
@@ -37,7 +37,7 @@ context-builder/.venv/bin/python3 context-builder/scripts/keep-auth.py
 3. In DevTools, open Application, Cookies, `accounts.google.com`, and copy the `oauth_token` cookie (starts with `oauth2_4/`).
 4. Paste it when the script asks.
 
-The script exchanges the cookie for a long-lived master token (`aas_et/...`) via `gpsoauth.exchange_token`, verifies it against gkeepapi, saves it to `context-builder/.keep-token.json` and prints the `.env` line:
+The script exchanges the cookie for a long-lived master token (`aas_et/...`) via `gpsoauth.exchange_token`, verifies it against gkeepapi, saves it to `DATA_DIR/context-builder/.keep-token.json` and prints the `.env` line:
 
 ```
 GKEEPAPI_MASTER_TOKEN=aas_et/...
@@ -72,7 +72,7 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:15432/pidra bun run context-builder
 
 ## Error handling and recovery
 
-Failed items are logged to `errors.json` and skipped; a failed source phase does not abort the run. `errors.json` accumulates across runs, so check the `ts` field before blaming a run for an error. An interrupted run (Ctrl+C) resumes from its database run row when restarted without flags.
+Failed items are logged to `DATA_DIR/context-builder/errors.json` and skipped; a failed source phase does not abort the run. `errors.json` accumulates across runs, so check the `ts` field before blaming a run for an error. An interrupted run (Ctrl+C) resumes from its database run row when restarted without flags.
 
 The three seed targets are written independently. Model output is stripped of control characters before it reaches Postgres: a NUL byte in one extracted name once failed a whole batch insert and silently left `standing_context` empty on a run that reported success.
 

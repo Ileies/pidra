@@ -7,6 +7,7 @@ import { eq, desc } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { listActiveCorrections, type ActiveCorrection } from "../context/corrections";
+import { contextBuilderOutputDir } from "../config/data-dir";
 
 export interface LongTermContext {
   /**
@@ -57,10 +58,7 @@ export async function readDocument(outputPath: string): Promise<string> {
   try {
     return await readFile(outputPath, "utf-8");
   } catch (err) {
-    const local = resolve(
-      process.env.CONTEXT_BUILDER_OUTPUT_DIR ?? "context-builder/output",
-      basename(outputPath),
-    );
+    const local = resolve(contextBuilderOutputDir(), basename(outputPath));
     if (local === outputPath) throw err;
     return await readFile(local, "utf-8");
   }

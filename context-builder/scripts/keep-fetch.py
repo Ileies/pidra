@@ -5,7 +5,9 @@ import os
 import json
 import sys
 
-TOKEN_PATH = os.path.join(os.path.dirname(__file__), "../.keep-token.json")
+# Same resolution as src/config/data-dir.ts: DATA_DIR relative to the repo root, default ./data.
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+TOKEN_PATH = os.path.join(REPO_ROOT, os.environ.get("DATA_DIR", "data"), "context-builder", ".keep-token.json")
 
 
 def main():

@@ -1,7 +1,8 @@
 // Progress snapshot written to context-builder/.checkpoint.json by run.ts (every 2s) and the
 // watchdog. Write-only: nothing reads it back, resume state lives in context_builder_runs.
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { CONTEXT_BUILDER_DIR } from "../src/config/data-dir";
 
 export interface CheckpointState {
   runId: string;
@@ -20,14 +21,16 @@ export interface CheckpointState {
   openaiTokensOut: number;
 }
 
-const CHECKPOINT_PATH = resolve(import.meta.dir, ".checkpoint.json");
+const CHECKPOINT_PATH = resolve(CONTEXT_BUILDER_DIR, ".checkpoint.json");
 
 export async function saveCheckpoint(state: CheckpointState): Promise<void> {
+  await mkdir(CONTEXT_BUILDER_DIR, { recursive: true });
   await writeFile(CHECKPOINT_PATH, JSON.stringify(state, null, 2), "utf-8");
 }
 
 export async function clearCheckpoint(): Promise<void> {
   try {
+    await mkdir(CONTEXT_BUILDER_DIR, { recursive: true });
     await writeFile(CHECKPOINT_PATH, "{}", "utf-8");
   } catch {}
 }

@@ -1,7 +1,7 @@
-import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { EXTRACTION_MODEL, SYNTHESIS_MODEL } from "../src/ai/models";
 import { loadEmailAccounts, type EmailAccount } from "../src/config/email-accounts";
+import { contextBuilderOutputDir } from "../src/config/data-dir";
 
 export type { EmailAccount };
 
@@ -38,8 +38,6 @@ export async function loadConfig(): Promise<Config> {
     githubToken: resolveGithubToken(),
     extractionModel: EXTRACTION_MODEL,
     synthesisModel: SYNTHESIS_MODEL,
-    outputDir: process.env.CONTEXT_BUILDER_OUTPUT_DIR
-      ? resolve(process.env.CONTEXT_BUILDER_OUTPUT_DIR)
-      : resolve(import.meta.dir, "output"),
+    outputDir: contextBuilderOutputDir(),
   };
 }

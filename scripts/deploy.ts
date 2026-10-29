@@ -5,7 +5,7 @@
  * The server runs from a clone of the public GitHub repo, so a deploy is a reset to this HEAD there
  * plus what a pull cannot carry: gitignored harvest files (SYNC), the dependency install and the
  * dashboard build, and the ownership of the files the pidra user writes. Order: local preflight,
- * check, pull, sync, hand state to pidra, install+build, restart, verify.
+ * check, pull, hand state to pidra, sync, install+build, restart, verify.
  * Procedure and server layout: docs/operations.md.
  *
  * Usage:
@@ -47,15 +47,22 @@ const SERVICES = ["pidra-bridge", "pidra-dashboard"];
  *
  * `.env` is *not* here and must never be: the two files carry the same keys with different values
  * (the server talks to Postgres locally, the workstation through a forward), so copying either
- * direction breaks the other machine. Same reasoning excludes `context-builder/.checkpoint.json`
- * and `errors.json` - those are live run state, and the server runs its own Context Builder on the
- * monthly timer, so the workstation's copies are not a newer version of them but a different
- * machine's.
+ * direction breaks the other machine. Same reasoning excludes the Context Builder's state files
+ * (`.checkpoint.json`, `errors.json`): those are live run state, and the server runs its own Context
+ * Builder on the monthly timer, so the workstation's copies are not a newer version of them but a
+ * different machine's.
  */
-const SYNC: { path: string; filters?: string[] }[] = [
-  // Only the harvested documents. `builder.ts` and `db-writer.ts` sit in the same directory and
-  // are tracked, so they arrive with the pull - rsync has no business touching them.
-  { path: "context-builder/output/", filters: ["--include=*.json", "--include=*.md", "--exclude=*"] },
+
+/** The unit's DATA_DIR on pronix (pidra.nix). Everything the services write lives under it. */
+const REMOTE_DATA = "/var/lib/pidra";
+
+const SYNC: { local: string; remote: string; filters?: string[] }[] = [
+  // Only the harvested documents. The workstation keeps them under its own DATA_DIR (./data).
+  {
+    local: "data/context-builder/output/",
+    remote: `${REMOTE_DATA}/context-builder/output/`,
+    filters: ["--include=*.json", "--include=*.md", "--exclude=*"],
+  },
 ];
 
 let failed = false;
@@ -182,23 +189,16 @@ const remoteHead = await remote(`cd ${REMOTE_ROOT} && git rev-parse HEAD`);
 if (!DRY && remoteHead !== head) fail(`${HOST} is at ${remoteHead.slice(0, 8)}, expected ${head.slice(0, 8)}`);
 if (!DRY) console.log(`  now at ${head.slice(0, 8)}`);
 
-step("Syncing gitignored files");
-for (const { path, filters = [] } of SYNC) {
-  // `-rlptz`, not `-a`: keep times and modes, not the workstation's ownership (server files are root-owned).
-  const args = ["-rlptz", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...filters, path, `${HOST}:${REMOTE_ROOT}/${path}`];
-  const changes = (await $`rsync ${args}`.text()).trim();
-  const label = DRY ? `[dry-run] ${path}` : path;
-  console.log(changes ? `  ${label}:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : `  ${label}: already current`);
-}
-
-// The units run as the `pidra` user, but the pull, the sync and keep-auth.py all write as root, so
-// the paths pidra writes come back root-owned. Hand them over here, before the restart. Missing state
-// files are created empty: errors.ts tolerates an empty file and the checkpoint is write-only.
-// pidra.nix lists the same paths in contextBuilderState; a new state file needs an entry in both.
+// The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.py write as
+// root. So the directories are created and owned by pidra first, and the sync hands its files over
+// with --chown. Missing state files are created empty: errors.ts tolerates an empty file and the
+// checkpoint is write-only. Runs before the sync, since rsync does not create the destination path.
 step("Handing the Context Builder's state to pidra");
 // One command per call, no loops: the server's login shell is fish, whose syntax differs from sh.
-const CB = `${REMOTE_ROOT}/context-builder`;
-await remote(`install -d -m 0750 -o pidra -g pidra ${CB}/output && chown -R pidra:pidra ${CB}/output`);
+const CB = `${REMOTE_DATA}/context-builder`;
+await remote(`install -d -m 0750 -o pidra -g pidra ${REMOTE_DATA}`);
+await remote(`install -d -m 0750 -o pidra -g pidra ${CB}`);
+await remote(`install -d -m 0750 -o pidra -g pidra ${CB}/output`);
 for (const name of [".checkpoint.json", "errors.json", ".dashboard-run.log"]) {
   await remote(`test -e ${CB}/${name} || install -m 0640 -o pidra -g pidra /dev/null ${CB}/${name}`);
   await remote(`chown pidra:pidra ${CB}/${name}`);
@@ -206,7 +206,17 @@ for (const name of [".checkpoint.json", "errors.json", ".dashboard-run.log"]) {
 if ((await remote(`test -e ${CB}/.keep-token.json && echo yes || echo no`)) === "yes") {
   await remote(`chown pidra:pidra ${CB}/.keep-token.json && chmod 0600 ${CB}/.keep-token.json`);
 }
-if (!DRY) console.log("  output and state files owned by pidra");
+if (!DRY) console.log("  state directories and files owned by pidra");
+
+step("Syncing gitignored files");
+for (const { local, remote: dest, filters = [] } of SYNC) {
+  // `-rlptz`, not `-a`: keep times and modes, not the workstation's ownership. --chown hands the
+  // files to the pidra user, since the server side runs as root.
+  const args = ["-rlptz", "--chown=pidra:pidra", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...filters, local, `${HOST}:${dest}`];
+  const changes = (await $`rsync ${args}`.text()).trim();
+  const label = DRY ? `[dry-run] ${local}` : local;
+  console.log(changes ? `  ${label}:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : `  ${label}: already current`);
+}
 
 step("Installing dependencies and building the dashboard");
 // One Bun workspace: the root install covers the dashboard too, and the build needs it first.

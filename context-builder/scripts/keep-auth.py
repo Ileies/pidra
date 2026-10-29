@@ -14,7 +14,9 @@ import gpsoauth
 import os
 import json
 
-TOKEN_PATH = os.path.join(os.path.dirname(__file__), "../.keep-token.json")
+# Same resolution as src/config/data-dir.ts: DATA_DIR relative to the repo root, default ./data.
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+TOKEN_PATH = os.path.join(REPO_ROOT, os.environ.get("DATA_DIR", "data"), "context-builder", ".keep-token.json")
 ENV_PATH = os.path.join(os.path.dirname(__file__), "../../.env")
 
 
@@ -52,6 +54,7 @@ def main():
         print(f"Authentication failed: {e}")
         return 1
 
+    os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
     with open(TOKEN_PATH, "w") as f:
         json.dump({"email": email, "master_token": master_token}, f)
     print(f"Token saved to {TOKEN_PATH}")

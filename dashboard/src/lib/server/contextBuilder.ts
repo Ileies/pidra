@@ -1,12 +1,16 @@
 import { resolve } from "node:path";
+import { mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { sql } from "#lib/server/postgres.js";
+import { DATA_DIR } from "$app/env/private";
 
 // Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.
 const PROJECT_ROOT = resolve(process.cwd(), "..");
-const CHECKPOINT_PATH = resolve(PROJECT_ROOT, "context-builder/.checkpoint.json");
-const ERRORS_PATH = resolve(PROJECT_ROOT, "context-builder/errors.json");
-const LOG_PATH = resolve(PROJECT_ROOT, "context-builder/.dashboard-run.log");
+// Same directory the root's Context Builder writes (src/config/data-dir.ts).
+const CONTEXT_BUILDER_DIR = resolve(PROJECT_ROOT, DATA_DIR, "context-builder");
+const CHECKPOINT_PATH = resolve(CONTEXT_BUILDER_DIR, ".checkpoint.json");
+const ERRORS_PATH = resolve(CONTEXT_BUILDER_DIR, "errors.json");
+const LOG_PATH = resolve(CONTEXT_BUILDER_DIR, ".dashboard-run.log");
 
 export interface PhaseProgress {
   total: number;
@@ -121,6 +125,8 @@ export function startRun(mode: "full" | "update" | null): { ok: boolean; error?:
   const args = ["run", "context-builder/run.ts"];
   if (mode) args.push(`--${mode}`);
 
+  // The log file is opened before the child exists, so its directory has to exist first.
+  mkdirSync(CONTEXT_BUILDER_DIR, { recursive: true });
   child = Bun.spawn({
     cmd: ["bun", ...args],
     cwd: PROJECT_ROOT,

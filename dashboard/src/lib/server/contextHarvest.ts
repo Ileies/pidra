@@ -1,12 +1,15 @@
 import { errMessage } from "$pipeline/util/text";
 import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import { CONTEXT_BUILDER_OUTPUT_DIR } from "$app/env/private";
+import { CONTEXT_BUILDER_OUTPUT_DIR, DATA_DIR } from "$app/env/private";
 import { sql } from "#lib/server/postgres.js";
 import { renderMarkdown } from "#lib/markdown.js";
 
 // Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.
-const OUTPUT_DIR = resolve(process.cwd(), "..", CONTEXT_BUILDER_OUTPUT_DIR ?? "context-builder/output");
+// `||`, not `??`: the schema turns an unset CONTEXT_BUILDER_OUTPUT_DIR into '', which `??` would keep.
+const OUTPUT_DIR = CONTEXT_BUILDER_OUTPUT_DIR
+  ? resolve(process.cwd(), "..", CONTEXT_BUILDER_OUTPUT_DIR)
+  : resolve(process.cwd(), "..", DATA_DIR, "context-builder/output");
 
 /**
  * Reads a harvest document given the path recorded on its run row, and reports which file it

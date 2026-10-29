@@ -2,7 +2,7 @@
 
 ## Deployment
 
-**`bun run deploy` is how pronix gets new code. Never assemble the steps by hand.** A deploy is a pull plus the three things a pull cannot carry: the gitignored config and harvest files, the dependency install, and the dashboard build. Doing it manually is how `dashboard/build/` ends up a version behind its source with nothing looking broken. `scripts/deploy.ts` also verifies more than systemd does: it follows `/` past its redirect and requests `/context-builder`, because a broken page still leaves a unit reporting `active`.
+**`bun run deploy` is how pronix gets new code. Never assemble the steps by hand.** A deploy is a pull plus the things a pull cannot carry: the gitignored config and harvest files, the `pidra` ownership of the Context Builder's state, the dependency install, and the dashboard build. Doing it manually is how `dashboard/build/` ends up a version behind its source with nothing looking broken. `scripts/deploy.ts` also verifies more than systemd does: it follows `/` past its redirect and requests `/context-builder`, because a broken page still leaves a unit reporting `active`.
 
 Flags:
 
@@ -21,6 +21,8 @@ It refuses rather than improvises: an uncommitted tree (unless `--force`), commi
 
 - **`.env`**, on either machine. Both files hold the same keys with different values (the server reaches Postgres locally, the workstation through a forward), so a copy in either direction breaks the other. The same goes for `context-builder/.checkpoint.json` and `errors.json`: the server runs its own monthly harvest and those are its live state. A new key means editing both `.env` files by hand.
 - **The systemd units.** They live in `hosts/pronix/pidra.nix` in the nixos flake, so a change to a unit, a timer or the firewall needs `nixos-rebuild` **on pronix**. A deploy that should have been a rebuild fails silently: the code lands and the unit keeps its old definition.
+
+**The units run as the `pidra` user, but the deploy logs in as root, so file ownership is the deploy's job.** The pull, the sync and `context-builder/scripts/keep-auth.py` all write as root. The "Handing the Context Builder's state to pidra" step (after sync, before install and restart) chowns `context-builder/output/`, creates `.checkpoint.json`, `errors.json` and `.dashboard-run.log` empty if missing and chowns them, and chowns plus chmod 0600 `.keep-token.json` if present. The server-side units need no `ExecStartPre` or other ownership fix-up (one was tried and removed). `pidra.nix` lists the same paths in `contextBuilderState`: a new Context Builder state file needs an entry there and in the deploy step. After re-running `keep-auth.py` on pronix, run `bun run deploy` so the new token reaches `pidra`.
 - **The nginx headers.** `/service-worker.js` must be served with `Cache-Control: no-cache`, or a proxy-cached worker pins every installed phone to an old build. The rule is in `hosts/pronix/nginx.nix`; like the units, a change is a `nixos-rebuild` on pronix.
 
 ## The check

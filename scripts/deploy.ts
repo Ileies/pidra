@@ -196,15 +196,16 @@ for (const { path, filters = [] } of SYNC) {
 // files are created empty: errors.ts tolerates an empty file and the checkpoint is write-only.
 // pidra.nix lists the same paths in contextBuilderState; a new state file needs an entry in both.
 step("Handing the Context Builder's state to pidra");
+// One command per call, no loops: the server's login shell is fish, whose syntax differs from sh.
 const CB = `${REMOTE_ROOT}/context-builder`;
-await remote(
-  [
-    `install -d -m 0750 -o pidra -g pidra ${CB}/output`,
-    `chown -R pidra:pidra ${CB}/output`,
-    `for f in .checkpoint.json errors.json .dashboard-run.log; do [ -e ${CB}/$f ] || install -m 0640 -o pidra -g pidra /dev/null ${CB}/$f; chown pidra:pidra ${CB}/$f; done`,
-    `[ ! -e ${CB}/.keep-token.json ] || { chown pidra:pidra ${CB}/.keep-token.json && chmod 0600 ${CB}/.keep-token.json; }`,
-  ].join(" && "),
-);
+await remote(`install -d -m 0750 -o pidra -g pidra ${CB}/output && chown -R pidra:pidra ${CB}/output`);
+for (const name of [".checkpoint.json", "errors.json", ".dashboard-run.log"]) {
+  await remote(`test -e ${CB}/${name} || install -m 0640 -o pidra -g pidra /dev/null ${CB}/${name}`);
+  await remote(`chown pidra:pidra ${CB}/${name}`);
+}
+if ((await remote(`test -e ${CB}/.keep-token.json && echo yes || echo no`)) === "yes") {
+  await remote(`chown pidra:pidra ${CB}/.keep-token.json && chmod 0600 ${CB}/.keep-token.json`);
+}
 if (!DRY) console.log("  output and state files owned by pidra");
 
 step("Installing dependencies and building the dashboard");

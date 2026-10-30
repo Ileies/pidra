@@ -21,7 +21,7 @@ mock.module("../src/ai/openai", () => ({
 }));
 
 const database = await useTestDatabase();
-const { discoverQuestions, pickVaried, MAX_OPEN_CONTEXT_QUESTIONS } = await import("../src/questions/discover");
+const { discoverQuestions, MAX_OPEN_CONTEXT_QUESTIONS } = await import("../src/questions/discover");
 const { addDays, utcDay } = await import("../src/util/time");
 
 const today = utcDay();
@@ -40,7 +40,7 @@ async function raw(type: string, runDate: string, content: string, source = "Goo
 }
 const event = (id: string, title: string, start: string, extra: Any = {}) => JSON.stringify({ id, title, start, location: null, description: null, ...extra });
 const task = (title: string, status = "needsAction", list = "Plans") => JSON.stringify({ id: title, title, status, list_name: list, due: null });
-const proposal = (type: string, question: string) => ({ type, question, evidence: `seen: ${question}`, teaches: "something" });
+const proposal = (question: string) => ({ question, evidence: `seen: ${question}` });
 
 describe("what the discovery call is shown", () => {
   test("each calendar event once, in its latest form, with how often its title recurs, up to two weeks ahead", async () => {
@@ -92,13 +92,13 @@ describe("what the discovery call is shown", () => {
 });
 
 describe("what becomes of the proposals", () => {
-  test("a person, a thread and an opinion before a second of any type, in the model's order, as context candidates", async () => {
-    reply = { questions: [proposal("person", "P1?"), proposal("person", "P2?"), proposal("thread", "T1?"), proposal("thread", "T2?"), proposal("opinion", "O1?")] };
+  test("the first proposals up to the day's ceiling, in the model's order, as context candidates", async () => {
+    reply = { questions: [proposal("A1?"), proposal("A2?"), proposal("A3?"), proposal("A4?"), proposal("A5?")] };
     const result = await discover();
 
-    expect(result.candidates.map((c) => c.question)).toEqual(["P1?", "P2?", "T1?", "O1?"]);
-    expect(result.candidates[0]).toMatchObject({ kind: "context", source: null, why: "person: seen: P1? (teaches: something)", detail: { type: "person", evidence: "seen: P1?" } });
-    expect(result.unused).toEqual(["thread: T2?"]);
+    expect(result.candidates.map((c) => c.question)).toEqual(["A1?", "A2?", "A3?", "A4?"]);
+    expect(result.candidates[0]).toMatchObject({ kind: "context", source: null, why: "seen: A1?", detail: { evidence: "seen: A1?" } });
+    expect(result.unused).toEqual(["A5?"]);
     expect(result).toMatchObject({ tokensIn: 100, tokensOut: 10, aiCalls: 1 });
   });
 
@@ -106,17 +106,11 @@ describe("what becomes of the proposals", () => {
     const insert = (n: number) =>
       database.sql`insert into questions (kind, question, first_asked, last_asked) select 'context', 'Q' || g, ${today}::date, ${today}::date from generate_series(1, ${n}) g`;
     await insert(MAX_OPEN_CONTEXT_QUESTIONS - 1);
-    reply = { questions: [proposal("person", "P1?"), proposal("thread", "T1?")] };
+    reply = { questions: [proposal("P1?"), proposal("T1?")] };
     expect((await discover()).candidates.map((c) => c.question)).toEqual(["P1?", "T1?"]);
 
     await insert(1);
     expect(await discover()).toMatchObject({ candidates: [], aiCalls: 0 });
     expect(calls).toHaveLength(1);
-  });
-
-  test("pickVaried fills up with repeats when there are too few types", () => {
-    const list = [{ type: "a", n: 1 }, { type: "a", n: 2 }, { type: "b", n: 3 }, { type: "a", n: 4 }];
-    expect(pickVaried(list, 3).map((x) => x.n)).toEqual([1, 2, 3]);
-    expect(pickVaried(list, 0)).toEqual([]);
   });
 });

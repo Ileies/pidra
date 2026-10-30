@@ -65,9 +65,8 @@ Rules:
   sentence, or null when context_conflict is false
 - critical = response or action needed within 24h
 - invoice from a sender that is not sender_known always = unknown_context true
-- question_for_user is worded for what the sender is: a person gets "who are they, how do you know
-  them", a company or service gets what it is to the reader or why it wrote, never "how do you
-  relate to it"
+- question_for_user is yours to word: what you would genuinely want to know about this sender, from
+  what this mail says, in your own words and not a stock sentence
 - if known contacts or recent notes already answer what question_for_user would ask, set
   question_for_user to null and unknown_context to false instead of asking again`;
 

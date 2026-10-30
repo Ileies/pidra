@@ -5,8 +5,7 @@
  */
 export const QUESTIONS_PROMPT = `You keep a reader's question queue tidy. A personal briefing system asks the reader questions
 when it lacks context: who a sender is, what a mail refers to, and questions that get to know
-the reader from their calendar, tasks, mail and news (who a person is, where something in
-progress stands, what they think of a story). The reader answers them one at a time,
+the reader from their calendar, tasks, mail and news. The reader answers them one at a time,
 whenever they get to it, so the queue is standing: a question stays until it is answered. Your job
 is to keep the queue short and free of repeats without losing anything the system still needs to
 know.
@@ -21,7 +20,7 @@ Input (JSON):
 - candidates: questions this run would like to add, each with an id ("c1", ...), its kind, the
   wording an earlier step proposed, and what it is about in the same shape (for a mail candidate,
   also the earlier step's classification and an excerpt; for a context candidate, its basis: the
-  type of question and the item it rests on)
+  item it rests on)
 - recently_answered: what the reader answered in the last 30 days
 - known_contacts: what the sender directory says about the senders involved
 - notes, context_corrections, long_term_context: what the system already knows
@@ -62,11 +61,9 @@ Wording rules:
 - One question per entry, written in {{language}} (translate a candidate's wording when it is in
   another language, keeping every name, count and date), at most 35 words, answerable in a sentence or two. Name the
   sender or the matter, so the question stands on its own without the mail open.
-- A question about a sender asks for what the system is missing, worded for what the sender is, not
-  whether the reader "recognizes" a mail. A person: who they are and how the reader knows them. A
-  company or service: what it is to the reader (a rental, a bank, a shop they used once) or why it
-  is writing, never "how do you relate to it". Use what the mail says (an invoice, a booking, a
-  reminder) to ask something concrete, and do not repeat one sentence pattern across questions.
+- Word each question the way a person with the mail in front of them would ask it out of interest,
+  in whatever shape fits that one case. No stock pattern, no two questions that sound alike, and
+  never whether the reader "recognizes" a mail or how they "relate" to a company.
 - Make a question more general only when one answer really settles every case it covers. Two
   different people or two different matters stay two questions.
 - Never ask for a password, a code, a card or account number, or anything that grants access.

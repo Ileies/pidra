@@ -42,12 +42,10 @@ const SCHEMA = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["type", "question", "evidence", "teaches"],
+          required: ["question", "evidence"],
           properties: {
-            type: { type: "string", enum: ["person", "thread", "opinion", "experience"] },
             question: { type: "string" },
             evidence: { type: "string" },
-            teaches: { type: "string" },
           },
         },
       },
@@ -56,7 +54,7 @@ const SCHEMA = {
 };
 
 interface ModelAnswer {
-  questions: { type: string; question: string; evidence: string; teaches: string }[];
+  questions: { question: string; evidence: string }[];
 }
 
 export interface DiscoveryResult {
@@ -182,17 +180,6 @@ async function askedBefore() {
 }
 
 /**
- * The first `n` proposals, but one of each type before a second of any: the model ranks people and
- * threads above opinions, so a plain slice would never let an opinion question through. Keeps the model's order.
- */
-export function pickVaried<T extends { type: string }>(proposed: T[], n: number): T[] {
-  const seen = new Set<string>();
-  const first = proposed.filter((q) => !seen.has(q.type) && seen.add(q.type));
-  const picked = new Set([...first, ...proposed.filter((q) => !first.includes(q))].slice(0, Math.max(n, 0)));
-  return proposed.filter((q) => picked.has(q));
-}
-
-/**
  * Up to `MAX_PER_RUN` `context` candidates for this run. Makes no call when `MAX_OPEN_CONTEXT_QUESTIONS`
  * are already waiting: the reader has not caught up, so more would only bury the ones there.
  * Below that the full ceiling applies, so the queue can briefly hold more than the pause threshold.
@@ -252,19 +239,17 @@ export async function discoverQuestions(
   });
 
   const proposed = answer.questions.filter((q) => q.question.trim());
-  const candidates: CandidateInput[] = pickVaried(proposed, MAX_PER_RUN)
-    .map((q) => ({
-      kind: "context" as const,
-      question: squash(q.question, 400),
-      source: null,
-      why: squash(`${q.type}: ${q.evidence} (teaches: ${q.teaches})`, 300),
-      detail: { type: q.type, evidence: squash(q.evidence, 300) },
-    }));
-  console.log(`[Questions] Discovery proposed ${proposed.map((q) => q.type).join(", ") || "nothing"}; passing ${candidates.length} on`);
-  const unused = proposed.filter((q) => !candidates.some((c) => c.question === squash(q.question, 400)));
+  const candidates: CandidateInput[] = proposed.slice(0, MAX_PER_RUN).map((q) => ({
+    kind: "context" as const,
+    question: squash(q.question, 400),
+    source: null,
+    why: squash(q.evidence, 300),
+    detail: { evidence: squash(q.evidence, 300) },
+  }));
+  console.log(`[Questions] Discovery proposed ${proposed.length}; passing ${candidates.length} on`);
   return {
     candidates,
-    unused: unused.map((q) => `${q.type}: ${q.question}`),
+    unused: proposed.slice(MAX_PER_RUN).map((q) => q.question),
     tokensIn: usage.tokensIn,
     tokensOut: usage.tokensOut,
     aiCalls: 1,

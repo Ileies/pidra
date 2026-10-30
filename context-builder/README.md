@@ -28,7 +28,7 @@ context-builder/.venv/bin/pip install gkeepapi -q
 context-builder/.venv/bin/python3 context-builder/scripts/keep-auth.py
 ```
 
-**The server needs the venv too**, or the monthly run fetches zero notes: `fetchKeepNotes` logs the failure and returns an empty list instead of throwing. It lives at `/var/www/pidra/context-builder/.venv` and is gitignored, so `git pull` never touches it. The auth step is not repeated there: copy `GKEEPAPI_MASTER_TOKEN` into the server's `.env`. The interpreter comes from `pkgs.python3`, declared in `pidra.nix` so a garbage collection cannot strip the venv's symlink target.
+**The server needs the venv too**, or the monthly run fetches zero notes: `fetchKeepNotes` logs the failure and returns an empty list instead of throwing. It lives at `/var/www/pidra/context-builder/.venv` and is gitignored, and the deploy's rsync excludes `.venv/`, so a deploy never touches it. The auth step is not repeated there: copy `GKEEPAPI_MASTER_TOKEN` into the server's `.env`. The interpreter comes from `pkgs.python3`, declared in `pidra.nix` so a garbage collection cannot strip the venv's symlink target.
 
 **App passwords do not work.** Google's Android auth endpoint (`gpsoauth`) returns `BadAuthentication` for them even with 2FA. The only working path is a browser cookie exchange:
 

@@ -1,25 +1,24 @@
 #!/usr/bin/env bun
 /**
- * Deploys the working tree's committed state to pronix.
+ * Deploys this working tree to pronix by building the dashboard here and rsyncing the result.
  *
- * The server runs from a clone of the public GitHub repo, so a deploy is a reset to this HEAD there
- * plus what a pull cannot carry: gitignored harvest files (SYNC), the dependency install and the
- * dashboard build, and the ownership of the files the pidra user writes. Order: local preflight,
- * check, pull, hand state to pidra, sync, install+build, restart, verify.
+ * The server holds no git checkout and no toolchain beyond Bun: it receives the built dashboard
+ * (`dashboard/build/`) plus the TypeScript the bridge and the jobs run directly (CODE_PATHS), the
+ * gitignored harvest files (SYNC), and a production-only `bun install`. Order: local preflight,
+ * check, dashboard build, hand state to pidra, sync, install, restart, verify.
  * Procedure and server layout: docs/operations.md.
  *
  * Usage:
- *   bun run deploy                 preflight, sync, build, restart, verify
- *   bun run deploy --push          push the current branch first, instead of refusing
- *   bun run deploy --dry-run       print every step without touching the server
+ *   bun run deploy                 preflight, check, build, sync, restart, verify
+ *   bun run deploy --dry-run       print every step without touching the server or building
  *   bun run deploy --skip-check    skip `bun run check` entirely (for a deploy that only syncs files)
  *   bun run deploy --quick-check   run `bun run check --quick` instead of the full check (skips
  *                                  `blackhole/run.ts`) - for a small change you're confident can't
  *                                  touch routing, offline behavior or rendering. Prefer the full
  *                                  check by default; this trades coverage for speed
- *   bun run deploy --force         deploy with an uncommitted working tree. Still deploys the last
- *                                  *commit*, never the uncommitted edits themselves - use this to
- *                                  acknowledge that gap, not to ship uncommitted work
+ *   bun run deploy --force         deploy with an uncommitted working tree. The uncommitted edits
+ *                                  DO go to the server (rsync sends the tree, not a commit), but
+ *                                  `.deployed-rev` then names a commit that does not match them
  *   bun run deploy --host <alias>  deploy somewhere other than `ros`
  */
 import { $ } from "bun";
@@ -55,6 +54,23 @@ const SERVICES = ["pidra-bridge", "pidra-dashboard"];
 
 /** The unit's DATA_DIR on pronix (pidra.nix). Everything the services write lives under it. */
 const REMOTE_DATA = "/var/lib/pidra";
+
+/**
+ * What the server runs, relative to the repo root and to `REMOTE_ROOT`. The bridge and the jobs run
+ * the TypeScript in `src/`, `skills/` and `context-builder/` directly under Bun; the dashboard runs
+ * `dashboard/build/`, which bundles the `$pipeline` alias to `src/`. The two package.json files and
+ * `bun.lock` are the workspace the server's `bun install` needs; `tsconfig.json` is read by Bun.
+ *
+ * Each directory is mirrored with --delete, so a file removed here disappears there. The excludes
+ * double as protection: rsync never deletes an excluded path on the receiver, which is what keeps
+ * the server's `node_modules` and the Context Builder's `.venv` (built on the server, never sent)
+ * alive. Do not exclude `output/`: `context-builder/output/` is source code, not run state.
+ */
+const CODE_PATHS = ["package.json", "bun.lock", "tsconfig.json", "dashboard/package.json", "src/", "skills/", "context-builder/", "dashboard/build/"];
+const CODE_EXCLUDES = ["--exclude=.venv/", "--exclude=node_modules/", "--exclude=__pycache__/"];
+
+/** Names the commit the server's code was built from. Written only after the sync and install succeeded. */
+const REV_FILE = `${REMOTE_ROOT}/.deployed-rev`;
 
 const SYNC: { local: string; remote: string; filters?: string[] }[] = [
   // Only the harvested documents. The workstation keeps them under its own DATA_DIR (./data).
@@ -109,40 +125,14 @@ const dirty = (await $`git status --porcelain`.text()).trim();
 if (dirty) {
   console.error(dirty);
   if (!flag("force")) {
-    fail("working tree has uncommitted changes - the server deploys a commit, so it would get something else");
+    fail("working tree has uncommitted changes - rsync sends the tree as it is, so the server would run code no commit describes");
   }
-  console.log("  --force: deploying HEAD anyway - the uncommitted changes above will NOT be on the server");
+  console.log("  --force: deploying the working tree anyway - the changes above WILL be on the server");
 }
 
 const branch = (await $`git rev-parse --abbrev-ref HEAD`.text()).trim();
 const head = (await $`git rev-parse HEAD`.text()).trim();
-console.log(`  ${branch} @ ${head.slice(0, 8)}`);
-
-await $`git fetch --quiet origin ${branch}`;
-const ahead = (await $`git rev-list --count origin/${branch}..${branch}`.text()).trim();
-const behind = (await $`git rev-list --count ${branch}..origin/${branch}`.text()).trim();
-
-// Behind means someone else pushed, and the server is reset to this HEAD - so deploying would
-// roll their work off it. Ahead of a `behind` is a diverged branch, which is worse: --push would
-// be rejected anyway, and forcing it past that is not a thing a deploy script should offer.
-if (behind !== "0") {
-  fail(
-    `${behind} commit(s) on origin/${branch} are not in the local branch, so deploying would move ` +
-      `${HOST} backwards past them. Pull or rebase first.`,
-  );
-}
-
-if (ahead !== "0") {
-  if (!flag("push")) {
-    fail(
-      `${ahead} commit(s) not on origin. The server pulls from a public GitHub repo, so deploying ` +
-        `publishes them - rerun with --push once you mean to, or push yourself.`,
-    );
-  }
-  step(`Pushing ${ahead} commit(s) to origin/${branch}`);
-  if (DRY) console.log(`  [dry-run] git push origin ${branch}`);
-  else await $`git push origin ${branch}`;
-}
+console.log(`  ${branch} @ ${head.slice(0, 8)}${dirty ? " (+ uncommitted changes)" : ""}`);
 
 step(`Local check + preflight (${HOST})`);
 
@@ -163,14 +153,15 @@ const localCheckFailure = flag("skip-check")
         .catch(() => "`bun run check` failed - not deploying");
     })();
 
-const remoteDirtyFailure = (async (): Promise<string | null> => {
-  const remoteDirty = await remote(`cd ${REMOTE_ROOT} && git status --porcelain`);
-  if (!remoteDirty) return null;
-  console.error(remoteDirty);
-  return `${HOST}:${REMOTE_ROOT} has local modifications - a pull would conflict. Resolve them there first.`;
+// `.env` is the marker of a provisioned root: rsync would happily create a fresh tree on the wrong
+// host or path, and the units would then fail on their missing EnvironmentFile.
+const remoteRootFailure = (async (): Promise<string | null> => {
+  if (DRY) return null;
+  const hasEnv = await remote(`test -f ${REMOTE_ROOT}/.env && echo yes || echo no`);
+  return hasEnv === "yes" ? null : `${HOST}:${REMOTE_ROOT}/.env does not exist - wrong host or --remote-root, or the server is not provisioned`;
 })();
 
-const [localFailure, remoteFailure] = await Promise.all([localCheckFailure, remoteDirtyFailure]);
+const [localFailure, remoteFailure] = await Promise.all([localCheckFailure, remoteRootFailure]);
 for (const failure of [localFailure, remoteFailure]) {
   if (failure) console.error(`\n\x1b[31m✗ ${failure}\x1b[0m`);
 }
@@ -180,14 +171,15 @@ if (!DRY) {
   if (!flag("skip-check")) {
     console.log(quickCheck ? "  root and dashboard both pass (quick - blackhole was skipped)" : "  root and dashboard both pass");
   }
-  console.log(`  ${REMOTE_ROOT} is clean`);
+  console.log(`  ${REMOTE_ROOT} is provisioned`);
 }
 
-step(`Pulling ${branch} on ${HOST}`);
-await remote(`cd ${REMOTE_ROOT} && git fetch --quiet origin ${branch} && git checkout --quiet ${branch} && git reset --hard --quiet ${head}`);
-const remoteHead = await remote(`cd ${REMOTE_ROOT} && git rev-parse HEAD`);
-if (!DRY && remoteHead !== head) fail(`${HOST} is at ${remoteHead.slice(0, 8)}, expected ${head.slice(0, 8)}`);
-if (!DRY) console.log(`  now at ${head.slice(0, 8)}`);
+step("Building the dashboard");
+if (DRY) console.log("  [dry-run] cd dashboard && bun run build");
+else {
+  await $`bun run build`.cwd("dashboard").quiet();
+  console.log("  dashboard/build/ built");
+}
 
 // The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.py write as
 // root. So the directories are created and owned by pidra first, and the sync hands its files over
@@ -218,15 +210,33 @@ for (const { local, remote: dest, filters = [] } of SYNC) {
   console.log(changes ? `  ${label}:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : `  ${label}: already current`);
 }
 
-step("Installing dependencies and building the dashboard");
-// One Bun workspace: the root install covers the dashboard too, and the build needs it first.
-await remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile && cd dashboard && bun run build`);
-if (!DRY) console.log("  built");
+step(`Syncing code and the built dashboard to ${HOST}:${REMOTE_ROOT}`);
+{
+  // `--relative` keeps each path's directory under REMOTE_ROOT. No -o/-g: the server side runs as
+  // root, so the checkout stays root-owned and read-only to the pidra user, as the units expect.
+  const args = ["-rlptz", "--relative", "--delete", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...CODE_EXCLUDES, ...CODE_PATHS, `${HOST}:${REMOTE_ROOT}/`];
+  const changes = (await $`rsync ${args}`.text()).trim();
+  const lines = changes ? changes.split("\n").filter((l) => !l.startsWith("cd") && !l.endsWith("/")) : [];
+  console.log(`  ${DRY ? "[dry-run] " : ""}${lines.length} file(s) changed`);
+  for (const line of lines.slice(0, 25)) console.log(`    ${line}`);
+  if (lines.length > 25) console.log(`    ... and ${lines.length - 25} more`);
+}
+
+step("Installing production dependencies");
+// One Bun workspace: the root install covers the dashboard too. `--production` skips devDependencies
+// (the toolchain that built the dashboard stays on the workstation); the adapter bundles those.
+await remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile --production`);
+if (!DRY) console.log("  installed");
+
+await remote(`echo ${head} > ${REV_FILE}`);
 
 step(`Restarting ${SERVICES.join(" ")}`);
 await remote(`systemctl restart ${SERVICES.join(" ")}`);
 
 step("Verifying");
+
+const deployedRev = await remote(`cat ${REV_FILE}`);
+if (!DRY) report(deployedRev === head, `${REV_FILE} names ${deployedRev.slice(0, 8) || "nothing"}, expected ${head.slice(0, 8)}`);
 
 const serviceStates = await Promise.all(
   SERVICES.map(async (service) => ({ service, state: await remote(`systemctl is-active ${service} || true`) })),

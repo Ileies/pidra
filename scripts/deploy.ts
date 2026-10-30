@@ -4,8 +4,8 @@
  *
  * The server holds no git checkout, no source tree, no `node_modules` and no toolchain beyond Bun:
  * it receives the built dashboard (`dashboard/build/`, which lands as `dashboard/` there), the
- * bundled bridge and jobs (`build/server/`) and the Context Builder's Python (CODE_PATHS), plus the
- * gitignored harvest files (SYNC). Every dependency is bundled in, so there is no install step.
+ * bundled bridge, jobs and tools (`build/server/`, CODE_PATHS), plus the gitignored harvest files
+ * (SYNC). Every dependency is bundled in, so there is no install step.
  * Order: local preflight, check, build, hand state to pidra, sync, restart, verify.
  * Procedure and server layout: docs/operations.md.
  *
@@ -58,16 +58,13 @@ const REMOTE_DATA = "/var/lib/pidra";
 
 /**
  * What the server runs, relative to the repo root and to `REMOTE_ROOT`: `build/server/` (the
- * bridge, job runner and context probe, from scripts/build-server.ts) and `context-builder/scripts/`
- * (the Python the monthly harvest spawns, and `keep-auth.py`, run by hand), which no bundle can
- * carry. No TypeScript source and no `node_modules` go over.
+ * bridge, job runner, context probe and Keep auth, from scripts/build-server.ts). No TypeScript
+ * source and no `node_modules` go over.
  *
  * Each directory is mirrored with --delete, so a file removed here disappears there; paths not
- * listed are never touched, which is what keeps the Context Builder's `.venv` (built on the server)
- * alive.
+ * listed are never touched.
  */
-const CODE_PATHS = ["build/server/", "context-builder/scripts/"];
-const CODE_EXCLUDES = ["--exclude=__pycache__/"];
+const CODE_PATHS = ["build/server/"];
 
 /**
  * The dashboard build lands as the server's `dashboard/` directory itself (the unit runs
@@ -188,10 +185,10 @@ else {
   await $`bun run build`.cwd("dashboard").quiet();
   console.log("  dashboard/build/ built");
   await $`bun run build:server`.quiet();
-  console.log("  build/server/ built (bridge, job runner, context probe)");
+  console.log("  build/server/ built (bridge, job runner, context probe, Keep auth)");
 }
 
-// The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.py write as
+// The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.js write as
 // root. So the directories are created and owned by pidra first, and the sync hands its files over
 // with --chown. Missing state files are created empty: errors.ts tolerates an empty file and the
 // checkpoint is write-only. Runs before the sync, since rsync does not create the destination path.
@@ -232,7 +229,7 @@ async function syncCode(label: string, source: string[], dest: string, extra: st
   if (lines.length > 12) console.log(`    ... and ${lines.length - 12} more`);
 }
 // `--relative` keeps each path's directory under REMOTE_ROOT.
-await syncCode("server bundles and Context Builder scripts", CODE_PATHS, `${REMOTE_ROOT}/`, ["--relative", ...CODE_EXCLUDES]);
+await syncCode("server bundles", CODE_PATHS, `${REMOTE_ROOT}/`, ["--relative"]);
 await syncCode("dashboard", [DASHBOARD_LOCAL], DASHBOARD_REMOTE, []);
 
 await remote(`echo ${head} > ${REV_FILE}`);

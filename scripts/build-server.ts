@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Bundles what pronix runs outside the dashboard: the skills bridge, the job runner and the deploy's
- * long-term-context probe. Output lands in `build/server/` (gitignored), which `scripts/deploy.ts`
+ * Bundles what pronix runs outside the dashboard: the skills bridge, the job runner, the deploy's
+ * long-term-context probe and the by-hand Keep auth. Output lands in `build/server/` (gitignored), which `scripts/deploy.ts`
  * rsyncs, so the server needs no source tree and no `node_modules`.
  *
  * Dependencies are bundled in (hence every package in package.json is a devDependency: they are
@@ -21,6 +21,7 @@ const ENTRIES: Record<string, string> = {
   "bridge.js": "src/server/index.ts",
   "job.js": "src/job.ts",
   "verify-context.js": "scripts/verify-context.ts",
+  "keep-auth.js": "context-builder/scripts/keep-auth.ts",
 };
 
 await rm(OUT, { recursive: true, force: true });

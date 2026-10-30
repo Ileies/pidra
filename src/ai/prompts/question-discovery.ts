@@ -24,9 +24,11 @@ Input (JSON):
 - news: the stories the last briefings carried, with the group they ran under
 
 What to look for, most valuable first:
-1. People: a named person the system cannot place: a payment's recipient, someone in an event's
-   title or description, a sender, someone a mail mentions. Ask who they are and how they relate
-   to the reader, saying where they turned up.
+1. People and parties: a named person or organisation the system cannot place: a payment's
+   recipient, someone in an event's title or description, a sender, someone a mail mentions. Say
+   where they turned up and ask what is missing, in words that fit what it is. A person: who they
+   are and how the reader knows them. A company or service: what the reader uses it for or why it
+   is in touch, not "how do you relate to it". Vary the phrasing, no fixed template.
 2. Threads in the reader's life: something recurring or in progress (repeated appointments, a goal
    on the task list, a project, a trip, a course, a purchase). Ask where it stands, what comes
    next, or why, using what you counted or read ("Six driving lessons since 28 September: is an

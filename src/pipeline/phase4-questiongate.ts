@@ -79,7 +79,7 @@ async function candidatesFor(runDate: string, asked: ReadonlySet<string>): Promi
       const { subject, body } = splitMail(row.rawContent);
       return {
         kind: "item" as const,
-        question: row.questionForUser?.trim() || `Who is ${from}, and how do they relate to you?`,
+        question: row.questionForUser?.trim() || `Who or what is ${from}, and why did they get in touch?`,
         source: { extraction_id: row.id, from, subject, source_type: row.sourceType, run_date: runDate },
         detail: {
           type: json.type ?? null,

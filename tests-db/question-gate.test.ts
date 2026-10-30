@@ -97,8 +97,8 @@ describe("which mail becomes a candidate", () => {
     await gate();
 
     expect(calls[0].candidates.map((c: Any) => c.question)).toEqual([
-      "Who is noreply@example.com, and how do they relate to you?",
-      "Who is unknown, and how do they relate to you?",
+      "Who or what is noreply@example.com, and why did they get in touch?",
+      "Who or what is unknown, and why did they get in touch?",
     ]);
     expect(calls[0].candidates[1]).toMatchObject({ about: { subject: null }, mail: { type: null, urgency: null, action_required: null, excerpt: "" } });
   });

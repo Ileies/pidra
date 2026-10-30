@@ -62,8 +62,11 @@ Wording rules:
 - One question per entry, written in {{language}} (translate a candidate's wording when it is in
   another language, keeping every name, count and date), at most 35 words, answerable in a sentence or two. Name the
   sender or the matter, so the question stands on its own without the mail open.
-- A question about a sender asks who they are and how they relate to the reader, not whether the
-  reader "recognizes" a mail.
+- A question about a sender asks for what the system is missing, worded for what the sender is, not
+  whether the reader "recognizes" a mail. A person: who they are and how the reader knows them. A
+  company or service: what it is to the reader (a rental, a bank, a shop they used once) or why it
+  is writing, never "how do you relate to it". Use what the mail says (an invoice, a booking, a
+  reminder) to ask something concrete, and do not repeat one sentence pattern across questions.
 - Make a question more general only when one answer really settles every case it covers. Two
   different people or two different matters stay two questions.
 - Never ask for a password, a code, a card or account number, or anything that grants access.

@@ -2,10 +2,11 @@
 /**
  * Deploys this working tree to pronix by building the dashboard here and rsyncing the result.
  *
- * The server holds no git checkout and no toolchain beyond Bun: it receives the built dashboard
- * (`dashboard/build/`) plus the TypeScript the bridge and the jobs run directly (CODE_PATHS), the
- * gitignored harvest files (SYNC), and a production-only `bun install`. Order: local preflight,
- * check, dashboard build, hand state to pidra, sync, install, restart, verify.
+ * The server holds no git checkout, no source tree, no `node_modules` and no toolchain beyond Bun:
+ * it receives the built dashboard (`dashboard/build/`, which lands as `dashboard/` there), the
+ * bundled bridge and jobs (`build/server/`) and the Context Builder's Python (CODE_PATHS), plus the
+ * gitignored harvest files (SYNC). Every dependency is bundled in, so there is no install step.
+ * Order: local preflight, check, build, hand state to pidra, sync, restart, verify.
  * Procedure and server layout: docs/operations.md.
  *
  * Usage:
@@ -56,20 +57,27 @@ const SERVICES = ["pidra-bridge", "pidra-dashboard"];
 const REMOTE_DATA = "/var/lib/pidra";
 
 /**
- * What the server runs, relative to the repo root and to `REMOTE_ROOT`. The bridge and the jobs run
- * the TypeScript in `src/`, `skills/` and `context-builder/` directly under Bun; the dashboard runs
- * `dashboard/build/`, which bundles the `$pipeline` alias to `src/`. The two package.json files and
- * `bun.lock` are the workspace the server's `bun install` needs; `tsconfig.json` is read by Bun.
+ * What the server runs, relative to the repo root and to `REMOTE_ROOT`: `build/server/` (the
+ * bridge, job runner and context probe, from scripts/build-server.ts) and `context-builder/scripts/`
+ * (the Python the monthly harvest spawns, and `keep-auth.py`, run by hand), which no bundle can
+ * carry. No TypeScript source and no `node_modules` go over.
  *
- * Each directory is mirrored with --delete, so a file removed here disappears there. The excludes
- * double as protection: rsync never deletes an excluded path on the receiver, which is what keeps
- * the server's `node_modules` and the Context Builder's `.venv` (built on the server, never sent)
- * alive. Do not exclude `output/`: `context-builder/output/` is source code, not run state.
+ * Each directory is mirrored with --delete, so a file removed here disappears there; paths not
+ * listed are never touched, which is what keeps the Context Builder's `.venv` (built on the server)
+ * alive.
  */
-const CODE_PATHS = ["package.json", "bun.lock", "tsconfig.json", "dashboard/package.json", "src/", "skills/", "context-builder/", "dashboard/build/"];
-const CODE_EXCLUDES = ["--exclude=.venv/", "--exclude=node_modules/", "--exclude=__pycache__/"];
+const CODE_PATHS = ["build/server/", "context-builder/scripts/"];
+const CODE_EXCLUDES = ["--exclude=__pycache__/"];
 
-/** Names the commit the server's code was built from. Written only after the sync and install succeeded. */
+/**
+ * The dashboard build lands as the server's `dashboard/` directory itself (the unit runs
+ * `dashboard/index.js`), so unlike CODE_PATHS it is mirrored under another name. --delete empties
+ * everything else in there, including the `node_modules` and `build/` of the old layout.
+ */
+const DASHBOARD_LOCAL = "dashboard/build/";
+const DASHBOARD_REMOTE = `${REMOTE_ROOT}/dashboard/`;
+
+/** Names the commit the server's code was built from. Written only after the sync succeeded. */
 const REV_FILE = `${REMOTE_ROOT}/.deployed-rev`;
 
 const SYNC: { local: string; remote: string; filters?: string[] }[] = [
@@ -174,11 +182,13 @@ if (!DRY) {
   console.log(`  ${REMOTE_ROOT} is provisioned`);
 }
 
-step("Building the dashboard");
-if (DRY) console.log("  [dry-run] cd dashboard && bun run build");
+step("Building the dashboard and the server bundles");
+if (DRY) console.log("  [dry-run] cd dashboard && bun run build; bun run build:server");
 else {
   await $`bun run build`.cwd("dashboard").quiet();
   console.log("  dashboard/build/ built");
+  await $`bun run build:server`.quiet();
+  console.log("  build/server/ built (bridge, job runner, context probe)");
 }
 
 // The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.py write as
@@ -211,22 +221,19 @@ for (const { local, remote: dest, filters = [] } of SYNC) {
 }
 
 step(`Syncing code and the built dashboard to ${HOST}:${REMOTE_ROOT}`);
-{
-  // `--relative` keeps each path's directory under REMOTE_ROOT. No -o/-g: the server side runs as
-  // root, so the checkout stays root-owned and read-only to the pidra user, as the units expect.
-  const args = ["-rlptz", "--relative", "--delete", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...CODE_EXCLUDES, ...CODE_PATHS, `${HOST}:${REMOTE_ROOT}/`];
+// No -o/-g: the server side runs as root, so the code stays root-owned and read-only to the pidra
+// user, as the units expect.
+async function syncCode(label: string, source: string[], dest: string, extra: string[]) {
+  const args = ["-rlptz", "--delete", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...extra, ...source, `${HOST}:${dest}`];
   const changes = (await $`rsync ${args}`.text()).trim();
   const lines = changes ? changes.split("\n").filter((l) => !l.startsWith("cd") && !l.endsWith("/")) : [];
-  console.log(`  ${DRY ? "[dry-run] " : ""}${lines.length} file(s) changed`);
-  for (const line of lines.slice(0, 25)) console.log(`    ${line}`);
-  if (lines.length > 25) console.log(`    ... and ${lines.length - 25} more`);
+  console.log(`  ${DRY ? "[dry-run] " : ""}${label}: ${lines.length} change(s)`);
+  for (const line of lines.slice(0, 12)) console.log(`    ${line}`);
+  if (lines.length > 12) console.log(`    ... and ${lines.length - 12} more`);
 }
-
-step("Installing production dependencies");
-// One Bun workspace: the root install covers the dashboard too. `--production` skips devDependencies
-// (the toolchain that built the dashboard stays on the workstation); the adapter bundles those.
-await remote(`cd ${REMOTE_ROOT} && bun install --frozen-lockfile --production`);
-if (!DRY) console.log("  installed");
+// `--relative` keeps each path's directory under REMOTE_ROOT.
+await syncCode("server bundles and Context Builder scripts", CODE_PATHS, `${REMOTE_ROOT}/`, ["--relative", ...CODE_EXCLUDES]);
+await syncCode("dashboard", [DASHBOARD_LOCAL], DASHBOARD_REMOTE, []);
 
 await remote(`echo ${head} > ${REV_FILE}`);
 
@@ -266,12 +273,7 @@ for (const { path, code } of verifyResults) {
 // The long-term document the briefing synthesises on. Legacy rows locate it by a path recorded by
 // whichever machine built it, so a deploy can leave it behind; a missing one degrades every
 // briefing without failing anything. Prints a warning, not a failure.
-const context = await remote(
-  `cd ${REMOTE_ROOT} && bun -e 'const {loadLongTermContext}=await import("./src/pipeline/long-term-context");` +
-    `const c=await loadLongTermContext();` +
-    `console.log((c.intelSections.length+c.personalSections.length)+" chars, "+(c.problem??"ok"));` +
-    `process.exit(0)'`,
-);
+const context = await remote(`cd ${REMOTE_ROOT} && env DATA_DIR=${REMOTE_DATA} bun run build/server/verify-context.js`);
 if (!DRY) {
   const ok = !context.includes("0 chars") && context.endsWith("ok");
   console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[33m!\x1b[0m"} long-term context: ${context}`);

@@ -9,6 +9,7 @@ dist/
 .idea/
 dashboard/.svelte-kit/
 dashboard/build/
+build/
 # Runtime state (DATA_DIR, default ./data): harvest output, progress and error logs, Keep token.
 data/
 context-builder/.venv/

@@ -4,6 +4,7 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
+import { PROJECT_ROOT } from "../../src/config/data-dir";
 import { logError } from "../errors";
 
 export interface KeepNote {
@@ -46,9 +47,10 @@ export async function fetchKeepNotes(): Promise<KeepNote[]> {
 }
 
 async function fetchAllKeepNotes(): Promise<KeepNote[]> {
-  const scriptPath = resolve(import.meta.dir, "../scripts/keep-fetch.py");
+  // From the app root, not import.meta.dir: in the server bundle this module is not under context-builder/.
+  const scriptPath = resolve(PROJECT_ROOT, "context-builder/scripts/keep-fetch.py");
   // gkeepapi isn't packaged in nixpkgs - see context-builder/README.md for the venv setup.
-  const venvPython = resolve(import.meta.dir, "../.venv/bin/python3");
+  const venvPython = resolve(PROJECT_ROOT, "context-builder/.venv/bin/python3");
   const pythonBin = existsSync(venvPython) ? venvPython : "python3";
 
   return new Promise((resolve_, reject) => {

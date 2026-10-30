@@ -55,7 +55,7 @@ export async function synthesizePhase(
 
   // Which sources produced anything this run. Flags, not derived from the summary prose, because
   // the patch must tell "nothing new" from "not fetched" (routine on the server: GitHub needs a
-  // token, Keep needs the gkeepapi venv, and absence yields zero items, not an error). Passing a
+  // token, Keep needs its master token, and absence yields zero items, not an error). Passing a
   // "No GitHub data" placeholder to synthesizePatch would tell the model the repos are gone.
   const fetchedFlags = {
     contacts: synthesisEmails.length > 0,

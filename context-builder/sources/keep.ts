@@ -1,21 +1,16 @@
-// Keep source: runs context-builder/scripts/keep-fetch.py (gkeepapi, venv setup in the README) and
-// parses its JSON. fetchKeepNotes is the ONLY exit for Keep content, so the label exclusion below
-// holds for every consumer. Any subprocess failure is logged to errors.json and yields no notes.
-import { spawn } from "node:child_process";
+// Keep source: pulls notes through keep-api.ts (credentials from env or the token file written by
+// scripts/keep-auth.ts). fetchKeepNotes is the ONLY exit for Keep content, so the label exclusion below
+// holds for every consumer. Any failure is logged to errors.json and yields no notes.
 import { resolve } from "node:path";
-import { existsSync } from "node:fs";
-import { PROJECT_ROOT } from "../../src/config/data-dir";
+import { CONTEXT_BUILDER_DIR } from "../../src/config/data-dir";
 import { logError } from "../errors";
+import { syncKeepNotes, type KeepClientOptions, type KeepCredentials } from "./keep-api";
+import type { KeepNote } from "./keep-tree";
 
-export interface KeepNote {
-  id: string;
-  title: string;
-  text: string;
-  labels: string[];
-  isPinned: boolean;
-  isArchived: boolean;
-  updatedAt: string;
-}
+export type { KeepNote } from "./keep-tree";
+
+/** Written by scripts/keep-auth.ts as `{ email, master_token }`; the key name is kept from the Python era. */
+export const KEEP_TOKEN_PATH = resolve(CONTEXT_BUILDER_DIR, ".keep-token.json");
 
 /**
  * Labels (case-insensitive; env CONTEXT_BUILDER_KEEP_EXCLUDE_LABELS, default "Credentials") whose
@@ -33,9 +28,22 @@ function isExcluded(note: KeepNote): boolean {
   return note.labels.some((l) => EXCLUDED_LABELS.has(l.trim().toLowerCase()));
 }
 
+/** GKEEPAPI_EMAIL + GKEEPAPI_MASTER_TOKEN win; either missing, both come from the token file. */
+export async function loadKeepCredentials(): Promise<KeepCredentials> {
+  const email = process.env.GKEEPAPI_EMAIL;
+  const masterToken = process.env.GKEEPAPI_MASTER_TOKEN;
+  if (email && masterToken) return { email, masterToken };
+
+  const file = Bun.file(KEEP_TOKEN_PATH);
+  if (!(await file.exists())) throw new Error("No Keep token found. Run context-builder/scripts/keep-auth.ts first.");
+  const saved = (await file.json()) as { email?: string; master_token?: string };
+  if (!saved.email || !saved.master_token) throw new Error(`${KEEP_TOKEN_PATH} lacks email or master_token`);
+  return { email: saved.email, masterToken: saved.master_token };
+}
+
 /** All Keep notes minus excluded labels. Always go through this, never fetchAllKeepNotes. */
-export async function fetchKeepNotes(): Promise<KeepNote[]> {
-  const all = await fetchAllKeepNotes();
+export async function fetchKeepNotes(opts?: KeepClientOptions): Promise<KeepNote[]> {
+  const all = await fetchAllKeepNotes(opts);
   const kept = all.filter((n) => !isExcluded(n));
   const excluded = all.length - kept.length;
   if (excluded > 0) {
@@ -46,42 +54,11 @@ export async function fetchKeepNotes(): Promise<KeepNote[]> {
   return kept;
 }
 
-async function fetchAllKeepNotes(): Promise<KeepNote[]> {
-  // From the app root, not import.meta.dir: in the server bundle this module is not under context-builder/.
-  const scriptPath = resolve(PROJECT_ROOT, "context-builder/scripts/keep-fetch.py");
-  // gkeepapi isn't packaged in nixpkgs - see context-builder/README.md for the venv setup.
-  const venvPython = resolve(PROJECT_ROOT, "context-builder/.venv/bin/python3");
-  const pythonBin = existsSync(venvPython) ? venvPython : "python3";
-
-  return new Promise((resolve_, reject) => {
-    const proc = spawn(pythonBin, [scriptPath], {
-      env: { ...process.env },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (d) => (stdout += d));
-    proc.stderr.on("data", (d) => (stderr += d));
-
-    proc.on("close", (code) => {
-      if (code !== 0) {
-        logError("keep", `Python exited with code ${code}: ${stderr}`).catch(() => {});
-        return resolve_([]);
-      }
-      try {
-        const notes = JSON.parse(stdout) as KeepNote[];
-        resolve_(notes);
-      } catch (err) {
-        logError("keep", `Failed to parse Keep output: ${err}`).catch(() => {});
-        resolve_([]);
-      }
-    });
-
-    proc.on("error", (err) => {
-      logError("keep", err).catch(() => {});
-      resolve_([]);
-    });
-  });
+async function fetchAllKeepNotes(opts?: KeepClientOptions): Promise<KeepNote[]> {
+  try {
+    return await syncKeepNotes(await loadKeepCredentials(), opts);
+  } catch (err) {
+    await logError("keep", err).catch(() => {});
+    return [];
+  }
 }

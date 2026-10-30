@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 /**
  * Bundles what pronix runs outside the dashboard: the skills bridge, the job runner, the deploy's
- * long-term-context probe and the by-hand Keep auth. Output lands in `build/server/` (gitignored), which `scripts/deploy.ts`
- * rsyncs, so the server needs no source tree and no `node_modules`.
+ * long-term-context probe and the by-hand Keep auth. Output lands in `build/server/` (gitignored), which
+ * `scripts/deploy.ts` rsyncs flat into the app root on pronix (`/var/www/pidra/bridge.js`, ...), so the
+ * server needs no source tree and no `node_modules`.
  *
  * Dependencies are bundled in (hence every package in package.json is a devDependency: they are
  * build-time inputs). A dependency that reads its own files at run time cannot be bundled this way;
  * the dashboard has one such case (jsdom, patched in dashboard/vite.config.ts).
- * The bundles must stay exactly two directories below the app root: `src/config/data-dir.ts`
- * derives `PROJECT_ROOT` from `import.meta.dir` plus `../..`.
+ * The bundles must sit directly in the app root once deployed: the `PIDRA_BUNDLE` define below makes
+ * `PROJECT_ROOT` in `src/config/data-dir.ts` the bundle's own directory.
  */
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -35,6 +36,7 @@ for (const [name, entry] of Object.entries(ENTRIES)) {
     naming: name,
     target: "bun",
     sourcemap: "linked",
+    define: { "process.env.PIDRA_BUNDLE": '"1"' },
   });
   if (!result.success) {
     for (const log of result.logs) console.error(String(log));

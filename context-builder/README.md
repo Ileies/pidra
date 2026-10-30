@@ -1,6 +1,6 @@
 # Context Builder
 
-Scans personal data sources (email, Google Keep, Google Tasks, GitHub), compresses each item into structured JSON and synthesises a long-term context document. Seeds `contacts` and `standing_context`. How it works, the run modes and the document contract are in [`docs/context-builder.md`](../docs/context-builder.md); this file covers setup, commands and recovery.
+Scans personal data sources (email, Google Keep, Google Tasks, GitHub), compresses each item into structured JSON and synthesises a long-term context document. Seeds `contacts` and the Keep standing rules (as `personal` notes). How it works, the run modes and the document contract are in [`docs/context-builder.md`](../docs/context-builder.md); this file covers setup, commands and recovery.
 
 It runs by hand for a full harvest, and by itself in update mode on the 1st of each month at 03:00 as the `pidra-context-builder` systemd job (`hosts/pronix/pidra.nix`). The harvest is stored in `context_builder_runs.document`, so it does not matter which machine ran it; only `.checkpoint.json`, `errors.json` and the archival JSON/MD files stay local to that machine, under `DATA_DIR/context-builder` (default `./data/context-builder`; `/var/lib/pidra/context-builder` on pronix).
 
@@ -51,7 +51,7 @@ bun run context-builder:full                     # force a full rebuild
 bun run context-builder:dry                      # inventory counts only; no API calls, no writes
 bun run context-builder/run.ts --update          # force update (delta) mode
 bun run context-builder/run.ts --from-index      # redo synthesis, output and seeding from stored extractions
-bun run context-builder/run.ts --seed-only       # re-seed contacts/standing_context only
+bun run context-builder/run.ts --seed-only       # re-seed contacts and rule notes only
 ```
 
 `--from-index` and `--seed-only` make no fetch and no extraction calls. `--from-index` is the recovery path when extraction succeeded but something downstream did not; it is far cheaper than a rebuild. Mode semantics are in `docs/context-builder.md`.
@@ -66,13 +66,13 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:15432/pidra bun run context-builder
 ## Output
 
 - `output/context-YYYY-MM-DD.json` and `.md`: archival copies (the JSON also keeps the four source summaries). Nothing reads them except legacy rows without a `document`.
-- Database: the three seeded tables, and the document on `context_builder_runs.document`.
+- Database: the seeded `contacts` and rule `notes`, and the document on `context_builder_runs.document`.
 
 ## Error handling and recovery
 
 Failed items are logged to `DATA_DIR/context-builder/errors.json` and skipped; a failed source phase does not abort the run. `errors.json` accumulates across runs, so check the `ts` field before blaming a run for an error. An interrupted run (Ctrl+C) resumes from its database run row when restarted without flags.
 
-The three seed targets are written independently. Model output is stripped of control characters before it reaches Postgres: a NUL byte in one extracted name once failed a whole batch insert and silently left `standing_context` empty on a run that reported success.
+The two seed targets (contacts, rule notes) are written independently. Model output is stripped of control characters before it reaches Postgres, because a NUL byte in one extracted name fails a whole batch insert.
 
 ## Runtime
 

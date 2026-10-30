@@ -1,4 +1,4 @@
-// Deploy probe, bundled to build/server/verify-context.js: prints whether the long-term context the
+// Deploy probe, bundled to verify-context.js in the server's app root: prints whether the long-term context the
 // briefing synthesises on loads from the machine it runs on. Output is read by scripts/deploy.ts.
 import { loadLongTermContext } from "../src/pipeline/long-term-context";
 

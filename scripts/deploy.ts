@@ -4,7 +4,7 @@
  *
  * The server holds no git checkout, no source tree, no `node_modules` and no toolchain beyond Bun:
  * it receives the built dashboard (`dashboard/build/`, which lands as `dashboard/` there), the
- * bundled bridge, jobs and tools (`build/server/`, CODE_PATHS), plus the gitignored harvest files
+ * bundled bridge, jobs and tools (`build/server/`, which lands flat in the app root), plus the gitignored harvest files
  * (SYNC). Every dependency is bundled in, so there is no install step.
  * Order: local preflight, check, build, hand state to pidra, sync, restart, verify.
  * Procedure and server layout: docs/operations.md.
@@ -57,14 +57,16 @@ const SERVICES = ["pidra-bridge", "pidra-dashboard"];
 const REMOTE_DATA = "/var/lib/pidra";
 
 /**
- * What the server runs, relative to the repo root and to `REMOTE_ROOT`: `build/server/` (the
- * bridge, job runner, context probe and Keep auth, from scripts/build-server.ts). No TypeScript
- * source and no `node_modules` go over.
+ * The server bundles (bridge, job runner, context probe and Keep auth, from scripts/build-server.ts)
+ * land directly in `REMOTE_ROOT`, next to `.env` and `dashboard/`. No TypeScript source and no
+ * `node_modules` go over.
  *
- * Each directory is mirrored with --delete, so a file removed here disappears there; paths not
- * listed are never touched.
+ * The root also holds files the deploy does not own, so the mirror is limited to `*.js` and
+ * `*.js.map` by a filter: --delete removes only what the filter admits, and the `*` exclude both
+ * stops rsync descending into `dashboard/` and protects everything else from deletion.
  */
-const CODE_PATHS = ["build/server/"];
+const SERVER_LOCAL = "build/server/";
+const SERVER_FILTERS = ["--include=*.js", "--include=*.js.map", "--exclude=*"];
 
 /**
  * The dashboard build lands as the server's `dashboard/` directory itself (the unit runs
@@ -185,7 +187,7 @@ else {
   await $`bun run build`.cwd("dashboard").quiet();
   console.log("  dashboard/build/ built");
   await $`bun run build:server`.quiet();
-  console.log("  build/server/ built (bridge, job runner, context probe, Keep auth)");
+  console.log("  build/server/ built (bridge, job runner, context probe, Keep auth; deployed flat into the app root)");
 }
 
 // The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.js write as
@@ -228,8 +230,7 @@ async function syncCode(label: string, source: string[], dest: string, extra: st
   for (const line of lines.slice(0, 12)) console.log(`    ${line}`);
   if (lines.length > 12) console.log(`    ... and ${lines.length - 12} more`);
 }
-// `--relative` keeps each path's directory under REMOTE_ROOT.
-await syncCode("server bundles", CODE_PATHS, `${REMOTE_ROOT}/`, ["--relative"]);
+await syncCode("server bundles", [SERVER_LOCAL], `${REMOTE_ROOT}/`, SERVER_FILTERS);
 await syncCode("dashboard", [DASHBOARD_LOCAL], DASHBOARD_REMOTE, []);
 
 await remote(`echo ${head} > ${REV_FILE}`);
@@ -270,7 +271,7 @@ for (const { path, code } of verifyResults) {
 // The long-term document the briefing synthesises on. Legacy rows locate it by a path recorded by
 // whichever machine built it, so a deploy can leave it behind; a missing one degrades every
 // briefing without failing anything. Prints a warning, not a failure.
-const context = await remote(`cd ${REMOTE_ROOT} && env DATA_DIR=${REMOTE_DATA} bun run build/server/verify-context.js`);
+const context = await remote(`cd ${REMOTE_ROOT} && env DATA_DIR=${REMOTE_DATA} bun run verify-context.js`);
 if (!DRY) {
   const ok = !context.includes("0 chars") && context.endsWith("ok");
   console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[33m!\x1b[0m"} long-term context: ${context}`);

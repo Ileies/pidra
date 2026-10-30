@@ -44,7 +44,7 @@ const JOBS: Record<string, (date: string) => Promise<unknown>> = {
 const [name, dateArg] = process.argv.slice(2);
 
 if (!name || !(name in JOBS)) {
-  console.error(`Usage: job <${Object.keys(JOBS).join("|")}> [YYYY-MM-DD] (src/job.ts, or build/server/job.js on pronix)`);
+  console.error(`Usage: job <${Object.keys(JOBS).join("|")}> [YYYY-MM-DD] (src/job.ts, or job.js in the app root on pronix)`);
   process.exit(2);
 }
 

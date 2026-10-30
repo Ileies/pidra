@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * One-time Keep auth via browser oauth_token cookie exchange. Interactive; run by hand, locally and
- * again on pronix (`bun run build/server/keep-auth.js`).
+ * again on pronix (`bun run keep-auth.js` in the app root).
  *
  * Steps:
  *   1. Open https://accounts.google.com/EmbeddedSetup in a browser while logged into the Google

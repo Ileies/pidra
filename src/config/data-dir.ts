@@ -3,12 +3,12 @@
 import { resolve } from "node:path";
 
 /**
- * The app root: the repo checkout locally, `/var/www/pidra` on pronix. Two levels up from this file
- * in the source tree (`src/config/`) and from the server bundles (`build/server/`), so the bundles
- * must stay exactly two directories deep (scripts/build-server.ts). Bun substitutes `import.meta.dir`
- * with the bundle's own directory at run time.
+ * The app root: the repo checkout locally, `/var/www/pidra` on pronix. In the source tree it is two
+ * levels up from this file (`src/config/`). The server bundles sit directly in the root on pronix,
+ * so `scripts/build-server.ts` defines `process.env.PIDRA_BUNDLE` at build time and the root is the
+ * bundle's own directory. Bun substitutes `import.meta.dir` with that directory at run time.
  */
-export const PROJECT_ROOT = resolve(import.meta.dir, "../..");
+export const PROJECT_ROOT = process.env.PIDRA_BUNDLE ? import.meta.dir : resolve(import.meta.dir, "../..");
 
 /**
  * `DATA_DIR` is absolute on pronix (`/var/lib/pidra`, set in the unit) and defaults to `./data` in

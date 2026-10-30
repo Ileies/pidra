@@ -2,14 +2,11 @@
 // prompts (CLAUDE.md): `pickSections` routes sections by number, and a document in any other shape
 // must reach synthesis as an empty string, never as a crash or as the wrong sections. Also pins
 // `loadLongTermContext`'s fallback past a patch document (the 2026-09-11 incident). The db is a mock.
-import { afterEach, beforeEach, expect, mock, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { beforeEach, expect, mock, test } from "bun:test";
 import * as schema from "../src/db/schema";
 import { dbModule } from "./fixtures/db";
 
-type Run = { document: unknown; outputPath: string | null; completedAt: Date | null };
+type Run = { document: unknown; outputPath?: string | null; completedAt: Date | null };
 
 let runs: Run[] = [];
 let dbDown = false;
@@ -109,7 +106,7 @@ test("a document with unnumbered or differently shaped headings routes to an emp
 });
 
 test("the default routes cover each of the five sections exactly once between intel and personal", async () => {
-  runs = [{ document: { fullContext: FULL, generatedAt: "2026-09-10T05:00:00Z" }, outputPath: null, completedAt: null }];
+  runs = [{ document: { fullContext: FULL, generatedAt: "2026-09-10T05:00:00Z" }, completedAt: null }];
   const ctx = await loadLongTermContext();
 
   expect(ctx.problem).toBeNull();
@@ -124,8 +121,8 @@ test("the default routes cover each of the five sections exactly once between in
 
 test("falls back past a newer patch document to the older full harvest and says so", async () => {
   runs = [
-    { document: { fullContext: "# Updated Personal Context\n## 1. changed\nbody", generatedAt: "2026-09-11T05:00:00Z" }, outputPath: null, completedAt: null },
-    { document: { fullContext: FULL, generatedAt: "2026-09-10T05:00:00Z" }, outputPath: null, completedAt: null },
+    { document: { fullContext: "# Updated Personal Context\n## 1. changed\nbody", generatedAt: "2026-09-11T05:00:00Z" }, completedAt: null },
+    { document: { fullContext: FULL, generatedAt: "2026-09-10T05:00:00Z" }, completedAt: null },
   ];
   const ctx = await loadLongTermContext();
 
@@ -144,9 +141,9 @@ test("reports a problem and empty sections when no run exists", async () => {
 
 test("reports a problem and empty sections when no recent run yields a usable document", async () => {
   runs = [
-    { document: { fullContext: "# Updated Personal Context\n## 1. changed", generatedAt: "x" }, outputPath: null, completedAt: null },
-    { document: null, outputPath: null, completedAt: null },
-    { document: { fullContext: "", generatedAt: "x" }, outputPath: null, completedAt: null },
+    { document: { fullContext: "# Updated Personal Context\n## 1. changed", generatedAt: "x" }, completedAt: null },
+    { document: null, completedAt: null },
+    { document: { fullContext: "", generatedAt: "x" }, completedAt: null },
   ];
   const ctx = await loadLongTermContext();
 
@@ -166,33 +163,11 @@ test("a failed load is not cached by shareLongTermContext, so a retry reads agai
   expect(await load()).toBe(first);
 });
 
-let dir: string | null = null;
-afterEach(async () => {
-  delete process.env.CONTEXT_BUILDER_OUTPUT_DIR;
-  if (dir) await rm(dir, { recursive: true, force: true });
-  dir = null;
-});
-
-test("a legacy row with only an output path reads the archive by name from this machine's output dir", async () => {
-  dir = await mkdtemp(join(tmpdir(), "pidra-ltc-"));
-  await writeFile(join(dir, "harvest.json"), JSON.stringify({ fullContext: FULL, generatedAt: "2026-08-01T05:00:00Z" }));
-  process.env.CONTEXT_BUILDER_OUTPUT_DIR = dir;
+test("a row with only an output path is never read from disk: it counts as recorded no document", async () => {
   runs = [{ document: null, outputPath: "/home/someone-else/pidra/context-builder/output/harvest.json", completedAt: null }];
 
   const ctx = await loadLongTermContext();
 
-  expect(ctx.problem).toBeNull();
-  expect(ctx.personalSections).toContain("alpha");
-  expect(ctx.generatedAt).toBe("2026-08-01T05:00:00Z");
-});
-
-test("a legacy row whose archive is missing everywhere is a problem, not a crash", async () => {
-  dir = await mkdtemp(join(tmpdir(), "pidra-ltc-"));
-  process.env.CONTEXT_BUILDER_OUTPUT_DIR = dir;
-  runs = [{ document: null, outputPath: "/gone/harvest.json", completedAt: null }];
-
-  const ctx = await loadLongTermContext();
-
-  expect(ctx.problem).toContain("harvest.json");
+  expect(ctx.problem).toContain("a completed run recorded no document");
   expect(ctx.personalSections).toBe("");
 });

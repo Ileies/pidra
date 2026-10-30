@@ -1,38 +1,5 @@
-import { errMessage } from "$pipeline/util/text";
-import { basename, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
-import { CONTEXT_BUILDER_OUTPUT_DIR, DATA_DIR } from "$app/env/private";
 import { sql } from "#lib/server/postgres.js";
 import { renderMarkdown } from "#lib/markdown.js";
-
-// Dashboard runs with cwd = dashboard/ - the actual tool lives one level up.
-// `||`, not `??`: the schema turns an unset CONTEXT_BUILDER_OUTPUT_DIR into '', which `??` would keep.
-const OUTPUT_DIR = CONTEXT_BUILDER_OUTPUT_DIR
-  ? resolve(process.cwd(), "..", CONTEXT_BUILDER_OUTPUT_DIR)
-  : resolve(process.cwd(), "..", DATA_DIR, "context-builder/output");
-
-/**
- * Reads a harvest document given the path recorded on its run row, and reports which file it
- * actually opened.
- *
- * Legacy only: rows written before `context_builder_runs.document` existed; every current row
- * carries the harvest in that column, which `loadHarvestDocument` reads directly. For legacy rows
- * `output_path` is absolute on whichever machine ran the Context Builder, so it can fail here; the
- * pipeline's fallback (`readDocument`, `src/pipeline/long-term-context.ts`) resolves against its
- * cwd, so this anchors the same rule on the project root (the dashboard's cwd is `dashboard/`).
- * The resolved path is returned because the page displays it.
- */
-async function readContextDocument(
-  outputPath: string,
-): Promise<{ content: string; path: string }> {
-  try {
-    return { content: await readFile(outputPath, "utf-8"), path: outputPath };
-  } catch (err) {
-    const local = resolve(OUTPUT_DIR, basename(outputPath));
-    if (local === outputPath) throw err;
-    return { content: await readFile(local, "utf-8"), path: local };
-  }
-}
 
 /** How far back to look for a run that produced an actual harvest, before giving up. */
 const CANDIDATE_RUNS = 6;
@@ -56,10 +23,6 @@ export interface HarvestSection {
 export interface HarvestDoc {
   generatedAt: string | null;
   date: string | null;
-  // Set only when the document came from the legacy archival file rather than the `document`
-  // column - shown in the UI so a fallback read stays visible instead of looking identical to
-  // the normal path.
-  path: string | null;
   fullContextHtml: string;
   chars: number;
   sections: HarvestSection[];
@@ -71,7 +34,6 @@ export interface HarvestRun {
   started_at: string;
   completed_at: string | null;
   items_indexed: number | null;
-  output_path: string | null;
   document: Record<string, string> | null;
 }
 
@@ -87,13 +49,12 @@ export interface HarvestRun {
 export async function loadHarvestDocument(): Promise<{
   run: HarvestRun | null;
   doc: HarvestDoc | null;
-  docError: string | null;
   skipped: { startedAt: string; mode: string; reason: string }[];
 }> {
   const db = sql();
 
   const runs = await db<HarvestRun[]>`
-    SELECT id, mode, started_at, completed_at, items_indexed, output_path, document
+    SELECT id, mode, started_at, completed_at, items_indexed, document
     FROM context_builder_runs
     WHERE status = 'completed'
     ORDER BY started_at DESC
@@ -102,33 +63,15 @@ export async function loadHarvestDocument(): Promise<{
 
   let run: HarvestRun | null = null;
   let doc: HarvestDoc | null = null;
-  let docError: string | null = null;
   const skipped: { startedAt: string; mode: string; reason: string }[] = [];
 
   for (const candidate of runs) {
     const note = (reason: string) => skipped.push({ startedAt: candidate.started_at, mode: candidate.mode, reason });
 
-    if (!candidate.document && !candidate.output_path) {
+    // The document column is the harvest itself; the archival files on disk are never read.
+    const raw = candidate.document;
+    if (!raw) {
       note("recorded no document");
-      continue;
-    }
-
-    let raw: Record<string, string>;
-    let path: string | null;
-    try {
-      if (candidate.document) {
-        raw = candidate.document;
-        path = null;
-      } else {
-        // Legacy row, written before the document column existed: fall back to the archival file.
-        const file = await readContextDocument(candidate.output_path!);
-        raw = JSON.parse(file.content) as Record<string, string>;
-        path = file.path;
-      }
-    } catch (err) {
-      const message = errMessage(err);
-      docError ??= message;
-      note(message);
       continue;
     }
 
@@ -148,7 +91,6 @@ export async function loadHarvestDocument(): Promise<{
     doc = {
       generatedAt: raw.generatedAt ?? null,
       date: raw.date ?? null,
-      path,
       fullContextHtml: renderMarkdown(fullContext),
       chars: fullContext.length,
       sections: [
@@ -163,5 +105,5 @@ export async function loadHarvestDocument(): Promise<{
 
   run ??= runs[0] ?? null;
 
-  return { run, doc, docError, skipped };
+  return { run, doc, skipped };
 }

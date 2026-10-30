@@ -194,23 +194,13 @@
               <article class="report-body text-sm max-w-none mt-3">{@html summaryHtml.get(section.key) ?? ""}</article>
             </details>
           {/each}
-          <p class="text-surface-400 text-xs break-all">
-            {#if data.doc.path}
-              Source file (legacy row): <code>{data.doc.path}</code>
-            {:else}
-              Source: stored on the run row
-            {/if}
-          </p>
         </div>
       </div>
     {:else}
       <section class="bg-surface-900 border border-surface-700 rounded-lg p-4 sm:p-5">
         <h2 class="text-surface-100 text-base font-semibold mb-1">Long-term context</h2>
         <p class="text-surface-300 text-sm">
-          {#if data.docError}
-            The last completed run recorded a document, but it could not be read:
-            <code class="text-warning-400 break-all">{data.docError}</code>
-          {:else if data.run}
+          {#if data.run}
             The last completed run recorded no document. Re-run to generate one.
           {:else}
             No completed run yet. Start one below to build the context document.

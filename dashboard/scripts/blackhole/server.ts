@@ -1,7 +1,6 @@
 /** Building the dashboard, starting its production server against nothing, finding Chrome. */
 import { $ } from "bun";
-import { join } from "node:path";
-import { ARTIFACTS, DASHBOARD } from "./helpers.ts";
+import { DASHBOARD } from "./helpers.ts";
 
 /** `PIDRA_CHROME`, else google-chrome, google-chrome-stable or chromium on PATH; exits the process when none exists. */
 export function chromePath(): string {
@@ -33,7 +32,6 @@ export async function startServer(): Promise<{ url: string; stop: () => void }> 
       // A closed port: the fixture stands in for everything the suite reads, and nothing may write.
       DATABASE_URL: "postgres://blackhole@127.0.0.1:1/none",
       SKILLS_BRIDGE_URL: "http://127.0.0.1:1",
-      CONTEXT_BUILDER_OUTPUT_DIR: join(ARTIFACTS, "none"),
       // The 2026-09-28 login gate has no session to check against with the DB closed above; this
       // suite drives the offline layer, not the login flow, so `hooks.server.ts` stubs one in.
       PIDRA_BLACKHOLE_TEST: "1",

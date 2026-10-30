@@ -1,13 +1,9 @@
 // Loads the Context Builder's harvest document (`context_builder_runs.document`) and splits it by
 // `# N.` heading for the daily prompts. Used by phase3, news/run.ts, questions/reconcile.ts and
-// context/lookup.ts; `pickSections`/`readDocument` are also imported by context-builder/.
-import { errMessage } from "../util/text";
+// context/lookup.ts; `pickSections` is also imported by context-builder/.
 import { db, contextBuilderRuns } from "../db";
 import { eq, desc } from "drizzle-orm";
-import { readFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
 import { listActiveCorrections, type ActiveCorrection } from "../context/corrections";
-import { contextBuilderOutputDir } from "../config/data-dir";
 
 export interface LongTermContext {
   /**
@@ -41,28 +37,6 @@ const CANDIDATE_RUNS = 5;
 const INTEL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_INTEL ?? "3,5";
 const PERSONAL_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_PERSONAL ?? "1,2,4";
 const INTEREST_SECTIONS = process.env.PIPELINE_CONTEXT_SECTIONS_NEWS ?? "3";
-
-/**
- * Reads the harvest document from its archival file on disk, tolerating the fact that
- * `context_builder_runs.output_path` is an absolute path recorded by whichever machine ran the
- * Context Builder.
- *
- * Only a fallback for rows written before `context_builder_runs.document` existed - every reader
- * tries `document` first. The stored path is a hint, not an address (a workstation run records
- * `/home/<user>/...`, the server reads from `/var/www/pidra`): if it does not resolve, the file is
- * looked up by name under this machine's own output directory. Throws when neither exists.
- *
- * Exported because the Context Builder's update mode uses the same fallback for the same legacy rows.
- */
-export async function readDocument(outputPath: string): Promise<string> {
-  try {
-    return await readFile(outputPath, "utf-8");
-  } catch (err) {
-    const local = resolve(contextBuilderOutputDir(), basename(outputPath));
-    if (local === outputPath) throw err;
-    return await readFile(local, "utf-8");
-  }
-}
 
 /** `spec` is a comma-separated list of section numbers ("1,2,4"). Returns "" when nothing matches. */
 export function pickSections(doc: string, spec: string): string {
@@ -109,7 +83,6 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
   const runs = await db
     .select({
       document: contextBuilderRuns.document,
-      outputPath: contextBuilderRuns.outputPath,
       completedAt: contextBuilderRuns.completedAt,
     })
     .from(contextBuilderRuns)
@@ -124,38 +97,31 @@ export async function loadLongTermContext(): Promise<LongTermContext> {
   const problems: string[] = [];
 
   for (const run of runs) {
-    const label = run.document ? "a run" : (run.outputPath ? basename(run.outputPath) : null);
-    if (!label) {
+    // The document column is the harvest itself, written by whichever machine ran the build. The
+    // archival files on disk are never read.
+    if (!run.document) {
       problems.push("a completed run recorded no document");
       continue;
     }
 
-    try {
-      // The document column holds the harvest itself, written by whichever machine ran the
-      // build. Rows from before it existed fall back to the archival file via readDocument.
-      const parsed = run.document ??
-        (JSON.parse(await readDocument(run.outputPath!)) as { fullContext?: string; generatedAt?: string });
-      const doc = parsed.fullContext ?? "";
-      const intelSections = pickSections(doc, INTEL_SECTIONS);
-      const personalSections = pickSections(doc, PERSONAL_SECTIONS);
+    const doc = run.document.fullContext ?? "";
+    const intelSections = pickSections(doc, INTEL_SECTIONS);
+    const personalSections = pickSections(doc, PERSONAL_SECTIONS);
 
-      if (!intelSections && !personalSections) {
-        problems.push(`${label} yielded no usable sections`);
-        continue;
-      }
-
-      return {
-        corrections,
-        intelSections,
-        personalSections,
-        interestSections: pickSections(doc, INTEREST_SECTIONS),
-        generatedAt: parsed.generatedAt ?? run.completedAt ?? null,
-        // A fallback still worked, but the newest harvest did not, and that is worth seeing.
-        problem: problems.length > 0 ? `fell back past ${problems.length} run(s): ${problems.join("; ")}` : null,
-      };
-    } catch (err) {
-      problems.push(`${label}: ${errMessage(err)}`);
+    if (!intelSections && !personalSections) {
+      problems.push("a run yielded no usable sections");
+      continue;
     }
+
+    return {
+      corrections,
+      intelSections,
+      personalSections,
+      interestSections: pickSections(doc, INTEREST_SECTIONS),
+      generatedAt: run.document.generatedAt ?? run.completedAt ?? null,
+      // A fallback still worked, but the newest harvest did not, and that is worth seeing.
+      problem: problems.length > 0 ? `fell back past ${problems.length} run(s): ${problems.join("; ")}` : null,
+    };
   }
 
   return {

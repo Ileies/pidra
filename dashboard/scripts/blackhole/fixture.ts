@@ -172,18 +172,15 @@ const contextDoc: MirroredContextDoc = {
     started_at: `${YESTERDAY}T03:00:00.000Z`,
     completed_at: `${YESTERDAY}T03:30:00.000Z`,
     items_indexed: 10,
-    output_path: "context-builder/output/example.md",
     document: null,
   },
   doc: {
     generatedAt: `${YESTERDAY}T03:30:00.000Z`,
     date: YESTERDAY,
-    path: "context-builder/output/example.md",
     fullContextHtml: `<h1>3. Interests</h1><p>${TEXT.harvest}</p>`,
     chars: 60,
     sections: [{ key: "3", title: "3. Interests", html: `<p>${TEXT.harvest}</p>`, chars: 40 }],
   },
-  docError: null,
   skipped: [],
   corrections: [
     {
@@ -306,7 +303,6 @@ const layoutContextDoc: MirroredContextDoc = {
   doc: {
     generatedAt: `${YESTERDAY}T03:30:00.000Z`,
     date: YESTERDAY,
-    path: "context-builder/output/example.md",
     chars: 300,
     fullContextHtml: [1, 2, 3, 4, 5].map((n) => `<h1>${n}. Example section ${n}</h1><p>${n === 3 ? TEXT.harvest : `Example harvested text for section ${n}.`}</p>`).join(""),
     sections: [1, 2, 3, 4, 5].map((n) => ({ key: String(n), title: n === 3 ? "3. Interests" : `${n}. Example section ${n}`, html: `<p>${n === 3 ? TEXT.harvest : `Example harvested text for section ${n}.`}</p>`, chars: 40 })),

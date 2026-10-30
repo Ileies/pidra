@@ -1,11 +1,10 @@
 // DB access for context_builder_runs (run lifecycle: running -> completed|failed) and
 // context_builder_indexed_items (per-item skip set plus the stored extraction JSON in `data`).
 // Used by run.ts and the phases; a row left "running" is what makes the next plain run a resume.
-import { errMessage } from "../src/util/text";
 import { db } from "../src/db";
 import { contextBuilderRuns, contextBuilderIndexedItems } from "../src/db/schema";
 import { eq, and, count, desc } from "drizzle-orm";
-import { pickSections, readDocument } from "../src/pipeline/long-term-context";
+import { pickSections } from "../src/pipeline/long-term-context";
 import type { ContextDocument } from "./output/builder";
 import type { EmailExtraction } from "./pipeline/extract-email";
 import type { NoteExtraction } from "./pipeline/extract-note";
@@ -146,7 +145,6 @@ export async function loadPreviousDocument(): Promise<{ context: string; itemsIn
   const runs = await db
     .select({
       document: contextBuilderRuns.document,
-      outputPath: contextBuilderRuns.outputPath,
       itemsIndexed: contextBuilderRuns.itemsIndexed,
     })
     .from(contextBuilderRuns)
@@ -155,21 +153,12 @@ export async function loadPreviousDocument(): Promise<{ context: string; itemsIn
     .limit(PREVIOUS_RUN_CANDIDATES);
 
   for (const run of runs) {
-    if (!run.document && !run.outputPath) continue;
-    const label = run.document ? "document column" : (run.outputPath ?? "");
-    try {
-      // The document column is the harvest itself, written by whichever machine ran the build -
-      // no path resolution needed. Rows from before it existed fall back to the archival file,
-      // which readDocument resolves by basename when the recorded path is for another machine.
-      const doc = run.document?.fullContext ??
-        (run.outputPath ? (JSON.parse(await readDocument(run.outputPath)) as { fullContext?: string }).fullContext : undefined) ??
-        "";
-      const missing = missingSections(doc);
-      if (missing.length === 0) return { context: doc, itemsIndexed: run.itemsIndexed ?? 0 };
-      console.warn(`[Synthesis] ${label} is missing section(s) ${missing.join(", ")} - looking further back`);
-    } catch (err) {
-      console.warn(`[Synthesis] ${label} unreadable (${errMessage(err)}) - looking further back`);
-    }
+    // The document column is the harvest itself, written by whichever machine ran the build.
+    if (!run.document) continue;
+    const doc = run.document.fullContext ?? "";
+    const missing = missingSections(doc);
+    if (missing.length === 0) return { context: doc, itemsIndexed: run.itemsIndexed ?? 0 };
+    console.warn(`[Synthesis] a previous run is missing section(s) ${missing.join(", ")} - looking further back`);
   }
   return { context: "", itemsIndexed: 0 };
 }

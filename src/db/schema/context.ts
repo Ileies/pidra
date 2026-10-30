@@ -66,7 +66,7 @@ export const contextBuilderRuns = pgTable("context_builder_runs", {
   itemsSkipped: integer("items_skipped").default(0),
   sonnetTokensIn: integer("sonnet_tokens_in").default(0),
   sonnetTokensOut: integer("sonnet_tokens_out").default(0),
-  // Legacy pointer at the archival JSON file; only the read fallback for rows written before `document` existed.
+  // Pointer at the archival JSON file `writeOutputFiles` writes. Recorded for reference only: no reader opens it, the harvest is `document`.
   outputPath: text("output_path"),
   // The harvest itself, stored where every reader can reach it. Same shape as the JSON file `writeOutputFiles` writes.
   document: jsonb("document").$type<{

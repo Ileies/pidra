@@ -149,7 +149,6 @@ export interface MirroredContextDoc {
   id: "current";
   run: HarvestRun | null;
   doc: HarvestDoc | null;
-  docError: string | null;
   skipped: { startedAt: string; mode: string; reason: string }[];
   corrections: MirroredCorrection[];
   counts: { contacts: number; indexed_email: number; indexed_keep: number };
@@ -159,7 +158,6 @@ const EMPTY_CONTEXT_DOC: MirroredContextDoc = {
   id: "current",
   run: null,
   doc: null,
-  docError: null,
   skipped: [],
   corrections: [],
   counts: { contacts: 0, indexed_email: 0, indexed_keep: 0 },

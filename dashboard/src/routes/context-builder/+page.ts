@@ -12,7 +12,6 @@ export const load: PageLoad = async ({ depends }) => {
   return {
     run: data.run,
     doc: data.doc,
-    docError: data.docError,
     skipped: data.skipped,
     counts: data.counts,
     corrections: data.corrections,

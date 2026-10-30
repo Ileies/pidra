@@ -10,7 +10,6 @@ const privateEnv: Record<string, string | undefined> = {
   AUTH_SETUP_TOKEN: "setup-token-for-tests",
   SKILLS_BRIDGE_URL: "http://bridge.test",
   CONFIG_ENCRYPTION_KEY: "ab".repeat(32),
-  CONTEXT_BUILDER_OUTPUT_DIR: "context-builder/output",
   DATA_DIR: "data",
 };
 const appEnv = { building: false, dev: false, version: "test-build" };

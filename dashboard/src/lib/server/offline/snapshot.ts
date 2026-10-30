@@ -240,7 +240,6 @@ export async function assemble(): Promise<SnapshotStores> {
     id: "current",
     run: harvest.run,
     doc: harvest.doc,
-    docError: harvest.docError,
     skipped: harvest.skipped,
     // Same rows as the `corrections` store; the page reads one entry instead of two stores.
     corrections,

@@ -9,7 +9,6 @@ export const variables = defineEnvVars({
 	PUBLIC_MODEL_PRICE_OUT_PER_MTOK: { public: true, schema: (input) => input ?? '' },
 	// Same meaning as the root's DATA_DIR (src/config/data-dir.ts): relative to the repo root, default ./data.
 	DATA_DIR: { schema: (input) => input || 'data' },
-	CONTEXT_BUILDER_OUTPUT_DIR: { schema: (input) => input ?? '' },
 	PUBLIC_VAPID_KEY: { public: true, schema: (input) => input ?? '' },
 	// Undeclared defaults (`pidra.de` over https) live in `rpConfig()` (`$lib/server/auth.ts`), not
 	// here, so `input` passes through as `undefined` when unset.

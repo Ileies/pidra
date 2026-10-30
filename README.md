@@ -70,7 +70,7 @@ Three tools share one Postgres database:
 
 ## Deploying
 
-`bun run deploy` sends this working tree to pronix: build the dashboard and the server bundles (`bun run build:server`, into the gitignored `build/server/`) locally, rsync them (the bundles flat into the app root, the dashboard into `dashboard/`), sync the gitignored harvest files, restart the two long-lived units, then verify that the pages actually render. The server holds no git checkout, no source and no `node_modules`, and needs only Bun; nothing is pushed to GitHub. It refuses an uncommitted tree, a server without `/var/www/pidra/.env`, or a failing `bun run check`. It does not carry `.env` or the systemd units. Flags, refusals and the units' `nixos-rebuild` caveat are in [`docs/operations.md`](./docs/operations.md).
+`bun run deploy` sends this working tree to pronix: build the dashboard and the server bundles (`bun run build:server`, into the gitignored `build/server/`) locally, rsync them (the bundles flat into the app root, the dashboard into `dashboard/`), restart the two long-lived units, then verify that the pages actually render and that Postgres holds a usable long-term context document. The server holds no git checkout, no source and no `node_modules`, and needs only Bun; nothing is pushed to GitHub. It refuses an uncommitted tree, a server without `/var/www/pidra/.env`, or a failing `bun run check`. It does not carry `.env` or the systemd units. Flags, refusals and the units' `nixos-rebuild` caveat are in [`docs/operations.md`](./docs/operations.md).
 
 ## Documentation
 

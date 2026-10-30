@@ -4,8 +4,8 @@
  *
  * The server holds no git checkout, no source tree, no `node_modules` and no toolchain beyond Bun:
  * it receives the built dashboard (`dashboard/build/`, which lands as `dashboard/` there), the
- * bundled bridge, jobs and tools (`build/server/`, which lands flat in the app root), plus the gitignored harvest files
- * (SYNC). Every dependency is bundled in, so there is no install step.
+ * bundled bridge, jobs and tools (`build/server/`, which lands flat in the app root). Every
+ * dependency is bundled in, so there is no install step.
  * Order: local preflight, check, build, hand state to pidra, sync, restart, verify.
  * Procedure and server layout: docs/operations.md.
  *
@@ -43,21 +43,18 @@ const DRY = flag("dry-run");
 const SERVICES = ["pidra-bridge", "pidra-dashboard"];
 
 /**
- * Gitignored paths the server needs a copy of.
- *
- * `.env` is *not* here and must never be: the two files carry the same keys with different values
- * (the server talks to Postgres locally, the workstation through a forward), so copying either
- * direction breaks the other machine. Same reasoning excludes the Context Builder's state files
- * (`.checkpoint.json`, `errors.json`): those are live run state, and the server runs its own Context
- * Builder on the monthly timer, so the workstation's copies are not a newer version of them but a
- * different machine's.
+ * No gitignored file is synced. `.env` must never be: the two files carry the same keys with
+ * different values (the server talks to Postgres locally, the workstation through a forward), so
+ * copying either direction breaks the other machine. Same reasoning for the Context Builder's state
+ * files (`.checkpoint.json`, `errors.json`): they are live run state of the server's own monthly
+ * run, not a newer version of the workstation's. The harvest itself lives in Postgres.
  */
 
 /** The unit's DATA_DIR on pronix (pidra.nix). Everything the services write lives under it. */
 const REMOTE_DATA = "/var/lib/pidra";
 
 /**
- * The server bundles (bridge, job runner, context probe and Keep auth, from scripts/build-server.ts)
+ * The server bundles (bridge, job runner and Keep auth, from scripts/build-server.ts)
  * land directly in `REMOTE_ROOT`, next to `.env` and `dashboard/`. No TypeScript source and no
  * `node_modules` go over.
  *
@@ -70,7 +67,7 @@ const SERVER_FILTERS = ["--include=*.js", "--include=*.js.map", "--exclude=*"];
 
 /**
  * The dashboard build lands as the server's `dashboard/` directory itself (the unit runs
- * `dashboard/index.js`), so unlike CODE_PATHS it is mirrored under another name. --delete empties
+ * `dashboard/index.js`), so unlike the server bundles it is mirrored with no filter. --delete empties
  * everything else in there, including the `node_modules` and `build/` of the old layout.
  */
 const DASHBOARD_LOCAL = "dashboard/build/";
@@ -78,15 +75,6 @@ const DASHBOARD_REMOTE = `${REMOTE_ROOT}/dashboard/`;
 
 /** Names the commit the server's code was built from. Written only after the sync succeeded. */
 const REV_FILE = `${REMOTE_ROOT}/.deployed-rev`;
-
-const SYNC: { local: string; remote: string; filters?: string[] }[] = [
-  // Only the harvested documents. The workstation keeps them under its own DATA_DIR (./data).
-  {
-    local: "data/context-builder/output/",
-    remote: `${REMOTE_DATA}/context-builder/output/`,
-    filters: ["--include=*.json", "--include=*.md", "--exclude=*"],
-  },
-];
 
 let failed = false;
 
@@ -187,19 +175,17 @@ else {
   await $`bun run build`.cwd("dashboard").quiet();
   console.log("  dashboard/build/ built");
   await $`bun run build:server`.quiet();
-  console.log("  build/server/ built (bridge, job runner, context probe, Keep auth; deployed flat into the app root)");
+  console.log("  build/server/ built (bridge, job runner, Keep auth; deployed flat into the app root)");
 }
 
-// The services write under REMOTE_DATA as the `pidra` user, and the sync and keep-auth.js write as
-// root. So the directories are created and owned by pidra first, and the sync hands its files over
-// with --chown. Missing state files are created empty: errors.ts tolerates an empty file and the
-// checkpoint is write-only. Runs before the sync, since rsync does not create the destination path.
+// The services write under REMOTE_DATA as the `pidra` user, and keep-auth.js writes as root. So the
+// directories are created and owned by pidra first. Missing state files are created empty:
+// errors.ts tolerates an empty file and the checkpoint is write-only.
 step("Handing the Context Builder's state to pidra");
 // One command per call, no loops: the server's login shell is fish, whose syntax differs from sh.
 const CB = `${REMOTE_DATA}/context-builder`;
 await remote(`install -d -m 0750 -o pidra -g pidra ${REMOTE_DATA}`);
 await remote(`install -d -m 0750 -o pidra -g pidra ${CB}`);
-await remote(`install -d -m 0750 -o pidra -g pidra ${CB}/output`);
 for (const name of [".checkpoint.json", "errors.json", ".dashboard-run.log"]) {
   await remote(`test -e ${CB}/${name} || install -m 0640 -o pidra -g pidra /dev/null ${CB}/${name}`);
   await remote(`chown pidra:pidra ${CB}/${name}`);
@@ -208,16 +194,6 @@ if ((await remote(`test -e ${CB}/.keep-token.json && echo yes || echo no`)) === 
   await remote(`chown pidra:pidra ${CB}/.keep-token.json && chmod 0600 ${CB}/.keep-token.json`);
 }
 if (!DRY) console.log("  state directories and files owned by pidra");
-
-step("Syncing gitignored files");
-for (const { local, remote: dest, filters = [] } of SYNC) {
-  // `-rlptz`, not `-a`: keep times and modes, not the workstation's ownership. --chown hands the
-  // files to the pidra user, since the server side runs as root.
-  const args = ["-rlptz", "--chown=pidra:pidra", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...filters, local, `${HOST}:${dest}`];
-  const changes = (await $`rsync ${args}`.text()).trim();
-  const label = DRY ? `[dry-run] ${local}` : local;
-  console.log(changes ? `  ${label}:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : `  ${label}: already current`);
-}
 
 step(`Syncing code and the built dashboard to ${HOST}:${REMOTE_ROOT}`);
 // No -o/-g: the server side runs as root, so the code stays root-owned and read-only to the pidra
@@ -255,8 +231,7 @@ for (const { service, state } of serviceStates) {
 
 // HTTP checks cover the build (systemd says `active` even for a broken page). Redirects are
 // followed because `/` is a 307 to today's report, so a bare status check would pass with nothing
-// rendered. `/context-builder` is the one route that reads a file off disk, so it fails when the
-// synced harvest is missing.
+// rendered.
 const port = (await remote(`systemctl show pidra-dashboard -p Environment --value | tr ' ' '\\n' | grep '^PORT=' | cut -d= -f2`)) || "3009";
 const verifyResults = await Promise.all(
   ["/", "/context-builder"].map(async (path) => ({
@@ -268,13 +243,46 @@ for (const { path, code } of verifyResults) {
   if (!DRY) report(code === "200", `${path} on :${port} answered ${code || "nothing"}`);
 }
 
-// The long-term document the briefing synthesises on. Legacy rows locate it by a path recorded by
-// whichever machine built it, so a deploy can leave it behind; a missing one degrades every
-// briefing without failing anything. Prints a warning, not a failure.
-const context = await remote(`cd ${REMOTE_ROOT} && env DATA_DIR=${REMOTE_DATA} bun run verify-context.js`);
-if (!DRY) {
-  const ok = !context.includes("0 chars") && context.endsWith("ok");
-  console.log(`  ${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[33m!\x1b[0m"} long-term context: ${context}`);
+// The long-term document the briefing synthesises on. A missing or unusable one degrades every
+// briefing without failing anything, so the deploy checks it in Postgres, from here: the `document`
+// column is the only place the harvest lives. Mirrors `loadLongTermContext`: the newest of the last
+// CANDIDATE_RUNS completed runs whose document has `# 1.` to `# 5.` sections wins, and an update
+// patch above it is legitimate. No such run fails the deploy.
+const CANDIDATE_RUNS = 5;
+step("Long-term context (database)");
+if (DRY) console.log("  [dry-run] query context_builder_runs through the SSH forward");
+else {
+  const dbUrl = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
+  if (!dbUrl) report(false, "DATABASE_URL is not set, so the long-term context could not be checked");
+  else {
+    // The workstation's DATABASE_URL points at a local forward (docs/operations.md). Open it on the
+    // deploy's own SSH connection unless one is already up, and close it again afterwards.
+    const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(dbUrl.hostname);
+    const forward = `${dbUrl.port || 5432}:127.0.0.1:5432`;
+    const forwarded = loopback && (await $`ssh ${SSH_OPTS} -O forward -L ${forward} ${HOST}`.quiet().nothrow()).exitCode === 0;
+    try {
+      const { SQL } = await import("bun");
+      const sql = new SQL(dbUrl.href);
+      const runs = await sql`
+        select started_at,
+               document is not null as has_document,
+               coalesce(document->>'fullContext' ~ '(^|\n)# [1-5]\.', false) as has_sections
+        from context_builder_runs where status = 'completed'
+        order by started_at desc limit ${CANDIDATE_RUNS}`;
+      await sql.close();
+      const winner = runs.findIndex((r: { has_sections: boolean }) => r.has_sections);
+      if (runs.length === 0) report(false, "no completed Context Builder run");
+      else if (winner < 0) report(false, `none of the last ${runs.length} completed runs has a document with # 1. to # 5. sections`);
+      else {
+        const day = new Date(runs[winner].started_at).toISOString().slice(0, 10);
+        console.log(`  \x1b[32m✓\x1b[0m long-term context: the run of ${day}${winner > 0 ? ` (newer runs skipped: ${winner}, patches or runs without a document)` : ""}`);
+      }
+    } catch (err) {
+      report(false, `could not query the long-term context: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      if (forwarded) await $`ssh ${SSH_OPTS} -O cancel -L ${forward} ${HOST}`.quiet().nothrow();
+    }
+  }
 }
 
 if (!DRY) {

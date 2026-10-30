@@ -1,6 +1,6 @@
 # Scoring formulas
 
-The gate, trust-score and topic-lifecycle math as implemented, checked against the code on 2026-10-02. **If this drifts from the code, trust the code**: these numbers change during tuning without anyone updating a doc.
+The gate, trust-score and topic-lifecycle math as implemented, checked against the code on 2026-10-30. **If this drifts from the code, trust the code**: these numbers change during tuning without anyone updating a doc.
 
 ## Relevance gate (`src/pipeline/gate.ts`)
 
@@ -9,13 +9,15 @@ The gate is one pure function with a named `GateReason` per outcome (see "Every 
 **Newsletter items:** `effective_relevance = relevance_score * trustMultiplier + corroboration_bonus`, passed at `>= 3.0`. `trustMultiplier` is `trust_score`, except that an item rated `>= 4` (`TRUST_PROOF_SCORE`) uses `max(1, trust_score)`: a distrusted source can never pull a strong item below its own score, while a trusted one still lifts it. Two checks run before the score:
 
 - `skipped_by_extraction`: extraction found nothing worth extracting.
-- `teaser_only`: the extracted `substance` is `"teaser"`. A teaser scoring exactly 3.0 used to reach synthesis with nothing in it to report.
+- `teaser_only`: the extracted `substance` is `"teaser"`, however it scored.
+
+A failed extraction call is `extraction_failed` for every source type, decided before any of the above.
 
 **Corroboration bonus**, by the number of distinct raw items sharing an entity with the item (itself included): 2 sources +0.3, 3 sources +0.7, 4 or more +1.0, otherwise 0.
 
-**`personal_email` / `sms`:** category-based, not score-based. `spam` and `general_news` are dropped; `automated` passes only at `critical` or `high` urgency; anything else passes on a positive score.
+**`personal_email` / `sms`:** category-based, not score-based. `spam` and `general_news` are dropped; `automated` passes only at `critical` or `high` urgency (otherwise `automated_low_urgency`); anything else passes on a positive score. Calendar and to-do items are `not_gated`.
 
-**`web_news` (the news desks):** the validation checks written by `src/news/validate/` run first, in this order: unverified source, outside the window, duplicate of another desk, already reported on an earlier day (word overlap, then the `news_dedup` judge call, which also marks same-event duplicates across desks). Then a significance threshold of 3, or 4 for a story about somewhere other than the reader's home.
+**`web_news` (the news desks):** the validation checks written by `src/news/validate/` run first, in this order: unverified source, outside the window, duplicate of another desk, already reported on an earlier day (word overlap, then the `news_dedup` judge call, which also marks same-event duplicates across desks). Then a significance threshold of 3 (`NEWS_THRESHOLD`), or 4 (`NEWS_ABROAD_THRESHOLD`) for a story about a country the reader follows from abroad.
 
 ## Source trust score (`src/pipeline/weekly-source-scoring.ts`)
 

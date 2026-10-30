@@ -13,7 +13,7 @@ Nothing, by design. The repository is public, so `src/ai/prompts/style.ts` carri
 
 ## Intelligence priorities (Section 1)
 
-Extraction's `relevance_score` feeds the gate directly (`effective_relevance = relevance_score * trust_score`, threshold 3.0), so it has to discriminate, not just restate these priorities in words. Two observed failure modes shaped the rubric in `src/ai/prompts/extraction.ts`:
+Extraction's `relevance_score` feeds the gate directly (`effective_relevance = relevance_score * trust multiplier + corroboration bonus`, threshold 3.0), so it has to discriminate, not just restate these priorities in words. Two observed failure modes shaped the rubric in `src/ai/prompts/extraction.ts`:
 
 - **Scores clustering at 3.** Most items landed on the pass/fail line by construction, so gate pass rates swung day to day. All five levels are now anchored, and the prompt says not to default to the middle.
 - **Teasers passing the gate.** Link-list and table-of-contents lines scored exactly 3 and every one was rated not relevant. Extraction now sets `substance` (`fact|argument|teaser`), and the gate holds a teaser back with reason `teaser_only` before looking at the score.
@@ -52,14 +52,16 @@ Functional, not stylistic:
 ## Newsletter processing
 
 - **Extraction is one prompt for every source.** The idea of a richer extraction for dense weekly essay sources (`source_format: "essay"`, central argument rather than claims) is not implemented: `phase2-extract.ts` runs the same newsletter prompt regardless of tier or cadence.
-- **RSS body** (`src/ingest/rss.ts`): the full post from `content:encoded` is preferred over the `contentSnippet` teaser, capped at 16000 characters. Reading only the snippet made extraction write "The newsletter examines X" from a title alone. Feeds that carry no full text (Money Stuff, Console.dev and War on the Rocks at last check) still extract from a short snippet.
+- **RSS body** (`src/ingest/rss.ts`): the longer of the full post from `content:encoded` and the snippet (`content`, `contentSnippet`, `summary`) is used, capped at 16000 characters. Reading only the snippet made extraction write "The newsletter examines X" from a title alone. Feeds that carry no full text (Money Stuff, Console.dev and War on the Rocks at last check) still extract from a short snippet.
 
 ## Output language and prompt tags
 
-Prompt text may contain `{{tag}}` placeholders, filled in one pass by `renderPrompt` (`src/ai/prompt-vars.ts`) from values the code chose. The only tag is `{{language}}`, the English name of the owner's content language. `activePrompt()` returns the rendered text; `resolveActivePrompts()` stays raw, so the prompt API and the weekly prompt review see the template as written. An unknown tag is left in place and logged.
+Prompt text may contain `{{tag}}` placeholders, filled in one pass by `renderPrompt` (`src/ai/prompt-vars.ts`) from values the code chose. The only tag is `{{language}}`, the English name of the owner's content language. `activePrompt()` returns the rendered text; `resolveActivePrompts()` stays raw, so the weekly meta-run (which proposes prompt diffs) sees the template as written. An unknown tag is left in place and logged.
 
 The reader-facing sections (`LANGUAGE_SECTIONS` in `src/ai/prompt-catalog.ts`: `section1`, `section2`, `news`, `quick_actions`, `questions`, `question_discovery`) carry the shared `OUTPUT_LANGUAGE` rule from `src/ai/prompts/language.ts`. It keeps what code parses in English: `##` and fixed `###` headings, refs comments, and SYSTEM block keys and fixed values. Never translate those in a prompt edit. A DB prompt version written without `{{language}}` ignores the setting and logs a warning, so keep the tag when approving a rewrite. Extraction, the news desks and answer classification stay English on purpose.
 
 ## Ongoing stories
 
 The common failure of digest briefings is re-explaining background daily. `active_topics` plus the `UPDATE:` prefix fix it: a story running for a week becomes two sentences, what changed and what it implies.
+
+The second failure is repeating what the reader was already told. The `news_dedup` prompt (`src/ai/prompts/news-dedup.ts`) judges both the desks' stories and Section 1's newsletter items against the recently told list (`docs/architecture-rules.md`, "Memory of what was told"). Section 1 may write `UPDATE:` only for a story the reader actually saw, and only with the new part; a desk's "update" that the judge cannot tie to a told story is demoted to "new" in code.

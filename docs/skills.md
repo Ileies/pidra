@@ -25,7 +25,7 @@ The state lives in two tables, resolved in `src/skills/overrides.ts`: a skill th
 
 ## Parameters
 
-A skill takes optional parameters with defaults that keep the old call working, so the model can steer a call (a time window, a result limit, attendees, reminders, a search freshness) without the plain call changing. The shared parsers for Google calls (`intParam`, `boolParam`, `emailList`, `sendUpdatesParam`, `assertExpectedTitle`, `reminderOverrides`) live in `src/ingest/google.ts`; `send_email` uses `src/skills/mail-options.ts` for mail options. Its optional `account` selects a configured sender or alias; without it, the skill uses the system account and checks every destination against `ALLOWED_EMAIL_RECIPIENTS`, which is empty by default.
+A skill takes optional parameters with defaults that keep the old call working, so the model can steer a call (a time window, a result limit, attendees, reminders, a search freshness) without the plain call changing. The shared parsers for Google calls (`intParam`, `boolParam`, `emailList`, `sendUpdatesParam`, `assertExpectedTitle`, `reminderOverrides`, `eventTime`) live in `src/skills/params.ts`; `send_email` uses `src/skills/mail-options.ts` for mail options and `src/skills/mail-policy.ts` for sender lookup and the recipient check. Its optional `account` selects a configured sender or alias; without it, the skill uses the system account and checks every destination (to, cc, bcc, reply-to) against `ALLOWED_EMAIL_RECIPIENTS`, which is empty by default.
 
 - `list_calendar_events` defaults to today plus 14 days; `add_calendar_event` defaults to a 60-minute event when `end` is omitted; `update_calendar_event` given a new start alone keeps the event's length.
 - `send_updates` defaults to none, so adding or changing `attendees` does not mail guests unless asked.
@@ -41,6 +41,8 @@ All skill calls (REST bridge, pipeline, chat, quick actions) go through `execute
 2. the enabled check (a skill disabled on `/skills` is rejected);
 3. the surface policy, when the caller supplies a surface (see `docs/architecture-rules.md`, "The assistant's capabilities are per page"); a rejection is logged, not swallowed;
 4. the risk gating above.
+
+A parked `high` call is settled by `resolvePendingSkill()` in the same file: it re-checks disabled and `critical` at confirmation time (not the surface), and the write is attributed to the owner (`actor: "user"`).
 
 Never call `skill.execute()` directly from a new caller.
 

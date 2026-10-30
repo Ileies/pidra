@@ -6,6 +6,6 @@ Corrections about the owner (relationships, client domains, commitments, trip da
 
 - [`now.md`](./now.md) - active or near-term open work
 - [`soon.md`](./soon.md) - queued after Now, mostly Phase 7 (passive context sources)
-- [`later.md`](./later.md) - UI translation, Phase 8, critical-tier skills, semantic search and other deliberately deferred work
+- [`later.md`](./later.md) - UI translation, Phase 8, critical-tier skills, semantic search, the dashboard driver swap and other deliberately deferred work
 - [`security.md`](./security.md) - open security work ordered by impact; current controls are in [`docs/security.md`](../security.md)
 - [`user.md`](./user.md) - work blocked on the owner specifically (a device, an external account, a judgment formed over time) rather than on anything an agent can do

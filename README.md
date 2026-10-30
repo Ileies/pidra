@@ -32,7 +32,7 @@ World-facing intelligence from the newsletters, organised by topic domain (AI, C
 
 - **Map-reduce spine:** every item is extracted independently into structured JSON, then merged into a synthesis payload.
 - **Structured memory:** continuity lives in explicit Postgres tables (active topics, source quality, prompt versions), not in a vector store.
-- **Topic-graph output:** Section 1 is organised by domain, not by source,.
+- **Topic-graph output:** Section 1 is organised by domain, not by source.
 - **Compounding loop:** feedback, source trust scoring and a weekly self-improvement run. Every prompt change needs human approval.
 
 ## Key design decisions

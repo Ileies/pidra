@@ -1,6 +1,6 @@
 # Security work
 
-Open security work, ordered by impact; every entry was re-checked against the code on 2026-10-02 and is still open. [docs/security.md](../security.md) records the current controls and trust boundaries. Remove completed entries rather than leaving checked boxes.
+Open security work, ordered by impact; every entry was re-checked against the code on 2026-10-30 and is still open. [docs/security.md](../security.md) records the current controls and trust boundaries. Remove completed entries rather than leaving checked boxes.
 
 ## Immediate: close bypasses
 
@@ -20,7 +20,7 @@ Open security work, ordered by impact; every entry was re-checked against the co
 
 ## Host, secrets and recovery
 
-- **[INFRA] Service isolation:** Confirm deployed bind addresses and firewall rules. Run PIDRA under a dedicated unprivileged service account, restrict filesystem writes and systemd capabilities, and test which sandbox options Bun tolerates. Keep the bridge loopback-only. Restrict where `create_file` may write on the deployed host.
+- **[INFRA] Service isolation:** Confirm deployed bind addresses and firewall rules, and keep the bridge loopback-only. The units already run as the sandboxed `pidra` user with `DATA_DIR` as the only writable place (`docs/security.md`); verify on pronix that the sandbox holds (what `create_file` can actually reach, which options Bun tolerates) rather than only reading the unit.
 - **[INFRA] Secrets:** Move the pronix environment out of the checkout into a protected systemd credential or the existing agenix setup. Determine whether the Keep master token can be present only for the monthly job.
 - **[INFRA] Database and backups:** Verify the PIDRA Postgres role cannot access other databases or create databases, check `pg_hba` and listening addresses, confirm disk encryption, and add a tested encrypted backup to storage outside pronix. Document a restore drill.
 - **[INFRA] Detection:** Add append-only authentication events for login attempts, credential changes, session revocation and denied step-up. Alert on new credentials, repeated failures, sensitive admin actions and outbound mail. Provide a dashboard security view for sessions, credentials and recent events.

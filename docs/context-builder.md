@@ -8,7 +8,7 @@ The Context Builder (`context-builder/`) builds a long-term context document fro
 2. **Fetch.** Tasks and GitHub are refetched in full on every run, since both change. Keep notes come from an in-process TypeScript client of Keep's private sync API (`sources/keep-api.ts`, read-only); `sources/keep.ts` drops excluded labels before any consumer sees them (the invariant is in `docs/architecture-rules.md`, the configuration in the README).
 3. **Extraction.** Email and Keep items go through strict-schema JSON extraction via `src/ai/openai.ts`, which supplies `store: false`, the flex tier and retries. Each extraction is stored per item in `context_builder_indexed_items`. Synthesis sees compressed extractions and source summaries, never raw email HTML.
 4. **Synthesis.** Separate calls summarise contacts, tasks, Keep and GitHub; a final call builds the document. In update mode the final call patches the newest usable prior document with the new material. Contact and Keep summaries use the full stored extraction corpus even then, so a small delta cannot collapse them. Active `context_corrections` are passed to full and patch synthesis and outrank old harvested text.
-5. **Output.** The four source summaries and `fullContext` are written to `context_builder_runs.document`, which is what the daily pipeline loads. `output/builder.ts` also writes `context-YYYY-MM-DD.json` and `.md` to `DATA_DIR/context-builder/output/` (default `./data/...`; or `CONTEXT_BUILDER_OUTPUT_DIR`) as an archival copy. The three seed writers (contacts, rule notes) run independently, so one failing does not skip the others.
+5. **Output.** The four source summaries and `fullContext` are written to `context_builder_runs.document`, which is what the daily pipeline loads. `output/builder.ts` also writes `context-YYYY-MM-DD.json` and `.md` to `DATA_DIR/context-builder/output/` (default `./data/...`; or `CONTEXT_BUILDER_OUTPUT_DIR`) as an archival copy. The two seed writers (contacts, rule notes) run independently, so one failing does not skip the other.
 
 The files hold the summaries and the document, not raw bodies or the full corpus. Updates and recovery runs rebuild from the per-item index instead.
 
@@ -21,7 +21,7 @@ The files hold the summaries and the document, not raw bodies or the full corpus
 | Resume | Plain invocation after an interrupted run | Reuses extractions already stored under the running DB row. |
 | Dry run | `--dry-run` | Reports counts from a fetched inventory; no model calls, no run-state writes. |
 | From index | `--from-index` | Rebuilds synthesis, output and seeds from stored extractions with a full synthesis; Tasks and GitHub are refetched. |
-| Seed only | `--seed-only` | Reapplies the three DB seeds from stored extractions; no fetch, no model calls. |
+| Seed only | `--seed-only` | Reapplies the two DB seeds (contacts, rule notes) from stored extractions; no fetch, no model calls. |
 
 State lives in three places: `context_builder_runs` (status, the document, item counts), `context_builder_indexed_items` (the persistent skip set and stored extraction JSON) and, on the machine that ran it, `.checkpoint.json` (a progress snapshot that is written but never read back: resume runs from the DB row) and `errors.json` (error records persisted across runs), both under `DATA_DIR/context-builder`. An update whose delta exceeds 30% of the index prints a full-rebuild recommendation and proceeds.
 

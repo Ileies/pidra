@@ -94,6 +94,24 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/** Everything a failed shell command printed (stdout and stderr, which `.quiet()` captured) plus its exit code. */
+function describeError(err: unknown): string {
+  if (err instanceof $.ShellError) {
+    const output = [err.stdout.toString(), err.stderr.toString()].map((s) => s.trim()).filter(Boolean).join("\n");
+    return `${output ? `${output}\n` : ""}(exit code ${err.exitCode})`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Awaits a shell command and, if it fails, prints its captured output and aborts the deploy. */
+async function must<T>(what: string, command: PromiseLike<T>): Promise<T> {
+  try {
+    return await command;
+  } catch (err) {
+    fail(`${what} failed:\n${describeError(err)}`);
+  }
+}
+
 // ControlMaster multiplexes the ~10 `remote()` calls over one SSH connection (opened below), so
 // the script does not depend on the workstation's `~/.ssh/config`.
 const SSH_CONTROL_PATH = `${process.env.TMPDIR ?? "/tmp"}/pidra-deploy-${HOST}.sock`;
@@ -105,13 +123,13 @@ async function remote(script: string): Promise<string> {
     console.log(`  [dry-run] ssh ${HOST}: ${script}`);
     return "";
   }
-  const out = await $`ssh ${SSH_OPTS} ${HOST} ${script}`.text();
-  return out.trim();
+  const out = await must(`ssh ${HOST}: ${script}`, $`ssh ${SSH_OPTS} ${HOST} ${script}`.quiet());
+  return out.text().trim();
 }
 
 if (!DRY) {
   // Open the master up front so concurrent calls later reuse it instead of racing to become it.
-  await $`ssh ${SSH_OPTS} -MNf ${HOST}`.quiet();
+  await must(`opening the SSH connection to ${HOST}`, $`ssh ${SSH_OPTS} -MNf ${HOST}`.quiet());
 }
 
 step("Preflight (local)");
@@ -145,7 +163,7 @@ const localCheckFailure = flag("skip-check")
       return $`bun run check ${checkArgs}`
         .quiet()
         .then(() => null)
-        .catch(() => "`bun run check` failed - not deploying");
+        .catch((err) => `\`bun run check\` failed - not deploying\n${describeError(err)}`);
     })();
 
 // `.env` is the marker of a provisioned root: rsync would happily create a fresh tree on the wrong
@@ -172,9 +190,9 @@ if (!DRY) {
 step("Building the dashboard and the server bundles");
 if (DRY) console.log("  [dry-run] cd dashboard && bun run build; bun run build:server");
 else {
-  await $`bun run build`.cwd("dashboard").quiet();
+  await must("the dashboard build", $`bun run build`.cwd("dashboard").quiet());
   console.log("  dashboard/build/ built");
-  await $`bun run build:server`.quiet();
+  await must("the server bundle build", $`bun run build:server`.quiet());
   console.log("  build/server/ built (bridge, job runner, Keep auth; deployed flat into the app root)");
 }
 
@@ -200,7 +218,7 @@ step(`Syncing code and the built dashboard to ${HOST}:${REMOTE_ROOT}`);
 // user, as the units expect.
 async function syncCode(label: string, source: string[], dest: string, extra: string[]) {
   const args = ["-rlptz", "--delete", "--itemize-changes", ...(DRY ? ["--dry-run"] : []), ...extra, ...source, `${HOST}:${dest}`];
-  const changes = (await $`rsync ${args}`.text()).trim();
+  const changes = (await must(`rsync of ${label}`, $`rsync ${args}`.quiet())).text().trim();
   const lines = changes ? changes.split("\n").filter((l) => !l.startsWith("cd") && !l.endsWith("/")) : [];
   console.log(`  ${DRY ? "[dry-run] " : ""}${label}: ${lines.length} change(s)`);
   for (const line of lines.slice(0, 12)) console.log(`    ${line}`);

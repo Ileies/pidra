@@ -183,10 +183,10 @@ describe("Section 1", () => {
     expect(marked.filter((r: Any) => r.synthesis_handoff === "sent")).toHaveLength(2);
   });
 
-  test("runs at high effort with room for the reasoning, and returns the model's text and usage", async () => {
+  test("runs at high effort without an output cap, and returns the model's text and usage", async () => {
     reply = { text: "## Section 1", tokensIn: 321, tokensOut: 45 };
     const result = await runSection1(baseCtx(), DAY);
-    expect(calls[0].options).toMatchObject({ reasoningEffort: "high", maxOutputTokens: 12000 });
+    expect(calls[0].options).toMatchObject({ reasoningEffort: "high", maxOutputTokens: 0 });
     expect(result).toMatchObject({ text: "## Section 1", tokensIn: 321, tokensOut: 45 });
   });
 
@@ -278,7 +278,7 @@ describe("the News section", () => {
     expect(JSON.stringify(sent.stories)).not.toContain("https://");
     expect(sent.home).toEqual({ label: "Zurich & Switzerland", also_countries: ["Germany"] });
     expect([...sent.notes_intel].sort()).toEqual(["Chips", "News only"]);
-    expect(calls[0].options).toMatchObject({ reasoningEffort: "high", maxOutputTokens: 12000 });
+    expect(calls[0].options).toMatchObject({ reasoningEffort: "high", maxOutputTokens: 0 });
   });
 
   test("short ids in the editor's text become extraction ids with the checked links, and the heading is guaranteed", async () => {

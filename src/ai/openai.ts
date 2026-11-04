@@ -45,6 +45,7 @@ export function withFlexRetry<T>(fn: () => Promise<T>): Promise<T> {
 
 /** What every Responses call lets its caller tune, and the usage callback they all share. */
 export interface CallOptions {
+  /** Synthesis accepts `0` to omit the API cap; omission keeps its default. */
   maxOutputTokens?: number;
   reasoningEffort?: ReasoningEffort;
   onUsage?: (tokensIn: number, tokensOut: number) => void;
@@ -139,7 +140,7 @@ export async function extractJson<T>(
   throw new Error(`OpenAI extraction incomplete after ${caps.length} attempts: ${lastReason}`);
 }
 
-/** Free-text call on the synthesis model (default effort "medium", 4096 output tokens). Does not retry on `incomplete`. */
+/** Free-text synthesis (default effort "medium", 4096 tokens; `0` removes the cap). Does not retry on `incomplete`. */
 export async function synthesize(
   systemPrompt: string,
   userContent: string,
@@ -150,7 +151,7 @@ export async function synthesize(
     reasoning: { effort: opts.reasoningEffort ?? "medium" },
     instructions: systemPrompt,
     input: stripControlChars(userContent),
-    max_output_tokens: opts.maxOutputTokens ?? 4096,
+    ...(opts.maxOutputTokens === 0 ? {} : { max_output_tokens: opts.maxOutputTokens ?? 4096 }),
   }, opts.onUsage);
 
   return { text: response.output_text, tokensIn, tokensOut };

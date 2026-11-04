@@ -162,8 +162,8 @@ function buildSection2Payload(
   });
 }
 
-// The cap covers reasoning tokens too, so it sits well above the default 4096 that high effort would exhaust.
-const BRIEFING_SECTION_OPTS: CallOptions = { reasoningEffort: "high", maxOutputTokens: 12000 };
+// Let reasoning finish before writing the report; the prompts bound the visible section lengths.
+const BRIEFING_SECTION_OPTS: CallOptions = { reasoningEffort: "high", maxOutputTokens: 0 };
 
 // The prompt is resolved here rather than imported, so activating a version on /prompts takes
 // effect on the next run without a deploy. `activePrompt` falls back to the code constant.

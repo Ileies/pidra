@@ -97,6 +97,15 @@ test("synthesize and converse defaults", async () => {
   expect(responseCalls[1]).not.toHaveProperty("tools");
 });
 
+test("synthesize omits the API cap for zero and preserves explicit positive caps", async () => {
+  await synthesize("sys", "user", { maxOutputTokens: 0, reasoningEffort: "high" });
+  await synthesize("sys", "user", { maxOutputTokens: 8000 });
+
+  expect(responseCalls[0]).not.toHaveProperty("max_output_tokens");
+  expect(responseCalls[0]).toMatchObject({ store: false, service_tier: "flex", reasoning: { effort: "high" } });
+  expect(responseCalls[1]).toMatchObject({ max_output_tokens: 8000 });
+});
+
 test("converse passes tools with tool_choice auto, and reports the function calls the model made", async () => {
   script.push({ output_text: "", output: [{ type: "function_call", call_id: "c1", name: "write_note", arguments: '{"x":1}' }, { type: "message" }] });
   const out = await converse("sys", [], { tools: [{ type: "function", name: "write_note", description: "", parameters: {}, strict: false }] });

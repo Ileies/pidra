@@ -1,13 +1,10 @@
 <script lang="ts" generics="T">
   /**
-   * A stack of cards in 1, 2 or 3 columns.
-   *
-   * CSS `columns` fills down and then across, so "newest first" put the second note at the bottom of
-   * the first column, and a card that grew (an open editor) could push a neighbour into the next
-   * column. Here item `i` goes to column `i % n`: reading order is left to right, row by row, and a
-   * card growing in place moves nothing but the cards beneath it in its own column.
+   * Height-balanced cards in 1, 2 or 3 columns, placed in source order into the shortest column.
+   * Flat keyed wrappers keep editors mounted when measurements or the column count change.
    */
   import type { Snippet } from "svelte";
+  import { masonryLayout } from "#lib/ui/masonry.js";
 
   interface Props {
     items: T[];
@@ -24,21 +21,38 @@
   // covers the frames before the first measurement.
   let width = $state(typeof window === "undefined" ? 0 : window.innerWidth - 32);
   const count = $derived(width >= 1300 ? 3 : width >= 600 ? 2 : 1);
+  let heights = $state<Record<string, number>>({});
+  let leadHeight = $state(0);
+  const layout = $derived(masonryLayout(items.map((item) => heights[key(item)] ?? 200), count, leadHeight));
 
-  const columns = $derived.by(() => {
-    const out: T[][] = Array.from({ length: count }, () => []);
-    items.forEach((item, i) => out[i % count].push(item));
-    return out;
-  });
+  function measure(node: HTMLElement, id: string) {
+    const observer = new ResizeObserver(() => {
+      const height = node.getBoundingClientRect().height;
+      if (heights[id] !== height) heights[id] = height;
+    });
+    observer.observe(node);
+    return { destroy() { observer.disconnect(); delete heights[id]; } };
+  }
 </script>
 
-<div bind:clientWidth={width} class="flex items-start gap-3">
-  {#each columns as column, c (c)}
-    <div class="flex min-w-0 flex-1 flex-col gap-3">
-      {#if c === 0}{@render lead?.()}{/if}
-      {#each column as item (key(item))}
-        {@render children(item)}
-      {/each}
+<div
+  bind:clientWidth={width}
+  class="grid gap-x-3"
+  style:grid-template-columns="repeat({count}, minmax(0, 1fr))"
+  style:grid-template-rows="0px"
+  style:height="{layout.height}px"
+>
+  <div bind:clientHeight={leadHeight} class="min-w-0 self-start" style:grid-area="1 / 1">
+    {@render lead?.()}
+  </div>
+  {#each items as item, i (key(item))}
+    <div
+      use:measure={key(item)}
+      class="min-w-0 self-start"
+      style:grid-area="1 / {layout.positions[i].column + 1}"
+      style:transform="translateY({layout.positions[i].top}px)"
+    >
+      {@render children(item)}
     </div>
   {/each}
 </div>

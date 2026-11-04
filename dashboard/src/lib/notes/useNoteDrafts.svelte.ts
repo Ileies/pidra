@@ -8,8 +8,7 @@ function blankDraft(scope = "global"): Draft {
 }
 
 /**
- * Drafts live outside the cards: a card is rebuilt when a note arrives (the stack is dealt
- * round-robin, so one more note shifts every column), and an open edit must survive that.
+ * Drafts live outside the cards so an open edit survives filtering a card out and back in.
  * Call during component init.
  */
 export function useNoteDrafts() {

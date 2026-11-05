@@ -1,13 +1,15 @@
 ---
 name: commit
-description: PIDRA-specific commit workflow. Runs the project's check directly, then delegates doc-sync and the actual commit to a restricted subagent that already knows why the changes were made, instead of re-deriving it from a bare diff. Use whenever this session's work in this repo is ready to commit - the user asking is one trigger, but the assistant should invoke this itself whenever it decides a commit is warranted here, instead of ever running `git commit` directly.
+description: PIDRA-specific commit workflow. Runs the project's check directly, or reuses a full passing run with --skip-checks, then delegates doc-sync and the actual commit to a restricted subagent that already knows why the changes were made, instead of re-deriving it from a bare diff. Use whenever this session's work in this repo is ready to commit - the user asking is one trigger, but the assistant should invoke this itself whenever it decides a commit is warranted here, instead of ever running `git commit` directly.
 ---
 
 # /commit - PIDRA's commit workflow
 
 This exists because this repo's docs (`CLAUDE.md`, `docs/**`) are meant to stay in sync with the code, and because re-deriving "why did we change this" from a bare diff wastes tokens and produces worse commit messages than just asking the session that made the change. It replaces the generic commit flow in this repo only - other repos still use the normal one.
 
-**Args:** free text from the invoking session summarizing *why* this session's changes were made - not what changed (the diff shows that), the reasoning/decisions behind it. If the session gives no args, ask for one sentence before proceeding; don't guess.
+**Args:** `[--skip-checks] <why>`. The free text summarizes *why* this session's changes were made - not what changed (the diff shows that), the reasoning/decisions behind it. Strip `--skip-checks` from the reason passed to the subagent. If no reason remains, ask for one sentence before proceeding; don't guess.
+
+**Avoid duplicate checks:** when the invoking session has just completed a successful full `bun run check` and no code or configuration has changed since, invoke this skill with `--skip-checks` automatically. A quick run (`bun run check:quick` / `bun run check --quick` / `-q`), a partial run, or a failed run does not qualify. Example: `/commit --skip-checks Avoid rerunning the full suite immediately before committing`.
 
 ## Step 1 - gather state (predefined commands, run directly, no agent)
 
@@ -23,7 +25,9 @@ Compare the file list against what you (the invoking session) actually edited th
 
 ## Step 2 - the check (predefined command, run directly, no agent)
 
-Run:
+If `--skip-checks` is present, skip this entire step without running any checks, tests, or builds. Reuse the invoking session's full passing run and proceed directly to Step 3.
+
+Otherwise, run:
 
 ```
 bun run check
@@ -35,12 +39,12 @@ This one command already covers the TS check, the skill-write guard, the route-s
 
 ## Step 3 - delegate doc-sync and the commit itself
 
-Only reached if Step 2 passed. Invoke the `docs-committer` subagent (`Agent` tool, `subagent_type: "docs-committer"`) with a single self-contained prompt containing:
+Only reached if Step 2 passed or was skipped with `--skip-checks` using the invoking session's full passing run. Invoke the `docs-committer` subagent (`Agent` tool, `subagent_type: "docs-committer"`) with a single self-contained prompt containing:
 
 - The reason given in this skill's args (or gathered in Step 1 if none were given).
 - The real `git diff` text for exactly the session's own files from Step 1 (restrict it with `git diff -- <file> <file> ...`, not a description of the diff) - handing over the actual text is still cheaper than letting the subagent explore to reconstruct it.
 - The current list of files under `docs/**` (a plain `find docs -name '*.md'` is enough - don't have the subagent discover this itself).
-- A reminder that it must not explore the codebase beyond what's given, must not touch non-doc files, must not fix anything, and must not re-run checks (already done in Step 2). It may still run `git status`/`diff`/`log` freely for its own orientation and for the clean-tree check after committing - that's expected, not exploration - it just must never treat something one of those turns up as a new file to act on beyond what this prompt names.
+- A reminder that it must not explore the codebase beyond what's given, must not touch non-doc files, must not fix anything, and must not re-run checks (already passed in Step 2 or in the invoking session before `--skip-checks`). It may still run `git status`/`diff`/`log` freely for its own orientation and for the clean-tree check after committing - that's expected, not exploration - it just must never treat something one of those turns up as a new file to act on beyond what this prompt names.
 - A reminder that the commit message(s) must never include a `Co-Authored-By` trailer or any other AI-attribution line - the owner has this disabled globally, but models tend to add it back out of habit anyway.
 
 Do not add anything else to that prompt - the subagent's own definition (`.claude/agents/docs-committer.md`) carries the rest of its instructions, and repeating them here wastes tokens on every invocation.

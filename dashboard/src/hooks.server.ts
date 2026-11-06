@@ -2,6 +2,7 @@ import type { Handle } from "@sveltejs/kit/hooks";
 import { building, dev } from "$app/env";
 import { installShutdownHandlers } from "#lib/server/shutdown.js";
 import { MIRRORED_ROUTES } from "#lib/offline/tiers.js";
+import { loginUrl } from "#lib/loginUrl.js";
 import { SESSION_COOKIE, validateSession } from "#lib/server/auth.js";
 
 /*
@@ -47,8 +48,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       return stamp(Response.json({ error: "unauthorized" }, { status: 401 }), false);
     }
     // Not `.search`: SvelteKit forbids reading it while prerendering.
-    const redirect = `/login?redirect=${encodeURIComponent(event.url.pathname)}`;
-    return stamp(new Response(null, { status: 303, headers: { location: redirect } }), false);
+    return stamp(new Response(null, { status: 303, headers: { location: loginUrl(event.url.pathname) } }), false);
   }
 
   // Server-rendered loads are replayed on hydration with headers filtered; `x-pidra` must survive

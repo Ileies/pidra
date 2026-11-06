@@ -18,6 +18,7 @@ import { version } from "$app/env";
 import { self } from "$app/service-worker";
 import { isMirroredPath } from "#lib/offline/tiers.js";
 import { isOurs } from "#lib/offline/guard.js";
+import { loginUrl } from "#lib/loginUrl.js";
 import { ASSET_BUDGET_MS, reach, send, sleep, withBudget } from "./shared.js";
 
 const CACHE = `pidra-${version}`;
@@ -125,7 +126,7 @@ async function fallbackDocument(): Promise<Response> {
  * `hooks.server.ts`, so this is a best-effort push, not the source of truth.
  */
 async function forceReauth(pathname: string): Promise<void> {
-  const target = `/login?redirect=${encodeURIComponent(pathname)}`;
+  const target = loginUrl(pathname);
   const windows = await self.clients.matchAll({ type: "window" });
   await Promise.all(windows.map((client) => ("navigate" in client ? (client as WindowClient).navigate(target).catch(() => {}) : undefined)));
 }

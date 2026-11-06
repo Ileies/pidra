@@ -1,5 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { error, fail, redirect } from "@sveltejs/kit";
+import { loginUrl } from "#lib/loginUrl.js";
 import { AUTH_SETUP_TOKEN } from "$app/env/private";
 import {
   hasCredentials,
@@ -28,7 +29,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
   const { rpID } = rpConfig();
 
   if (!locals.session) {
-    if (await hasCredentials(rpID)) redirect(303, `/login?redirect=${encodeURIComponent(url.pathname)}`);
+    if (await hasCredentials(rpID)) redirect(303, loginUrl(url.pathname));
 
     const token = url.searchParams.get("token");
     if (!AUTH_SETUP_TOKEN || token !== AUTH_SETUP_TOKEN) error(404, "Not found");

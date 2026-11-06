@@ -6,6 +6,8 @@
   import { errMessage } from "$pipeline/util/text";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
+  import { dev } from "$app/env";
+  import { toasts } from "#lib/toast.svelte.js";
   import { startAuthentication } from "@simplewebauthn/browser";
   import type { PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON } from "@simplewebauthn/browser";
   import { netJson } from "#lib/offline/net.js";
@@ -33,7 +35,14 @@
       await netJson("/api/auth/webauthn/verify", jsonInit("POST", { nonce, response }));
       step = "pin";
     } catch (err) {
-      error = errMessage(err);
+      // The raw browser string stays in the console (and a dev toast): it is the only trace of why
+      // the prompt ended, but "timed out or was not allowed" reads like an accusation to the reader.
+      console.warn("Passkey sign-in failed:", err);
+      if (dev) toasts.show(`Debug: ${errMessage(err)}`);
+      const name = err instanceof Error ? err.name : "";
+      error = name === "NotAllowedError" || name === "AbortError"
+        ? "Passkey prompt closed. Tap to try again."
+        : errMessage(err);
     } finally {
       busy = false;
     }

@@ -268,16 +268,11 @@ for (const { path, code } of verifyResults) {
 // patch above it is legitimate. No such run fails the deploy.
 const CANDIDATE_RUNS = 5;
 step("Long-term context (database)");
-if (DRY) console.log("  [dry-run] query context_builder_runs through the SSH forward");
+if (DRY) console.log("  [dry-run] query context_builder_runs directly over WireGuard");
 else {
   const dbUrl = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
   if (!dbUrl) report(false, "DATABASE_URL is not set, so the long-term context could not be checked");
   else {
-    // The workstation's DATABASE_URL points at a local forward (docs/operations.md). Open it on the
-    // deploy's own SSH connection unless one is already up, and close it again afterwards.
-    const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(dbUrl.hostname);
-    const forward = `${dbUrl.port || 5432}:127.0.0.1:5432`;
-    const forwarded = loopback && (await $`ssh ${SSH_OPTS} -O forward -L ${forward} ${HOST}`.quiet().nothrow()).exitCode === 0;
     try {
       const { SQL } = await import("bun");
       const sql = new SQL(dbUrl.href);
@@ -297,8 +292,6 @@ else {
       }
     } catch (err) {
       report(false, `could not query the long-term context: ${err instanceof Error ? err.message : err}`);
-    } finally {
-      if (forwarded) await $`ssh ${SSH_OPTS} -O cancel -L ${forward} ${HOST}`.quiet().nothrow();
     }
   }
 }

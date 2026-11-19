@@ -1,6 +1,6 @@
 /**
  * Server-only Jev boundary. A decision never changes the pipeline unless its caller opts in.
- * Proposed, not authorized: nothing in the pipeline calls it yet (see JEV_INTEGRATION_PLAN.md).
+ * Proposed, not authorized: nothing in the pipeline calls it yet (see docs/plans/JEV_INTEGRATION_PLAN.md).
  * Per-task mode comes from env `JEV_MODE_<TASK>` (off | shadow | active; default off). Not an OpenAI
  * client, so the OpenAI-only rules (`store: false`, flex) do not apply here.
  */

@@ -36,6 +36,10 @@ Everything under `docs/` is scoped to one concern, so a session only loads what 
 - `docs/todo/later.md` - Phase 8, the critical-skills design, semantic search, and other deliberately-deferred work
 - `docs/todo/security.md` - remaining security work ordered by impact
 - `docs/todo/user.md` - open work blocked on the owner specifically (a device, an external account, a judgment formed over time)
+- `docs/plans/AI_COST_PLAN.md` - AI cost measurement and reductions
+- `docs/plans/FRAMEWORK_PLAN.md` - proposed shared framework
+- `docs/plans/JEV_INTEGRATION_PLAN.md` - proposed Jev ranking integration
+- `docs/plans/MULTI_USER_PLAN.md` - proposed multi-user architecture and rollout
 
 ## Stack
 
@@ -83,6 +87,6 @@ Don't pre-edit `docs/**`, `README.md`, or `CLAUDE.md` yourself while implementin
 
 Deliberately not building yet: Phase 7 passive context sources (`docs/todo/soon.md`), slots 4 and 5 of the web search module, any `critical`-risk skill (blocked on the approval-flow and agentic-loop designs in `docs/todo/later.md`).
 
-Four plan files sit at the repo root. `AI_COST_PLAN.md` is open cost work (a measurement-first list from the 2026-10-07 audit). `MULTI_USER_PLAN.md` (2026-10-07) and `FRAMEWORK_PLAN.md` (2026-10-13) are proposals only: nothing in them is started or authorized, and neither changes `docs/architecture-rules.md`.
+The [AI cost plan](./docs/plans/AI_COST_PLAN.md) is open cost work (a measurement-first list from the 2026-10-07 audit). The [multi-user plan](./docs/plans/MULTI_USER_PLAN.md) (2026-10-07) and [framework plan](./docs/plans/FRAMEWORK_PLAN.md) (2026-10-13) are proposals only: nothing in them is started or authorized, and neither changes `docs/architecture-rules.md`.
 
-`JEV_INTEGRATION_PLAN.md` is a proposed, not authorized, plan for using TypeSafe's Jev for narrow ranking judgments. Only the server-side adapter `src/ai/jev.ts` and one shadow caller exist: `src/news/jev-shadow.ts` scores news stories (impact and novelty tasks) into the `jev_decisions` ledger when `JEV_MODE_NEWS_IMPACT` / `JEV_MODE_NEWS_NOVELTY` is `shadow` (both off by default; production's `.env` on pronix has both set to `shadow` since 2026-10-07, the workstation's keeps them off), and nothing it produces reaches stories, the gate or the report. It is the one deliberate exception to "go through `src/ai/openai.ts`": Jev is not an OpenAI client and takes none of the OpenAI-only options.
+The [Jev integration plan](./docs/plans/JEV_INTEGRATION_PLAN.md) is a proposed, not authorized, plan for using TypeSafe's Jev for narrow ranking judgments. Only the server-side adapter `src/ai/jev.ts` and one shadow caller exist: `src/news/jev-shadow.ts` scores news stories (impact and novelty tasks) into the `jev_decisions` ledger when `JEV_MODE_NEWS_IMPACT` / `JEV_MODE_NEWS_NOVELTY` is `shadow` (both off by default; production's `.env` on pronix has both set to `shadow` since 2026-10-07, the workstation's keeps them off), and nothing it produces reaches stories, the gate or the report. It is the one deliberate exception to "go through `src/ai/openai.ts`": Jev is not an OpenAI client and takes none of the OpenAI-only options.

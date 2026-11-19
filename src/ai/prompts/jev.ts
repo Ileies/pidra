@@ -1,6 +1,6 @@
-// Jev question rubrics (see JEV_INTEGRATION_PLAN.md). Each is a JSON document, not prose: the
-// question and its ordered Score levels are parsed by src/ai/jev-rubrics.ts, which falls back to
-// this baseline when an approved version does not parse. Public news only; never personal context.
+// Jev question rubrics (see docs/plans/JEV_INTEGRATION_PLAN.md). Each JSON document has a question
+// and ordered Score levels. src/ai/jev-rubrics.ts falls back to this baseline when an approved
+// version does not parse. Public news only. Never include personal context.
 
 export const JEV_NEWS_IMPACT_PROMPT = JSON.stringify({
   question: "How broadly would this public news event change the circumstances of people, institutions or markets?",

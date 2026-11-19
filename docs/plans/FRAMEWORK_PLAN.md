@@ -2,7 +2,7 @@
 
 Status: proposed, 2026-10-13. This is a design proposal and a decision list, not authorization to build, to change `docs/architecture-rules.md`, or to ingest any new source. Nothing here has been started.
 
-Source of this plan: a design conversation with the owner. The repo was read only for `docs/architecture-rules.md`, `CLAUDE.md`, `src/server/routes/sms.ts` and `MULTI_USER_PLAN.md`. The extraction schema, `contacts` table and Context Builder were not audited; Phase 0 does that. Things that could not be verified are listed in "Not verified" at the end.
+Source of this plan: a design conversation with the owner. The repo was read only for `docs/architecture-rules.md`, `CLAUDE.md`, `src/server/routes/sms.ts` and the [multi-user plan](./MULTI_USER_PLAN.md). The extraction schema, `contacts` table and Context Builder were not audited; Phase 0 does that. Things that could not be verified are listed in "Not verified" at the end.
 
 ## 1. Idea
 
@@ -78,7 +78,7 @@ No separate service until a second app exists.
 
 ### 4.5 Order relative to the multi-user plan
 
-Tenancy, per-user connectors and OAuth in `MULTI_USER_PLAN.md` belong to the framework. Decide this plan's boundary before executing the multi-user plan, or its Phase 1 and 2 will be reworked at extraction time.
+Tenancy, per-user connectors and OAuth in the [multi-user plan](./MULTI_USER_PLAN.md) belong to the framework. Decide this plan's boundary before executing the multi-user plan, or its Phase 1 and 2 will be reworked at extraction time.
 
 ## 5. Phone app
 
@@ -109,7 +109,7 @@ Today `contacts` is an email sender directory and no messaging platform is inges
 | Slack | Second, through the official OAuth connector, never notification scraping. Check workplace policy first, it is the employer's data |
 | WhatsApp, Signal, Telegram | Last, and only through notifications, since there is no official API. Decide after the SMS data shows whether it is worth it |
 
-- **Customers:** none of this is offered to customers by default, which matches decision A12 in `MULTI_USER_PLAN.md`. Capturing other people's messages for paying users needs the legal review that plan already requires.
+- **Customers:** none of this is offered to customers by default, which matches decision A12 in the [multi-user plan](./MULTI_USER_PLAN.md). Capturing other people's messages for paying users needs the legal review that plan already requires.
 
 ## 7. Phases
 
